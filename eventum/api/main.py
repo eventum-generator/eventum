@@ -8,6 +8,7 @@ from eventum.api.dependencies.authentication import (
     HttpAuthDepends,
     WebsocketAuthDepends,
 )
+from eventum.api.exceptions import APISchemaGenerationError
 from eventum.api.routers.auth import router as auth_router
 from eventum.api.routers.docs import router as docs_router
 from eventum.api.routers.docs.routes import ASYNCAPI_SCHEMA_PATH
@@ -28,13 +29,8 @@ from eventum.api.routers.startup import router as startup_router
 from eventum.app.hooks import InstanceHooks
 from eventum.app.manager import GeneratorManager
 from eventum.app.models.settings import Settings
-from eventum.exceptions import ContextualError
 
 logger = structlog.stdlib.get_logger()
-
-
-class APIBuildingError(ContextualError):
-    """Error during building API app."""
 
 
 def build_api_app(
@@ -61,8 +57,8 @@ def build_api_app(
 
     Raises
     ------
-    RuntimeError
-        If API app build fails due to some error.
+    SchemaGenerationError
+        If API schema generation fails.
 
     """
     app = FastAPI(
@@ -71,7 +67,6 @@ def build_api_app(
             'API for managing generators, plugins and its dependencies'
         ),
         version=eventum.__version__,
-        root_path='/api',
         docs_url='/swagger',
         redoc_url='/redoc',
         contact={
@@ -151,8 +146,8 @@ def build_api_app(
 
     asyncapi_schema = generate_asyncapi_schema(
         app=app,
-        host=settings.api.host,
-        port=settings.api.port,
+        host=settings.server.host,
+        port=settings.server.port,
     )
 
     try:
@@ -162,6 +157,6 @@ def build_api_app(
         )
     except RuntimeError as e:
         msg = 'Failed to generate asyncapi schema for websocket endpoints'
-        raise APIBuildingError(msg, context={'reason': str(e)}) from e
+        raise APISchemaGenerationError(msg, context={'reason': str(e)}) from e
 
     return app
