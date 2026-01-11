@@ -2,9 +2,9 @@
 
 from pydantic import BaseModel
 
-from eventum.app.models.parameters.api import APIParameters
 from eventum.app.models.parameters.log import LogParameters
 from eventum.app.models.parameters.path import PathParameters
+from eventum.app.models.parameters.server import ServerParameters
 from eventum.core.parameters import GenerationParameters
 
 
@@ -13,8 +13,8 @@ class Settings(BaseModel, extra='forbid', frozen=True):
 
     Attributes
     ----------
-    api: APIParameters
-        API parameters.
+    server: ServerParameters
+        Server parameters.
 
     generation: GenerationParameters
         Generation parameters.
@@ -27,7 +27,7 @@ class Settings(BaseModel, extra='forbid', frozen=True):
 
     """
 
-    api: APIParameters
+    server: ServerParameters
     generation: GenerationParameters
     log: LogParameters
     path: PathParameters

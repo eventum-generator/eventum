@@ -1,52 +1,56 @@
 ######################### Eventum Configuration Example ########################
 
-# =============================== API Parameters ===============================
+# ============================== Server Parameters =============================
+
+# Whether to enable web UI
+# Optional, default is true
+server.ui_enabled: true
 
 # Whether to enable REST API
 # Optional, default is true
-api.enabled: true
+server.api_enabled: true
 
 # Bind address
 # Optional, default is "0.0.0.0"
-api.host: "0.0.0.0"
+server.host: "0.0.0.0"
 
 # Bind port for API
 # Optional, default is 9474
-api.port: 9474
+server.port: 9474
 
 
 # SSL parameters
 
 # Whether to enable SSL
 # Optional, default is true
-api.ssl.enabled: true
+server.ssl.enabled: true
 
 # Verification mode of SSL connections. The default null value
 # is the same as "none", but null value can also be used as
 # meaningful value of "not provided" when SSL is disabled.
 # Available values are null, "none", "optional", "required"
 # Optional, default is null
-api.ssl.verify_mode: null
+server.ssl.verify_mode: null
 
 # Absolute path to CA certificate
 # Optional, default is null
-api.ssl.ca_cert: null
+server.ssl.ca_cert: null
 
 # Absolute path to server certificate
 # Optional, default is null
-api.ssl.cert: null
+server.ssl.cert: null
 
 # Absolute path to server certificate key
 # Optional, default is null
-api.ssl.cert_key: null
+server.ssl.cert_key: null
 
 # User for basic auth
 # Optional, default is "eventum"
-api.auth.user: eventum
+server.auth.user: eventum
 
 # Password for basic auth
 # Optional, default is "eventum"
-api.auth.password: eventum
+server.auth.password: eventum
 
 # =========================== Generation Parameters ===========================
 

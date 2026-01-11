@@ -1,4 +1,4 @@
-"""API parameters."""
+"""Server parameters."""
 
 from pathlib import Path
 from typing import Literal, Self
@@ -90,19 +90,22 @@ class AuthParameters(BaseModel, extra='forbid', frozen=True):
     password: str = Field(default='eventum', min_length=1)
 
 
-class APIParameters(BaseModel, extra='forbid', frozen=True):
-    """API parameters.
+class ServerParameters(BaseModel, extra='forbid', frozen=True):
+    """Server parameters.
 
     Attributes
     ----------
-    enabled : bool, default = True
+    ui_enabled : bool, default = True
+        Whether to enable web UI.
+
+    api_enabled : bool, default = True
         Whether to enable REST API.
 
     host : str, default='0.0.0.0'
-        Bind address for API.
+        Bind address for server process.
 
     port : int, default=9474
-        Bind port for API,
+        Bind port for server process,
 
     ssl : SSLParameters, default=SSLParameters(...)
         SSL parameters.
@@ -112,7 +115,8 @@ class APIParameters(BaseModel, extra='forbid', frozen=True):
 
     """
 
-    enabled: bool = Field(default=True)
+    ui_enabled: bool = Field(default=True)
+    api_enabled: bool = Field(default=True)
     host: str = Field(default='0.0.0.0', min_length=1)  # noqa: S104
     port: int = Field(default=9474, ge=1)
     ssl: SSLParameters = Field(default_factory=lambda: SSLParameters())

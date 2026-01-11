@@ -60,7 +60,7 @@ class App:
         self._manager = GeneratorManager()
 
         self._server: uvicorn.Server | None = None
-        self._server_thread = Thread(target=self._run_api_server, name='api')
+        self._server_thread = Thread(target=self._run_server, name='server')
 
     def start(self) -> None:
         """Start the app.
@@ -77,24 +77,30 @@ class App:
         logger.info('Starting generators')
         self._start_generators(generators_params=generators_params)
 
-        if self._settings.api.enabled:
-            from eventum.api.main import APIBuildingError
+        if (
+            self._settings.server.api_enabled
+            or self._settings.server.ui_enabled
+        ):
+            from eventum.server.exceptions import ServiceBuildingError
 
             logger.info(
-                'Starting API',
-                port=self._settings.api.port,
-                host=self._settings.api.host,
+                'Starting Server',
+                port=self._settings.server.port,
+                host=self._settings.server.host,
             )
             try:
-                self._start_api()
-            except APIBuildingError as e:
+                self._start_server()
+            except ServiceBuildingError as e:
                 raise AppError(str(e), context=e.context) from e
 
     def stop(self) -> None:
         """Stop the app."""
-        if self._settings.api.enabled:
-            logger.info('Stopping the API')
-            self._stop_api()
+        if (
+            self._settings.server.api_enabled
+            or self._settings.server.ui_enabled
+        ):
+            logger.info('Stopping the server')
+            self._stop_server()
 
         logger.info('Stopping generators')
         self._stop_generators()
@@ -148,7 +154,7 @@ class App:
                 logger.warning(
                     'Generator is outside the configured generators '
                     'directory. Consider moving it into specified directory '
-                    'so it can be observed by the API.',
+                    'so it can be observed by the API service.',
                     generator_id=normalized_params.id,
                     path=str(self._settings.path.generators_dir),
                 )
@@ -282,8 +288,8 @@ class App:
         )
         self._manager.bulk_stop(generator_ids)
 
-    def _run_api_server(self) -> None:
-        """Run API server with handling possible errors."""
+    def _run_server(self) -> None:
+        """Run server with handling possible errors."""
         if self._server is None:
             return
 
@@ -291,47 +297,51 @@ class App:
             self._server.run()
         except Exception as e:
             logger.exception(
-                'Unexpected error occurred during API server execution',
+                'Unexpected error occurred during server execution',
                 reason=str(e),
             )
 
-    def _start_api(self) -> None:
-        """Start application API.
+    def _start_server(self) -> None:
+        """Start application server.
 
         Raises
         ------
-        APIBuildingError
-            If API building fails.
+        ServiceBuildingError
+            If some of the service fails to build.
 
         """
-        from eventum.api.main import build_api_app
+        from eventum.server.main import build_server_app
 
-        api_app = build_api_app(
+        server_app = build_server_app(
+            enabled_services={
+                'api': self._settings.server.api_enabled,
+                'ui': self._settings.server.ui_enabled,
+            },
             generator_manager=self._manager,
             settings=self._settings,
             instance_hooks=self._instance_hooks,
         )
 
-        if self._settings.api.ssl.enabled:
+        if self._settings.server.ssl.enabled:
             ssl_settings = {
-                'ssl_ca_certs': self._settings.api.ssl.ca_cert,
-                'ssl_certfile': self._settings.api.ssl.cert,
-                'ssl_keyfile': self._settings.api.ssl.cert_key,
+                'ssl_ca_certs': self._settings.server.ssl.ca_cert,
+                'ssl_certfile': self._settings.server.ssl.cert,
+                'ssl_keyfile': self._settings.server.ssl.cert_key,
                 'ssl_cert_reqs': {
                     None: ssl.CERT_NONE,
                     'none': ssl.CERT_NONE,
                     'optional': ssl.CERT_OPTIONAL,
                     'required': ssl.CERT_REQUIRED,
-                }[self._settings.api.ssl.verify_mode],
+                }[self._settings.server.ssl.verify_mode],
             }
         else:
             ssl_settings = {}
 
         self._server = uvicorn.Server(
             uvicorn.Config(
-                api_app,
-                host=self._settings.api.host,
-                port=self._settings.api.port,
+                server_app,
+                host=self._settings.server.host,
+                port=self._settings.server.port,
                 access_log=True,
                 log_config=None,
                 **ssl_settings,  # type: ignore[arg-type]
@@ -339,8 +349,8 @@ class App:
         )
         self._server_thread.start()
 
-    def _stop_api(self) -> None:
-        """Stop application API."""
+    def _stop_server(self) -> None:
+        """Stop application server."""
         if self._server is None:
             return
 
