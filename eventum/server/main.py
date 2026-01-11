@@ -56,6 +56,7 @@ def build_server_app(
     )
 
     if enabled_services.get('api', False):
+        logger.info('Starting REST API service')
         from eventum.server.services.api.injector import (
             inject_service as inject_api_service,
         )
@@ -63,6 +64,7 @@ def build_server_app(
         inject_api_service(app, generator_manager, settings, instance_hooks)
 
     if enabled_services.get('ui', False):
+        logger.info('Starting web UI service')
         from eventum.server.services.ui.injector import (
             inject_service as inject_ui_service,
         )
