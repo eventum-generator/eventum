@@ -43,7 +43,7 @@ import { FloatingTableOfContents } from '@/components/ui/FloatingTableOfContents
 import { ShowErrorDetailsAnchor } from '@/components/ui/ShowErrorDetailsAnchor';
 
 export default function SettingsPage() {
-  const APIParamsForm = useForm<ServerParameters>({
+  const ServerParamsForm = useForm<ServerParameters>({
     mode: 'uncontrolled',
     validate: zod4Resolver(ServerParametersSchema),
     validateInputOnChange: true,
@@ -76,8 +76,8 @@ export default function SettingsPage() {
   const restartInstance = useRestartInstanceMutation();
 
   useEffect(() => {
-    if (isSettingsSuccess && !APIParamsForm.initialized) {
-      APIParamsForm.initialize(instanceSettings.server);
+    if (isSettingsSuccess && !ServerParamsForm.initialized) {
+      ServerParamsForm.initialize(instanceSettings.server);
       generationParamsForm.initialize(instanceSettings.generation);
       logParamsForm.initialize(instanceSettings.log);
       pathParamsForm.initialize(instanceSettings.path);
@@ -110,7 +110,7 @@ export default function SettingsPage() {
 
   function handleSubmit() {
     const settings: Settings = {
-      server: APIParamsForm.getValues(),
+      server: ServerParamsForm.getValues(),
       generation: generationParamsForm.getValues(),
       log: logParamsForm.getValues(),
       path: pathParamsForm.getValues(),
@@ -145,7 +145,7 @@ export default function SettingsPage() {
               });
             },
           });
-          APIParamsForm.resetDirty();
+          ServerParamsForm.resetDirty();
           generationParamsForm.resetDirty();
           logParamsForm.resetDirty();
           pathParamsForm.resetDirty();
@@ -166,7 +166,7 @@ export default function SettingsPage() {
     );
   }
 
-  if (isSettingsSuccess && APIParamsForm.initialized) {
+  if (isSettingsSuccess && ServerParamsForm.initialized) {
     return (
       <>
         <Container size="xl" mb="535px">
@@ -180,7 +180,7 @@ export default function SettingsPage() {
                     </Title>
                     <Divider />
                   </Stack>
-                  <ServerParametersSection form={APIParamsForm} />
+                  <ServerParametersSection form={ServerParamsForm} />
 
                   <Stack gap="4px">
                     <Title order={2} fw={500} mt="xs">
@@ -208,7 +208,7 @@ export default function SettingsPage() {
                 </Stack>
                 <FloatingPanel
                   mounted={
-                    APIParamsForm.isDirty() ||
+                    ServerParamsForm.isDirty() ||
                     generationParamsForm.isDirty() ||
                     pathParamsForm.isDirty() ||
                     logParamsForm.isDirty()
