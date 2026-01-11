@@ -17,25 +17,25 @@ import { IconAlertSquareRounded } from '@tabler/icons-react';
 import { zod4Resolver } from 'mantine-form-zod-resolver';
 import { useEffect } from 'react';
 
-import { APIParametersSection } from './APIParametersSection';
 import { GenerationParametersSection } from './GenerationParametersSection';
 import { LoggingParametersSection } from './LoggingParametersSection';
 import { PathParametersSection } from './PathParametersSection';
 import { SavePanel } from './SavePanelContent';
+import { ServerParametersSection } from './ServerParametersSection';
 import {
   useInstanceSettings,
   useRestartInstanceMutation,
   useUpdateInstanceSettingsMutation,
 } from '@/api/hooks/useInstance';
 import {
-  APIParameters,
-  APIParametersSchema,
   GenerationParameters,
   GenerationParametersSchema,
   LogParameters,
   LogParametersSchema,
   PathParameters,
   PathParametersSchema,
+  ServerParameters,
+  ServerParametersSchema,
   Settings,
 } from '@/api/routes/instance/schemas';
 import { FloatingPanel } from '@/components/ui/FloatingPanel';
@@ -43,9 +43,9 @@ import { FloatingTableOfContents } from '@/components/ui/FloatingTableOfContents
 import { ShowErrorDetailsAnchor } from '@/components/ui/ShowErrorDetailsAnchor';
 
 export default function SettingsPage() {
-  const APIParamsForm = useForm<APIParameters>({
+  const APIParamsForm = useForm<ServerParameters>({
     mode: 'uncontrolled',
-    validate: zod4Resolver(APIParametersSchema),
+    validate: zod4Resolver(ServerParametersSchema),
     validateInputOnChange: true,
   });
   const generationParamsForm = useForm<GenerationParameters>({
@@ -77,7 +77,7 @@ export default function SettingsPage() {
 
   useEffect(() => {
     if (isSettingsSuccess && !APIParamsForm.initialized) {
-      APIParamsForm.initialize(instanceSettings.api);
+      APIParamsForm.initialize(instanceSettings.server);
       generationParamsForm.initialize(instanceSettings.generation);
       logParamsForm.initialize(instanceSettings.log);
       pathParamsForm.initialize(instanceSettings.path);
@@ -110,7 +110,7 @@ export default function SettingsPage() {
 
   function handleSubmit() {
     const settings: Settings = {
-      api: APIParamsForm.getValues(),
+      server: APIParamsForm.getValues(),
       generation: generationParamsForm.getValues(),
       log: logParamsForm.getValues(),
       path: pathParamsForm.getValues(),
@@ -176,11 +176,11 @@ export default function SettingsPage() {
                 <Stack>
                   <Stack gap="4px">
                     <Title order={2} fw={500}>
-                      API parameters
+                      Server parameters
                     </Title>
                     <Divider />
                   </Stack>
-                  <APIParametersSection form={APIParamsForm} />
+                  <ServerParametersSection form={APIParamsForm} />
 
                   <Stack gap="4px">
                     <Title order={2} fw={500} mt="xs">

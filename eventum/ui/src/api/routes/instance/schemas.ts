@@ -51,8 +51,9 @@ export const AuthParametersSchema = z.object({
   password: z.preprocess(emptyToUndefined, z.string().min(1).optional()),
 });
 
-export const APIParametersSchema = z.object({
-  enabled: z.boolean().optional(),
+export const ServerParametersSchema = z.object({
+  ui_enabled: z.boolean().optional(),
+  api_enabled: z.boolean().optional(),
   host: z.preprocess(emptyToUndefined, z.string().min(1).optional()),
   port: z.preprocess(
     emptyToUndefined,
@@ -61,7 +62,7 @@ export const APIParametersSchema = z.object({
   ssl: SSLParametersSchema.optional(),
   auth: AuthParametersSchema.optional(),
 });
-export type APIParameters = z.infer<typeof APIParametersSchema>;
+export type ServerParameters = z.infer<typeof ServerParametersSchema>;
 
 export const BatchParametersSchema = z.object({
   size: z.preprocess(
@@ -129,7 +130,7 @@ export const PathParametersSchema = z.object({
 export type PathParameters = z.infer<typeof PathParametersSchema>;
 
 export const SettingsSchema = z.object({
-  api: APIParametersSchema,
+  server: ServerParametersSchema,
   generation: GenerationParametersSchema,
   log: LogParametersSchema,
   path: PathParametersSchema,
