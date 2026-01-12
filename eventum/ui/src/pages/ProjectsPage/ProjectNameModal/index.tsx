@@ -137,6 +137,7 @@ export const CreateProjectSubmitModal: FC<CreateProjectSubmitModalProps> = ({
               createGeneratorConfig.isPending || uploadGeneratorFile.isPending
             }
             disabled={!form.isDirty() || !form.isValid()}
+            type="submit"
           >
             Create
           </Button>
