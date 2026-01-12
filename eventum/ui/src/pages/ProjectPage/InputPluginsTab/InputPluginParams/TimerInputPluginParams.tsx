@@ -82,7 +82,7 @@ export const TimerInputPluginParams: FC<TimerInputPluginParamsProps> = ({
           placeholder="infinitely"
           suffix=" times"
           {...form.getInputProps('repeat')}
-          value={form.getValues().count ?? ''}
+          value={form.getValues().repeat ?? ''}
           onChange={(value) =>
             form.setFieldValue(
               'repeat',
