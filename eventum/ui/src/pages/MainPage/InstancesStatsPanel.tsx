@@ -159,16 +159,24 @@ export const InstancesStatsPanel: FC<InstancesStatsPanelProps> = ({
                 Instances by produced events
               </Text>
 
-              <ResponsiveContainer width="100%" height={150}>
-                <BarChart
-                  data={totalMetrics}
-                  dataKey="id"
-                  series={[{ name: 'produced', color: 'primary' }]}
-                  h="100%"
-                  w="100%"
-                  withXAxis={false}
-                />
-              </ResponsiveContainer>
+              {totalMetrics.length === 0 && (
+                <Text c="gray.6" size="sm" ta="center" mt="xl">
+                  No data
+                </Text>
+              )}
+
+              {totalMetrics.length > 0 && (
+                <ResponsiveContainer width="100%" height={150}>
+                  <BarChart
+                    data={totalMetrics}
+                    dataKey="id"
+                    series={[{ name: 'produced', color: 'primary' }]}
+                    h="100%"
+                    w="100%"
+                    withXAxis={false}
+                  />
+                </ResponsiveContainer>
+              )}
             </Stack>
           </Grid.Col>
 
@@ -178,23 +186,31 @@ export const InstancesStatsPanel: FC<InstancesStatsPanelProps> = ({
                 Instances by output EPS
               </Text>
 
-              <ResponsiveContainer width="100%" height={150}>
-                <PieChart
-                  data={totalMetrics.map((item, index) => ({
-                    name: item.id,
-                    value: item.outputEPS,
-                    color: pieColors[index % pieColors.length]!,
-                  }))}
-                  h="150"
-                  w="150"
-                  size={150}
-                  withTooltip
-                  tooltipDataSource="segment"
-                  startAngle={90}
-                  endAngle={-270}
-                  valueFormatter={(value) => value.toFixed(2)}
-                />
-              </ResponsiveContainer>
+              {totalMetrics.length === 0 && (
+                <Text c="gray.6" size="sm" ta="center" my="xl">
+                  No data
+                </Text>
+              )}
+
+              {totalMetrics.length > 0 && (
+                <ResponsiveContainer width="100%" height={150}>
+                  <PieChart
+                    data={totalMetrics.map((item, index) => ({
+                      name: item.id,
+                      value: item.outputEPS,
+                      color: pieColors[index % pieColors.length]!,
+                    }))}
+                    h="150"
+                    w="150"
+                    size={150}
+                    withTooltip
+                    tooltipDataSource="segment"
+                    startAngle={90}
+                    endAngle={-270}
+                    valueFormatter={(value) => value.toFixed(2)}
+                  />
+                </ResponsiveContainer>
+              )}
             </Stack>
           </Grid.Col>
         </Grid>

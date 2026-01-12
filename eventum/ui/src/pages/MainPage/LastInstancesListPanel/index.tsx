@@ -40,6 +40,14 @@ export const LastInstancesListPanel: FC<LastInstancesListPanelProps> = ({
         </Title>
 
         <Stack gap="sm">
+          {sortedGenerators.length === 0 && (
+            <Stack gap="sm">
+              <Divider />
+              <Text ta="center" c="gray.6" size="sm">
+                No recent instances
+              </Text>
+            </Stack>
+          )}
           {sortedGenerators.map((generator) => (
             <Stack key={generator.id} gap="0">
               <Group justify="end">
