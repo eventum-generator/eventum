@@ -152,7 +152,7 @@ export default function ProjectPage() {
           <Container size="100%" mt="xs">
             <Stack>
               <Group justify="space-between">
-                <Title order={3} fw="normal">
+                <Title order={3} fw="bold">
                   {projectName}
                 </Title>
                 <Group>
