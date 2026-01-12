@@ -1,4 +1,4 @@
-import { Divider, Group, Paper, Stack, Text, Title } from '@mantine/core';
+import { Divider, Flex, Group, Paper, Stack, Text, Title } from '@mantine/core';
 import {
   IconArrowNarrowDown,
   IconArrowNarrowUp,
@@ -121,13 +121,17 @@ export const PerformancePanel: FC<PerformancePanelProps> = ({
               <Stack gap="2px">
                 <Group gap="2px">
                   <Group gap="0" title="received">
-                    <IconArrowNarrowDown size={15} />
+                    <Flex c="green.6">
+                      <IconArrowNarrowDown size={15} />
+                    </Flex>
                     <Text size="sm" ta="center">
                       {bytes(instanceInfo.network_received_bytes) ?? '-'}
                     </Text>
                   </Group>
                   <Group gap="0" title="sent">
-                    <IconArrowNarrowUp size={15} />
+                    <Flex c="yellow.6">
+                      <IconArrowNarrowUp size={15} />
+                    </Flex>
                     <Text size="sm" ta="center">
                       {bytes(instanceInfo.network_sent_bytes) ?? '-'}
                     </Text>
@@ -162,13 +166,18 @@ export const PerformancePanel: FC<PerformancePanelProps> = ({
               <Stack gap="2px">
                 <Group gap="4px">
                   <Group gap="2px" title="written">
-                    <IconFileDownload size={15} />
+                    <Flex c="yellow.6">
+                      <IconFileDownload size={15} />
+                    </Flex>
                     <Text size="sm" ta="center">
                       {bytes(instanceInfo.disk_written_bytes) ?? '-'}
                     </Text>
                   </Group>
                   <Group gap="2px" title="read">
-                    <IconFileUpload size={15} />
+                    <Flex c="green.6">
+                      <IconFileUpload size={15} />
+                    </Flex>
+
                     <Text size="sm" ta="center">
                       {bytes(instanceInfo.disk_read_bytes) ?? '-'}
                     </Text>
