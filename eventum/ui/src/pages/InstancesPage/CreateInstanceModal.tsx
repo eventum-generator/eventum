@@ -1,13 +1,15 @@
 import {
   Alert,
+  Anchor,
   Box,
   Button,
   Center,
   Container,
-  Flex,
+  Group,
   Loader,
   Select,
   Stack,
+  Text,
   TextInput,
 } from '@mantine/core';
 import { isNotEmpty, useForm } from '@mantine/form';
@@ -24,6 +26,7 @@ import { useAddGeneratorMutation } from '@/api/hooks/useGenerators';
 import { useAddGeneratorToStartupMutation } from '@/api/hooks/useStartup';
 import { GeneratorParameters } from '@/api/routes/generators/schemas';
 import { ShowErrorDetailsAnchor } from '@/components/ui/ShowErrorDetailsAnchor';
+import { ROUTE_PATHS } from '@/routing/paths';
 
 interface CreateInstanceModalProps {
   existingInstanceIds: string[];
@@ -180,7 +183,18 @@ export const CreateInstanceModal: FC<CreateInstanceModalProps> = ({
             {...form.getInputProps('path')}
           />
 
-          <Flex justify="end">
+          <Group justify="space-between">
+            <Box>
+              {generatorDirs.length === 0 && (
+                <Text size="sm">
+                  Have no projects?{' '}
+                  <Anchor size="sm" href={ROUTE_PATHS.PROJECTS}>
+                    Create new
+                  </Anchor>
+                </Text>
+              )}
+            </Box>
+
             <Button
               disabled={!form.isValid()}
               loading={addGenerator.isPending}
@@ -188,7 +202,7 @@ export const CreateInstanceModal: FC<CreateInstanceModalProps> = ({
             >
               Create
             </Button>
-          </Flex>
+          </Group>
         </Stack>
       </form>
     );
