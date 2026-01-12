@@ -27,6 +27,14 @@ import {
 } from '@/api/routes/generator-configs';
 
 const GENERATOR_CONFIG_DIRS_QUERY_KEY = ['generator-config-dirs'];
+const GENERATOR_CONFIG_DIRS_EXTENDED_QUERY_KEY = [
+  'generator-config-dirs-extended',
+];
+
+const GENERATOR_CONFIG_DIRS_COMMON_QUERY_KEYS = [
+  GENERATOR_CONFIG_DIRS_QUERY_KEY,
+  GENERATOR_CONFIG_DIRS_EXTENDED_QUERY_KEY,
+];
 
 export function useGeneratorDirs(
   extended: false
@@ -42,7 +50,11 @@ export function useGeneratorDirs(
 
 export function useGeneratorDirs(extended: boolean) {
   return useQuery({
-    queryKey: [...GENERATOR_CONFIG_DIRS_QUERY_KEY, `extended-${extended}`],
+    queryKey: [
+      ...(extended
+        ? GENERATOR_CONFIG_DIRS_EXTENDED_QUERY_KEY
+        : GENERATOR_CONFIG_DIRS_QUERY_KEY),
+    ],
     queryFn: () => listGeneratorDirs(extended),
   });
 }
@@ -61,10 +73,11 @@ export function useCreateGeneratorConfigMutation() {
     mutationFn: ({ name, config }: { name: string; config: GeneratorConfig }) =>
       createGeneratorConfig(name, config),
     onSuccess: async () => {
-      await queryClient.invalidateQueries({
-        queryKey: GENERATOR_CONFIG_DIRS_QUERY_KEY,
-        exact: true,
-      });
+      await Promise.all(
+        GENERATOR_CONFIG_DIRS_COMMON_QUERY_KEYS.map((key) =>
+          queryClient.invalidateQueries({ queryKey: key, exact: true })
+        )
+      );
     },
   });
 }
@@ -90,10 +103,11 @@ export function useDeleteGeneratorConfigMutation() {
   return useMutation({
     mutationFn: ({ name }: { name: string }) => deleteGeneratorConfig(name),
     onSuccess: async () => {
-      await queryClient.invalidateQueries({
-        queryKey: GENERATOR_CONFIG_DIRS_QUERY_KEY,
-        exact: true,
-      });
+      await Promise.all(
+        GENERATOR_CONFIG_DIRS_COMMON_QUERY_KEYS.map((key) =>
+          queryClient.invalidateQueries({ queryKey: key, exact: true })
+        )
+      );
     },
   });
 }
