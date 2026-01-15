@@ -5,6 +5,7 @@ import {
   Code,
   Divider,
   Group,
+  Paper,
   Stack,
   Text,
   Textarea,
@@ -79,7 +80,7 @@ export const FormatterTab: FC = () => {
   const canFormat = events.length > 0 && form.values.formatter !== undefined;
 
   return (
-    <Stack>
+    <Stack gap="xs">
       <FormatterParams
         value={form.values.formatter}
         onChange={(config) => {
@@ -87,7 +88,7 @@ export const FormatterTab: FC = () => {
         }}
       />
 
-      <Stack gap="4px">
+      <Stack gap="2px">
         <Group justify="space-between">
           <Text size="sm" fw="bold">
             Events
@@ -108,7 +109,6 @@ export const FormatterTab: FC = () => {
             Result
           </Text>
         </Group>
-
         <Divider />
       </Stack>
 
@@ -153,52 +153,59 @@ export const FormatterTab: FC = () => {
             onClick={() => {
               setEvents((prev) => [...prev, { id: nanoid(), content: '' }]);
             }}
-            mt="4px"
           >
             Add
           </Button>
         </Stack>
 
-        <Stack>
+        <Stack gap="xs">
           {formattingResult !== null ? (
             <Stack gap="xs">
-              <Text size="sm" fw="bold">
-                Events
-              </Text>
-              {formattingResult.events.length === 0 && (
-                <Center>
-                  <Text size="sm" c="gray.6">
-                    No events
+              <Paper withBorder p="xs">
+                <Stack gap="4px">
+                  <Text size="sm" fw="bold">
+                    Formatted events
                   </Text>
-                </Center>
-              )}
-              <Stack gap="xs">
-                {formattingResult.events.map((event, index) => (
-                  <Code key={index} block>
-                    {event}
-                  </Code>
-                ))}
-              </Stack>
+                  {formattingResult.events.length === 0 && (
+                    <Center>
+                      <Text size="sm" c="gray.6">
+                        No events
+                      </Text>
+                    </Center>
+                  )}
+                  <Stack gap="xs">
+                    {formattingResult.events.map((event, index) => (
+                      <Code key={index} block>
+                        {event}
+                      </Code>
+                    ))}
+                  </Stack>
+                </Stack>
+              </Paper>
 
-              <Text size="sm" fw="bold" mt="xs">
-                Errors
-              </Text>
-              {formattingResult.errors.length === 0 && (
-                <Center>
-                  <Text size="sm" c="gray.6">
-                    No errors
+              <Paper withBorder p="xs">
+                <Stack gap="4px">
+                  <Text size="sm" fw="bold">
+                    Errors
                   </Text>
-                </Center>
-              )}
-              <Stack gap="xs">
-                {formattingResult.errors.map((error, index) => (
-                  <Code key={index} block>
-                    {error.message}
-                    {error.original_event !== null &&
-                      `\nOriginal event:\n${error.original_event}`}
-                  </Code>
-                ))}
-              </Stack>
+                  {formattingResult.errors.length === 0 && (
+                    <Center>
+                      <Text size="sm" c="gray.6">
+                        No errors
+                      </Text>
+                    </Center>
+                  )}
+                  <Stack gap="xs">
+                    {formattingResult.errors.map((error, index) => (
+                      <Code key={index} block>
+                        {error.message}
+                        {error.original_event !== null &&
+                          `\nOriginal event:\n${error.original_event}`}
+                      </Code>
+                    ))}
+                  </Stack>
+                </Stack>
+              </Paper>
             </Stack>
           ) : (
             <Center>

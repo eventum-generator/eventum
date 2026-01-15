@@ -21,7 +21,7 @@ export const SamplesSection: FC<SamplesSectionProps> = ({ form }) => {
   const existingSamples = Object.keys(form.getValues().samples ?? {});
 
   return (
-    <Stack>
+    <Stack gap="xs">
       <Stack gap="4px">
         <Text size="sm" fw="bold">
           Samples

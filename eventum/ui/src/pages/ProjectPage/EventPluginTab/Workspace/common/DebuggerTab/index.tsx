@@ -275,7 +275,7 @@ export const DebuggerTab: FC = () => {
       </Group>
 
       {producedEventsInfo !== undefined ? (
-        <Stack>
+        <Stack gap="xs">
           <Stack gap="4px">
             <Text size="sm" fw="bold">
               Events
@@ -346,7 +346,7 @@ export const DebuggerTab: FC = () => {
           )}
         </Stack>
       ) : (
-        <Stack>
+        <Stack gap="xs">
           <Divider />
           <Center>
             <Text size="sm" c="gray.6">

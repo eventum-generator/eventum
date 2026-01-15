@@ -28,7 +28,7 @@ export const ScriptEventPluginParams: FC<ScriptEventPluginParamsProps> = ({
   });
 
   return (
-    <Stack>
+    <Stack gap="xs">
       <ProjectFileSelect
         label={<LabelWithTooltip label="Path" tooltip="Path to script file" />}
         placeholder="path"

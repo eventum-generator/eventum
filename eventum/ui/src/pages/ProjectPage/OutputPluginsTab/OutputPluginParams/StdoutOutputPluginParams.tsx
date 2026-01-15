@@ -3,6 +3,7 @@ import {
   Group,
   Kbd,
   NumberInput,
+  Paper,
   SegmentedControl,
   Select,
   Stack,
@@ -38,7 +39,7 @@ export const StdoutOutputPluginParams: FC<StdoutOutputPluginParamsProps> = ({
   });
 
   return (
-    <Stack>
+    <Stack gap="xs">
       <Stack gap="4px">
         <Text size="sm">Stream</Text>
         <SegmentedControl
@@ -124,10 +125,12 @@ export const StdoutOutputPluginParams: FC<StdoutOutputPluginParamsProps> = ({
         }
       />
 
-      <FormatterParams
-        value={form.getValues().formatter}
-        onChange={(values) => form.setFieldValue('formatter', values)}
-      />
+      <Paper withBorder p="xs">
+        <FormatterParams
+          value={form.getValues().formatter}
+          onChange={(values) => form.setFieldValue('formatter', values)}
+        />
+      </Paper>
     </Stack>
   );
 };

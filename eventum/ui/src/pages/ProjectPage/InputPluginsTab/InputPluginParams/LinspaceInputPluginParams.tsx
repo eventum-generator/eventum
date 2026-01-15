@@ -28,7 +28,7 @@ export const LinspaceInputPluginParams: FC<LinspaceInputPluginParamsProps> = ({
   });
 
   return (
-    <Stack>
+    <Stack gap="xs">
       <Group grow align="start">
         <VersatileDatetimeInput
           label={

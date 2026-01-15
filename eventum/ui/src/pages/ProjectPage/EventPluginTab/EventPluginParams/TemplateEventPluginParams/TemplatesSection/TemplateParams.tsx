@@ -57,7 +57,7 @@ export const TemplateParams: FC<TemplateParamsProps> = ({
   });
 
   return (
-    <Stack>
+    <Stack gap="xs">
       <ProjectFileSelect
         label={
           <LabelWithTooltip label="Template" tooltip="Path to template file" />
@@ -97,7 +97,7 @@ export const TemplateParams: FC<TemplateParamsProps> = ({
       )}
 
       {pickingMode === TemplatePickingMode.FSM && (
-        <Stack>
+        <Stack gap="xs">
           <Switch
             label={
               <LabelWithTooltip

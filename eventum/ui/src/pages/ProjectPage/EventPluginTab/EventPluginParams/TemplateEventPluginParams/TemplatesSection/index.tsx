@@ -1,6 +1,5 @@
 import {
   ActionIcon,
-  Divider,
   Group,
   MultiSelect,
   Select,
@@ -125,7 +124,7 @@ export const TemplatesSection: FC<TemplatesSectionProps> = ({ form }) => {
   }
 
   return (
-    <Stack>
+    <Stack gap="xs">
       <Stack gap="4px">
         <Text size="sm" fw="bold">
           Templates
@@ -223,8 +222,6 @@ export const TemplatesSection: FC<TemplatesSectionProps> = ({ form }) => {
           }}
         />
       )}
-
-      <Divider />
 
       <Group align="end" wrap="nowrap" gap="xs">
         <Select

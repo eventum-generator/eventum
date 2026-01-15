@@ -28,7 +28,7 @@ export const TimerInputPluginParams: FC<TimerInputPluginParamsProps> = ({
   });
 
   return (
-    <Stack>
+    <Stack gap="xs">
       <Group grow align="start">
         <NumberInput
           label={

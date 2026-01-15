@@ -3,7 +3,6 @@ import {
   Box,
   Button,
   Center,
-  Divider,
   Skeleton,
   Stack,
   Text,
@@ -144,7 +143,7 @@ export const TimePatternParams: FC<TimePatternParamsProps> = ({ filePath }) => {
 
   if (isFileContentLoading) {
     return (
-      <Stack>
+      <Stack gap="xs">
         <Skeleton h="xl" animate visible />
         <Skeleton h="xl" animate visible />
         <Skeleton h="xl" animate visible />
@@ -192,14 +191,12 @@ export const TimePatternParams: FC<TimePatternParamsProps> = ({ filePath }) => {
 
     return (
       <form onSubmit={form.onSubmit(handleSaveFile)}>
-        <Stack>
+        <Stack gap="xs">
           <TimePatternForm form={form} />
 
-          <Divider mt="xs" />
-
-          <Stack gap="xs">
+          <Stack gap="xs" mt="lg">
             <Button
-              variant="default"
+              variant={'filled'}
               type="submit"
               loading={putGeneratorFile.isPending}
               disabled={!form.isDirty()}

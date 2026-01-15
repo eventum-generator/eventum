@@ -1,8 +1,8 @@
 import {
-  Divider,
   Group,
   JsonInput,
   NumberInput,
+  Paper,
   PasswordInput,
   Select,
   Stack,
@@ -40,7 +40,7 @@ export const HTTPOutputPluginParams: FC<HTTPOutputPluginParamsProps> = ({
   });
 
   return (
-    <Stack>
+    <Stack gap="xs">
       <TextInput
         label={
           <LabelWithTooltip label="URL" tooltip="URL address of resource" />
@@ -59,7 +59,7 @@ export const HTTPOutputPluginParams: FC<HTTPOutputPluginParamsProps> = ({
         }
       />
 
-      <Group wrap="nowrap" align="start">
+      <Group grow wrap="nowrap" align="start">
         <Select
           label={
             <LabelWithTooltip label="Method" tooltip="HTTP method to use" />
@@ -159,7 +159,7 @@ export const HTTPOutputPluginParams: FC<HTTPOutputPluginParamsProps> = ({
         />
       </Group>
 
-      <Group wrap="nowrap" align="start">
+      <Group grow wrap="nowrap" align="start">
         <NumberInput
           label={
             <LabelWithTooltip
@@ -204,78 +204,79 @@ export const HTTPOutputPluginParams: FC<HTTPOutputPluginParamsProps> = ({
         />
       </Group>
 
-      <Stack gap="4px">
-        <Text size="sm" fw="bold">
-          SSL
-        </Text>
-        <Divider />
-      </Stack>
+      <Paper withBorder p="sm">
+        <Stack gap="4px">
+          <Text size="sm" fw="bold">
+            SSL
+          </Text>
 
-      <Switch
-        label={
-          <LabelWithTooltip
-            label="Verify SSL"
-            tooltip="Whether to verify SSL certificate of the server when
+          <Switch
+            label={
+              <LabelWithTooltip
+                label="Verify SSL"
+                tooltip="Whether to verify SSL certificate of the server when
             connecting to it"
+              />
+            }
+            {...form.getInputProps('verify', { type: 'checkbox' })}
           />
-        }
-        {...form.getInputProps('verify', { type: 'checkbox' })}
-      />
 
-      <ProjectFileSelect
-        label={
-          <LabelWithTooltip
-            label="CA certificate"
-            tooltip="CA certificate for verification of server"
+          <ProjectFileSelect
+            label={
+              <LabelWithTooltip
+                label="CA certificate"
+                tooltip="CA certificate for verification of server"
+              />
+            }
+            placeholder=".crt .cer .pem"
+            extensions={['.crt', '.cer', '.pem']}
+            clearable
+            searchable
+            {...form.getInputProps('ca_cert')}
+            value={form.getValues().ca_cert ?? null}
+            onChange={(value) =>
+              form.setFieldValue('ca_cert', value ?? undefined)
+            }
           />
-        }
-        placeholder=".crt .cer .pem"
-        extensions={['.crt', '.cer', '.pem']}
-        clearable
-        searchable
-        {...form.getInputProps('ca_cert')}
-        value={form.getValues().ca_cert ?? null}
-        onChange={(value) => form.setFieldValue('ca_cert', value ?? undefined)}
-      />
 
-      <Group align="start" wrap="nowrap">
-        <ProjectFileSelect
-          label={
-            <LabelWithTooltip
-              label="Client certificate"
-              tooltip="Client certificate for client verification by server"
+          <Group grow align="start" wrap="nowrap">
+            <ProjectFileSelect
+              label={
+                <LabelWithTooltip
+                  label="Client certificate"
+                  tooltip="Client certificate for client verification by server"
+                />
+              }
+              placeholder=".crt .cer .pem"
+              extensions={['.crt', '.cer', '.pem']}
+              clearable
+              searchable
+              {...form.getInputProps('client_cert')}
+              value={form.getValues().client_cert ?? null}
+              onChange={(value) =>
+                form.setFieldValue('client_cert', value ?? undefined)
+              }
             />
-          }
-          placeholder=".crt .cer .pem"
-          extensions={['.crt', '.cer', '.pem']}
-          clearable
-          searchable
-          {...form.getInputProps('client_cert')}
-          value={form.getValues().client_cert ?? null}
-          onChange={(value) =>
-            form.setFieldValue('client_cert', value ?? undefined)
-          }
-        />
-        <ProjectFileSelect
-          label={
-            <LabelWithTooltip
-              label="Client certificate key"
-              tooltip="Key for the client certificate"
+            <ProjectFileSelect
+              label={
+                <LabelWithTooltip
+                  label="Client certificate key"
+                  tooltip="Key for the client certificate"
+                />
+              }
+              placeholder=".crt .cer .pem .key"
+              extensions={['.crt', '.cer', '.pem', '.key']}
+              clearable
+              searchable
+              {...form.getInputProps('client_cert_key')}
+              value={form.getValues().client_cert_key ?? null}
+              onChange={(value) =>
+                form.setFieldValue('client_cert_key', value ?? undefined)
+              }
             />
-          }
-          placeholder=".crt .cer .pem .key"
-          extensions={['.crt', '.cer', '.pem', '.key']}
-          clearable
-          searchable
-          {...form.getInputProps('client_cert_key')}
-          value={form.getValues().client_cert_key ?? null}
-          onChange={(value) =>
-            form.setFieldValue('client_cert_key', value ?? undefined)
-          }
-        />
-      </Group>
-
-      <Divider />
+          </Group>
+        </Stack>
+      </Paper>
 
       <TextInput
         label={
@@ -293,10 +294,12 @@ export const HTTPOutputPluginParams: FC<HTTPOutputPluginParamsProps> = ({
         }
       />
 
-      <FormatterParams
-        value={form.getValues().formatter}
-        onChange={(values) => form.setFieldValue('formatter', values)}
-      />
+      <Paper withBorder p="xs">
+        <FormatterParams
+          value={form.getValues().formatter}
+          onChange={(values) => form.setFieldValue('formatter', values)}
+        />
+      </Paper>
     </Stack>
   );
 };

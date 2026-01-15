@@ -42,7 +42,7 @@ export const SamplesParams: FC<SamplesParamsProps> = ({
   });
 
   return (
-    <Stack>
+    <Stack gap="xs">
       <Stack gap="4px">
         <SegmentedControl
           data={
@@ -139,7 +139,7 @@ export const SamplesParams: FC<SamplesParamsProps> = ({
           />
         )}
         {form.values.type == SampleType.CSV && (
-          <Stack>
+          <Stack gap="xs">
             <ProjectFileSelect
               label={<LabelWithTooltip label="Source" tooltip="CSV file" />}
               placeholder=".csv .tsv"
@@ -153,47 +153,51 @@ export const SamplesParams: FC<SamplesParamsProps> = ({
               }}
               extensions={['.csv', '.tsv']}
             />
-            <TextInput
-              label={
-                <LabelWithTooltip
-                  label="Delimiter"
-                  tooltip="Delimiter used in CSV file"
-                />
-              }
-              rightSection={
-                <Group wrap="nowrap" gap="2px">
-                  <ActionIcon
-                    variant="transparent"
-                    title="Set tabulation as delimiter"
-                    onClick={() => {
-                      form.setFieldValue('delimiter', '\t');
-                    }}
-                  >
-                    <Kbd>\t</Kbd>
-                  </ActionIcon>
-                </Group>
-              }
-              rightSectionWidth={40}
-              {...form.getInputProps('delimiter')}
-              value={form.values.delimiter ?? ''}
-              onChange={(event) => {
-                form.setFieldValue(
-                  'delimiter',
-                  event.currentTarget.value !== ''
-                    ? event.currentTarget.value
-                    : undefined!
-                );
-              }}
-            />
-            <Switch
-              label={
-                <LabelWithTooltip
-                  label="Header"
-                  tooltip="Whether CSV sample includes header on its first line"
-                />
-              }
-              {...form.getInputProps('header', { type: 'checkbox' })}
-            />
+            <Group gap="xs" align="start" wrap="nowrap">
+              <TextInput
+                label={
+                  <LabelWithTooltip
+                    label="Delimiter"
+                    tooltip="Delimiter used in CSV file"
+                  />
+                }
+                w="100%"
+                rightSection={
+                  <Group wrap="nowrap" gap="2px">
+                    <ActionIcon
+                      variant="transparent"
+                      title="Set tabulation as delimiter"
+                      onClick={() => {
+                        form.setFieldValue('delimiter', '\t');
+                      }}
+                    >
+                      <Kbd>\t</Kbd>
+                    </ActionIcon>
+                  </Group>
+                }
+                rightSectionWidth={40}
+                {...form.getInputProps('delimiter')}
+                value={form.values.delimiter ?? ''}
+                onChange={(event) => {
+                  form.setFieldValue(
+                    'delimiter',
+                    event.currentTarget.value !== ''
+                      ? event.currentTarget.value
+                      : undefined!
+                  );
+                }}
+              />
+              <Switch
+                mt="xl"
+                label={
+                  <LabelWithTooltip
+                    label="Header"
+                    tooltip="Whether CSV sample includes header on its first line"
+                  />
+                }
+                {...form.getInputProps('header', { type: 'checkbox' })}
+              />
+            </Group>
           </Stack>
         )}
 

@@ -1,13 +1,4 @@
-import {
-  Alert,
-  Box,
-  Center,
-  Divider,
-  Group,
-  Select,
-  Stack,
-  Text,
-} from '@mantine/core';
+import { Alert, Box, Center, Group, Select, Stack, Text } from '@mantine/core';
 import { IconAlertTriangle } from '@tabler/icons-react';
 import { FC, useState } from 'react';
 
@@ -41,7 +32,7 @@ export const StateTab: FC = () => {
   }
 
   return (
-    <Stack>
+    <Stack gap="xs">
       <Group>
         <Select
           label={
@@ -59,7 +50,7 @@ export const StateTab: FC = () => {
         />
       </Group>
 
-      <Group align="start" grow>
+      <Group align="start" grow gap="xs">
         {selectedTemplate === null ? (
           <Center mih="100px">
             <Text size="sm" c="gray.6">
@@ -93,7 +84,6 @@ export const StateTab: FC = () => {
         />
       </Group>
 
-      <Divider />
       <TemplateState
         stateName="Global state"
         templateAlias=""

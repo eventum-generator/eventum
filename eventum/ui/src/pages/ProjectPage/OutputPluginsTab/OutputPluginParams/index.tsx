@@ -1,7 +1,4 @@
-import { CodeHighlight } from '@mantine/code-highlight';
-import { Stack, Text } from '@mantine/core';
 import { FC } from 'react';
-import YAML from 'yaml';
 
 import { ClickhouseOutputPluginParams } from './ClickhouseOutputPluginParams';
 import { FileOutputPluginParams } from './FileOutputPluginParams';
@@ -57,22 +54,11 @@ export const OutputPluginParams: FC<OutputPluginParamsProps> = ({
   const ParamsComponent = pluginNamesToParamsComponent[pluginName];
 
   return (
-    <Stack>
-      <ParamsComponent
-        initialConfig={pluginConfig}
-        onChange={(newConfig) => {
-          onChange({ [pluginName]: newConfig } as OutputPluginNamedConfig);
-        }}
-      />
-      <Stack gap="4px">
-        <Text size="sm" fw="bold">
-          Configuration preview
-        </Text>
-        <CodeHighlight
-          code={YAML.stringify(outputPluginConfig)}
-          language="yml"
-        />
-      </Stack>
-    </Stack>
+    <ParamsComponent
+      initialConfig={pluginConfig}
+      onChange={(newConfig) => {
+        onChange({ [pluginName]: newConfig } as OutputPluginNamedConfig);
+      }}
+    />
   );
 };

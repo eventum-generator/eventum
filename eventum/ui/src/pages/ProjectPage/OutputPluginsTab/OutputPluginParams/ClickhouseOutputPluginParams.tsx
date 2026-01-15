@@ -2,10 +2,10 @@ import {
   ActionIcon,
   Anchor,
   Center,
-  Divider,
   Group,
   Kbd,
   NumberInput,
+  Paper,
   PasswordInput,
   SegmentedControl,
   Select,
@@ -47,7 +47,7 @@ export const ClickhouseOutputPluginParams: FC<
   });
 
   return (
-    <Stack>
+    <Stack gap="xs">
       <Group grow align="start">
         <TextInput
           label={
@@ -118,7 +118,7 @@ export const ClickhouseOutputPluginParams: FC<
         />
       </Stack>
 
-      <Group align="start" wrap="nowrap">
+      <Group grow align="start" wrap="nowrap">
         <TextInput
           label={
             <LabelWithTooltip
@@ -201,7 +201,7 @@ export const ClickhouseOutputPluginParams: FC<
         }
       />
 
-      <Group wrap="nowrap" align="start">
+      <Group grow wrap="nowrap" align="start">
         <NumberInput
           label={
             <LabelWithTooltip
@@ -266,253 +266,261 @@ export const ClickhouseOutputPluginParams: FC<
         }
       />
 
-      <Stack gap="4px">
-        <Text size="sm" fw="bold">
-          SSL
-        </Text>
-        <Divider />
-      </Stack>
+      <Paper withBorder p="xs">
+        <Stack gap="xs">
+          <Text size="sm" fw="bold">
+            SSL
+          </Text>
 
-      <Switch
-        label={
-          <LabelWithTooltip
-            label="Verify SSL"
-            tooltip="Whether to verify SSL certificate of ClickHouse server"
+          <Switch
+            label={
+              <LabelWithTooltip
+                label="Verify SSL"
+                tooltip="Whether to verify SSL certificate of ClickHouse server"
+              />
+            }
+            {...form.getInputProps('verify', { type: 'checkbox' })}
           />
-        }
-        {...form.getInputProps('verify', { type: 'checkbox' })}
-      />
 
-      <ProjectFileSelect
-        label={
-          <LabelWithTooltip
-            label="CA certificate"
-            tooltip="CA certificate for verification of server"
+          <ProjectFileSelect
+            label={
+              <LabelWithTooltip
+                label="CA certificate"
+                tooltip="CA certificate for verification of server"
+              />
+            }
+            placeholder=".crt .cer .pem"
+            extensions={['.crt', '.cer', '.pem']}
+            clearable
+            searchable
+            {...form.getInputProps('ca_cert')}
+            value={form.getValues().ca_cert ?? null}
+            onChange={(value) =>
+              form.setFieldValue('ca_cert', value ?? undefined)
+            }
           />
-        }
-        placeholder=".crt .cer .pem"
-        extensions={['.crt', '.cer', '.pem']}
-        clearable
-        searchable
-        {...form.getInputProps('ca_cert')}
-        value={form.getValues().ca_cert ?? null}
-        onChange={(value) => form.setFieldValue('ca_cert', value ?? undefined)}
-      />
 
-      <Group align="start" wrap="nowrap">
-        <ProjectFileSelect
-          label={
-            <LabelWithTooltip
-              label="Client certificate"
-              tooltip="Client certificate for client verification by server"
+          <Group grow align="start" wrap="nowrap">
+            <ProjectFileSelect
+              label={
+                <LabelWithTooltip
+                  label="Client certificate"
+                  tooltip="Client certificate for client verification by server"
+                />
+              }
+              placeholder=".crt .cer .pem"
+              extensions={['.crt', '.cer', '.pem']}
+              clearable
+              searchable
+              {...form.getInputProps('client_cert')}
+              value={form.getValues().client_cert ?? null}
+              onChange={(value) =>
+                form.setFieldValue('client_cert', value ?? undefined)
+              }
             />
-          }
-          placeholder=".crt .cer .pem"
-          extensions={['.crt', '.cer', '.pem']}
-          clearable
-          searchable
-          {...form.getInputProps('client_cert')}
-          value={form.getValues().client_cert ?? null}
-          onChange={(value) =>
-            form.setFieldValue('client_cert', value ?? undefined)
-          }
-        />
-        <ProjectFileSelect
-          label={
-            <LabelWithTooltip
-              label="Client certificate key"
-              tooltip="Key for the client certificate"
+            <ProjectFileSelect
+              label={
+                <LabelWithTooltip
+                  label="Client certificate key"
+                  tooltip="Key for the client certificate"
+                />
+              }
+              placeholder=".crt .cer .pem .key"
+              extensions={['.crt', '.cer', '.pem', '.key']}
+              clearable
+              searchable
+              {...form.getInputProps('client_cert_key')}
+              value={form.getValues().client_cert_key ?? null}
+              onChange={(value) =>
+                form.setFieldValue('client_cert_key', value ?? undefined)
+              }
             />
-          }
-          placeholder=".crt .cer .pem .key"
-          extensions={['.crt', '.cer', '.pem', '.key']}
-          clearable
-          searchable
-          {...form.getInputProps('client_cert_key')}
-          value={form.getValues().client_cert_key ?? null}
-          onChange={(value) =>
-            form.setFieldValue('client_cert_key', value ?? undefined)
-          }
-        />
-      </Group>
+          </Group>
 
-      <Select
-        label={
-          <LabelWithTooltip
-            label="TLS mode"
-            tooltip="Mode of TLS behavior, `proxy` and `strict` do not invoke
+          <Select
+            label={
+              <LabelWithTooltip
+                label="TLS mode"
+                tooltip="Mode of TLS behavior, `proxy` and `strict` do not invoke
                   ClickHouse mutual TLS connection, but do send client cert and
                   key, `mutual` assumes ClickHouse mutual TLS auth with a client
                   certificate, default behavior is `mutual`."
+              />
+            }
+            placeholder="mode"
+            data={TLS_MODES}
+            clearable
+            searchable
+            {...form.getInputProps('tls_mode')}
+            value={form.getValues().tls_mode ?? null}
+            onChange={(value) =>
+              form.setFieldValue(
+                'tls_mode',
+                (value ?? undefined) as (typeof TLS_MODES)[number] | undefined
+              )
+            }
           />
-        }
-        placeholder="mode"
-        data={TLS_MODES}
-        clearable
-        searchable
-        {...form.getInputProps('tls_mode')}
-        value={form.getValues().tls_mode ?? null}
-        onChange={(value) =>
-          form.setFieldValue(
-            'tls_mode',
-            (value ?? undefined) as (typeof TLS_MODES)[number] | undefined
-          )
-        }
-      />
+        </Stack>
+      </Paper>
 
-      <Stack gap="4px">
-        <Text size="sm" fw="bold">
-          Proxy
-        </Text>
-        <Divider />
-      </Stack>
+      <Paper withBorder p="xs">
+        <Stack gap="xs">
+          <Text size="sm" fw="bold">
+            Proxy
+          </Text>
 
-      <TextInput
-        label={
-          <LabelWithTooltip
-            label="Server host name"
-            tooltip="The ClickHouse server hostname as identified by the CN or SNI
+          <TextInput
+            label={
+              <LabelWithTooltip
+                label="Server host name"
+                tooltip="The ClickHouse server hostname as identified by the CN or SNI
             of its TLS certificate, set this to avoid SSL errors when
             connecting through a proxy or tunnel with a different hostname."
+              />
+            }
+            placeholder="ip or hostname"
+            {...form.getInputProps('server_host_name')}
+            onChange={(value) =>
+              form.setFieldValue(
+                'server_host_name',
+                value.currentTarget.value !== ''
+                  ? value.currentTarget.value
+                  : undefined
+              )
+            }
           />
-        }
-        placeholder="ip or hostname"
-        {...form.getInputProps('server_host_name')}
-        onChange={(value) =>
-          form.setFieldValue(
-            'server_host_name',
-            value.currentTarget.value !== ''
-              ? value.currentTarget.value
-              : undefined
-          )
-        }
-      />
-      <TextInput
-        label={
-          <LabelWithTooltip label="Proxy URL" tooltip="HTTP(S) proxy address" />
-        }
-        placeholder="URL"
-        {...form.getInputProps('proxy_url')}
-        onChange={(value) =>
-          form.setFieldValue(
-            'proxy_url',
-            value.currentTarget.value !== ''
-              ? value.currentTarget.value
-              : undefined
-          )
-        }
-      />
-
-      <Stack gap="4px">
-        <Text size="sm" fw="bold">
-          Format
-        </Text>
-        <Divider />
-      </Stack>
-
-      <Select
-        label={
-          <Group>
-            <LabelWithTooltip
-              label="Input format"
-              tooltip="ClickHouse input format for inserting"
-            />
-
-            <Anchor
-              size="sm"
-              target="_blank"
-              href="https://clickhouse.com/docs/en/interfaces/formats"
-            >
-              ClickHouse formats
-            </Anchor>
-          </Group>
-        }
-        placeholder="format"
-        data={CLICKHOUSE_INPUT_FORMAT}
-        clearable
-        searchable
-        {...form.getInputProps('input_format')}
-        value={form.getValues().input_format ?? null}
-        onChange={(value) => {
-          form.setFieldValue('input_format', value ?? undefined);
-        }}
-      />
-
-      <Textarea
-        label="Header"
-        description="Header that inserted before all events"
-        autosize
-        minRows={1}
-        {...form.getInputProps('header')}
-        onChange={(value) =>
-          form.setFieldValue(
-            'header',
-            value.currentTarget.value !== ''
-              ? value.currentTarget.value
-              : undefined
-          )
-        }
-      />
-      <TextInput
-        label={
-          <LabelWithTooltip
-            label="Separator"
-            tooltip="Separator between events"
+          <TextInput
+            label={
+              <LabelWithTooltip
+                label="Proxy URL"
+                tooltip="HTTP(S) proxy address"
+              />
+            }
+            placeholder="URL"
+            {...form.getInputProps('proxy_url')}
+            onChange={(value) =>
+              form.setFieldValue(
+                'proxy_url',
+                value.currentTarget.value !== ''
+                  ? value.currentTarget.value
+                  : undefined
+              )
+            }
           />
-        }
-        rightSectionWidth="70px"
-        rightSection={
-          <Group wrap="nowrap" gap="2px">
-            <ActionIcon
-              variant="transparent"
-              title="Set tabulation as delimiter"
-              onClick={() => {
-                form.setFieldValue('separator', '\t');
-              }}
-            >
-              <Kbd>\t</Kbd>
-            </ActionIcon>
-            <ActionIcon
-              variant="transparent"
-              title="Set LF as delimiter"
-              onClick={() => {
-                form.setFieldValue('separator', '\n');
-              }}
-            >
-              <Kbd>\n</Kbd>
-            </ActionIcon>
-          </Group>
-        }
-        {...form.getInputProps('separator')}
-        onChange={(value) =>
-          form.setFieldValue(
-            'separator',
-            value.currentTarget.value !== ''
-              ? value.currentTarget.value
-              : undefined
-          )
-        }
-      />
-      <Textarea
-        label="Footer"
-        description="Footer that inserted after all events"
-        autosize
-        minRows={1}
-        {...form.getInputProps('footer')}
-        onChange={(value) =>
-          form.setFieldValue(
-            'footer',
-            value.currentTarget.value !== ''
-              ? value.currentTarget.value
-              : undefined
-          )
-        }
-      />
+        </Stack>
+      </Paper>
 
-      <FormatterParams
-        value={form.getValues().formatter}
-        onChange={(values) => form.setFieldValue('formatter', values)}
-      />
+      <Paper withBorder p="xs">
+        <Stack gap="xs">
+          <Text size="sm" fw="bold">
+            Format
+          </Text>
+
+          <Select
+            label={
+              <Group>
+                <LabelWithTooltip
+                  label="Input format"
+                  tooltip="ClickHouse input format for inserting"
+                />
+
+                <Anchor
+                  size="sm"
+                  target="_blank"
+                  href="https://clickhouse.com/docs/en/interfaces/formats"
+                >
+                  ClickHouse formats
+                </Anchor>
+              </Group>
+            }
+            placeholder="format"
+            data={CLICKHOUSE_INPUT_FORMAT}
+            clearable
+            searchable
+            {...form.getInputProps('input_format')}
+            value={form.getValues().input_format ?? null}
+            onChange={(value) => {
+              form.setFieldValue('input_format', value ?? undefined);
+            }}
+          />
+
+          <Textarea
+            label="Header"
+            description="Header that inserted before all events"
+            autosize
+            minRows={1}
+            {...form.getInputProps('header')}
+            onChange={(value) =>
+              form.setFieldValue(
+                'header',
+                value.currentTarget.value !== ''
+                  ? value.currentTarget.value
+                  : undefined
+              )
+            }
+          />
+          <TextInput
+            label={
+              <LabelWithTooltip
+                label="Separator"
+                tooltip="Separator between events"
+              />
+            }
+            rightSectionWidth="70px"
+            rightSection={
+              <Group wrap="nowrap" gap="2px">
+                <ActionIcon
+                  variant="transparent"
+                  title="Set tabulation as delimiter"
+                  onClick={() => {
+                    form.setFieldValue('separator', '\t');
+                  }}
+                >
+                  <Kbd>\t</Kbd>
+                </ActionIcon>
+                <ActionIcon
+                  variant="transparent"
+                  title="Set LF as delimiter"
+                  onClick={() => {
+                    form.setFieldValue('separator', '\n');
+                  }}
+                >
+                  <Kbd>\n</Kbd>
+                </ActionIcon>
+              </Group>
+            }
+            {...form.getInputProps('separator')}
+            onChange={(value) =>
+              form.setFieldValue(
+                'separator',
+                value.currentTarget.value !== ''
+                  ? value.currentTarget.value
+                  : undefined
+              )
+            }
+          />
+          <Textarea
+            label="Footer"
+            description="Footer that inserted after all events"
+            autosize
+            minRows={1}
+            {...form.getInputProps('footer')}
+            onChange={(value) =>
+              form.setFieldValue(
+                'footer',
+                value.currentTarget.value !== ''
+                  ? value.currentTarget.value
+                  : undefined
+              )
+            }
+          />
+
+          <FormatterParams
+            value={form.getValues().formatter}
+            onChange={(values) => form.setFieldValue('formatter', values)}
+          />
+        </Stack>
+      </Paper>
     </Stack>
   );
 };

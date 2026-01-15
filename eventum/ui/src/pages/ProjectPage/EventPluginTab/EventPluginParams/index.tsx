@@ -1,7 +1,4 @@
-import { CodeHighlight } from '@mantine/code-highlight';
-import { Stack, Text } from '@mantine/core';
 import { FC } from 'react';
-import YAML from 'yaml';
 
 import { ReplayEventPluginParams } from './ReplayEventPluginParams';
 import { ScriptEventPluginParams } from './ScriptEventPluginParams';
@@ -53,22 +50,11 @@ export const EventPluginParams: FC<EventPluginParamsProps> = ({
   const ParamsComponent = pluginNamesToParamsComponent[pluginName];
 
   return (
-    <Stack>
-      <ParamsComponent
-        initialConfig={pluginConfig}
-        onChange={(newConfig) => {
-          onChange({ [pluginName]: newConfig } as EventPluginNamedConfig);
-        }}
-      />
-      <Stack gap="4px">
-        <Text size="sm" fw="bold">
-          Configuration preview
-        </Text>
-        <CodeHighlight
-          code={YAML.stringify(eventPluginConfig)}
-          language="yml"
-        />
-      </Stack>
-    </Stack>
+    <ParamsComponent
+      initialConfig={pluginConfig}
+      onChange={(newConfig) => {
+        onChange({ [pluginName]: newConfig } as EventPluginNamedConfig);
+      }}
+    />
   );
 };

@@ -1,4 +1,4 @@
-import { JsonInput, Stack } from '@mantine/core';
+import { JsonInput, Paper, Stack } from '@mantine/core';
 import { useForm } from '@mantine/form';
 import { zod4Resolver } from 'mantine-form-zod-resolver';
 import { FC } from 'react';
@@ -28,7 +28,7 @@ export const TemplateEventPluginParams: FC<TemplateEventPluginParamsProps> = ({
   });
 
   return (
-    <Stack>
+    <Stack gap="xs">
       <JsonInput
         label="Parameters"
         description="Each parameter is an attribute of a single JSON object"
@@ -57,10 +57,12 @@ export const TemplateEventPluginParams: FC<TemplateEventPluginParamsProps> = ({
         error={form.errors.params}
       />
 
-      <Stack>
+      <Paper withBorder p="xs">
         <SamplesSection form={form} />
+      </Paper>
+      <Paper withBorder p="xs">
         <TemplatesSection form={form} />
-      </Stack>
+      </Paper>
     </Stack>
   );
 };

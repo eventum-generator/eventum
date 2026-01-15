@@ -84,7 +84,7 @@ const PluginsList = <T extends PluginType>({
   }
 
   return (
-    <Stack>
+    <Stack gap="xs">
       <Stack gap="xs">
         {plugins.length === 0 && (
           <Center>

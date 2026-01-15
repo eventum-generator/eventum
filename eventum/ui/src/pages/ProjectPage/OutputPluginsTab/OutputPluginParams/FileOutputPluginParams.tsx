@@ -3,6 +3,7 @@ import {
   Group,
   Kbd,
   NumberInput,
+  Paper,
   Select,
   Stack,
   TextInput,
@@ -37,7 +38,7 @@ export const FileOutputPluginParams: FC<FileOutputPluginParamsProps> = ({
   });
 
   return (
-    <Stack>
+    <Stack gap="xs">
       <TextInput
         label={
           <LabelWithTooltip
@@ -50,7 +51,7 @@ export const FileOutputPluginParams: FC<FileOutputPluginParamsProps> = ({
         {...form.getInputProps('path')}
       />
 
-      <Group wrap="nowrap" align="start">
+      <Group grow wrap="nowrap" align="start">
         <NumberInput
           label={
             <LabelWithTooltip
@@ -91,7 +92,7 @@ export const FileOutputPluginParams: FC<FileOutputPluginParamsProps> = ({
         />
       </Group>
 
-      <Group wrap="nowrap" align="start">
+      <Group grow wrap="nowrap" align="start">
         <NumberInput
           label={
             <LabelWithTooltip
@@ -131,7 +132,7 @@ export const FileOutputPluginParams: FC<FileOutputPluginParamsProps> = ({
         />
       </Group>
 
-      <Group wrap="nowrap" align="start">
+      <Group grow wrap="nowrap" align="start">
         <TextInput
           label={
             <LabelWithTooltip label="Separator" tooltip="Events separator" />
@@ -192,11 +193,12 @@ export const FileOutputPluginParams: FC<FileOutputPluginParamsProps> = ({
           }
         />
       </Group>
-
-      <FormatterParams
-        value={form.getValues().formatter}
-        onChange={(values) => form.setFieldValue('formatter', values)}
-      />
+      <Paper withBorder p="xs">
+        <FormatterParams
+          value={form.getValues().formatter}
+          onChange={(values) => form.setFieldValue('formatter', values)}
+        />
+      </Paper>
     </Stack>
   );
 };

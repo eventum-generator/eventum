@@ -1,5 +1,7 @@
-import { Center, Divider, Grid, Stack, Text } from '@mantine/core';
+import { CodeHighlight } from '@mantine/code-highlight';
+import { Center, Grid, Paper, Stack, Text } from '@mantine/core';
 import { FC, useCallback, useEffect, useState } from 'react';
+import YAML from 'yaml';
 
 import { EventPluginsList } from '../PluginsList';
 import { FileTree } from '../common/FileTree';
@@ -57,61 +59,94 @@ export const EventPluginTab: FC<EventPluginTabProps> = ({
   }, []);
 
   return (
-    <Grid gutter="lg">
+    <Grid>
       <Grid.Col span={2}>
         <Stack>
-          <EventPluginsList
-            type="event"
-            plugins={pluginNames}
-            onChangeSelectedPlugin={setSelectedPluginIndex}
-            selectedPlugin={selectedPluginIndex}
-            onAddNewPlugin={handleAddNewPlugin}
-            onDeletePlugin={handleDeletePlugin}
-            maxPlugins={1}
-          />
-          <Text size="sm" fw="bold">
-            File tree
-          </Text>
-          <Divider />
-          <FileTree />
+          <Paper withBorder p="sm">
+            <Stack gap="xs">
+              <Text size="sm" fw="bold">
+                Plugin list
+              </Text>
+              <EventPluginsList
+                type="event"
+                plugins={pluginNames}
+                onChangeSelectedPlugin={setSelectedPluginIndex}
+                selectedPlugin={selectedPluginIndex}
+                onAddNewPlugin={handleAddNewPlugin}
+                onDeletePlugin={handleDeletePlugin}
+                maxPlugins={1}
+              />
+            </Stack>
+          </Paper>
+          <Paper withBorder p="sm">
+            <Stack gap="xs">
+              <Text size="sm" fw="bold">
+                File tree
+              </Text>
+              <FileTree />
+            </Stack>
+          </Paper>
         </Stack>
       </Grid.Col>
       <Grid.Col span={7}>
-        <Stack>
-          {pluginsConfig.length === 0 ? (
-            <Center>
-              <Text size="sm" c="gray.6">
-                No plugins added
-              </Text>
-            </Center>
-          ) : (
-            <GetPluginConfigProvider getPluginConfig={() => pluginsConfig[0]!}>
-              <Workspace
-                pluginName={
-                  Object.keys(pluginsConfig[0]!)[0] as EventPluginName
-                }
-              />
-            </GetPluginConfigProvider>
-          )}
-        </Stack>
+        <Paper withBorder p="sm">
+          <Stack gap="xs">
+            <Text size="sm" fw="bold">
+              Workspace
+            </Text>
+            {pluginsConfig.length === 0 ? (
+              <Center>
+                <Text size="sm" c="gray.6">
+                  No plugins added
+                </Text>
+              </Center>
+            ) : (
+              <GetPluginConfigProvider
+                getPluginConfig={() => pluginsConfig[0]!}
+              >
+                <Workspace
+                  pluginName={
+                    Object.keys(pluginsConfig[0]!)[0] as EventPluginName
+                  }
+                />
+              </GetPluginConfigProvider>
+            )}
+          </Stack>
+        </Paper>
       </Grid.Col>
       <Grid.Col span={3}>
         <Stack>
-          <Text size="sm" fw="bold">
-            Plugin parameters
-          </Text>
-          <Divider />
-          {pluginsConfig.length === 0 ? (
-            <Center>
-              <Text size="sm" c="gray.6">
-                No plugins added
+          <Paper withBorder p="sm">
+            <Stack gap="xs">
+              <Text size="sm" fw="bold">
+                Plugin parameters
               </Text>
-            </Center>
-          ) : (
-            <EventPluginParams
-              eventPluginConfig={pluginsConfig[0]!}
-              onChange={handleConfigChange}
-            />
+              {pluginsConfig.length === 0 ? (
+                <Center>
+                  <Text size="sm" c="gray.6">
+                    No plugins added
+                  </Text>
+                </Center>
+              ) : (
+                <EventPluginParams
+                  eventPluginConfig={pluginsConfig[0]!}
+                  onChange={handleConfigChange}
+                />
+              )}
+            </Stack>
+          </Paper>
+          {pluginsConfig.length > 0 && (
+            <Paper withBorder p="sm">
+              <Stack gap="xs">
+                <Text size="sm" fw="bold">
+                  Configuration preview
+                </Text>
+                <CodeHighlight
+                  code={YAML.stringify(pluginsConfig[0]!)}
+                  language="yml"
+                />
+              </Stack>
+            </Paper>
           )}
         </Stack>
       </Grid.Col>

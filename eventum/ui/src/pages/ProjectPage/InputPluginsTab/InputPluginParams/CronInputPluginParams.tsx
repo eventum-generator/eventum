@@ -60,7 +60,7 @@ export const CronInputPluginParams: FC<CronInputPluginParamsProps> = ({
   }
 
   return (
-    <Stack>
+    <Stack gap="xs">
       <Group grow align="start">
         <Stack gap="5px">
           <TextInput

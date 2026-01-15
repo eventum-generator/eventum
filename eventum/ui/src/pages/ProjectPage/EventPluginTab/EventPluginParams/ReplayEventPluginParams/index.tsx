@@ -37,7 +37,7 @@ export const ReplayEventPluginParams: FC<ReplayEventPluginParamsProps> = ({
   });
 
   return (
-    <Stack>
+    <Stack gap="xs">
       <ProjectFileSelect
         label={
           <LabelWithTooltip label="Path" tooltip="Path to log file to replay" />
