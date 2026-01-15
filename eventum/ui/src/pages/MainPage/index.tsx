@@ -5,6 +5,7 @@ import {
   Grid,
   Group,
   Indicator,
+  MantineColor,
   Skeleton,
   Stack,
   Text,
@@ -63,6 +64,20 @@ export default function MainPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  let indicatorText = 'Stale';
+  let indicatorColor: MantineColor = 'gray.6';
+
+  if (isInstanceInfoSuccess) {
+    indicatorText = 'Connected';
+    indicatorColor = 'green.6';
+  } else if (isInstanceInfoLoading) {
+    indicatorText = 'Updating ...';
+    indicatorColor = 'yellow.6';
+  } else if (isInstanceInfoError) {
+    indicatorText = 'Disconnected';
+    indicatorColor = 'red.6';
+  }
+
   return (
     <Container size="100%">
       <Stack>
@@ -73,13 +88,13 @@ export default function MainPage() {
 
           <Group wrap="nowrap" gap="12px">
             <Indicator
-              color="green.6"
+              color={indicatorColor}
               position="middle-center"
               size="8px"
               processing
             />
             <Text c="gray.6" size="sm">
-              Connected
+              {indicatorText}
             </Text>
           </Group>
         </Group>
