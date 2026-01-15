@@ -22,8 +22,8 @@ server.port: 9474
 # SSL parameters
 
 # Whether to enable SSL
-# Optional, default is true
-server.ssl.enabled: true
+# Optional, default is false
+server.ssl.enabled: false
 
 # Verification mode of SSL connections. The default null value
 # is the same as "none", but null value can also be used as
@@ -128,7 +128,7 @@ path.startup: /app/eventum/config/startup.yml
 
 # Absolute path to directory with generators configuration files
 # Required, there is no default value
-path.generators_dir: /app/eventum/config/conf.d/
+path.generators_dir: /app/eventum/config/generators/
 
 # Absolute path to keyring encrypted file with stored secrets
 # Required, there is no default value
@@ -140,4 +140,4 @@ path.keyring_cryptfile: /app/eventum/config/cryptfile.cfg
 # other than this parameter value will not be operable using API
 # endpoints.
 # Optional, default is "generator.yml"
-generator_config_filename: generator.yml
+path.generator_config_filename: generator.yml

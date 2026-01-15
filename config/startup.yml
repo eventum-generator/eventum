@@ -52,3 +52,7 @@
 # - id: "test3"
 #   path: "/app/eventum/config/conf.d/test3/config.yml"
 #   timezone: "Europe/Moscow"
+
+# If you don't want to run any of the generators at startup you can leave empty
+# list in this file or use "autostart" parameter set to false for all generators
+[]
