@@ -11,7 +11,7 @@ class SSLParameters(BaseModel, extra='forbid', frozen=True):
 
     Attributes
     ----------
-    enabled : bool, default=True
+    enabled : bool, default=False
         Whether to enable SSL.
 
     verify_mode : Literal['none', 'optional', 'required'], default=None
@@ -30,7 +30,7 @@ class SSLParameters(BaseModel, extra='forbid', frozen=True):
 
     """
 
-    enabled: bool = Field(default=True, description='Whether to enable SSL')
+    enabled: bool = Field(default=False, description='Whether to enable SSL')
     verify_mode: Literal['none', 'optional', 'required'] | None = Field(
         default=None,
     )
