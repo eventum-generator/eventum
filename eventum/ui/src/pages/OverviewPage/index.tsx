@@ -25,7 +25,7 @@ import {
 import { useInstanceInfo } from '@/api/hooks/useInstance';
 import { ShowErrorDetailsAnchor } from '@/components/ui/ShowErrorDetailsAnchor';
 
-export default function MainPage() {
+export default function OverviewPage() {
   const {
     data: instanceInfo,
     isLoading: isInstanceInfoLoading,

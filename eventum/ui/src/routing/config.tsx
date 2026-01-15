@@ -13,9 +13,9 @@ const SignInPage = lazy(
       default: React.ComponentType;
     }>
 );
-const MainPage = lazy(
+const OverviewPage = lazy(
   () =>
-    import('@/pages/MainPage') as Promise<{
+    import('@/pages/OverviewPage') as Promise<{
       default: React.ComponentType;
     }>
 );
@@ -87,7 +87,7 @@ export const routes: RouteObject[] = [
       </PrivateRoute>
     ),
     children: [
-      { index: true, element: <MainPage /> },
+      { index: true, element: <OverviewPage /> },
       { path: ROUTE_PATHS.INSTANCES, element: <InstancesPage /> },
       { path: ROUTE_PATHS.INSTANCE, element: <InstancePage /> },
       { path: ROUTE_PATHS.PROJECTS, element: <ProjectsPage /> },
