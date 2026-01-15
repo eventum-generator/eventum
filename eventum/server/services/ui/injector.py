@@ -27,11 +27,11 @@ def inject_service(
     """
     if not WWW_DIR.exists():
         msg = 'www directory does not exist'
-        raise ServiceBuildingError(msg, context={'path': WWW_DIR})
+        raise ServiceBuildingError(msg, context={'path': str(WWW_DIR)})
 
     if not ASSETS_DIR.exists():
         msg = 'www directory has not assets'
-        raise ServiceBuildingError(msg, context={'path': ASSETS_DIR})
+        raise ServiceBuildingError(msg, context={'path': str(ASSETS_DIR)})
 
     app.mount(
         path='/assets',
