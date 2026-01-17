@@ -1,4 +1,4 @@
-import { TextInput } from '@mantine/core';
+import { Stack, TextInput } from '@mantine/core';
 import { UseFormReturnType } from '@mantine/form';
 import { FC } from 'react';
 
@@ -13,7 +13,7 @@ export const PathParametersSection: FC<PathParametersSectionProps> = ({
   form,
 }) => {
   return (
-    <>
+    <Stack gap="xs">
       <TextInput
         label={
           <LabelWithTooltip
@@ -72,6 +72,6 @@ export const PathParametersSection: FC<PathParametersSectionProps> = ({
         {...form.getInputProps('logs')}
         key={form.key('logs')}
       />
-    </>
+    </Stack>
   );
 };

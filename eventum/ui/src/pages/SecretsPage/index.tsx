@@ -1,4 +1,13 @@
-import { Alert, Box, Center, Container, Loader, Table } from '@mantine/core';
+import {
+  Alert,
+  Box,
+  Center,
+  Container,
+  Loader,
+  Paper,
+  Stack,
+  Table,
+} from '@mantine/core';
 import { IconAlertSquareRounded } from '@tabler/icons-react';
 
 import { NewSecretRow } from './NewSecretRow';
@@ -43,24 +52,29 @@ export default function SecretsPage() {
   if (isSecretNamesSuccess) {
     return (
       <Container size="xl" mb="400px">
-        <PageTitle title="Secrets" />
-        <Table mt="md" highlightOnHover stickyHeader stickyHeaderOffset={60}>
-          <Table.Thead>
-            <Table.Tr>
-              <Table.Th>Name</Table.Th>
-              <Table.Th>Value</Table.Th>
-              <Table.Th style={{ width: '1%', whiteSpace: 'nowrap' }}>
-                Actions
-              </Table.Th>
-            </Table.Tr>
-          </Table.Thead>
-          <Table.Tbody>
-            {secretNames.map((item) => (
-              <TableRow key={item} name={item} />
-            ))}
-            <NewSecretRow />
-          </Table.Tbody>
-        </Table>
+        <Stack>
+          <PageTitle title="Secrets" />
+
+          <Paper withBorder p="sm">
+            <Table stickyHeader stickyHeaderOffset={60}>
+              <Table.Thead>
+                <Table.Tr>
+                  <Table.Th>Name</Table.Th>
+                  <Table.Th>Value</Table.Th>
+                  <Table.Th style={{ width: '1%', whiteSpace: 'nowrap' }}>
+                    Actions
+                  </Table.Th>
+                </Table.Tr>
+              </Table.Thead>
+              <Table.Tbody>
+                {secretNames.map((item) => (
+                  <TableRow key={item} name={item} />
+                ))}
+                <NewSecretRow />
+              </Table.Tbody>
+            </Table>
+          </Paper>
+        </Stack>
       </Container>
     );
   }

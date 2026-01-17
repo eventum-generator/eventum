@@ -5,10 +5,10 @@ import {
   Center,
   Checkbox,
   Container,
-  Divider,
   Group,
   JsonInput,
   Loader,
+  Paper,
   Stack,
   Switch,
   Text,
@@ -381,90 +381,94 @@ export default function InstancePage() {
             </Group>
           </Group>
 
-          <Stack gap="4px">
-            <Title order={4} fw={500} mt="xl">
-              Generator parameters
-            </Title>
-            <Divider />
-          </Stack>
+          <Paper withBorder p="sm">
+            <Stack gap="xs">
+              <Title order={4} fw={500}>
+                Generator parameters
+              </Title>
 
-          <Group>
-            <Switch
-              label={
-                <LabelWithTooltip
-                  label="Live mode"
-                  tooltip="Whether to use live mode and generate events at moments defined by timestamp
+              <Group>
+                <Switch
+                  label={
+                    <LabelWithTooltip
+                      label="Live mode"
+                      tooltip="Whether to use live mode and generate events at moments defined by timestamp
                 values or sample mode to generate all events at a time"
+                    />
+                  }
+                  {...form.getInputProps('live_mode', { type: 'checkbox' })}
                 />
-              }
-              {...form.getInputProps('live_mode', { type: 'checkbox' })}
-            />
-            <Switch
-              label={
-                <LabelWithTooltip
-                  label="Skip past"
-                  tooltip="Whether to skip past timestamps when starting generation in live mode"
+                <Switch
+                  label={
+                    <LabelWithTooltip
+                      label="Skip past"
+                      tooltip="Whether to skip past timestamps when starting generation in live mode"
+                    />
+                  }
+                  {...form.getInputProps('skip_past', { type: 'checkbox' })}
                 />
-              }
-              {...form.getInputProps('skip_past', { type: 'checkbox' })}
-            />
-            <Checkbox
-              label={
-                <LabelWithTooltip
-                  label="Auto start"
-                  tooltip="Whether to automatically start the generator on application start up"
+                <Checkbox
+                  label={
+                    <LabelWithTooltip
+                      label="Auto start"
+                      tooltip="Whether to automatically start the generator on application start up"
+                    />
+                  }
+                  {...form.getInputProps('autostart', { type: 'checkbox' })}
                 />
-              }
-              {...form.getInputProps('autostart', { type: 'checkbox' })}
-            />
-          </Group>
+              </Group>
 
-          <JsonInput
-            label="Parameters"
-            description="Parameters that can be used in generator configuration file"
-            placeholder="{ ... }"
-            validationError="Invalid JSON"
-            minRows={4}
-            autosize
-            defaultValue={JSON.stringify(
-              form.getValues().params ?? '',
-              undefined,
-              2
-            )}
-            onChange={(value) => {
-              if (value === '') {
-                form.setFieldValue('params', undefined);
-              }
+              <JsonInput
+                label="Parameters"
+                description="Parameters that can be used in generator configuration file"
+                placeholder="{ ... }"
+                validationError="Invalid JSON"
+                minRows={4}
+                autosize
+                defaultValue={JSON.stringify(
+                  form.getValues().params ?? '',
+                  undefined,
+                  2
+                )}
+                onChange={(value) => {
+                  if (value === '') {
+                    form.setFieldValue('params', undefined);
+                  }
 
-              let parsedValue: unknown;
-              try {
-                parsedValue = JSON.parse(value);
-              } catch {
-                return;
-              }
+                  let parsedValue: unknown;
+                  try {
+                    parsedValue = JSON.parse(value);
+                  } catch {
+                    return;
+                  }
 
-              if (typeof parsedValue !== 'object') {
-                return;
-              }
+                  if (typeof parsedValue !== 'object') {
+                    return;
+                  }
 
-              form.setFieldValue(
-                'params',
-                parsedValue as Record<string, unknown>
-              );
-            }}
-            error={form.errors.params}
-          />
+                  form.setFieldValue(
+                    'params',
+                    parsedValue as Record<string, unknown>
+                  );
+                }}
+                error={form.errors.params}
+              />
+            </Stack>
+          </Paper>
 
-          <Stack gap="4px">
-            <Title order={4} fw={500} mt="xl">
-              Generation parameters
-            </Title>
-            <Divider />
-          </Stack>
+          <Paper withBorder p="sm">
+            <Stack gap="xs">
+              <Title order={4} fw={500}>
+                Generation parameters
+              </Title>
 
-          <GenerationParametersSection
-            form={form as unknown as UseFormReturnType<GenerationParameters>}
-          />
+              <GenerationParametersSection
+                form={
+                  form as unknown as UseFormReturnType<GenerationParameters>
+                }
+              />
+            </Stack>
+          </Paper>
         </Stack>
       </Container>
     );

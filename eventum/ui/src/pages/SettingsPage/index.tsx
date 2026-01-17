@@ -3,9 +3,9 @@ import {
   Box,
   Center,
   Container,
-  Divider,
   Grid,
   Loader,
+  Paper,
   Stack,
   Text,
   Title,
@@ -40,6 +40,7 @@ import {
 } from '@/api/routes/instance/schemas';
 import { FloatingPanel } from '@/components/ui/FloatingPanel';
 import { FloatingTableOfContents } from '@/components/ui/FloatingTableOfContents';
+import { PageTitle } from '@/components/ui/PageTitle';
 import { ShowErrorDetailsAnchor } from '@/components/ui/ShowErrorDetailsAnchor';
 
 export default function SettingsPage() {
@@ -169,43 +170,51 @@ export default function SettingsPage() {
   if (isSettingsSuccess && ServerParamsForm.initialized) {
     return (
       <>
-        <Container size="xl" mb="535px">
+        <Container size="xl" mb="600px">
           <Grid gutter="xl">
             <Grid.Col span="auto">
               <form>
                 <Stack>
-                  <Stack gap="4px">
-                    <Title order={2} fw={500}>
-                      Server parameters
-                    </Title>
-                    <Divider />
-                  </Stack>
-                  <ServerParametersSection form={ServerParamsForm} />
+                  <PageTitle title="Settings" />
+                  <Paper withBorder p="sm">
+                    <Stack gap="xs">
+                      <Title order={4} fw={500}>
+                        Server parameters
+                      </Title>
+                      <ServerParametersSection form={ServerParamsForm} />
+                    </Stack>
+                  </Paper>
 
-                  <Stack gap="4px">
-                    <Title order={2} fw={500} mt="xs">
-                      Generation parameters
-                    </Title>
-                    <Divider />
-                  </Stack>
-                  <GenerationParametersSection form={generationParamsForm} />
+                  <Paper withBorder p="sm">
+                    <Stack gap="xs">
+                      <Title order={4} fw={500}>
+                        Generation parameters
+                      </Title>
+                      <GenerationParametersSection
+                        form={generationParamsForm}
+                      />
+                    </Stack>
+                  </Paper>
 
-                  <Stack gap="4px">
-                    <Title order={2} fw={500} mt="xs">
-                      Path parameters
-                    </Title>
-                    <Divider />
-                  </Stack>
-                  <PathParametersSection form={pathParamsForm} />
+                  <Paper withBorder p="sm">
+                    <Stack gap="xs">
+                      <Title order={4} fw={500}>
+                        Path parameters
+                      </Title>
+                      <PathParametersSection form={pathParamsForm} />
+                    </Stack>
+                  </Paper>
 
-                  <Stack gap="4px">
-                    <Title order={2} fw={500} mt="xs">
-                      Logging parameters
-                    </Title>
-                    <Divider />
-                  </Stack>
-                  <LoggingParametersSection form={logParamsForm} />
+                  <Paper withBorder p="sm">
+                    <Stack gap="xs">
+                      <Title order={4} fw={500}>
+                        Logging parameters
+                      </Title>
+                      <LoggingParametersSection form={logParamsForm} />
+                    </Stack>
+                  </Paper>
                 </Stack>
+
                 <FloatingPanel
                   mounted={
                     ServerParamsForm.isDirty() ||
@@ -233,7 +242,7 @@ export default function SettingsPage() {
             </Grid.Col>
 
             <Grid.Col span={3}>
-              <FloatingTableOfContents />
+              <FloatingTableOfContents selector=":is(h4)" />
             </Grid.Col>
           </Grid>
         </Container>

@@ -112,7 +112,7 @@ export const InstancesStatsPanel: FC<InstancesStatsPanelProps> = ({
   ];
 
   return (
-    <Paper withBorder shadow="sm" p="md">
+    <Paper withBorder p="md">
       <Stack gap="xs">
         <Title order={4} fw="500">
           Flow stats
@@ -120,7 +120,7 @@ export const InstancesStatsPanel: FC<InstancesStatsPanelProps> = ({
 
         <Grid columns={12}>
           <Grid.Col span={8}>
-            <Paper withBorder shadow="0" p="sm">
+            <Paper withBorder p="sm">
               <Group grow justify="space-between">
                 {totalMetricsItems.map((metric, index) => (
                   <Stack key={index} gap="2px" align="center">
@@ -137,7 +137,7 @@ export const InstancesStatsPanel: FC<InstancesStatsPanelProps> = ({
           </Grid.Col>
 
           <Grid.Col span={4}>
-            <Paper withBorder shadow="0" p="sm">
+            <Paper withBorder p="sm">
               <Group grow justify="space-between">
                 {epsMetricsItems.map((metric, index) => (
                   <Stack key={index} gap="2px" align="center">

@@ -72,7 +72,7 @@ export const InstancesStatusesPanel: FC<InstancesStatusesPanelProps> = ({
   ];
 
   return (
-    <Paper withBorder shadow="sm" p="md">
+    <Paper withBorder p="md">
       <Stack gap="xs">
         <Title order={4} fw="500">
           Instances

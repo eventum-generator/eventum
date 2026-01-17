@@ -23,7 +23,7 @@ export const PerformancePanel: FC<PerformancePanelProps> = ({
   instanceInfo,
 }) => {
   return (
-    <Paper withBorder shadow="sm" p="md">
+    <Paper withBorder p="md">
       <Stack gap="4px">
         <Title order={4} fw="500">
           Performance

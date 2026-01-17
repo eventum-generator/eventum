@@ -8,6 +8,8 @@ import {
   Container,
   Group,
   Loader,
+  Paper,
+  Stack,
   Text,
   TextInput,
 } from '@mantine/core';
@@ -267,135 +269,147 @@ export default function InstancesPage() {
 
     return (
       <Container size="100%">
-        <PageTitle title="Instances" />
-        <Group justify="space-between" mt="lg">
-          <Group>
-            <TextInput
-              leftSection={<IconSearch size={16} />}
-              rightSection={
-                <ActionIcon
-                  variant="transparent"
-                  onClick={() => setInstanceFilter('')}
-                  data-input-section
+        <Stack>
+          <PageTitle title="Instances" />
+          <Paper withBorder p="sm">
+            <Group justify="space-between" align="center">
+              <Group>
+                <TextInput
+                  leftSection={<IconSearch size={16} />}
+                  rightSection={
+                    <ActionIcon
+                      variant="transparent"
+                      onClick={() => setInstanceFilter('')}
+                      data-input-section
+                    >
+                      <IconX size={16} />
+                    </ActionIcon>
+                  }
+                  placeholder="search by instance..."
+                  value={instanceFilter}
+                  onChange={(event) => setInstanceFilter(event.target.value)}
+                />
+                <TextInput
+                  leftSection={<IconSearch size={16} />}
+                  rightSection={
+                    <ActionIcon
+                      variant="transparent"
+                      onClick={() => setProjectNameFilter('')}
+                      data-input-section
+                    >
+                      <IconX size={16} />
+                    </ActionIcon>
+                  }
+                  placeholder="search by project..."
+                  value={projectNameFilter}
+                  onChange={(event) => setProjectNameFilter(event.target.value)}
+                />
+                <Checkbox
+                  label="Running only"
+                  checked={runningOnlyFilter}
+                  onChange={(event) =>
+                    setRunningOnlyFilter(event.currentTarget.checked)
+                  }
+                />
+              </Group>
+              <Group gap="xs">
+                <Group gap={0}>
+                  <ActionIcon
+                    size="lg"
+                    variant="default"
+                    title="Delete"
+                    style={{
+                      borderTopRightRadius: 0,
+                      borderBottomRightRadius: 0,
+                    }}
+                    onClick={() =>
+                      modals.openConfirmModal({
+                        title: 'Deleting instances',
+                        children: (
+                          <Text size="sm">
+                            Instance(s) <b>{selectedInstanceIds.join(', ')}</b>{' '}
+                            will be deleted. Do you want to continue?
+                          </Text>
+                        ),
+                        labels: { cancel: 'Cancel', confirm: 'Confirm' },
+                        onConfirm: () => handleBulkDelete(selectedInstanceIds),
+                      })
+                    }
+                    loading={bulkDelete.isPending}
+                    disabled={selectedInstanceIds.length === 0}
+                  >
+                    <Box
+                      c={selectedInstanceIds.length === 0 ? undefined : 'red'}
+                    >
+                      <IconTrash size={20} />
+                    </Box>
+                  </ActionIcon>
+                  <ActionIcon
+                    size="lg"
+                    variant="default"
+                    title="Refresh"
+                    bdrs={0}
+                    onClick={() => void refetchGenerators()}
+                    loading={isGeneratorsLoading}
+                  >
+                    <IconRefresh size={20} />
+                  </ActionIcon>
+                  <ActionIcon
+                    size="lg"
+                    variant="default"
+                    title="Stop selected"
+                    bdrs={0}
+                    disabled={selectedInstanceIds.length === 0}
+                    loading={bulkStop.isPending}
+                    onClick={() => handleBulkStop(selectedInstanceIds)}
+                  >
+                    <IconPlayerStop size={20} />
+                  </ActionIcon>
+                  <ActionIcon
+                    size="lg"
+                    variant="default"
+                    title="Start selected"
+                    style={{
+                      borderTopLeftRadius: 0,
+                      borderBottomLeftRadius: 0,
+                    }}
+                    disabled={selectedInstanceIds.length === 0}
+                    loading={bulkStart.isPending}
+                    onClick={() => handleBulkStart(selectedInstanceIds)}
+                  >
+                    <IconPlayerPlay size={20} />
+                  </ActionIcon>
+                </Group>
+                <Button
+                  onClick={() =>
+                    modals.open({
+                      title: 'New instance',
+                      children: (
+                        <CreateInstanceModal
+                          existingInstanceIds={generators.map(
+                            (instance) => instance.id
+                          )}
+                        />
+                      ),
+                      size: 'lg',
+                    })
+                  }
                 >
-                  <IconX size={16} />
-                </ActionIcon>
-              }
-              placeholder="search by instance..."
-              value={instanceFilter}
-              onChange={(event) => setInstanceFilter(event.target.value)}
-            />
-            <TextInput
-              leftSection={<IconSearch size={16} />}
-              rightSection={
-                <ActionIcon
-                  variant="transparent"
-                  onClick={() => setProjectNameFilter('')}
-                  data-input-section
-                >
-                  <IconX size={16} />
-                </ActionIcon>
-              }
-              placeholder="search by project..."
-              value={projectNameFilter}
-              onChange={(event) => setProjectNameFilter(event.target.value)}
-            />
-            <Checkbox
-              label="Running only"
-              checked={runningOnlyFilter}
-              onChange={(event) =>
-                setRunningOnlyFilter(event.currentTarget.checked)
-              }
-            />
-          </Group>
-          <Group gap="xs">
-            <Group gap={0}>
-              <ActionIcon
-                size="lg"
-                variant="default"
-                title="Delete"
-                style={{ borderTopRightRadius: 0, borderBottomRightRadius: 0 }}
-                onClick={() =>
-                  modals.openConfirmModal({
-                    title: 'Deleting instances',
-                    children: (
-                      <Text size="sm">
-                        Instance(s) <b>{selectedInstanceIds.join(', ')}</b> will
-                        be deleted. Do you want to continue?
-                      </Text>
-                    ),
-                    labels: { cancel: 'Cancel', confirm: 'Confirm' },
-                    onConfirm: () => handleBulkDelete(selectedInstanceIds),
-                  })
-                }
-                loading={bulkDelete.isPending}
-                disabled={selectedInstanceIds.length === 0}
-              >
-                <Box c={selectedInstanceIds.length === 0 ? undefined : 'red'}>
-                  <IconTrash size={20} />
-                </Box>
-              </ActionIcon>
-              <ActionIcon
-                size="lg"
-                variant="default"
-                title="Refresh"
-                bdrs={0}
-                onClick={() => void refetchGenerators()}
-                loading={isGeneratorsLoading}
-              >
-                <IconRefresh size={20} />
-              </ActionIcon>
-              <ActionIcon
-                size="lg"
-                variant="default"
-                title="Stop selected"
-                bdrs={0}
-                disabled={selectedInstanceIds.length === 0}
-                loading={bulkStop.isPending}
-                onClick={() => handleBulkStop(selectedInstanceIds)}
-              >
-                <IconPlayerStop size={20} />
-              </ActionIcon>
-              <ActionIcon
-                size="lg"
-                variant="default"
-                title="Start selected"
-                style={{ borderTopLeftRadius: 0, borderBottomLeftRadius: 0 }}
-                disabled={selectedInstanceIds.length === 0}
-                loading={bulkStart.isPending}
-                onClick={() => handleBulkStart(selectedInstanceIds)}
-              >
-                <IconPlayerPlay size={20} />
-              </ActionIcon>
+                  Create new
+                </Button>
+              </Group>
             </Group>
-            <Button
-              onClick={() =>
-                modals.open({
-                  title: 'New instance',
-                  children: (
-                    <CreateInstanceModal
-                      existingInstanceIds={generators.map(
-                        (instance) => instance.id
-                      )}
-                    />
-                  ),
-                  size: 'lg',
-                })
-              }
-            >
-              Create new
-            </Button>
-          </Group>
-        </Group>
+          </Paper>
 
-        <InstancesTable
-          data={generators}
-          projectNameFilter={projectNameFilter}
-          instancesFilter={instanceFilter}
-          runningOnlyFilter={runningOnlyFilter}
-          rowSelection={rowSelection}
-          onRowSelectionChange={setRowSelection}
-        />
+          <InstancesTable
+            data={generators}
+            projectNameFilter={projectNameFilter}
+            instancesFilter={instanceFilter}
+            runningOnlyFilter={runningOnlyFilter}
+            rowSelection={rowSelection}
+            onRowSelectionChange={setRowSelection}
+          />
+        </Stack>
       </Container>
     );
   }

@@ -33,7 +33,7 @@ export const LastInstancesListPanel: FC<LastInstancesListPanelProps> = ({
     .slice(0, 5);
 
   return (
-    <Paper withBorder shadow="sm" p="md">
+    <Paper withBorder p="md">
       <Stack gap="sm">
         <Title order={4} fw="500">
           Recent instances
@@ -61,7 +61,6 @@ export const LastInstancesListPanel: FC<LastInstancesListPanelProps> = ({
                 key={generator.id}
                 withBorder
                 p="xs"
-                shadow="0"
                 onClick={() =>
                   void navigate(`${ROUTE_PATHS.INSTANCES}/${generator.id}`)
                 }

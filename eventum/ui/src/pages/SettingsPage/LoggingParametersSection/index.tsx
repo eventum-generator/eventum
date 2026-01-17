@@ -1,4 +1,4 @@
-import { Group, NumberInput, Select, Text } from '@mantine/core';
+import { Group, NumberInput, Select, Stack } from '@mantine/core';
 import { UseFormReturnType } from '@mantine/form';
 import { FC } from 'react';
 
@@ -17,7 +17,7 @@ export const LoggingParametersSection: FC<LoggingParametersSectionProps> = ({
   form,
 }) => {
   return (
-    <>
+    <Stack gap="xs">
       <Select
         label={
           <LabelWithTooltip
@@ -40,9 +40,6 @@ export const LoggingParametersSection: FC<LoggingParametersSectionProps> = ({
         key={form.key('format')}
       />
 
-      <Text size="sm" fw="bold" mt="md">
-        Rotation
-      </Text>
       <Group grow align="start">
         <NumberInput
           label={
@@ -71,6 +68,6 @@ export const LoggingParametersSection: FC<LoggingParametersSectionProps> = ({
           key={form.key('backups')}
         />
       </Group>
-    </>
+    </Stack>
   );
 };

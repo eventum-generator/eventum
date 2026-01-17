@@ -3,8 +3,10 @@ import {
   Box,
   Group,
   NumberInput,
+  Paper,
   Radio,
   Select,
+  Stack,
   Switch,
   Text,
   Tooltip,
@@ -47,7 +49,7 @@ export const GenerationParametersSection: FC<
   });
 
   return (
-    <>
+    <Stack gap="xs">
       <Switch
         label={
           <LabelWithTooltip
@@ -102,146 +104,157 @@ export const GenerationParametersSection: FC<
         key={form.key('write_timeout')}
       />
 
-      <Text size="sm" fw="bold" mt="md">
-        Batching
-      </Text>
-      <Radio.Group
-        name="batchingMode"
-        label="Batching mode"
-        description="Batch is formed by at least one condition"
-        value={batchingMode}
-      >
-        <Group mt="xs">
-          <Tooltip
-            withArrow
-            label="Use only size condition for batch formation"
-            position="bottom"
-            offset={12}
-            openDelay={200}
+      <Paper withBorder p="sm">
+        <Stack gap="xs">
+          <Text size="sm" fw="bold">
+            Batching
+          </Text>
+          <Radio.Group
+            name="batchingMode"
+            label="Batching mode"
+            description="Batch is formed by at least one condition"
+            value={batchingMode}
           >
-            <Box>
-              <Radio
-                value="size"
-                label="Size"
-                onClick={() => {
-                  setBatchingMode('size');
-                  form.setFieldValue('batch.delay', null);
-                }}
-              />
-            </Box>
-          </Tooltip>
-          <Tooltip
-            withArrow
-            label="Use only delay condition for batch formation"
-            position="bottom"
-            offset={12}
-            openDelay={200}
-          >
-            <Box>
-              <Radio
-                value="delay"
-                label="Delay"
-                onClick={() => {
-                  setBatchingMode('delay');
-                  form.setFieldValue('batch.size', null);
-                }}
-              />
-            </Box>
-          </Tooltip>
-          <Tooltip
-            withArrow
-            label="Use both size and delay conditions for batch formation. Batch is formed by the first true condition."
-            position="bottom"
-            offset={12}
-            openDelay={200}
-            maw={300}
-            multiline
-          >
-            <Box>
-              <Radio
-                value="combined"
-                label="Combined"
-                onClick={() => {
-                  setBatchingMode('combined');
-                }}
-              />
-            </Box>
-          </Tooltip>
-        </Group>
-      </Radio.Group>
-      <Group grow align="start">
-        <NumberInput
-          label={
-            <LabelWithTooltip
-              label="Batch size"
-              tooltip="Maximum number of timestamps for single batch"
+            <Group mt="xs">
+              <Tooltip
+                withArrow
+                label="Use only size condition for batch formation"
+                position="bottom"
+                offset={12}
+                openDelay={200}
+              >
+                <Box>
+                  <Radio
+                    value="size"
+                    label="Size"
+                    onClick={() => {
+                      setBatchingMode('size');
+                      form.setFieldValue('batch.delay', null);
+                    }}
+                  />
+                </Box>
+              </Tooltip>
+              <Tooltip
+                withArrow
+                label="Use only delay condition for batch formation"
+                position="bottom"
+                offset={12}
+                openDelay={200}
+              >
+                <Box>
+                  <Radio
+                    value="delay"
+                    label="Delay"
+                    onClick={() => {
+                      setBatchingMode('delay');
+                      form.setFieldValue('batch.size', null);
+                    }}
+                  />
+                </Box>
+              </Tooltip>
+              <Tooltip
+                withArrow
+                label="Use both size and delay conditions for batch formation. Batch is formed by the first true condition."
+                position="bottom"
+                offset={12}
+                openDelay={200}
+                maw={300}
+                multiline
+              >
+                <Box>
+                  <Radio
+                    value="combined"
+                    label="Combined"
+                    onClick={() => {
+                      setBatchingMode('combined');
+                    }}
+                  />
+                </Box>
+              </Tooltip>
+            </Group>
+          </Radio.Group>
+          <Group grow align="start">
+            <NumberInput
+              label={
+                <LabelWithTooltip
+                  label="Batch size"
+                  tooltip="Maximum number of timestamps for single batch"
+                />
+              }
+              placeholder="size"
+              min={1}
+              allowDecimal={false}
+              disabled={batchingMode === 'delay'}
+              {...form.getInputProps('batch.size')}
+              key={form.key('batch.size')}
             />
-          }
-          placeholder="size"
-          min={1}
-          allowDecimal={false}
-          disabled={batchingMode === 'delay'}
-          {...form.getInputProps('batch.size')}
-          key={form.key('batch.size')}
-        />
-        <NumberInput
-          label={
-            <LabelWithTooltip
-              label="Batch delay"
-              tooltip="Maximum time for single batch to accumulate incoming timestamps"
+            <NumberInput
+              label={
+                <LabelWithTooltip
+                  label="Batch delay"
+                  tooltip="Maximum time for single batch to accumulate incoming timestamps"
+                />
+              }
+              placeholder="seconds"
+              suffix=" s."
+              min={0.1}
+              step={0.1}
+              disabled={batchingMode === 'size'}
+              {...form.getInputProps('batch.delay')}
+              key={form.key('batch.delay')}
             />
-          }
-          placeholder="seconds"
-          suffix=" s."
-          min={0.1}
-          step={0.1}
-          disabled={batchingMode === 'size'}
-          {...form.getInputProps('batch.delay')}
-          key={form.key('batch.delay')}
-        />
-      </Group>
-      <Alert
-        variant="default"
-        icon={<Box c="blue" component={IconInfoCircle}></Box>}
-        title="Batch lifecycle"
-      >
-        Formed batch preserve its size throughout the entire workflow of
-        plugins. At event plugin stage, batch is expanded from timestamps to
-        events. So, for large events, smaller batch sizes are preferred.
-      </Alert>
+          </Group>
+          <Alert
+            variant="default"
+            icon={<Box c="blue" component={IconInfoCircle}></Box>}
+            title="Batch lifecycle"
+          >
+            Formed batch preserve its size throughout the entire workflow of
+            plugins. At event plugin stage, batch is expanded from timestamps to
+            events. So, for large events, smaller batch sizes are preferred.
+          </Alert>
+        </Stack>
+      </Paper>
 
-      <Text size="sm" fw="bold" mt="md">
-        Queue
-      </Text>
-      <Group grow align="start">
-        <NumberInput
-          label={
-            <LabelWithTooltip
-              label="Maximum timestamp batches"
-              tooltip="Maximum number of batches in timestamps queue (between all input and event plugins)"
+      <Paper withBorder p="sm">
+        <Stack gap="xs">
+          <Text size="sm" fw="bold">
+            Queue
+          </Text>
+          <Group grow align="start">
+            <NumberInput
+              label={
+                <LabelWithTooltip
+                  label="Maximum timestamp batches"
+                  tooltip="Maximum number of batches in timestamps queue (between all input and event plugins)"
+                />
+              }
+              placeholder="size"
+              min={1}
+              allowDecimal={false}
+              {...form.getInputProps('queue.max_timestamp_batches')}
+              key={form.key('queue.max_timestamp_batches')}
             />
-          }
-          placeholder="size"
-          min={1}
-          allowDecimal={false}
-          {...form.getInputProps('queue.max_timestamp_batches')}
-          key={form.key('queue.max_timestamp_batches')}
-        />
-        <NumberInput
-          label={
-            <LabelWithTooltip
-              label="Maximum event batches"
-              tooltip="Maximum number of batches in events queue (between event and output plugins)"
+            <NumberInput
+              label={
+                <LabelWithTooltip
+                  label="Maximum event batches"
+                  tooltip="Maximum number of batches in events queue (between event and output plugins)"
+                />
+              }
+              placeholder="size"
+              min={1}
+              allowDecimal={false}
+              {...form.getInputProps('queue.max_event_batches')}
+              key={form.key('queue.max_event_batches')}
             />
-          }
-          placeholder="size"
-          min={1}
-          allowDecimal={false}
-          {...form.getInputProps('queue.max_event_batches')}
-          key={form.key('queue.max_event_batches')}
-        />
-      </Group>
-      <QueueSizeApproximation batchSize={batchSize} queueParams={queueParams} />
-    </>
+          </Group>
+          <QueueSizeApproximation
+            batchSize={batchSize}
+            queueParams={queueParams}
+          />
+        </Stack>
+      </Paper>
+    </Stack>
   );
 };

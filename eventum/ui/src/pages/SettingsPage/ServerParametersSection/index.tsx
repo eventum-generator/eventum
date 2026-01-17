@@ -5,6 +5,7 @@ import {
   NumberInput,
   PasswordInput,
   Radio,
+  Stack,
   Switch,
   Text,
   TextInput,
@@ -25,7 +26,7 @@ export const ServerParametersSection: FC<ServerParametersSectionProps> = ({
   form,
 }) => {
   return (
-    <>
+    <Stack gap="xs">
       <Group>
         <Switch
           label={
@@ -280,6 +281,6 @@ export const ServerParametersSection: FC<ServerParametersSectionProps> = ({
         Username and password are parameters in configuration file that stored
         in <b>plain text</b>.
       </Alert>
-    </>
+    </Stack>
   );
 };
