@@ -89,6 +89,7 @@ export default function ProjectsPage() {
                   onChange={(event) => setProjectNameFilter(event.target.value)}
                 />
                 <TagsInput
+                  leftSection={<IconSearch size={16} />}
                   placeholder="search by instance"
                   clearable
                   data={[...uniqueInstances].sort((a, b) => a.localeCompare(b))}
