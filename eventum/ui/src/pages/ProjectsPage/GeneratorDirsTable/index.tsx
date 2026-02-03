@@ -148,7 +148,7 @@ export const GeneratorDirsTable: FC<GeneratorDirsTableProps> = ({
           </Table.Tbody>
         </Table>
         {data.length === 0 && (
-          <Center>
+          <Center mt="xs">
             <Text size="sm" c="gray.6">
               No projects
             </Text>
