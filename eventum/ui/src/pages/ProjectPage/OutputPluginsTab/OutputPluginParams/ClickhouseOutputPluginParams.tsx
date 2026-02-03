@@ -421,7 +421,7 @@ export const ClickhouseOutputPluginParams: FC<
               <Group>
                 <LabelWithTooltip
                   label="Input format"
-                  tooltip="ClickHouse input format for inserting"
+                  tooltip="ClickHouse input format for inserting, default values is 'JSONEachRow'"
                 />
 
                 <Anchor
@@ -463,7 +463,7 @@ export const ClickhouseOutputPluginParams: FC<
             label={
               <LabelWithTooltip
                 label="Separator"
-                tooltip="Separator between events"
+                tooltip="Separator between events, default value is new line"
               />
             }
             rightSectionWidth="70px"
