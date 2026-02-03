@@ -34,8 +34,8 @@ export const GenerationParametersSection: FC<
     formValues?.batch?.size && formValues?.batch?.delay
       ? 'combined'
       : formValues?.batch?.size
-        ? 'delay'
-        : 'size'
+        ? 'size'
+        : 'delay'
   );
 
   const [batchSize, setBatchSize] = useState(formValues?.batch?.size);
