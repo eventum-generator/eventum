@@ -8,6 +8,7 @@ import {
   IconFileSpreadsheet,
   IconFileText,
   IconFolder,
+  IconMarkdown,
 } from '@tabler/icons-react';
 import { FC } from 'react';
 
@@ -69,6 +70,13 @@ export const FileNodeItemIcon: FC<FileNodeItemIconProps> = ({ item }) => {
     return (
       <Flex c="red" align="center">
         <IconFileInvoice size={size} />
+      </Flex>
+    );
+  }
+  if (fileName.endsWith('.md')) {
+    return (
+      <Flex c="blue" align="center">
+        <IconMarkdown size={size} />
       </Flex>
     );
   }
