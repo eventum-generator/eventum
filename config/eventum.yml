@@ -120,19 +120,19 @@ log.backups: 5
 
 # Path to logs directory
 # Required, there is no default value
-path.logs: /app/logs/eventum/
+path.logs: /app/logs/
 
 # Path to file with list of generators to run at startup
 # Required, there is no default value
-path.startup: /app/eventum/config/startup.yml
+path.startup: /app/config/startup.yml
 
 # Path to directory with generators configuration files
 # Required, there is no default value
-path.generators_dir: /app/eventum/config/generators/
+path.generators_dir: /app/config/generators/
 
 # Path to keyring encrypted file with stored secrets
 # Required, there is no default value
-path.keyring_cryptfile: /app/eventum/config/cryptfile.cfg
+path.keyring_cryptfile: /app/config/cryptfile.cfg
 
 # Filename for generator configurations. This parameter is used
 # by the API for detection directories with generator
