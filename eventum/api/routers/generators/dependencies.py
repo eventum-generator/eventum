@@ -67,11 +67,11 @@ async def get_prepared_generator_params_from_request(
     """Get generator parameters from request body with prepared
     parameters.
 
-    Particularly id is substituted to id from query parameters, and
-    path to configuration is resolved to absolute, which is preferred
-    before adding it to a generator manager.
+    Particularly id is substituted from query parameters, and path to
+    configuration is resolved to absolute, which is preferred before
+    adding it to a generator manager.
 
-    This dependency should be use when a new generator is added to
+    This dependency should be used when a new generator is added to
     manager in methods like PUT and POST.
 
     Parameters
@@ -91,7 +91,7 @@ async def get_prepared_generator_params_from_request(
         Prepared generator parameters.
 
     """
-    kwargs = params.model_dump()
+    kwargs = params.model_dump(exclude_defaults=True)
     kwargs.update(id=id)
 
     return GeneratorParameters(**kwargs).as_absolute(

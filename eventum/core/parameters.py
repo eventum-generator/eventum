@@ -24,8 +24,20 @@ class BatchParameters(BaseModel, extra='forbid', frozen=True):
 
     """
 
-    size: int | None = Field(default=10_000, ge=1)
-    delay: float | None = Field(default=1.0, ge=0.1)
+    size: int | None = Field(default=None, ge=1)
+    delay: float | None = Field(default=None, ge=0.1)
+
+    @model_validator(mode='before')
+    @classmethod
+    def apply_defaults_if_missing(cls, values: dict) -> dict:  # noqa: D102
+        size_missing = 'size' not in values
+        delay_missing = 'delay' not in values
+
+        if size_missing and delay_missing:
+            values['size'] = 10_000
+            values['delay'] = 1.0
+
+        return values
 
     @model_validator(mode='after')
     def validate_batch_params(self) -> Self:  # noqa: D102
