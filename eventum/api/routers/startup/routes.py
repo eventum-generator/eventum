@@ -19,6 +19,7 @@ from eventum.api.routers.startup.dependencies import (
     get_target_startup_params_index,
     get_target_startup_params_indexes,
 )
+from eventum.api.routers.startup.utils import move_key_to_first_position
 from eventum.api.utils.response_description import merge_responses
 from eventum.app.models.generators import (
     StartupGeneratorParameters,
@@ -130,10 +131,14 @@ async def add_generator_to_startup(
         lambda: yaml.dump(
             [
                 *generators_parameters_raw_content,
-                params.as_absolute(
-                    base_dir=settings.path.generators_dir,
-                ).model_dump(mode='json', exclude_unset=True),
+                move_key_to_first_position(
+                    params.as_absolute(
+                        base_dir=settings.path.generators_dir,
+                    ).model_dump(mode='json', exclude_unset=True),
+                    'id',
+                ),
             ],
+            sort_keys=False,
         ),
     )
 
@@ -176,14 +181,19 @@ async def update_generator_in_startup(
 ) -> None:
     _, generators_parameters_raw_content = generators_parameters
 
-    generators_parameters_raw_content[target_index] = params.as_absolute(
-        base_dir=settings.path.generators_dir,
-    ).model_dump(
-        mode='json',
-        exclude_unset=True,
+    generators_parameters_raw_content[target_index] = (
+        move_key_to_first_position(
+            params.as_absolute(
+                base_dir=settings.path.generators_dir,
+            ).model_dump(
+                mode='json',
+                exclude_unset=True,
+            ),
+            'id',
+        )
     )
     new_content = await asyncio.to_thread(
-        lambda: yaml.dump(generators_parameters_raw_content),
+        lambda: yaml.dump(generators_parameters_raw_content, sort_keys=False),
     )
 
     try:
@@ -218,7 +228,7 @@ async def delete_generator_from_startup(
 
     del generators_parameters_raw_content[target_index]
     new_content = await asyncio.to_thread(
-        lambda: yaml.dump(generators_parameters_raw_content),
+        lambda: yaml.dump(generators_parameters_raw_content, sort_keys=False),
     )
 
     try:
@@ -265,7 +275,7 @@ async def bulk_delete_generators_from_startup(
             new_raw_content.append(params)
 
     new_content = await asyncio.to_thread(
-        lambda: yaml.dump(new_raw_content),
+        lambda: yaml.dump(new_raw_content, sort_keys=False),
     )
 
     try:
