@@ -118,19 +118,19 @@ log.backups: 5
 
 # ============================== Path Parameters ==============================
 
-# Absolute path to logs directory
+# Path to logs directory
 # Required, there is no default value
 path.logs: /app/logs/eventum/
 
-# Absolute path to file with list of generators to run at startup
+# Path to file with list of generators to run at startup
 # Required, there is no default value
 path.startup: /app/eventum/config/startup.yml
 
-# Absolute path to directory with generators configuration files
+# Path to directory with generators configuration files
 # Required, there is no default value
 path.generators_dir: /app/eventum/config/generators/
 
-# Absolute path to keyring encrypted file with stored secrets
+# Path to keyring encrypted file with stored secrets
 # Required, there is no default value
 path.keyring_cryptfile: /app/eventum/config/cryptfile.cfg
 

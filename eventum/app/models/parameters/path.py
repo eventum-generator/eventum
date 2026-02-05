@@ -11,16 +11,16 @@ class PathParameters(BaseModel, extra='forbid', frozen=True):
     Attributes
     ----------
     logs : Path
-        Absolute path to logs directory.
+        Path to logs directory.
 
     startup : Path
-        Absolute path to file with list of generators to run at startup.
+        Path to file with list of generators to run at startup.
 
     generators_dir : Path
-        Absolute path to directory with generators configuration files.
+        Path to directory with generators configuration files.
 
     keyring_cryptfile : Path
-        Absolute path to keyring encrypted file with stored secrets
+        Path to keyring encrypted file with stored secrets
 
     generator_config_filename : Path, default='generator.yml'
         Filename for generator configurations. This parameter is used
@@ -36,20 +36,6 @@ class PathParameters(BaseModel, extra='forbid', frozen=True):
     generators_dir: Path
     keyring_cryptfile: Path
     generator_config_filename: Path = Path('generator.yml')
-
-    @field_validator(
-        'logs',
-        'startup',
-        'generators_dir',
-        'keyring_cryptfile',
-    )
-    @classmethod
-    def validate_paths(cls, v: Path) -> Path:  # noqa: D102
-        if v.is_absolute():
-            return v
-
-        msg = 'Path must be absolute'
-        raise ValueError(msg)
 
     @field_validator('generator_config_filename')
     @classmethod
