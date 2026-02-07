@@ -94,6 +94,14 @@ const DefinedSchema = z.object({
   defined: StateFieldNameSchema,
 });
 
+const AlwaysSchema = z.object({
+  always: z.null().optional(),
+});
+
+const NeverSchema = z.object({
+  never: z.null().optional(),
+});
+
 const ConditionCheckSchema = z.union([
   EqSchema,
   GtSchema,
@@ -112,6 +120,8 @@ const ConditionCheckSchema = z.union([
   AfterSchema,
   DefinedSchema,
   HasTagsSchema,
+  AlwaysSchema,
+  NeverSchema,
 ]);
 
 const OrSchema = z.object({
