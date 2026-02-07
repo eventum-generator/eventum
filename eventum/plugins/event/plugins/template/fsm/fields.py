@@ -508,6 +508,36 @@ class Defined(
         return context[state].get(field, default=NotDefined) is not NotDefined
 
 
+class Always(
+    BaseModel,
+    Checkable[EventStateContext],
+    frozen=True,
+    extra='forbid',
+):
+    """Check nothing and always return `True`."""
+
+    always: None = Field(default=None)
+
+    @override
+    def check(self, context: EventStateContext) -> bool:
+        return True
+
+
+class Never(
+    BaseModel,
+    Checkable[EventStateContext],
+    frozen=True,
+    extra='forbid',
+):
+    """Check nothing and always return `False`."""
+
+    never: None = Field(default=None)
+
+    @override
+    def check(self, context: EventStateContext) -> bool:
+        return False
+
+
 type ConditionCheck = (
     Eq
     | Gt
@@ -526,6 +556,8 @@ type ConditionCheck = (
     | After
     | Defined
     | HasTags
+    | Always
+    | Never
 )
 type ConditionLogic = Union[  # type: ignore[no-redef] # noqa: UP007
     'Or',
