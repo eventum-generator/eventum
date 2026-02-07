@@ -653,14 +653,12 @@ async def move_generator_file(
         Path,
         Query(
             description='Relative filepath to source file or directory',
-            example='description.txt',
         ),
     ],
     destination: Annotated[
         Path,
         Query(
             description='Relative filepath to destination file or directory',
-            example='README.md',
         ),
     ],
     settings: SettingsDep,
@@ -725,14 +723,12 @@ async def copy_generator_file(
         Path,
         Query(
             description='Relative filepath to source file or directory',
-            example='samples/users.csv',
         ),
     ],
     destination: Annotated[
         Path,
         Query(
             description='Relative filepath to destination file or directory',
-            example='samples/users_copy.csv',
         ),
     ],
     settings: SettingsDep,
