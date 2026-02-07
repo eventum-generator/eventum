@@ -251,13 +251,15 @@ class FSMTemplatePicker(
             Context of event producing.
 
         """
-        transition = self._config[self._state].transition
+        transitions = self._config[self._state].transitions
 
-        if transition is None:
+        if not transitions:
             return
 
-        if transition.when.check(context):
-            self._state = transition.to
+        for transition in transitions:
+            if transition.when.check(context):
+                self._state = transition.to
+                break
 
     @override
     def pick(self, context: EventContext) -> tuple[str, ...]:

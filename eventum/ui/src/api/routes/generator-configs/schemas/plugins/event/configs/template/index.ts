@@ -65,9 +65,12 @@ const TemplateTransitionSchema = z.object({
   when: ConditionSchema,
 });
 
+export const TemplateTransitionsSchema = TemplateTransitionSchema.array();
+export type TemplateTransitions = z.infer<typeof TemplateTransitionsSchema>;
+
 export const TemplateConfigForFSMModeSchema =
   TemplateConfigForGeneralModesSchema.extend({
-    transition: TemplateTransitionSchema.nullable().optional(),
+    transitions: TemplateTransitionsSchema.optional(),
     initial: z.boolean().optional(),
   });
 export type TemplateConfigForFSMMode = z.infer<

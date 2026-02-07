@@ -174,15 +174,15 @@ class TemplateConfigForFSMMode(TemplateConfigForGeneralModes, frozen=True):
 
     Attributes
     ----------
-    transition : TemplateTransition | None, default=None
-        Transition configuration.
+    transitions : list[TemplateTransition], default=[]
+        Transition configurations.
 
     initial : bool, default=False
         Whether to define state as initial.
 
     """
 
-    transition: TemplateTransition | None = None
+    transitions: list[TemplateTransition] = Field(default_factory=list)
     initial: bool = False
 
 

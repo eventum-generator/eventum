@@ -1,11 +1,4 @@
-import {
-  Button,
-  NumberInput,
-  Select,
-  Stack,
-  Switch,
-  Textarea,
-} from '@mantine/core';
+import { Button, NumberInput, Stack, Switch, Textarea } from '@mantine/core';
 import { useForm } from '@mantine/form';
 import { zod4Resolver } from 'mantine-form-zod-resolver';
 import { FC } from 'react';
@@ -20,6 +13,7 @@ import {
   TemplateConfigForFSMModeSchema,
   TemplateConfigForGeneralModesSchema,
   TemplatePickingMode,
+  TemplateTransitionsSchema,
 } from '@/api/routes/generator-configs/schemas/plugins/event/configs/template';
 import { LabelWithTooltip } from '@/components/ui/LabelWithTooltip';
 import { ProjectFileSelect } from '@/pages/ProjectPage/components/ProjectFileSelect';
@@ -108,72 +102,40 @@ export const TemplateParams: FC<TemplateParamsProps> = ({
             {...form.getInputProps('initial', { type: 'checkbox' })}
             checked={(form.values as TemplateConfigForFSMMode).initial ?? false}
           />
-          <Select
-            label={
-              <LabelWithTooltip
-                label="To"
-                tooltip="Name of template of next state after transition"
-              />
-            }
-            data={existingTemplates}
-            searchable
-            nothingFoundMessage="No template found"
-            placeholder="template name"
-            clearable
-            {...form.getInputProps('transition.to')}
-            value={
-              (form.values as TemplateConfigForFSMMode).transition?.to ?? null
-            }
-            onChange={(value) => {
-              form.setFieldValue('transition', (prevValue) => {
-                if (value === null) {
-                  return;
-                }
-
-                if (prevValue) {
-                  return {
-                    when: prevValue.when ?? undefined,
-                    to: value ?? undefined!,
-                  };
-                }
-
-                return {
-                  when: undefined,
-                  to: value ?? undefined!,
-                };
-              });
-            }}
-          />
           <Stack gap="2px">
             <Textarea
-              label="When"
-              description="Condition for performing transition to next state in YAML format. See examples in documentation."
+              label="Transitions"
+              description="List of transitions in YAML format. See examples in documentation."
               placeholder="..."
               minRows={3}
               autosize
-              disabled={
-                (form.values as TemplateConfigForFSMMode).transition?.to ===
-                undefined
-              }
               defaultValue={YAML.stringify(
-                (form.values as TemplateConfigForFSMMode).transition?.when
+                (form.values as TemplateConfigForFSMMode).transitions
               )}
               onChange={(event) => {
                 let parsedValue: unknown;
 
-                if (!event.currentTarget.value) {
-                  parsedValue = undefined;
-                } else {
-                  try {
-                    parsedValue = YAML.parse(event.currentTarget.value);
-                  } catch {
-                    return;
-                  }
-                }
+                try {
+                  parsedValue = YAML.parse(event.currentTarget.value);
 
-                form.setFieldValue('transition.when', parsedValue);
+                  const validatedParsedValue =
+                    TemplateTransitionsSchema.parse(parsedValue);
+                  form.setFieldValue('transitions', validatedParsedValue);
+
+                  for (const transition of validatedParsedValue) {
+                    if (!existingTemplates.includes(transition.to)) {
+                      form.setFieldError(
+                        'transitions',
+                        `Invalid target state, use one of: ${existingTemplates.join(', ')}`
+                      );
+                    }
+                  }
+                } catch {
+                  form.setFieldError('transitions', 'Invalid input');
+                  return;
+                }
               }}
-              error={form.errors['transition.when']}
+              error={form.errors.transitions}
             />
           </Stack>
         </Stack>

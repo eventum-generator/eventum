@@ -95,11 +95,11 @@ const DefinedSchema = z.object({
 });
 
 const AlwaysSchema = z.object({
-  always: z.null().optional(),
+  always: z.null(),
 });
 
 const NeverSchema = z.object({
-  never: z.null().optional(),
+  never: z.null(),
 });
 
 const ConditionCheckSchema = z.union([

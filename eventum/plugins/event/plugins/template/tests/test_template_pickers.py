@@ -115,16 +115,20 @@ def test_fsm_template_picker():
         'template1': TemplateConfigForFSMMode(
             template=Path('test1.jinja'),
             initial=True,
-            transition=TemplateTransition(
-                to='template2', when=Eq(eq={'shared.some_flag': True})
-            ),
+            transitions=[
+                TemplateTransition(
+                    to='template2', when=Eq(eq={'shared.some_flag': True})
+                )
+            ],
         ),
         'template2': TemplateConfigForFSMMode(
             template=Path('test2.jinja'),
             initial=False,
-            transition=TemplateTransition(
-                to='template1', when=Eq(eq={'shared.some_flag': False})
-            ),
+            transitions=[
+                TemplateTransition(
+                    to='template1', when=Eq(eq={'shared.some_flag': False})
+                )
+            ],
         ),
     }
     picker = FSMTemplatePicker(config, {})

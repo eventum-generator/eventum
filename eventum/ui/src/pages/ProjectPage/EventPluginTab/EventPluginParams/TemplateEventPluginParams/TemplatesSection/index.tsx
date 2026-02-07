@@ -181,7 +181,7 @@ export const TemplatesSection: FC<TemplatesSectionProps> = ({ form }) => {
                       undefined!;
                   } else if (prevValue === TemplatePickingMode.FSM) {
                     (template as TemplateConfigForFSMMode).initial = undefined!;
-                    (template as TemplateConfigForFSMMode).transition =
+                    (template as TemplateConfigForFSMMode).transitions =
                       undefined!;
                   }
                 }
