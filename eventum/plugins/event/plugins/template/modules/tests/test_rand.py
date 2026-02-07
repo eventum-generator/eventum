@@ -55,6 +55,10 @@ def test_weighted_choices():
     assert all(item in items for item in results)
 
 
+def test_chance():
+    assert rand.chance(0.5) in [True, False]
+
+
 # ---- Number Namespace ----
 def test_number_integer():
     value = rand.number.integer(1, 10)
