@@ -70,16 +70,16 @@ def build_api_app(
         docs_url='/swagger',
         redoc_url='/redoc',
         contact={
-            'name': 'Eventum Project',
-            'url': 'https://github.com/eventum-project',
+            'name': 'Eventum',
+            'url': 'https://github.com/eventum-generator',
         },
         license_info={
             'name': 'Apache 2.0',
-            'url': 'https://github.com/eventum-project/eventum-generator/blob/master/LICENSE',
+            'url': 'https://github.com/eventum-generator/eventum/blob/master/LICENSE',
         },
         openapi_external_docs={
             'description': 'Eventum Documentation',
-            'url': 'https://eventum-project.github.io/website/',
+            'url': 'https://eventum.run',
         },
     )
 
