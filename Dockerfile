@@ -12,11 +12,11 @@ COPY eventum/ eventum/
 
 
 # Stage 2: Build React UI
-FROM node:24 AS ui-build
+FROM node:24-slim AS ui-build
 
 WORKDIR /app/eventum/ui/
 COPY eventum/ui/package*.json ./
-RUN npm install --legacy-peer-deps
+RUN npm ci --legacy-peer-deps
 
 COPY eventum/ui/ ./
 RUN npm run build
@@ -31,6 +31,9 @@ COPY --from=app-build /app/.venv/ /app/.venv/
 COPY --from=ui-build /app/eventum/www/ /app/eventum/www/
 
 COPY config/ /app/config/
+RUN mkdir -p /app/logs
+
+EXPOSE 9474
 
 ENTRYPOINT ["/app/.venv/bin/eventum"]
 CMD ["run", "-c", "/app/config/eventum.yml"]

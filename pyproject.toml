@@ -4,6 +4,10 @@ build-backend = "hatchling.build"
 
 [tool.hatch.build.targets.wheel]
 packages = ["eventum"]
+exclude = [
+    "eventum/ui/",
+    "**/tests/",
+]
 
 [project.urls]
 Homepage = 'https://github.com/eventum-project'
