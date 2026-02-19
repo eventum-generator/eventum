@@ -12,7 +12,7 @@ exclude = [
 [project.urls]
 Homepage = 'https://github.com/eventum-project'
 Source = 'https://github.com/eventum-project/eventum-generator'
-Documentation = 'https://eventum-project.github.io/website/'
+Documentation = 'https://eventum.run/docs'
 Changelog = 'https://github.com/eventum-project/eventum-generator/blob/master/CHANGELOG.md'
 
 [project]
