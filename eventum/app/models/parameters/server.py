@@ -38,13 +38,10 @@ class SSLParameters(BaseModel, extra='forbid', frozen=True):
     cert: Path | None = Field(default=None)
     cert_key: Path | None = Field(default=None)
 
-    @field_validator('ca_cert', 'cert', 'cert_key')
+    @field_validator('ca_cert', 'cert', 'cert_key', mode='before')
     @classmethod
     def validate_absolute_paths(cls, v: Path | None) -> Path | None:  # noqa: D102
-        if not isinstance(v, str):
-            return v
-
-        if not v.is_absolute():
+        if v is not None and not Path(v).is_absolute():
             msg = 'Path must be absolute'
             raise ValueError(msg)
 

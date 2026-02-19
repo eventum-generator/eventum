@@ -118,19 +118,19 @@ log.backups: 5
 
 # ============================== Path Parameters ==============================
 
-# Path to logs directory
+# Absolute path to logs directory
 # Required, there is no default value
 path.logs: /app/logs/
 
-# Path to file with list of generators to run at startup
+# Absolute path to file with list of generators to run at startup
 # Required, there is no default value
 path.startup: /app/config/startup.yml
 
-# Path to directory with generators configuration files
+# Absolute path to directory with generators configuration files
 # Required, there is no default value
 path.generators_dir: /app/config/generators/
 
-# Path to keyring encrypted file with stored secrets
+# Absolute path to keyring encrypted file with stored secrets
 # Required, there is no default value
 path.keyring_cryptfile: /app/config/cryptfile.cfg
 
