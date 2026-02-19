@@ -10,15 +10,21 @@ from fastapi import APIRouter, Body, HTTPException, status
 from eventum.api.dependencies.app import SettingsDep
 from eventum.api.routers.startup.dependencies import (
     CheckIdInBodyMatchPathDep,
-    StartupGeneratorsParametersDep,
+    StartupGeneratorParametersListRaw,
+    StartupGeneratorsParametersListDep,
     TargetStartupParamsIndexDep,
+    TargetStartupParamsIndexesDep,
     check_id_in_body_match_path,
-    get_startup_generators_parameters,
+    get_startup_generator_parameters_list,
     get_target_startup_params_index,
+    get_target_startup_params_indexes,
 )
+from eventum.api.routers.startup.utils import move_key_to_first_position
 from eventum.api.utils.response_description import merge_responses
-from eventum.app.models.generators import GeneratorsParameters
-from eventum.core.parameters import GeneratorParameters
+from eventum.app.models.generators import (
+    StartupGeneratorParameters,
+    StartupGeneratorParametersList,
+)
 
 router = APIRouter()
 
@@ -31,15 +37,15 @@ router = APIRouter()
         'Note that response also includes default parameters '
         'even if they are not set in the file.'
     ),
-    responses=get_startup_generators_parameters.responses,
+    responses=get_startup_generator_parameters_list.responses,
 )
 async def get_generators_in_startup(
-    generators_parameters: StartupGeneratorsParametersDep,
+    generators_parameters: StartupGeneratorsParametersListDep,
     settings: SettingsDep,
-) -> GeneratorsParameters:
+) -> StartupGeneratorParametersList:
     generators_parameters_model, _ = generators_parameters
 
-    normalized_params_list: list[GeneratorParameters] = []
+    normalized_params_list: list[StartupGeneratorParameters] = []
     for params in generators_parameters_model.root:
         try:
             normalized_params = params.as_relative(
@@ -50,7 +56,7 @@ async def get_generators_in_startup(
 
         normalized_params_list.append(normalized_params)
 
-    return GeneratorsParameters(root=tuple(normalized_params_list))
+    return StartupGeneratorParametersList(root=tuple(normalized_params_list))
 
 
 @router.get(
@@ -62,15 +68,15 @@ async def get_generators_in_startup(
         'even if they are not set in the file.'
     ),
     responses=merge_responses(
-        get_startup_generators_parameters.responses,
+        get_startup_generator_parameters_list.responses,
         get_target_startup_params_index.responses,
     ),
 )
 async def get_generator_from_startup(
-    generators_parameters: StartupGeneratorsParametersDep,
+    generators_parameters: StartupGeneratorsParametersListDep,
     target_index: TargetStartupParamsIndexDep,
     settings: SettingsDep,
-) -> GeneratorParameters:
+) -> StartupGeneratorParameters:
     generators_parameters_model, _ = generators_parameters
 
     target_params = generators_parameters_model.root[target_index]
@@ -84,7 +90,7 @@ async def get_generator_from_startup(
     '/{id}',
     description='Add generator definition to list in the startup file',
     responses=merge_responses(
-        get_startup_generators_parameters.responses,
+        get_startup_generator_parameters_list.responses,
         check_id_in_body_match_path.responses,
         {409: {'description': 'Generator with this ID is already defined'}},
         {
@@ -101,13 +107,15 @@ async def get_generator_from_startup(
 async def add_generator_to_startup(
     id: Annotated[str, CheckIdInBodyMatchPathDep],
     params: Annotated[
-        GeneratorParameters,
+        StartupGeneratorParameters,
         Body(description='Generator parameters'),
     ],
-    generators_parameters: StartupGeneratorsParametersDep,
+    generators_parameters: StartupGeneratorsParametersListDep,
     settings: SettingsDep,
 ) -> None:
-    generators_parameters_model, _ = generators_parameters
+    generators_parameters_model, generators_parameters_raw_content = (
+        generators_parameters
+    )
 
     for startup_params in generators_parameters_model.root:
         if id == startup_params.id:
@@ -119,22 +127,24 @@ async def add_generator_to_startup(
                 ),
             )
 
-    content_to_add = await asyncio.to_thread(
+    new_content = await asyncio.to_thread(
         lambda: yaml.dump(
             [
-                params.as_absolute(
-                    base_dir=settings.path.generators_dir,
-                ).model_dump(
-                    mode='json',
-                    exclude_unset=True,
+                *generators_parameters_raw_content,
+                move_key_to_first_position(
+                    params.as_absolute(
+                        base_dir=settings.path.generators_dir,
+                    ).model_dump(mode='json', exclude_unset=True),
+                    'id',
                 ),
             ],
+            sort_keys=False,
         ),
     )
 
     try:
-        async with aiofiles.open(settings.path.startup, 'a') as f:
-            await f.write(content_to_add)
+        async with aiofiles.open(settings.path.startup, 'w') as f:
+            await f.write(new_content)
     except OSError as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -149,7 +159,7 @@ async def add_generator_to_startup(
     '/{id}',
     description='Update generator definition in list in the startup file',
     responses=merge_responses(
-        get_startup_generators_parameters.responses,
+        get_startup_generator_parameters_list.responses,
         get_target_startup_params_index.responses,
         check_id_in_body_match_path.responses,
         {
@@ -162,23 +172,28 @@ async def add_generator_to_startup(
 async def update_generator_in_startup(
     id: Annotated[str, CheckIdInBodyMatchPathDep],  # noqa: ARG001
     params: Annotated[
-        GeneratorParameters,
-        Body(description='Generator parameters'),
+        StartupGeneratorParameters,
+        Body(description='Startup generator parameters'),
     ],
     target_index: TargetStartupParamsIndexDep,
-    generators_parameters: StartupGeneratorsParametersDep,
+    generators_parameters: StartupGeneratorsParametersListDep,
     settings: SettingsDep,
 ) -> None:
     _, generators_parameters_raw_content = generators_parameters
 
-    generators_parameters_raw_content[target_index] = params.as_absolute(
-        base_dir=settings.path.generators_dir,
-    ).model_dump(
-        mode='json',
-        exclude_unset=True,
+    generators_parameters_raw_content[target_index] = (
+        move_key_to_first_position(
+            params.as_absolute(
+                base_dir=settings.path.generators_dir,
+            ).model_dump(
+                mode='json',
+                exclude_unset=True,
+            ),
+            'id',
+        )
     )
     new_content = await asyncio.to_thread(
-        lambda: yaml.dump(generators_parameters_raw_content),
+        lambda: yaml.dump(generators_parameters_raw_content, sort_keys=False),
     )
 
     try:
@@ -195,17 +210,17 @@ async def update_generator_in_startup(
     '/{id}',
     description='Delete generator definition from list in the startup file',
     responses=merge_responses(
-        get_startup_generators_parameters.responses,
+        get_startup_generator_parameters_list.responses,
         get_target_startup_params_index.responses,
         {
             500: {
-                'description': ('Cannot modify startup file due to OS error'),
+                'description': 'Cannot modify startup file due to OS error',
             },
         },
     ),
 )
 async def delete_generator_from_startup(
-    generators_parameters: StartupGeneratorsParametersDep,
+    generators_parameters: StartupGeneratorsParametersListDep,
     target_index: TargetStartupParamsIndexDep,
     settings: SettingsDep,
 ) -> None:
@@ -213,7 +228,7 @@ async def delete_generator_from_startup(
 
     del generators_parameters_raw_content[target_index]
     new_content = await asyncio.to_thread(
-        lambda: yaml.dump(generators_parameters_raw_content),
+        lambda: yaml.dump(generators_parameters_raw_content, sort_keys=False),
     )
 
     try:
@@ -224,3 +239,52 @@ async def delete_generator_from_startup(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f'Cannot modify startup file due to OS error: {e}',
         ) from None
+
+
+@router.post(
+    '/group-actions/bulk-delete',
+    description=(
+        'Bulk delete several generator definitions from list in the '
+        'startup file'
+    ),
+    response_description='IDs of deleted generator definitions',
+    responses=merge_responses(
+        get_startup_generator_parameters_list.responses,
+        get_target_startup_params_indexes.responses,
+        {
+            500: {
+                'description': 'Cannot modify startup file due to OS error',
+            },
+        },
+    ),
+)
+async def bulk_delete_generators_from_startup(
+    generators_parameters: StartupGeneratorsParametersListDep,
+    target_indexes: TargetStartupParamsIndexesDep,
+    settings: SettingsDep,
+) -> list[str]:
+    _, generators_parameters_raw_content = generators_parameters
+
+    deleted_ids: list[str] = []
+    new_raw_content: StartupGeneratorParametersListRaw = []
+
+    for index, params in enumerate(generators_parameters_raw_content):
+        if index in target_indexes:
+            deleted_ids.append(params['id'])
+        else:
+            new_raw_content.append(params)
+
+    new_content = await asyncio.to_thread(
+        lambda: yaml.dump(new_raw_content, sort_keys=False),
+    )
+
+    try:
+        async with aiofiles.open(settings.path.startup, 'w') as f:
+            await f.write(new_content)
+    except OSError as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f'Cannot modify startup file due to OS error: {e}',
+        ) from None
+
+    return deleted_ids

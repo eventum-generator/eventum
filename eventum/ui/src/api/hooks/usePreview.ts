@@ -6,6 +6,7 @@ import {
   clearTemplateEventPluginGlobalState,
   clearTemplateEventPluginLocalState,
   clearTemplateEventPluginSharedState,
+  formatEvents,
   generateTimestamps,
   getTemplateEventPluginGlobalState,
   getTemplateEventPluginLocalState,
@@ -19,6 +20,7 @@ import {
   updateTemplateEventPluginSharedState,
 } from '../routes/preview';
 import {
+  FormatEventsBody,
   ProduceParamsBody,
   TemplateEventPluginState,
   VersatileDatetimeParametersBody,
@@ -234,6 +236,13 @@ export function useClearTemplateEventPluginGlobalStateMutation() {
         exact: true,
       });
     },
+  });
+}
+
+export function useFormatEventsMutation() {
+  return useMutation({
+    mutationFn: ({ name, body }: { name: string; body: FormatEventsBody }) =>
+      formatEvents(name, body),
   });
 }
 

@@ -7,7 +7,7 @@ export function flattenFileTree(
   const result: string[] = [];
 
   function traverse(node: FileNode, path: string) {
-    const currentPath = `${path}/${node.name}`;
+    const currentPath = path.length > 0 ? `${path}/${node.name}` : node.name;
 
     if (node.is_dir) {
       if (!filesOnly) {
@@ -49,7 +49,7 @@ export function flattenFileTree(
   });
 
   for (const node of sortedRoot) {
-    traverse(node, '.');
+    traverse(node, '');
   }
 
   return result;
@@ -59,10 +59,11 @@ export function createFileTreeLookup(fileTree: FileNode[]) {
   const items = new Map<string, FileNode>();
   const children = new Map<string, string[]>();
 
-  children.set('.', []);
+  children.set('', []);
 
   function traverse(node: FileNode, parentPath: string) {
-    const currentPath = `${parentPath}/${node.name}`;
+    const currentPath =
+      parentPath.length > 0 ? `${parentPath}/${node.name}` : node.name;
 
     items.set(currentPath, node);
 
@@ -84,7 +85,7 @@ export function createFileTreeLookup(fileTree: FileNode[]) {
   }
 
   for (const node of fileTree) {
-    traverse(node, '.');
+    traverse(node, '');
   }
 
   // sort every directory

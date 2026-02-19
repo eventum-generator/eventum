@@ -48,7 +48,6 @@ async def get_timezone(
         str,
         Query(
             description='Timezone that is used for generated timestamps',
-            example='Europe/Moscow',
         ),
     ] = 'UTC',
 ) -> BaseTzInfo:
@@ -97,7 +96,6 @@ async def get_span(
                 'Span expression for timestamps aggregation, '
                 'can be omitted to use auto span'
             ),
-            example='5m',
             examples=['1s', '5m', '30m', '1h', '7d'],
         ),
     ] = None,

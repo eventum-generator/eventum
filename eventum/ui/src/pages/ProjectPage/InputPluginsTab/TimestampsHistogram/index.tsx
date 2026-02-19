@@ -197,9 +197,9 @@ const TimestampsHistogram: FC<TimestampsHistogramProps> = ({
   }
 
   return (
-    <Stack>
+    <Stack gap="xs">
       <form onSubmit={form.onSubmit(handleGenerateTimestamp)}>
-        <Stack>
+        <Stack gap="xs">
           <Group grow align="start" h="65px">
             <NumberInput
               min={1}

@@ -28,6 +28,7 @@ from eventum.api.routers.generators.dependencies import (
 from eventum.api.routers.generators.models import (
     BulkStartResponse,
     EventPluginStats,
+    GeneratorInfo,
     GeneratorStats,
     GeneratorStatus,
     InputPluginStats,
@@ -53,12 +54,38 @@ ws_router = APIRouter()
     description='List ids of all generators',
     response_description='Generators ids',
 )
-async def list_generators(generator_manager: GeneratorManagerDep) -> list[str]:
-    return generator_manager.generator_ids
+async def list_generators(
+    generator_manager: GeneratorManagerDep,
+    settings: SettingsDep,
+) -> list[GeneratorInfo]:
+    generators_info: list[GeneratorInfo] = []
+    for generator_id in generator_manager.generator_ids:
+        try:
+            generator = generator_manager.get_generator(generator_id)
+            generators_info.append(
+                GeneratorInfo(
+                    id=generator_id,
+                    path=generator.params.as_relative(
+                        base_dir=settings.path.generators_dir,
+                    ).path,
+                    status=GeneratorStatus(
+                        is_initializing=generator.is_initializing,
+                        is_running=generator.is_running,
+                        is_ended_up=generator.is_ended_up,
+                        is_ended_up_successfully=generator.is_ended_up_successfully,
+                        is_stopping=generator.is_stopping,
+                    ),
+                    start_time=generator.start_time,
+                ),
+            )
+        except ManagingError:
+            continue
+
+    return generators_info
 
 
 @router.get(
-    '/{id}/',
+    '/{id}',
     description='Get generator parameters',
     responses=_get_generator.responses,
 )
@@ -75,7 +102,7 @@ async def get_generator(
 
 
 @router.get(
-    '/{id}/status/',
+    '/{id}/status',
     description='Get generator status',
     responses=_get_generator.responses,
 )
@@ -85,11 +112,12 @@ async def get_generator_status(generator: GeneratorDep) -> GeneratorStatus:
         is_running=generator.is_running,
         is_ended_up=generator.is_ended_up,
         is_ended_up_successfully=generator.is_ended_up_successfully,
+        is_stopping=generator.is_stopping,
     )
 
 
 @router.post(
-    '/{id}/',
+    '/{id}',
     description=(
         'Add generator. Note that `id` path parameter takes precedence '
         'over `id` field in the body.'
@@ -98,7 +126,7 @@ async def get_generator_status(generator: GeneratorDep) -> GeneratorStatus:
         check_path_exists.responses,
         {
             409: {'description': 'Generator with provided id already exists'},
-            422: {'description': 'No configuration exists in specified path'},
+            404: {'description': 'No configuration exists in specified path'},
         },
     ),
     status_code=status.HTTP_201_CREATED,
@@ -117,7 +145,7 @@ async def add_generator(
 
 
 @router.put(
-    '/{id}/',
+    '/{id}',
     description=(
         'Update generator with provided parameters. Note that `id` path '
         'parameter takes precedence over `id` field in the body.'
@@ -126,8 +154,8 @@ async def add_generator(
         _get_generator.responses,
         check_path_exists.responses,
         {
-            422: {'description': 'No configuration exists in specified path'},
-            423: {'description': 'Generator must be stopped before updating'},
+            404: {'description': 'No configuration exists in specified path'},
+            400: {'description': 'Generator must be stopped before updating'},
         },
     ),
 )
@@ -139,7 +167,7 @@ async def update_generator(
 ) -> None:
     if generator.is_initializing or generator.is_running:
         raise HTTPException(
-            status_code=status.HTTP_423_LOCKED,
+            status_code=status.HTTP_400_BAD_REQUEST,
             detail='Generator must be stopped before updating',
         ) from None
 
@@ -151,7 +179,7 @@ async def update_generator(
 
 
 @router.post(
-    '/{id}/start/',
+    '/{id}/start',
     description='Start generator by its id',
     response_description='Working status of generator after start',
     responses={
@@ -172,7 +200,7 @@ async def start_generator(
 
 
 @router.post(
-    '/{id}/stop/',
+    '/{id}/stop',
     description='Stop generator by its id',
     responses={
         404: {'description': 'Generator with provided id is not found'},
@@ -192,7 +220,7 @@ async def stop_generator(
 
 
 @router.delete(
-    '/{id}/',
+    '/{id}',
     description='Remove generator by its id. Stop it in case it is running.',
     responses={
         404: {'description': 'Generator with provided id is not found'},
@@ -212,12 +240,15 @@ async def delete_generator(
 
 
 @router.get(
-    '/{id}/stats/',
+    '/{id}/stats',
     description='Get stats of running generator',
     responses=_get_generator.responses,
 )
-async def get_generator_stats(generator: GeneratorDep) -> GeneratorStats:
-    if generator.is_running:
+async def get_generator_stats(
+    id: str,
+    generator: GeneratorDep,
+) -> GeneratorStats:
+    if generator.is_running and generator.start_time is not None:
         plugins = generator.get_plugins_info()
     else:
         raise HTTPException(
@@ -226,6 +257,7 @@ async def get_generator_stats(generator: GeneratorDep) -> GeneratorStats:
         )
 
     return GeneratorStats(
+        id=id,
         start_time=generator.start_time,
         input=[
             InputPluginStats(
@@ -254,8 +286,60 @@ async def get_generator_stats(generator: GeneratorDep) -> GeneratorStats:
     )
 
 
+@router.get(
+    '/group-actions/stats-running',
+    description='Get stats of all running generators',
+    responses=_get_generator.responses,
+)
+async def get_running_generators_stats(
+    generator_manager: GeneratorManagerDep,
+) -> list[GeneratorStats]:
+    stats: list[GeneratorStats] = []
+
+    for generator_id in generator_manager.generator_ids:
+        generator = generator_manager.get_generator(generator_id)
+
+        if not generator.is_running or generator.start_time is None:
+            continue
+
+        plugins = generator.get_plugins_info()
+
+        stats.append(
+            GeneratorStats(
+                id=generator_id,
+                start_time=generator.start_time,
+                input=[
+                    InputPluginStats(
+                        plugin_name=plugin.name,
+                        plugin_id=plugin.id,
+                        generated=plugin.generated,
+                    )
+                    for plugin in plugins.input
+                ],
+                event=EventPluginStats(
+                    plugin_name=plugins.event.name,
+                    plugin_id=plugins.event.id,
+                    produced=plugins.event.produced,
+                    produce_failed=plugins.event.produce_failed,
+                ),
+                output=[
+                    OutputPluginStats(
+                        plugin_name=plugin.name,
+                        plugin_id=plugin.id,
+                        written=plugin.written,
+                        write_failed=plugin.write_failed,
+                        format_failed=plugin.format_failed,
+                    )
+                    for plugin in plugins.output
+                ],
+            ),
+        )
+
+    return stats
+
+
 @router.post(
-    '/group-actions/bulk-start/',
+    '/group-actions/bulk-start',
     description='Bulk start several generators',
     response_description=(
         'Ids of running and non running generators after start. '
@@ -280,7 +364,7 @@ async def bulk_start_generators(
 
 
 @router.post(
-    '/group-actions/bulk-stop/',
+    '/group-actions/bulk-stop',
     description='Bulk stop several generators',
 )
 async def bulk_stop_generators(
@@ -294,13 +378,13 @@ async def bulk_stop_generators(
 
 
 @router.post(
-    '/group-actions/bulk-remove/',
-    description='Bulk remove several generators',
+    '/group-actions/bulk-delete',
+    description='Bulk delete several generators',
 )
-async def bulk_remove_generators(
+async def bulk_delete_generators(
     ids: Annotated[
         list[str],
-        Body(description='Generator IDs to remove', min_length=1),
+        Body(description='Generator IDs to delete', min_length=1),
     ],
     generator_manager: GeneratorManagerDep,
 ) -> None:

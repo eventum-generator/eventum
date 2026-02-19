@@ -27,7 +27,7 @@ export const StaticInputPluginParams: FC<StaticInputPluginParamsProps> = ({
   });
 
   return (
-    <Stack>
+    <Stack gap="xs">
       <NumberInput
         label={
           <LabelWithTooltip

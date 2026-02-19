@@ -22,8 +22,13 @@ export default defineConfig({
     proxy: {
       '/api': {
         target: 'http://localhost:9474',
+        ws: true,
         changeOrigin: true,
       },
     },
+  },
+  build: {
+    outDir: path.resolve(__dirname, '../www'),
+    emptyOutDir: true,
   },
 });

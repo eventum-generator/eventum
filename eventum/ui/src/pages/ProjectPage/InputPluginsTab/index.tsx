@@ -1,5 +1,7 @@
-import { Box, Center, Divider, Grid, Stack, Tabs, Text } from '@mantine/core';
-import { FC, useCallback, useRef, useState } from 'react';
+import { CodeHighlight } from '@mantine/code-highlight';
+import { Box, Center, Grid, Paper, Stack, Tabs, Text } from '@mantine/core';
+import { FC, useCallback, useEffect, useRef, useState } from 'react';
+import YAML from 'yaml';
 
 import { InputPluginsList } from '../PluginsList';
 import { EditorTab } from '../common/EditorTab';
@@ -12,18 +14,26 @@ import { InputPluginNamedConfig } from '@/api/routes/generator-configs/schemas/p
 import { InputPluginName } from '@/api/routes/generator-configs/schemas/plugins/input/base-config';
 
 interface InputPluginsTabProps {
-  inputPluginsConfig: InputPluginsNamedConfig;
+  initialInputPluginsConfig: InputPluginsNamedConfig;
+  onInputPluginsConfigChange: (config: InputPluginsNamedConfig) => void;
 }
 
 export const InputPluginsTab: FC<InputPluginsTabProps> = ({
-  inputPluginsConfig,
+  initialInputPluginsConfig,
+  onInputPluginsConfigChange,
 }) => {
   const [selectedPluginIndex, setSelectedPluginIndex] = useState(0);
-  const [pluginsConfig, setPluginsConfig] =
-    useState<InputPluginsNamedConfig>(inputPluginsConfig);
+  const [pluginsConfig, setPluginsConfig] = useState<InputPluginsNamedConfig>(
+    initialInputPluginsConfig
+  );
   const [pluginNames, setPluginNames] = useState<string[]>(
     pluginsConfig.map((plugin) => Object.keys(plugin)[0]!)
   );
+
+  useEffect(() => {
+    onInputPluginsConfigChange(pluginsConfig);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pluginsConfig]);
 
   const handleAddNewPlugin = useCallback(
     (pluginType: 'input', pluginName: InputPluginName) => {
@@ -87,75 +97,103 @@ export const InputPluginsTab: FC<InputPluginsTabProps> = ({
     [pluginsConfig, selectedPluginIndex]
   );
   return (
-    <Grid gutter="lg">
+    <Grid>
       <Grid.Col span={2}>
         <Stack>
-          <Text size="sm" fw="bold">
-            Plugin list
-          </Text>
-          <Divider />
-          <InputPluginsList
-            type="input"
-            plugins={pluginNames}
-            onChangeSelectedPlugin={setSelectedPluginIndex}
-            selectedPlugin={selectedPluginIndex}
-            onAddNewPlugin={handleAddNewPlugin}
-            onDeletePlugin={handleDeletePlugin}
-          />
-          <Text size="sm" fw="bold">
-            File tree
-          </Text>
-          <Divider />
-          <FileTree />
+          <Paper withBorder p="sm">
+            <Stack gap="xs">
+              <Text size="sm" fw="bold">
+                Plugin list
+              </Text>
+              <InputPluginsList
+                type="input"
+                plugins={pluginNames}
+                onChangeSelectedPlugin={setSelectedPluginIndex}
+                selectedPlugin={selectedPluginIndex}
+                onAddNewPlugin={handleAddNewPlugin}
+                onDeletePlugin={handleDeletePlugin}
+              />
+            </Stack>
+          </Paper>
+          <Paper withBorder p="sm">
+            <Stack gap="xs">
+              <Text size="sm" fw="bold">
+                File tree
+              </Text>
+              <FileTree />
+            </Stack>
+          </Paper>
         </Stack>
       </Grid.Col>
       <Grid.Col span={7}>
-        <Stack>
-          {pluginsConfig.length === 0 ? (
-            <Center>
-              <Text size="sm" c="gray.6">
-                No plugins added
-              </Text>
-            </Center>
-          ) : (
-            <Tabs defaultValue="preview">
-              <Tabs.List>
-                <Tabs.Tab value="preview">Preview</Tabs.Tab>
-                <Tabs.Tab value="editor">Editor</Tabs.Tab>
-              </Tabs.List>
+        <Paper withBorder p="sm">
+          <Stack gap="xs">
+            <Text size="sm" fw="bold">
+              Workspace
+            </Text>
 
-              <Box mt="md">
-                <Tabs.Panel value="preview">
-                  <TimestampsHistogram
-                    getSelectedPluginIndex={getSelectedPluginIndex}
-                    getInputPluginsConfig={getInputPluginsConfig}
-                  />
-                </Tabs.Panel>
-                <Tabs.Panel value="editor">
-                  <EditorTab />
-                </Tabs.Panel>
-              </Box>
-            </Tabs>
-          )}
-        </Stack>
+            {pluginsConfig.length === 0 ? (
+              <Center>
+                <Text size="sm" c="gray.6">
+                  No plugins added
+                </Text>
+              </Center>
+            ) : (
+              <Tabs defaultValue="preview">
+                <Tabs.List>
+                  <Tabs.Tab value="preview">Preview</Tabs.Tab>
+                  <Tabs.Tab value="editor">Editor</Tabs.Tab>
+                </Tabs.List>
+
+                <Box mt="md">
+                  <Tabs.Panel value="preview">
+                    <TimestampsHistogram
+                      getSelectedPluginIndex={getSelectedPluginIndex}
+                      getInputPluginsConfig={getInputPluginsConfig}
+                    />
+                  </Tabs.Panel>
+                  <Tabs.Panel value="editor">
+                    <EditorTab />
+                  </Tabs.Panel>
+                </Box>
+              </Tabs>
+            )}
+          </Stack>
+        </Paper>
       </Grid.Col>
       <Grid.Col span={3}>
         <Stack>
-          <Text size="sm" fw="bold">
-            Plugin parameters
-          </Text>
-          <Divider />
-          {pluginsConfig.length === 0 ? (
-            <Center>
-              <Text size="sm" c="gray.6">
-                No plugins added
+          <Paper withBorder p="sm">
+            <Stack gap="xs">
+              <Text size="sm" fw="bold">
+                Plugin parameters
               </Text>
-            </Center>
-          ) : (
-            <InputPluginParams
-              inputPluginConfig={pluginsConfig[selectedPluginIndex]!}
-              onChange={handleConfigChange}
-            />
+              {pluginsConfig.length === 0 ? (
+                <Center>
+                  <Text size="sm" c="gray.6">
+                    No plugins added
+                  </Text>
+                </Center>
+              ) : (
+                <InputPluginParams
+                  inputPluginConfig={pluginsConfig[selectedPluginIndex]!}
+                  onChange={handleConfigChange}
+                />
+              )}
+            </Stack>
+          </Paper>
+          {pluginsConfig.length > 0 && (
+            <Paper withBorder p="sm">
+              <Stack gap="xs">
+                <Text size="sm" fw="bold">
+                  Configuration preview
+                </Text>
+                <CodeHighlight
+                  code={YAML.stringify(pluginsConfig[selectedPluginIndex]!)}
+                  language="yml"
+                />
+              </Stack>
+            </Paper>
           )}
         </Stack>
       </Grid.Col>

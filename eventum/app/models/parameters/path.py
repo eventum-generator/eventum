@@ -37,19 +37,14 @@ class PathParameters(BaseModel, extra='forbid', frozen=True):
     keyring_cryptfile: Path
     generator_config_filename: Path = Path('generator.yml')
 
-    @field_validator(
-        'logs',
-        'startup',
-        'generators_dir',
-        'keyring_cryptfile',
-    )
+    @field_validator('logs', 'startup', 'generators_dir', 'keyring_cryptfile')
     @classmethod
-    def validate_paths(cls, v: Path) -> Path:  # noqa: D102
-        if v.is_absolute():
-            return v
+    def validate_absolute_paths(cls, v: Path) -> Path:  # noqa: D102
+        if not v.is_absolute():
+            msg = 'Path must be absolute'
+            raise ValueError(msg)
 
-        msg = 'Path must be absolute'
-        raise ValueError(msg)
+        return v
 
     @field_validator('generator_config_filename')
     @classmethod

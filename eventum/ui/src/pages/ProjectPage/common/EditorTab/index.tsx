@@ -36,17 +36,17 @@ export const EditorTab: FC = () => {
 
   useEffect(() => {
     if (selectedItem !== undefined && !selectedItem.isFolder()) {
-      // check if file is not already opened
-      for (const item of openedItems) {
-        if (item.getId() === selectedItem.getId()) {
-          return;
+      setOpenedItems((prev) => {
+        // check if file is not already opened
+        for (const item of prev) {
+          if (item.getId() === selectedItem.getId()) {
+            return [...prev];
+          }
         }
-      }
 
-      setOpenedItems((prev) => [...prev, selectedItem]);
+        return [...prev, selectedItem];
+      });
     }
-
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedItem]);
 
   const [savedStatuses, setSavedStatuses] = useState<Record<string, boolean>>(

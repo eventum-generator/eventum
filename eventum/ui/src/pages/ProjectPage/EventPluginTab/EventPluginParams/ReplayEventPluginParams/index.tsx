@@ -31,33 +31,13 @@ export const ReplayEventPluginParams: FC<ReplayEventPluginParamsProps> = ({
   const form = useForm<ReplayEventPluginConfig>({
     initialValues: initialConfig,
     validate: zod4Resolver(ReplayEventPluginConfigSchema),
-    transformValues: (values) => {
-      const newValues = { ...values };
-
-      if (!values.timestamp_pattern) {
-        newValues.timestamp_pattern = undefined;
-      }
-      if (!values.timestamp_format) {
-        newValues.timestamp_format = undefined;
-      }
-      if (!values.chunk_size) {
-        newValues.chunk_size = undefined;
-      }
-      if (!values.encoding) {
-        newValues.encoding = undefined;
-      }
-
-      return newValues;
-    },
-    onValuesChange: () => {
-      onChange(form.getTransformedValues());
-    },
+    onValuesChange: onChange,
     onSubmitPreventDefault: 'always',
     validateInputOnChange: true,
   });
 
   return (
-    <Stack>
+    <Stack gap="xs">
       <ProjectFileSelect
         label={
           <LabelWithTooltip label="Path" tooltip="Path to log file to replay" />
@@ -65,7 +45,10 @@ export const ReplayEventPluginParams: FC<ReplayEventPluginParamsProps> = ({
         placeholder="path"
         clearable
         searchable
+        required
         {...form.getInputProps('path')}
+        value={form.getValues().path ?? null}
+        onChange={(value) => form.setFieldValue('path', value ?? undefined!)}
       />
       <TextInput
         label={
@@ -88,16 +71,15 @@ export const ReplayEventPluginParams: FC<ReplayEventPluginParamsProps> = ({
           </Group>
         }
         placeholder="regular expression"
-        value={form.getValues().timestamp_pattern ?? undefined}
-        onChange={(event) => {
+        {...form.getInputProps('timestamp_pattern')}
+        onChange={(value) =>
           form.setFieldValue(
             'timestamp_pattern',
-            event.currentTarget.value.length > 0
-              ? event.currentTarget.value
+            value.currentTarget.value !== ''
+              ? value.currentTarget.value
               : undefined
-          );
-        }}
-        error={form.errors.timestamp_pattern}
+          )
+        }
       />
       <TextInput
         label={
@@ -118,16 +100,15 @@ export const ReplayEventPluginParams: FC<ReplayEventPluginParamsProps> = ({
           </Group>
         }
         placeholder="format string"
-        value={form.getValues().timestamp_format ?? undefined}
-        onChange={(event) => {
+        {...form.getInputProps('timestamp_format')}
+        onChange={(value) =>
           form.setFieldValue(
             'timestamp_format',
-            event.currentTarget.value.length > 0
-              ? event.currentTarget.value
+            value.currentTarget.value !== ''
+              ? value.currentTarget.value
               : undefined
-          );
-        }}
-        error={form.errors.timestamp_format}
+          )
+        }
       />
       <Switch
         label={
@@ -151,14 +132,14 @@ export const ReplayEventPluginParams: FC<ReplayEventPluginParamsProps> = ({
         min={0}
         allowDecimal={false}
         placeholder="bytes"
-        value={form.getValues().chunk_size ?? undefined}
-        onChange={(value) => {
+        {...form.getInputProps('chunk_size')}
+        value={form.getValues().chunk_size ?? ''}
+        onChange={(value) =>
           form.setFieldValue(
             'chunk_size',
             typeof value === 'number' ? value : undefined
-          );
-        }}
-        error={form.errors.chunk_size}
+          )
+        }
       />
       <Select
         label={
@@ -172,6 +153,8 @@ export const ReplayEventPluginParams: FC<ReplayEventPluginParamsProps> = ({
         clearable
         searchable
         {...form.getInputProps('encoding')}
+        value={form.getValues().encoding ?? null}
+        onChange={(value) => form.setFieldValue('encoding', value ?? undefined)}
       />
     </Stack>
   );

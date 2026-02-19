@@ -1,8 +1,16 @@
-import { ActionIcon, Group, Stack, TagsInput, Text } from '@mantine/core';
+import {
+  ActionIcon,
+  Group,
+  Paper,
+  Stack,
+  TagsInput,
+  Text,
+} from '@mantine/core';
 import { useForm } from '@mantine/form';
 import { modals } from '@mantine/modals';
 import { IconPlus } from '@tabler/icons-react';
 import { zod4Resolver } from 'mantine-form-zod-resolver';
+import { normalize } from 'pathe';
 import { FC, useState } from 'react';
 
 import { useProjectName } from '../../../hooks/useProjectName';
@@ -40,7 +48,7 @@ export const TimePatternsInputPluginParams: FC<
   );
 
   return (
-    <Stack>
+    <Stack gap="xs">
       <ProjectFileMultiSelect
         label={
           <LabelWithTooltip
@@ -74,54 +82,57 @@ export const TimePatternsInputPluginParams: FC<
         }
       />
 
-      <Stack gap="4px">
-        <Text size="sm" fw="bold">
-          Time patterns
-        </Text>
-        <Stack>
-          <Group align="end" wrap="nowrap" gap="xs">
-            <ProjectFileSelect
-              label="Select pattern to edit"
-              searchable
-              nothingFoundMessage="No files found"
-              placeholder="time pattern file"
-              extensions={['.yaml', '.yml']}
-              w="100%"
-              value={selectedTimePattern}
-              onChange={setSelectedTimePattern}
-              clearable
-            />
-            <ActionIcon
-              title="Add new pattern"
-              size="lg"
-              variant="default"
-              onClick={() => {
-                modals.open({
-                  title: 'Add new time pattern',
-                  children: (
-                    <ProjectNameProvider initialProjectName={projectName}>
-                      <AddNewPatternModal
-                        onAddNewPattern={(filePath) => {
-                          const normalizedPath = filePath.startsWith('./')
-                            ? filePath
-                            : `./${filePath}`;
-                          setSelectedTimePattern(normalizedPath);
-                        }}
-                      />
-                    </ProjectNameProvider>
-                  ),
-                  size: 'md',
-                });
-              }}
-            >
-              <IconPlus size={20} />
-            </ActionIcon>
-          </Group>
-          {selectedTimePattern && (
-            <TimePatternParams filePath={selectedTimePattern} />
-          )}
+      <Paper withBorder p="sm" mt="4px">
+        <Stack gap="4px">
+          <Text size="sm" fw="bold">
+            Pattern editor
+          </Text>
+          <Stack>
+            <Group align="end" wrap="nowrap" gap="xs">
+              <ProjectFileSelect
+                label="Select pattern to edit"
+                searchable
+                nothingFoundMessage="No files found"
+                placeholder="time pattern file"
+                extensions={['.yaml', '.yml']}
+                w="100%"
+                value={selectedTimePattern}
+                onChange={setSelectedTimePattern}
+                clearable
+              />
+              <ActionIcon
+                title="Add new pattern"
+                size="lg"
+                variant="default"
+                onClick={() => {
+                  modals.open({
+                    title: 'Add new time pattern',
+                    children: (
+                      <ProjectNameProvider initialProjectName={projectName}>
+                        <AddNewPatternModal
+                          onAddNewPattern={(filePath) => {
+                            const normalizedPath = normalize(filePath);
+                            setSelectedTimePattern(normalizedPath);
+                          }}
+                        />
+                      </ProjectNameProvider>
+                    ),
+                    size: 'md',
+                  });
+                }}
+              >
+                <IconPlus size={20} />
+              </ActionIcon>
+            </Group>
+            {selectedTimePattern && (
+              <TimePatternParams
+                filePath={selectedTimePattern}
+                key={selectedTimePattern}
+              />
+            )}
+          </Stack>
         </Stack>
-      </Stack>
+      </Paper>
     </Stack>
   );
 };

@@ -2,7 +2,6 @@
 
 import ssl
 from threading import Thread
-from typing import TYPE_CHECKING
 
 import structlog
 import uvicorn
@@ -11,14 +10,14 @@ from pydantic import ValidationError, validate_call
 
 from eventum.app.hooks import InstanceHooks
 from eventum.app.manager import GeneratorManager, ManagingError
-from eventum.app.models.generators import GeneratorsParameters
+from eventum.app.models.generators import (
+    StartupGeneratorParameters,
+    StartupGeneratorParametersList,
+)
 from eventum.app.models.settings import Settings
 from eventum.exceptions import ContextualError
 from eventum.security.manage import SECURITY_SETTINGS
 from eventum.utils.validation_prettier import prettify_validation_errors
-
-if TYPE_CHECKING:
-    from eventum.core.parameters import GeneratorParameters
 
 logger = structlog.stdlib.get_logger()
 
@@ -61,7 +60,7 @@ class App:
         self._manager = GeneratorManager()
 
         self._server: uvicorn.Server | None = None
-        self._server_thread = Thread(target=self._run_api_server, name='api')
+        self._server_thread = Thread(target=self._run_server, name='server')
 
     def start(self) -> None:
         """Start the app.
@@ -78,24 +77,30 @@ class App:
         logger.info('Starting generators')
         self._start_generators(generators_params=generators_params)
 
-        if self._settings.api.enabled:
-            from eventum.api.main import APIBuildingError
+        if (
+            self._settings.server.api_enabled
+            or self._settings.server.ui_enabled
+        ):
+            from eventum.server.exceptions import ServiceBuildingError
 
             logger.info(
-                'Starting API',
-                port=self._settings.api.port,
-                host=self._settings.api.host,
+                'Starting Server',
+                port=self._settings.server.port,
+                host=self._settings.server.host,
             )
             try:
-                self._start_api()
-            except APIBuildingError as e:
+                self._start_server()
+            except ServiceBuildingError as e:
                 raise AppError(str(e), context=e.context) from e
 
     def stop(self) -> None:
         """Stop the app."""
-        if self._settings.api.enabled:
-            logger.info('Stopping the API')
-            self._stop_api()
+        if (
+            self._settings.server.api_enabled
+            or self._settings.server.ui_enabled
+        ):
+            logger.info('Stopping the server')
+            self._stop_server()
 
         logger.info('Stopping generators')
         self._stop_generators()
@@ -104,19 +109,19 @@ class App:
     def _validate_generators_params(
         self,
         object: list[dict],
-    ) -> GeneratorsParameters:
-        """Validate list of generators.
+    ) -> StartupGeneratorParametersList:
+        """Validate list of startup generator params.
 
         Parameters
         ----------
         object : list[dict]
-            List with parameters of generators.
+            List with startup parameters of generators.
 
         Returns
         -------
-        GeneratorsParameters
-            Validated list of generators parameters applied above
-            generation parameters from settings.
+        StartupGeneratorParametersList
+            Validated list of startup generator parameters applied
+            above generation parameters from settings.
 
         Raises
         ------
@@ -125,7 +130,7 @@ class App:
 
         """
         generators_parameters = (
-            GeneratorsParameters.build_over_generation_parameters(
+            StartupGeneratorParametersList.build_over_generation_parameters(
                 object=object,
                 generation_parameters=self._settings.generation,
             )
@@ -136,7 +141,7 @@ class App:
             parameters=self._settings.generation.model_dump(mode='json'),
         )
 
-        normalized_params_list: list[GeneratorParameters] = []
+        normalized_params_list: list[StartupGeneratorParameters] = []
         for params in generators_parameters.root:
             normalized_params = params.as_absolute(
                 base_dir=self._settings.path.generators_dir,
@@ -149,21 +154,25 @@ class App:
                 logger.warning(
                     'Generator is outside the configured generators '
                     'directory. Consider moving it into specified directory '
-                    'so it can be observed by the API.',
+                    'so it can be observed by the API service.',
                     generator_id=normalized_params.id,
                     path=str(self._settings.path.generators_dir),
                 )
 
-        return GeneratorsParameters(root=tuple(normalized_params_list))
+        return StartupGeneratorParametersList(
+            root=tuple(normalized_params_list),
+        )
 
-    def _load_startup_generators_params(self) -> GeneratorsParameters:
+    def _load_startup_generators_params(
+        self,
+    ) -> StartupGeneratorParametersList:
         """Load params of generators from the startup file specified in
         config.
 
         Returns
         -------
-        GeneratorsParameters
-            List of generators params.
+        StartupGeneratorParametersList
+            List of startup generator params.
 
         Raises
         ------
@@ -213,23 +222,30 @@ class App:
 
     def _start_generators(
         self,
-        generators_params: GeneratorsParameters,
+        generators_params: StartupGeneratorParametersList,
     ) -> None:
         """Start generators.
 
         Parameters
         ----------
-        generators_params : GeneratorsParameters
+        generators_params : StartupGeneratorParametersList
             List of generators parameters.
 
         """
         added_generators: list[str] = []
+        autostarted_generators: list[str] = []
+        not_autostarted_generators: list[str] = []
         not_added_generators: list[str] = []
 
         for params in generators_params.root:
             try:
                 self._manager.add(params)
                 added_generators.append(params.id)
+
+                if params.autostart:
+                    autostarted_generators.append(params.id)
+                else:
+                    not_autostarted_generators.append(params.id)
             except ManagingError as e:
                 not_added_generators.append(params.id)
                 logger.error(
@@ -240,12 +256,13 @@ class App:
 
         logger.debug(
             'Bulk starting generators',
-            generator_ids=added_generators,
+            generator_ids=autostarted_generators,
         )
         running_generators, non_running_generators = self._manager.bulk_start(
-            generator_ids=added_generators,
+            generator_ids=autostarted_generators,
         )
         non_running_generators.extend(not_added_generators)
+        non_running_generators.extend(not_autostarted_generators)
 
         if len(running_generators) > 0:
             logger.info(
@@ -271,8 +288,8 @@ class App:
         )
         self._manager.bulk_stop(generator_ids)
 
-    def _run_api_server(self) -> None:
-        """Run API server with handling possible errors."""
+    def _run_server(self) -> None:
+        """Run server with handling possible errors."""
         if self._server is None:
             return
 
@@ -280,47 +297,51 @@ class App:
             self._server.run()
         except Exception as e:
             logger.exception(
-                'Unexpected error occurred during API server execution',
+                'Unexpected error occurred during server execution',
                 reason=str(e),
             )
 
-    def _start_api(self) -> None:
-        """Start application API.
+    def _start_server(self) -> None:
+        """Start application server.
 
         Raises
         ------
-        APIBuildingError
-            If API building fails.
+        ServiceBuildingError
+            If some of the service fails to build.
 
         """
-        from eventum.api.main import build_api_app
+        from eventum.server.main import build_server_app
 
-        api_app = build_api_app(
+        server_app = build_server_app(
+            enabled_services={
+                'api': self._settings.server.api_enabled,
+                'ui': self._settings.server.ui_enabled,
+            },
             generator_manager=self._manager,
             settings=self._settings,
             instance_hooks=self._instance_hooks,
         )
 
-        if self._settings.api.ssl.enabled:
+        if self._settings.server.ssl.enabled:
             ssl_settings = {
-                'ssl_ca_certs': self._settings.api.ssl.ca_cert,
-                'ssl_certfile': self._settings.api.ssl.cert,
-                'ssl_keyfile': self._settings.api.ssl.cert_key,
+                'ssl_ca_certs': self._settings.server.ssl.ca_cert,
+                'ssl_certfile': self._settings.server.ssl.cert,
+                'ssl_keyfile': self._settings.server.ssl.cert_key,
                 'ssl_cert_reqs': {
                     None: ssl.CERT_NONE,
                     'none': ssl.CERT_NONE,
                     'optional': ssl.CERT_OPTIONAL,
                     'required': ssl.CERT_REQUIRED,
-                }[self._settings.api.ssl.verify_mode],
+                }[self._settings.server.ssl.verify_mode],
             }
         else:
             ssl_settings = {}
 
         self._server = uvicorn.Server(
             uvicorn.Config(
-                api_app,
-                host=self._settings.api.host,
-                port=self._settings.api.port,
+                server_app,
+                host=self._settings.server.host,
+                port=self._settings.server.port,
                 access_log=True,
                 log_config=None,
                 **ssl_settings,  # type: ignore[arg-type]
@@ -328,8 +349,8 @@ class App:
         )
         self._server_thread.start()
 
-    def _stop_api(self) -> None:
-        """Stop application API."""
+    def _stop_server(self) -> None:
+        """Stop application server."""
         if self._server is None:
             return
 

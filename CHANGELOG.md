@@ -2,68 +2,68 @@
 
 All notable changes to this project will be documented in this file.
 
-## 2.0 (2025-01-01)
+## 2.0.0 (2026-02-23)
 
 ### 🚀 Features
 
 #### Input plugins
 
-- New `http` input plugin is added
-- Support of `live` and `sample` modes is added for all input plugins
-- Human readable dates parsing is added for all input plugins
-- Possibility of merging many input plugins with timestamps ordering is added
+- New `http` input plugin — trigger event generation from external systems via HTTP requests
+- Live & sample modes for all input plugins — run in real-time or generate as fast as possible
+- Human-readable dates — write `"January 1, 2025"`, `"+1h"`, or `"now"` instead of strict ISO formats
+- Multiple input merging — combine several input plugins in one generator with automatic timestamp ordering
 
 #### Event plugins
 
-- New `script` event plugin is added
-- New `replay` event plugin is added
+- New `script` plugin — write event logic as a Python function when templates aren't enough
+- New `replay` plugin — replay events from existing log files with optional timestamp replacement
 
-##### Template event plugin
+#### Template plugin enhancements
 
-- New modules `mimesis` and `faker` are added to use in templates
-- Any python package can be used now in templates
-- Global inter-process state is added
-- New methods `update`, `clear` and `as_dict` are added to states
-- New picking modes `fsm` and `chain` are added
-- New sample types `json` and `items` are added
-- Timestamp type in templates is changed from string to tz-aware datetime
-- New arguments `cwd`, `env` and `timeout` are added for running subprocesses
+- Faker & Mimesis — two powerful data generation libraries available directly in templates (70+ locales, hundreds of data providers)
+- `module` gateway — access any installed Python package in templates via `module.<package>`
+- Global state — new `globals` scope for sharing state across all generators (thread-safe)
+- New state methods — `update`, `clear`, and `as_dict` for all state scopes
+- New picking modes — `fsm` (finite state machine) and `chain` (fixed sequence)
+- New sample types — `json` and `items` (inline lists in YAML)
+- Timezone-aware timestamps — `timestamp` is now a proper `datetime` object, not a string
+- Better subprocesses — new `cwd`, `env`, and `timeout` options
 
 #### Output plugins
 
-- New `clickhouse` output plugin is added
-- New `http` output plugin is added
-- Output formatters are added
+- New `clickhouse` plugin — write events directly to ClickHouse
+- New `http` plugin — send events to any HTTP endpoint
+- Formatters — transform events before delivery with `plain`, `json`, `json-batch`, `template`, or `template-batch`
 
-##### File output plugin
+#### Existing output plugin improvements
 
-- New parameters `flush_interval`, `cleanup_interval`, `file_mode`, `write_mode`, `encoding` and `separator` are added
-
-##### Stdout output plugin
-
-- New parameters `flush_interval`, `stream`, `encoding` and `separator` are added
-
-##### Opensearch output plugin
-
-- New parameters `connect_timeout`, `request_timeout`, `client_cert`, `client_cert_key` and `proxy_url` are added
+- **File** — new `flush_interval`, `cleanup_interval`, `file_mode`, `write_mode`, `encoding`, and `separator` options
+- **Stdout** — new `flush_interval`, `stream`, `encoding`, and `separator` options
+- **OpenSearch** — new `connect_timeout`, `request_timeout`, `client_cert`, `client_cert_key`, and `proxy_url` options
 
 ### ⚡ Performance
 
-- Performance is significantly improved, batch processing is used where possible now
+- Batch processing across the entire pipeline — events are grouped into configurable batches between stages, dramatically reducing overhead and improving throughput compared to 1.x
 
 ### 🧪 Testing
 
-- Tests coverage is improved
+- Expanded test coverage for all plugins, the core executor, configuration loading, and the CLI
 
-### 🚜 Refactor
+### 🏗️ Architecture
 
-- Architecture of project is globally refactored
+- Complete rewrite from scratch
+- Plugin system — self-registering plugins with a consistent structure
+- Async pipeline — `uvloop` event loop with `janus` queues for efficient stage-to-stage communication
+- Configuration — Pydantic-based validation with `${params.*}` and `${secrets.*}` variable substitution
+- CLI — rebuilt with Click, options auto-generated from config models
+- REST API — new FastAPI-based API for programmatic control
+- Eventum Studio — brand-new React web UI for visual editing, debugging, and monitoring
 
-### 💼 Other
+### 📝 Other changes
 
-- `sample` input plugin is renamed to `static`
-- `jinja` event plugin is renamed to `template`
-- Logging is improved, structured logging is used now
-- Exceptions are formalized and enriched with context
+- `sample` input plugin renamed to `static`
+- `jinja` event plugin renamed to `template`
+- Structured logging via structlog — supports plain-text and JSON output
+- Better error diagnostics — exceptions now carry structured context for easier troubleshooting
 
 <!-- generated by git-cliff -->

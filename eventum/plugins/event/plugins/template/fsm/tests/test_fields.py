@@ -11,6 +11,7 @@ from eventum.plugins.event.plugins.template.context import (
 )
 from eventum.plugins.event.plugins.template.fsm.fields import (
     After,
+    Always,
     And,
     Before,
     Contains,
@@ -28,6 +29,7 @@ from eventum.plugins.event.plugins.template.fsm.fields import (
     LenLt,
     Lt,
     Matches,
+    Never,
     Not,
     Or,
     TimestampComponents,
@@ -444,3 +446,27 @@ def test_complex_condition():
 def test_invalid_timestamp_components():
     with pytest.raises(ValueError):
         TimestampComponents()
+
+
+def test_always():
+    context = EventContext(
+        timestamp=...,
+        tags=...,
+        locals=...,
+        shared=...,
+        globals=...,
+    )
+
+    assert Always(always=None).check(context) is True
+
+
+def test_never():
+    context = EventContext(
+        timestamp=...,
+        tags=...,
+        locals=...,
+        shared=...,
+        globals=...,
+    )
+
+    assert Never(never=None).check(context) is False

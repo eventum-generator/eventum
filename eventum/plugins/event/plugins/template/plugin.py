@@ -161,7 +161,10 @@ class TemplateEventPlugin(
 
         """
         try:
-            return SamplesReader(self._config.root.samples)
+            return SamplesReader(
+                config=self._config.root.samples,
+                base_path=self._base_path,  # type: ignore[arg-type]
+            )
         except SampleLoadError as e:
             raise PluginConfigurationError(
                 str(e),

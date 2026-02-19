@@ -1,6 +1,14 @@
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import {
+  UseQueryResult,
+  useMutation,
+  useQuery,
+  useQueryClient,
+} from '@tanstack/react-query';
 
-import { GeneratorConfig } from '../routes/generator-configs/schemas';
+import {
+  GeneratorConfig,
+  GeneratorDirsExtendedInfo,
+} from '../routes/generator-configs/schemas';
 import {
   copyGeneratorFile,
   createGeneratorConfig,
@@ -19,11 +27,35 @@ import {
 } from '@/api/routes/generator-configs';
 
 const GENERATOR_CONFIG_DIRS_QUERY_KEY = ['generator-config-dirs'];
+const GENERATOR_CONFIG_DIRS_EXTENDED_QUERY_KEY = [
+  'generator-config-dirs-extended',
+];
 
-export function useGeneratorDirs() {
+const GENERATOR_CONFIG_DIRS_COMMON_QUERY_KEYS = [
+  GENERATOR_CONFIG_DIRS_QUERY_KEY,
+  GENERATOR_CONFIG_DIRS_EXTENDED_QUERY_KEY,
+];
+
+export function useGeneratorDirs(
+  extended: false
+): UseQueryResult<string[], Error>;
+
+export function useGeneratorDirs(
+  extended: true
+): UseQueryResult<GeneratorDirsExtendedInfo, Error>;
+
+export function useGeneratorDirs(
+  extended: boolean
+): UseQueryResult<GeneratorDirsExtendedInfo | string[], Error>;
+
+export function useGeneratorDirs(extended: boolean) {
   return useQuery({
-    queryKey: GENERATOR_CONFIG_DIRS_QUERY_KEY,
-    queryFn: listGeneratorDirs,
+    queryKey: [
+      ...(extended
+        ? GENERATOR_CONFIG_DIRS_EXTENDED_QUERY_KEY
+        : GENERATOR_CONFIG_DIRS_QUERY_KEY),
+    ],
+    queryFn: () => listGeneratorDirs(extended),
   });
 }
 
@@ -41,10 +73,11 @@ export function useCreateGeneratorConfigMutation() {
     mutationFn: ({ name, config }: { name: string; config: GeneratorConfig }) =>
       createGeneratorConfig(name, config),
     onSuccess: async () => {
-      await queryClient.invalidateQueries({
-        queryKey: GENERATOR_CONFIG_DIRS_QUERY_KEY,
-        exact: true,
-      });
+      await Promise.all(
+        GENERATOR_CONFIG_DIRS_COMMON_QUERY_KEYS.map((key) =>
+          queryClient.invalidateQueries({ queryKey: key, exact: true })
+        )
+      );
     },
   });
 }
@@ -70,20 +103,18 @@ export function useDeleteGeneratorConfigMutation() {
   return useMutation({
     mutationFn: ({ name }: { name: string }) => deleteGeneratorConfig(name),
     onSuccess: async () => {
-      await queryClient.invalidateQueries({
-        queryKey: GENERATOR_CONFIG_DIRS_QUERY_KEY,
-        exact: true,
-      });
+      await Promise.all(
+        GENERATOR_CONFIG_DIRS_COMMON_QUERY_KEYS.map((key) =>
+          queryClient.invalidateQueries({ queryKey: key, exact: true })
+        )
+      );
     },
   });
 }
 
-const GENERATOR_CONFIG_PATH_QUERY_KEY = ['generator-config-path'];
-
-export function useGeneratorConfigPath(name: string) {
-  return useQuery({
-    queryKey: [...GENERATOR_CONFIG_PATH_QUERY_KEY, name],
-    queryFn: () => getGeneratorConfigPath(name),
+export function useGeneratorConfigPathMutation() {
+  return useMutation({
+    mutationFn: ({ name }: { name: string }) => getGeneratorConfigPath(name),
   });
 }
 

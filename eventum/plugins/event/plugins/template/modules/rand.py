@@ -55,6 +55,17 @@ def weighted_choices(
     return random.choices(items, weights=weights, k=n)
 
 
+def chance(prob: float) -> bool:
+    """Return `True` with the given probability `prob` (0.0 to 1.0)."""
+    if prob <= 0:
+        return False
+
+    if prob >= 1:
+        return True
+
+    return random.random() < prob
+
+
 class number:  # noqa: N801
     """Namespace for generating random numbers."""
 

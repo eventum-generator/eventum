@@ -115,7 +115,7 @@ def test_normalize_versatile_datetime_for_human_readable():
 def test_normalize_versatile_datetime_for_human_readable_and_other_tz():
     tz = timezone('Europe/Moscow')
     result = normalize_versatile_datetime(value='1st August 2024', timezone=tz)
-    expected = datetime(2024, 8, 1, 0, 0, 0).astimezone(tz)
+    expected = tz.localize(datetime(2024, 8, 1, 0, 0, 0))
 
     assert result == expected
 

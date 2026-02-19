@@ -8,6 +8,8 @@ import {
   Container,
   Group,
   Loader,
+  Paper,
+  Stack,
   TagsInput,
   TextInput,
 } from '@mantine/core';
@@ -32,7 +34,7 @@ export default function ProjectsPage() {
     isError: isGeneratorDirsError,
     error: generatorDirsError,
     isSuccess: isGeneratorDirsSuccess,
-  } = useGeneratorDirs();
+  } = useGeneratorDirs(true);
 
   if (isGeneratorDirsLoading) {
     return (
@@ -65,65 +67,71 @@ export default function ProjectsPage() {
 
     return (
       <Container size="100%">
-        <PageTitle title="Projects" />
-        <Group justify="space-between" mt="lg">
-          <Group>
-            <TextInput
-              leftSection={<IconSearch size={16} />}
-              rightSection={
-                <ActionIcon
-                  variant="transparent"
-                  onClick={() => setProjectNameFilter('')}
-                  data-input-section
-                >
-                  <IconX size={16} />
-                </ActionIcon>
-              }
-              placeholder="search by name..."
-              value={projectNameFilter}
-              onChange={(event) => setProjectNameFilter(event.target.value)}
-            />
-            <TagsInput
-              placeholder="search by instance"
-              clearable
-              data={[...uniqueInstances].sort((a, b) => a.localeCompare(b))}
-              value={instanceFilter}
-              onChange={(values) => setInstanceFilter(values)}
-              disabled={anyInstanceFilter}
-            />
-            <Checkbox
-              label="Any used"
-              checked={anyInstanceFilter}
-              onChange={(event) =>
-                setAnyInstanceFilter(event.currentTarget.checked)
-              }
-            />
-          </Group>
-          <Button
-            onClick={() =>
-              modals.open({
-                title: 'New project',
-                children: (
-                  <CreateProjectModal
-                    existingProjectNames={generatorDirs.map(
-                      (item) => item.name
-                    )}
-                  />
-                ),
-                size: 'lg',
-              })
-            }
-          >
-            Create new
-          </Button>
-        </Group>
+        <Stack>
+          <PageTitle title="Projects" />
 
-        <GeneratorDirsTable
-          data={generatorDirs}
-          projectNameFilter={projectNameFilter}
-          instancesFilter={instanceFilter}
-          anyInstanceFilter={anyInstanceFilter}
-        />
+          <Paper withBorder p="sm">
+            <Group justify="space-between">
+              <Group>
+                <TextInput
+                  leftSection={<IconSearch size={16} />}
+                  rightSection={
+                    <ActionIcon
+                      variant="transparent"
+                      onClick={() => setProjectNameFilter('')}
+                      data-input-section
+                    >
+                      <IconX size={16} />
+                    </ActionIcon>
+                  }
+                  placeholder="search by name..."
+                  value={projectNameFilter}
+                  onChange={(event) => setProjectNameFilter(event.target.value)}
+                />
+                <TagsInput
+                  leftSection={<IconSearch size={16} />}
+                  placeholder="search by instance"
+                  clearable
+                  data={[...uniqueInstances].sort((a, b) => a.localeCompare(b))}
+                  value={instanceFilter}
+                  onChange={(values) => setInstanceFilter(values)}
+                  disabled={anyInstanceFilter}
+                />
+                <Checkbox
+                  label="Any used"
+                  checked={anyInstanceFilter}
+                  onChange={(event) =>
+                    setAnyInstanceFilter(event.currentTarget.checked)
+                  }
+                />
+              </Group>
+              <Button
+                onClick={() =>
+                  modals.open({
+                    title: 'New project',
+                    children: (
+                      <CreateProjectModal
+                        existingProjectNames={generatorDirs.map(
+                          (item) => item.name
+                        )}
+                      />
+                    ),
+                    size: 'lg',
+                  })
+                }
+              >
+                Create new
+              </Button>
+            </Group>
+          </Paper>
+
+          <GeneratorDirsTable
+            data={generatorDirs}
+            projectNameFilter={projectNameFilter}
+            instancesFilter={instanceFilter}
+            anyInstanceFilter={anyInstanceFilter}
+          />
+        </Stack>
       </Container>
     );
   }

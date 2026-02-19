@@ -11,6 +11,7 @@ import { modals } from '@mantine/modals';
 import { notifications } from '@mantine/notifications';
 import {
   IconInfoSquareRounded,
+  IconLogs,
   IconPower,
   IconReload,
 } from '@tabler/icons-react';
@@ -19,6 +20,8 @@ import {
   useRestartInstanceMutation,
   useStopInstanceMutation,
 } from '@/api/hooks/useInstance';
+import { streamInstanceLogs } from '@/api/routes/instance';
+import { LogsModal } from '@/components/modals/LogsModal';
 import { PageTitle } from '@/components/ui/PageTitle';
 import { ShowErrorDetailsAnchor } from '@/components/ui/ShowErrorDetailsAnchor';
 
@@ -73,7 +76,7 @@ export default function ManagementPage() {
     });
   }
   return (
-    <Container size="lg" mb="400px">
+    <Container size="xl" mb="400px">
       <Stack>
         <PageTitle title="Management" />
         <Alert
@@ -86,6 +89,26 @@ export default function ManagementPage() {
           it using web interface.
         </Alert>
         <Group grow>
+          <Button
+            h="60px"
+            variant="default"
+            onClick={() =>
+              modals.open({
+                title: 'Instance logs',
+                children: (
+                  <LogsModal
+                    getWebSocket={() => streamInstanceLogs(10_048_576)}
+                  />
+                ),
+                size: '80vw',
+              })
+            }
+          >
+            <Box mr="5px">
+              <IconLogs size="16px" />
+            </Box>
+            Show logs
+          </Button>
           <Button
             h="60px"
             variant="default"

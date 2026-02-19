@@ -4,7 +4,9 @@ import { BaseOutputPluginConfigSchema } from '../base-config';
 
 export const OpensearchOutputPluginConfigSchema =
   BaseOutputPluginConfigSchema.extend({
-    hosts: z.array(z.httpUrl()).min(1),
+    hosts: z
+      .array(z.url({ protocol: /^https?$/, hostname: z.regexes.hostname }))
+      .min(1),
     username: z.string().min(1),
     password: z.string().min(1),
     index: z.string().min(1),

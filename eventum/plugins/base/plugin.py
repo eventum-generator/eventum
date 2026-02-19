@@ -120,7 +120,7 @@ class PluginParams(TypedDict):
         registered but it needs representable type to moment of
         initialization.
 
-    base_path : Required[Path]
+    base_path : NotRequired[Path]
         Base path for all relative paths used in plugin configurations,
         if it is not provided then current working directory is used.
 
@@ -170,7 +170,7 @@ class Plugin(ABC, Generic[ConfigT, ParamsT]):
 
         self._guid = str(uuid4())
 
-        self._base_path = params.get('base_path', Path.cwd())
+        self._base_path: Path = params.get('base_path', Path.cwd())  # type: ignore[assignment]
 
         self._logger = self.logger.bind(
             plugin_name=self.name,

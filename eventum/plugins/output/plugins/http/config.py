@@ -19,12 +19,12 @@ class HttpOutputPluginConfig(OutputPluginConfig, frozen=True):
     Attributes
     ----------
     url : HttpUrl
-        URL to use for requests.
+        URL address of resource.
 
     method : Literal[\
         'GET', 'HEAD', 'OPTIONS', 'POST', 'PUT', 'PATCH', 'DELETE'\
     ], default='POST'
-        HTTP method to use for requests.
+        HTTP method to use.
 
     success_code : int,default=201
         Expected HTTP response code, if server returns other code, then
@@ -39,9 +39,15 @@ class HttpOutputPluginConfig(OutputPluginConfig, frozen=True):
     password: str | None, default=None
         Password for user to authenticate.
 
+    connect_timeout : int, default=10
+        Connection timeout in seconds.
+
+    request_timeout : int, default=300
+        Requests timeout in seconds.
+
     verify: bool, default=True
-        Whether to verify SSL certificate of the cluster nodes when
-        connecting to them.
+        Whether to verify SSL certificate of the server when
+        connecting to it.
 
     ca_cert: str | None, default=None
         Path to CA certificate.
@@ -52,7 +58,7 @@ class HttpOutputPluginConfig(OutputPluginConfig, frozen=True):
     client_cert_key: str | None, default=None
         Path to client certificate key.
 
-    proxy_url : HttpUrl
+    proxy_url : HttpUrl | None, default=None
         HTTP(S) proxy address.
 
     Notes

@@ -32,3 +32,12 @@ export async function stopInstance() {
 export async function restartInstance() {
   await apiClient.post('/instance/restart');
 }
+
+export function streamInstanceLogs(endOffset: number): WebSocket {
+  const protocol = globalThis.location.protocol === 'https:' ? 'wss' : 'ws';
+  const host = globalThis.location.host;
+
+  return new WebSocket(
+    `${protocol}://${host}/api/instance/logs/main?end_offset=${endOffset}`
+  );
+}

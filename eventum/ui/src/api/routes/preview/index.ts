@@ -3,6 +3,9 @@ import { EventPluginNamedConfig } from '../generator-configs/schemas/plugins/eve
 import {
   AggregatedTimestamps,
   AggregatedTimestampsSchema,
+  FormatEventsBody,
+  FormattingResult,
+  FormattingResultSchema,
   ProduceParamsBody,
   ProducedEventsInfo,
   ProducedEventsInfoSchema,
@@ -146,5 +149,15 @@ export async function normalizeVersatileDatetime(
   return await validateResponse(
     VersatileDatetimeResponseSchema,
     apiClient.post(`/preview/${name}/versatile-datetime/normalize`, parameters)
+  );
+}
+
+export async function formatEvents(
+  name: string,
+  body: FormatEventsBody
+): Promise<FormattingResult> {
+  return await validateResponse(
+    FormattingResultSchema,
+    apiClient.post(`/preview/${name}/formatter/format`, body)
   );
 }

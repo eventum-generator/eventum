@@ -1,5 +1,7 @@
 import z from 'zod';
 
+import { FormatterConfigSchema } from '../generator-configs/schemas/plugins/output/formatters';
+
 export const AggregatedTimestampsSchema = z.object({
   span_edges: z.array(z.string()),
   span_counts: z.record(z.string(), z.array(z.int())),
@@ -51,3 +53,21 @@ export const VersatileDatetimeResponseSchema = z.string();
 export type VersatileDatetimeResponse = z.infer<
   typeof VersatileDatetimeResponseSchema
 >;
+
+export const FormatEventsBodySchema = z.object({
+  formatter_config: FormatterConfigSchema,
+  events: z.array(z.string()).min(1),
+});
+export type FormatEventsBody = z.infer<typeof FormatEventsBodySchema>;
+
+const FormatErrorInfoSchema = z.object({
+  message: z.string(),
+  original_event: z.string().nullable(),
+});
+
+export const FormattingResultSchema = z.object({
+  events: z.array(z.string()),
+  formatted_count: z.int(),
+  errors: z.array(FormatErrorInfoSchema),
+});
+export type FormattingResult = z.infer<typeof FormattingResultSchema>;

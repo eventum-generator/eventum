@@ -53,7 +53,7 @@ export const HTTPInputPluginParams: FC<HTTPInputPluginParamsProps> = ({
   });
 
   return (
-    <Stack>
+    <Stack gap="xs">
       <Group grow align="start">
         <TextInput
           label={

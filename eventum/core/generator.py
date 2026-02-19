@@ -45,6 +45,7 @@ class Generator:
         self._thread: Thread | None = None
         self._initialized_event = Event()
         self._successfully_done_event = Event()
+        self._is_stopping = False
 
         self._logger = structlog.stdlib.get_logger().bind(
             generator_id=self._params.id,
@@ -191,10 +192,13 @@ class Generator:
         if generator is not running.
         """
         self._logger.info('Stopping generator')
+        self._is_stopping = True
+
         self._logger.debug('Acquiring lock')
         with self._lock:
             if not self.is_running:
                 self._logger.debug('Generator is not running')
+                self._is_stopping = False
                 return
 
             self._logger.debug('Requesting executor to stop')
@@ -202,6 +206,8 @@ class Generator:
 
             self._logger.debug('Joining executing thread')
             self._thread.join()  # type: ignore[union-attr]
+
+        self._is_stopping = False
 
     def _release(self) -> None:
         """Release resources of generator runtime after stopping or
@@ -284,6 +290,11 @@ class Generator:
         )
 
     @property
+    def is_stopping(self) -> bool:
+        """Whether the generator is stopping."""
+        return self._is_stopping
+
+    @property
     def is_ended_up(self) -> bool:
         """Whether the generator has ended execution with or without
         errors.
@@ -301,17 +312,6 @@ class Generator:
         return self.is_ended_up and not self._successfully_done_event.is_set()
 
     @property
-    def start_time(self) -> datetime:
-        """Start time of the generator.
-
-        Notes
-        -----
-        Note that accessing this property before initialization of
-        generator raises `RuntimeError`
-
-        """
-        if self._start_time is None:
-            msg = 'Generator is not yet started'
-            raise RuntimeError(msg)
-
+    def start_time(self) -> datetime | None:
+        """Start time of the generator."""
         return self._start_time

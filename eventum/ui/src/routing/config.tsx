@@ -13,15 +13,21 @@ const SignInPage = lazy(
       default: React.ComponentType;
     }>
 );
-const MainPage = lazy(
+const OverviewPage = lazy(
   () =>
-    import('@/pages/MainPage') as Promise<{
+    import('@/pages/OverviewPage') as Promise<{
       default: React.ComponentType;
     }>
 );
 const InstancesPage = lazy(
   () =>
     import('@/pages/InstancesPage') as Promise<{
+      default: React.ComponentType;
+    }>
+);
+const InstancePage = lazy(
+  () =>
+    import('@/pages/InstancePage') as Promise<{
       default: React.ComponentType;
     }>
 );
@@ -34,12 +40,6 @@ const ProjectsPage = lazy(
 const ProjectPage = lazy(
   () =>
     import('@/pages/ProjectPage') as Promise<{
-      default: React.ComponentType;
-    }>
-);
-const StartupPage = lazy(
-  () =>
-    import('@/pages/StartupPage') as Promise<{
       default: React.ComponentType;
     }>
 );
@@ -87,11 +87,11 @@ export const routes: RouteObject[] = [
       </PrivateRoute>
     ),
     children: [
-      { index: true, element: <MainPage /> },
+      { index: true, element: <OverviewPage /> },
       { path: ROUTE_PATHS.INSTANCES, element: <InstancesPage /> },
+      { path: ROUTE_PATHS.INSTANCE, element: <InstancePage /> },
       { path: ROUTE_PATHS.PROJECTS, element: <ProjectsPage /> },
       { path: ROUTE_PATHS.PROJECT, element: <ProjectPage /> },
-      { path: ROUTE_PATHS.STARTUP, element: <StartupPage /> },
       { path: ROUTE_PATHS.SECRETS, element: <SecretsPage /> },
       { path: ROUTE_PATHS.SETTINGS, element: <SettingsPage /> },
       { path: ROUTE_PATHS.MANAGEMENT, element: <ManagementPage /> },

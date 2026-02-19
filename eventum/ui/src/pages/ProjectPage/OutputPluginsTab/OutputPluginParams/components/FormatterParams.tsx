@@ -31,7 +31,7 @@ export const FormatterParams: FC<FormatterParamsProps> = ({
   >('template');
 
   return (
-    <Stack>
+    <Stack gap="xs">
       <Select
         label={
           <LabelWithTooltip label="Format" tooltip="Target format of content" />
@@ -82,7 +82,7 @@ export const FormatterParams: FC<FormatterParamsProps> = ({
 
       {(value?.format === Format.Template ||
         value?.format === Format.TemplateBatch) && (
-        <Stack>
+        <Stack gap="xs">
           <SegmentedControl
             data={
               [

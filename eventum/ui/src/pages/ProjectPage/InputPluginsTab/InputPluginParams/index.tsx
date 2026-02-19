@@ -1,7 +1,4 @@
-import { CodeHighlight } from '@mantine/code-highlight';
-import { Stack, Text } from '@mantine/core';
 import { FC } from 'react';
-import YAML from 'yaml';
 
 import { CronInputPluginParams } from './CronInputPluginParams';
 import { HTTPInputPluginParams } from './HTTPInputPluginParams';
@@ -61,22 +58,11 @@ export const InputPluginParams: FC<InputPluginParamsProps> = ({
   const ParamsComponent = pluginNamesToParamsComponent[pluginName];
 
   return (
-    <Stack>
-      <ParamsComponent
-        initialConfig={pluginConfig}
-        onChange={(newConfig) => {
-          onChange({ [pluginName]: newConfig } as InputPluginNamedConfig);
-        }}
-      />
-      <Stack gap="4px">
-        <Text size="sm" fw="bold">
-          Configuration preview
-        </Text>
-        <CodeHighlight
-          code={YAML.stringify(inputPluginConfig)}
-          language="yml"
-        />
-      </Stack>
-    </Stack>
+    <ParamsComponent
+      initialConfig={pluginConfig}
+      onChange={(newConfig) => {
+        onChange({ [pluginName]: newConfig } as InputPluginNamedConfig);
+      }}
+    />
   );
 };

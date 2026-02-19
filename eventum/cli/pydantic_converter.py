@@ -329,6 +329,23 @@ def _patch_error_locations(errors: list[ErrorDetails]) -> None:
         error['loc'] = tuple(new_locs)
 
 
+def _strip_none_values(d: dict[str, Any]) -> dict[str, Any]:
+    """Recursively strip None values from a nested dict.
+
+    Empty sub-dicts are also removed so that pydantic default
+    factories can kick in for the parent field.
+    """
+    result: dict[str, Any] = {}
+    for k, v in d.items():
+        if isinstance(v, dict):
+            stripped = _strip_none_values(v)
+            if stripped:
+                result[k] = stripped
+        elif v is not None:
+            result[k] = v
+    return result
+
+
 def from_model(model: type[BaseModel]) -> Callable[[Callable], Callable]:
     """Decorator for adding options to click command from pydantic
     model.
@@ -349,6 +366,12 @@ def from_model(model: type[BaseModel]) -> Callable[[Callable], Callable]:
                     model_kwargs[k] = v
                 else:
                     other_kwargs[k] = v
+
+            # Strip None values from model kwargs so that pydantic
+            # model validators can distinguish "not provided" from
+            # "explicitly set to None". On the CLI, None always means
+            # "not provided by user".
+            model_kwargs = _strip_none_values(model_kwargs)
 
             try:
                 validated = model.model_validate(model_kwargs)

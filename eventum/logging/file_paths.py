@@ -74,11 +74,11 @@ def construct_main_logfile_path(
     return logs_dir / filename
 
 
-def construct_api_logfile_path(
+def construct_server_logfile_path(
     logs_dir: Path,
     log_type: Literal['access', 'error'],
 ) -> Path:
-    """Construct api log file path.
+    """Construct server log file path.
 
     Parameters
     ----------
@@ -86,7 +86,7 @@ def construct_api_logfile_path(
         Directory for log files.
 
     log_type : Literal['access', 'error']
-        API log type.
+        Server log type.
 
     Returns
     -------
@@ -94,6 +94,6 @@ def construct_api_logfile_path(
         Filepath to api log file.
 
     """
-    filename = f'api_{log_type}.log'
+    filename = f'server_{log_type}.log'
 
     return logs_dir / filename

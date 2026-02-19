@@ -1,8 +1,14 @@
-import { ActionIcon, Group, Table, TextInput } from '@mantine/core';
+import {
+  ActionIcon,
+  Group,
+  PasswordInput,
+  Table,
+  TextInput,
+} from '@mantine/core';
 import { isNotEmpty, useForm } from '@mantine/form';
 import { notifications } from '@mantine/notifications';
 import { IconDeviceFloppy } from '@tabler/icons-react';
-import { FC, useState } from 'react';
+import { FC } from 'react';
 
 import { useSetSecretValueMutation } from '@/api/hooks/useSecrets';
 import { ShowErrorDetailsAnchor } from '@/components/ui/ShowErrorDetailsAnchor';
@@ -22,15 +28,12 @@ export const NewSecretRow: FC = () => {
   });
 
   const updateSecretValue = useSetSecretValueMutation();
-  const [isSettingNewSecret, setSettingNewSecret] = useState(false);
 
   function handleSetNewSecret(values: typeof form.values) {
-    setSettingNewSecret(true);
     updateSecretValue.mutate(
       { name: values.name, value: values.value },
       {
         onError: (error) => {
-          setSettingNewSecret(false);
           notifications.show({
             title: 'Error',
             message: (
@@ -43,7 +46,6 @@ export const NewSecretRow: FC = () => {
           });
         },
         onSuccess: () => {
-          setSettingNewSecret(false);
           form.reset();
           notifications.show({
             title: 'Success',
@@ -57,7 +59,7 @@ export const NewSecretRow: FC = () => {
 
   return (
     <Table.Tr style={{ verticalAlign: 'top' }}>
-      <Table.Td>
+      <Table.Td w="50%">
         <TextInput
           placeholder="new secret name"
           {...form.getInputProps('name')}
@@ -65,10 +67,12 @@ export const NewSecretRow: FC = () => {
         />
       </Table.Td>
       <Table.Td>
-        <TextInput
-          placeholder="secret value"
-          {...form.getInputProps('value')}
-        />
+        <form onSubmit={form.onSubmit(handleSetNewSecret)}>
+          <PasswordInput
+            placeholder="secret value"
+            {...form.getInputProps('value')}
+          />
+        </form>
       </Table.Td>
 
       <Table.Td>
@@ -78,7 +82,8 @@ export const NewSecretRow: FC = () => {
             title="Save"
             size="lg"
             onClick={() => handleSetNewSecret(form.values)}
-            disabled={!form.isValid() || isSettingNewSecret}
+            disabled={!form.isValid()}
+            loading={updateSecretValue.isPending}
           >
             <IconDeviceFloppy size={20} />
           </ActionIcon>

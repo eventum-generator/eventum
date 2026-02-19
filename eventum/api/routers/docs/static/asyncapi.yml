@@ -4,15 +4,15 @@ info:
   version: 2.0.0
   description: API for managing generators, plugins and its dependencies
   contact:
-    name: Eventum Project
-    url: https://github.com/eventum-project
+    name: Eventum
+    url: https://github.com/eventum-generator
   license:
     name: Apache 2.0
-    url: https://github.com/eventum-project/eventum-generator/blob/master/LICENSE
+    url: https://github.com/eventum-generator/eventum/blob/master/LICENSE
   tags: []
   externalDocs:
     description: Eventum Documentation
-    url: https://eventum-project.github.io/website/
+    url: https://eventum.run
 servers:
   local:
     host: 0.0.0.0:9474

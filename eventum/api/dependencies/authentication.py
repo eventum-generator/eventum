@@ -111,12 +111,12 @@ def check_auth(
 
         is_correct_username = secrets.compare_digest(
             username.encode(),
-            settings.api.auth.user.encode(),
+            settings.server.auth.user.encode(),
         )
 
         is_correct_password = secrets.compare_digest(
             password.encode(),
-            settings.api.auth.password.encode(),
+            settings.server.auth.password.encode(),
         )
 
         if not (is_correct_username and is_correct_password):

@@ -16,7 +16,6 @@ import {
 import { isNotEmpty, useForm } from '@mantine/form';
 import { notifications } from '@mantine/notifications';
 import { IconBug, IconBugOff, IconPlayerPlay } from '@tabler/icons-react';
-import { nanoid } from 'nanoid';
 import { FC, useState } from 'react';
 
 import { useGetPluginConfig } from '../../../hooks/useGetPluginConfig';
@@ -276,7 +275,7 @@ export const DebuggerTab: FC = () => {
       </Group>
 
       {producedEventsInfo !== undefined ? (
-        <Stack>
+        <Stack gap="xs">
           <Stack gap="4px">
             <Text size="sm" fw="bold">
               Events
@@ -301,9 +300,9 @@ export const DebuggerTab: FC = () => {
             clearable
           />
           {producedEventsInfo.events.length > 0 ? (
-            producedEventsInfo.events.map((event) => (
+            producedEventsInfo.events.map((event, index) => (
               <CodeHighlight
-                key={nanoid()}
+                key={index}
                 code={event}
                 language={syntaxHighlighting ?? undefined}
                 defaultExpanded
@@ -327,8 +326,8 @@ export const DebuggerTab: FC = () => {
             <Divider />
           </Stack>
           {producedEventsInfo.errors.length > 0 ? (
-            producedEventsInfo.errors.map((error) => (
-              <Code block key={nanoid()}>
+            producedEventsInfo.errors.map((error, index) => (
+              <Code block key={index}>
                 {`At event #${error.index + 1}: ${error.message} - ${error.context.reason ?? 'unknown reason'}\n\n`}
                 {error.context.traceback ?? 'No traceback info\n\n'}
 
@@ -347,7 +346,7 @@ export const DebuggerTab: FC = () => {
           )}
         </Stack>
       ) : (
-        <Stack>
+        <Stack gap="xs">
           <Divider />
           <Center>
             <Text size="sm" c="gray.6">

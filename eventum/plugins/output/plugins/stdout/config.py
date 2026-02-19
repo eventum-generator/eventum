@@ -15,7 +15,7 @@ class StdoutOutputPluginConfig(OutputPluginConfig, frozen=True):
     Attributes
     ----------
     flush_interval : float, default=1
-        Flush interval (in seconds) for flushing events, if value is 0
+        Interval (in seconds) of events flushing, if value is set to 0
         then flush is performed for every event.
 
     stream : Literal['stdout', 'stderr'], default='stdout'

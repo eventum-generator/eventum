@@ -4,7 +4,7 @@ import { FC } from 'react';
 
 interface RemoveTemplateModalProps {
   templateName: string;
-  filePath: string | null;
+  filePath?: string;
   onDelete: ({ isRemoveFile }: { isRemoveFile: boolean }) => void;
   isDeleting: boolean;
 }
@@ -32,7 +32,7 @@ export const RemoveTemplateModal: FC<RemoveTemplateModalProps> = ({
         <Stack gap="4px">
           <Checkbox
             label="Delete template file"
-            disabled={!filePath}
+            disabled={filePath === undefined}
             {...form.getInputProps('isRemoveFile', {
               type: 'checkbox',
             })}

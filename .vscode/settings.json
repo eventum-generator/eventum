@@ -9,6 +9,7 @@
         "security",
         "ui",
         "utils",
+        "server"
     ],
     "cSpell.words": [
         "Ugbemugbem",

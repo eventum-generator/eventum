@@ -120,7 +120,7 @@ def nested_json_sample_config():
 
 
 def test_load_items_sample(items_sample_config):
-    sample_reader = SamplesReader(items_sample_config)
+    sample_reader = SamplesReader(items_sample_config, BASE_PATH)
     sample = sample_reader['items_sample']
 
     assert isinstance(sample, Sample)
@@ -129,7 +129,7 @@ def test_load_items_sample(items_sample_config):
 
 
 def test_load_flat_items_sample(flat_items_sample_config):
-    sample_reader = SamplesReader(flat_items_sample_config)
+    sample_reader = SamplesReader(flat_items_sample_config, BASE_PATH)
     sample = sample_reader['items_sample']
 
     assert isinstance(sample, Sample)
@@ -139,7 +139,7 @@ def test_load_flat_items_sample(flat_items_sample_config):
 
 
 def test_load_csv_sample(csv_sample_config):
-    sample_reader = SamplesReader(csv_sample_config)
+    sample_reader = SamplesReader(csv_sample_config, BASE_PATH)
     sample = sample_reader['csv_sample']
 
     assert isinstance(sample, Sample)
@@ -149,13 +149,13 @@ def test_load_csv_sample(csv_sample_config):
 
 def test_load_csv_sample_with_wrong_path(not_existing_csv_sample_config):
     with pytest.raises(SampleLoadError):
-        SamplesReader(not_existing_csv_sample_config)
+        SamplesReader(not_existing_csv_sample_config, BASE_PATH)
 
 
 def test_load_csv_sample_with_other_delimiter(
     other_delimiter_csv_sample_config,
 ):
-    sample_reader = SamplesReader(other_delimiter_csv_sample_config)
+    sample_reader = SamplesReader(other_delimiter_csv_sample_config, BASE_PATH)
 
     sample = sample_reader['csv_sample']
     assert sample[0] == ('John', 'john@example.com', 'Manager')
@@ -163,7 +163,7 @@ def test_load_csv_sample_with_other_delimiter(
 
 
 def test_load_csv_sample_without_header(no_header_csv_sample_config):
-    sample_reader = SamplesReader(no_header_csv_sample_config)
+    sample_reader = SamplesReader(no_header_csv_sample_config, BASE_PATH)
     sample = sample_reader['csv_sample']
 
     assert sample[0] == ('name', 'email', 'position')
@@ -172,7 +172,7 @@ def test_load_csv_sample_without_header(no_header_csv_sample_config):
 
 
 def test_load_json_sample(json_sample_config):
-    sample_reader = SamplesReader(json_sample_config)
+    sample_reader = SamplesReader(json_sample_config, BASE_PATH)
     sample = sample_reader['json_sample']
 
     assert isinstance(sample, Sample)
@@ -181,7 +181,7 @@ def test_load_json_sample(json_sample_config):
 
 
 def test_load_nested_json_sample(nested_json_sample_config):
-    sample_reader = SamplesReader(nested_json_sample_config)
+    sample_reader = SamplesReader(nested_json_sample_config, BASE_PATH)
     sample = sample_reader['json_sample']
 
     assert isinstance(sample, Sample)
@@ -198,6 +198,6 @@ def test_load_nested_json_sample(nested_json_sample_config):
 
 
 def test_missing_samples(items_sample_config):
-    sample_reader = SamplesReader(items_sample_config)
+    sample_reader = SamplesReader(items_sample_config, BASE_PATH)
     with pytest.raises(KeyError):
         sample_reader['missing_samples']

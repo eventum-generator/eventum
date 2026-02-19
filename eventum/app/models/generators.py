@@ -8,33 +8,47 @@ from pydantic import Field, RootModel
 from eventum.core.parameters import GenerationParameters, GeneratorParameters
 
 
-class GeneratorsParameters(RootModel, frozen=True):
-    """List of generators."""
+class StartupGeneratorParameters(
+    GeneratorParameters,
+    extra='forbid',
+    frozen=True,
+):
+    """Startup parameters for single generator.
 
-    root: tuple[GeneratorParameters, ...] = Field(min_length=1)
+    autostart : bool, default=True
+        Whether to automatically start the generator.
+    """
+
+    autostart: bool = Field(default=True)
+
+
+class StartupGeneratorParametersList(RootModel, frozen=True):
+    """List of startup generator parameters."""
+
+    root: tuple[StartupGeneratorParameters, ...] = Field()
 
     @classmethod
     def build_over_generation_parameters(
         cls,
         object: Sequence[dict],
         generation_parameters: GenerationParameters,
-    ) -> 'GeneratorsParameters':
-        """Build `Generators` instance using sequence of generators
-        parameters that are going to be combined with base generation
-        settings from `GenerationParameters` object.
+    ) -> 'StartupGeneratorParametersList':
+        """Build instance using sequence of startup generator parameters
+        that are going to be combined with base generation parameters
+        from `GenerationParameters` object.
 
         Parameters
         ----------
         object : Sequence[dict]
-            Sequence of generator parameters.
+            Sequence of generator startup parameters.
 
         generation_parameters : GenerationParameters
             Base generation parameters.
 
         Returns
         -------
-        GeneratorsParameters
-            Generators parameters.
+        StartupGeneratorParametersList
+            Generator startup parameters list.
 
         Raises
         ------
@@ -42,7 +56,7 @@ class GeneratorsParameters(RootModel, frozen=True):
             If object cannot be validated.
 
         """
-        generators: list[GeneratorParameters] = []
+        generators: list[StartupGeneratorParameters] = []
         base_params = generation_parameters.model_dump()
         base_params = flatten(base_params, reducer='dot')
 
@@ -52,10 +66,12 @@ class GeneratorsParameters(RootModel, frozen=True):
             generator_params = base_params | generator_params
             generator_params = unflatten(generator_params, splitter='dot')
 
-            validated_generator_params = GeneratorParameters.model_validate(
-                generator_params,
+            validated_generator_params = (
+                StartupGeneratorParameters.model_validate(
+                    generator_params,
+                )
             )
 
             generators.append(validated_generator_params)
 
-        return GeneratorsParameters(root=tuple(generators))
+        return StartupGeneratorParametersList(root=tuple(generators))

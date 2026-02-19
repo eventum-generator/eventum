@@ -1,52 +1,56 @@
 ######################### Eventum Configuration Example ########################
 
-# =============================== API Parameters ===============================
+# ============================== Server Parameters =============================
+
+# Whether to enable web UI
+# Optional, default is true
+server.ui_enabled: true
 
 # Whether to enable REST API
 # Optional, default is true
-api.enabled: true
+server.api_enabled: true
 
 # Bind address
 # Optional, default is "0.0.0.0"
-api.host: "0.0.0.0"
+server.host: "0.0.0.0"
 
 # Bind port for API
 # Optional, default is 9474
-api.port: 9474
+server.port: 9474
 
 
 # SSL parameters
 
 # Whether to enable SSL
-# Optional, default is true
-api.ssl.enabled: true
+# Optional, default is false
+server.ssl.enabled: false
 
 # Verification mode of SSL connections. The default null value
 # is the same as "none", but null value can also be used as
 # meaningful value of "not provided" when SSL is disabled.
 # Available values are null, "none", "optional", "required"
 # Optional, default is null
-api.ssl.verify_mode: null
+server.ssl.verify_mode: null
 
 # Absolute path to CA certificate
 # Optional, default is null
-api.ssl.ca_cert: null
+server.ssl.ca_cert: null
 
 # Absolute path to server certificate
 # Optional, default is null
-api.ssl.cert: null
+server.ssl.cert: null
 
 # Absolute path to server certificate key
 # Optional, default is null
-api.ssl.cert_key: null
+server.ssl.cert_key: null
 
 # User for basic auth
 # Optional, default is "eventum"
-api.auth.user: eventum
+server.auth.user: eventum
 
 # Password for basic auth
 # Optional, default is "eventum"
-api.auth.password: eventum
+server.auth.password: eventum
 
 # =========================== Generation Parameters ===========================
 
@@ -116,19 +120,19 @@ log.backups: 5
 
 # Absolute path to logs directory
 # Required, there is no default value
-path.logs: /app/logs/eventum/
+path.logs: /app/logs/
 
 # Absolute path to file with list of generators to run at startup
 # Required, there is no default value
-path.startup: /app/eventum/config/startup.yml
+path.startup: /app/config/startup.yml
 
 # Absolute path to directory with generators configuration files
 # Required, there is no default value
-path.generators_dir: /app/eventum/config/conf.d/
+path.generators_dir: /app/config/generators/
 
 # Absolute path to keyring encrypted file with stored secrets
 # Required, there is no default value
-path.keyring_cryptfile: /app/eventum/config/cryptfile.cfg
+path.keyring_cryptfile: /app/config/cryptfile.cfg
 
 # Filename for generator configurations. This parameter is used
 # by the API for detection directories with generator
@@ -136,4 +140,4 @@ path.keyring_cryptfile: /app/eventum/config/cryptfile.cfg
 # other than this parameter value will not be operable using API
 # endpoints.
 # Optional, default is "generator.yml"
-generator_config_filename: generator.yml
+path.generator_config_filename: generator.yml

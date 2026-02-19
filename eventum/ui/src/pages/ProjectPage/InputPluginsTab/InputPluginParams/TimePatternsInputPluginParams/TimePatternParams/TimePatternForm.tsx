@@ -39,7 +39,7 @@ interface TimePatternFormProps {
 
 export const TimePatternForm: FC<TimePatternFormProps> = ({ form }) => {
   return (
-    <Stack>
+    <Stack gap="sm">
       <Stack gap="4px">
         <Text size="sm" fw="bold">
           General
@@ -59,8 +59,8 @@ export const TimePatternForm: FC<TimePatternFormProps> = ({ form }) => {
           Oscillator
         </Text>
         <Divider />
-        <Stack>
-          <Group wrap="nowrap" align="start">
+        <Stack gap="xs">
+          <Group grow wrap="nowrap" align="start">
             <VersatileDatetimeInput
               label={
                 <LabelWithTooltip
@@ -80,7 +80,7 @@ export const TimePatternForm: FC<TimePatternFormProps> = ({ form }) => {
               {...form.getInputProps('oscillator.end', { type: 'input' })}
             />
           </Group>
-          <Group wrap="nowrap" align="start">
+          <Group grow wrap="nowrap" align="start">
             <NumberInput
               label={
                 <LabelWithTooltip
@@ -138,8 +138,8 @@ export const TimePatternForm: FC<TimePatternFormProps> = ({ form }) => {
           Randomizer
         </Text>
         <Divider />
-        <Stack>
-          <Group wrap="nowrap" align="start">
+        <Stack gap="xs">
+          <Group grow wrap="nowrap" align="start">
             <NumberInput
               label={
                 <LabelWithTooltip
@@ -279,7 +279,7 @@ export const TimePatternForm: FC<TimePatternFormProps> = ({ form }) => {
           mt="4px"
         />
         {form.getValues().spreader.distribution === Distribution.BETA && (
-          <Group wrap="nowrap" align="start">
+          <Group grow wrap="nowrap" align="start">
             <NumberInput
               label={
                 <LabelWithTooltip
@@ -311,112 +311,116 @@ export const TimePatternForm: FC<TimePatternFormProps> = ({ form }) => {
 
         {form.getValues().spreader.distribution === Distribution.TRIANGULAR && (
           <Stack gap="xs">
-            <Text size="sm">Mode</Text>
-            <Slider
-              domain={[-0.1, 1.1]}
-              min={
-                (
-                  form.getValues().spreader
-                    .parameters as TriangularDistributionParameters
-                )?.left ?? 0
-              }
-              max={
-                (
-                  form.getValues().spreader
-                    .parameters as TriangularDistributionParameters
-                )?.right ?? 1
-              }
-              step={0.01}
-              label={(value) =>
-                (form.getValues().oscillator.period * value)
-                  .toFixed(2)
-                  .toString()
-              }
-              defaultValue={
-                (
-                  form.getValues().spreader
-                    .parameters as TriangularDistributionParameters
-                )?.mode ?? 0.5
-              }
-              onChangeEnd={(mode) => {
-                form.setFieldValue('spreader.parameters.mode', mode);
-              }}
-              key={form.key('spreader.parameters.mode')}
-              styles={{ bar: { visibility: 'hidden' } }}
-            />
-            <Text size="sm">Left and right</Text>
-            <RangeSlider
-              domain={[-0.1, 1.1]}
-              min={0}
-              max={1}
-              step={0.01}
-              minRange={0.01}
-              marks={[
-                { value: 0, label: '0' },
-                {
-                  value: 0.25,
-                  label: (form.getValues().oscillator.period * 0.25)
-                    .toFixed(2)
-                    .toString(),
-                },
-                {
-                  value: 0.5,
-                  label: (form.getValues().oscillator.period * 0.5)
-                    .toFixed(2)
-                    .toString(),
-                },
-                {
-                  value: 0.75,
-                  label: (form.getValues().oscillator.period * 0.75)
-                    .toFixed(2)
-                    .toString(),
-                },
-                {
-                  value: 1,
-                  label: form
-                    .getValues()
-                    .oscillator.period.toFixed(2)
-                    .toString(),
-                },
-              ]}
-              label={(value) =>
-                (form.getValues().oscillator.period * value)
-                  .toFixed(2)
-                  .toString()
-              }
-              defaultValue={[
-                (
-                  form.getValues().spreader
-                    .parameters as TriangularDistributionParameters
-                )?.left ?? 0,
-                (
-                  form.getValues().spreader
-                    .parameters as TriangularDistributionParameters
-                )?.right ?? 1,
-              ]}
-              onChangeEnd={([left, right]) => {
-                form.setFieldValue('spreader.parameters.left', left);
-                form.setFieldValue('spreader.parameters.right', right);
-
-                const mode = (
-                  form.getValues().spreader
-                    .parameters as TriangularDistributionParameters
-                )?.mode;
-
-                if (mode != undefined) {
-                  if (mode < left) {
-                    form.setFieldValue('spreader.parameters.mode', left);
-                  } else if (mode > right) {
-                    form.setFieldValue('spreader.parameters.mode', right);
-                  }
+            <Stack gap="4px">
+              <Text size="sm">Mode</Text>
+              <Slider
+                domain={[-0.1, 1.1]}
+                min={
+                  (
+                    form.getValues().spreader
+                      .parameters as TriangularDistributionParameters
+                  )?.left ?? 0
                 }
-              }}
-            />
+                max={
+                  (
+                    form.getValues().spreader
+                      .parameters as TriangularDistributionParameters
+                  )?.right ?? 1
+                }
+                step={0.01}
+                label={(value) =>
+                  (form.getValues().oscillator.period * value)
+                    .toFixed(2)
+                    .toString()
+                }
+                defaultValue={
+                  (
+                    form.getValues().spreader
+                      .parameters as TriangularDistributionParameters
+                  )?.mode ?? 0.5
+                }
+                onChangeEnd={(mode) => {
+                  form.setFieldValue('spreader.parameters.mode', mode);
+                }}
+                key={form.key('spreader.parameters.mode')}
+                styles={{ bar: { visibility: 'hidden' } }}
+              />
+            </Stack>
+            <Stack gap="4px">
+              <Text size="sm">Left and right</Text>
+              <RangeSlider
+                domain={[-0.1, 1.1]}
+                min={0}
+                max={1}
+                step={0.01}
+                minRange={0.01}
+                marks={[
+                  { value: 0, label: '0' },
+                  {
+                    value: 0.25,
+                    label: (form.getValues().oscillator.period * 0.25)
+                      .toFixed(2)
+                      .toString(),
+                  },
+                  {
+                    value: 0.5,
+                    label: (form.getValues().oscillator.period * 0.5)
+                      .toFixed(2)
+                      .toString(),
+                  },
+                  {
+                    value: 0.75,
+                    label: (form.getValues().oscillator.period * 0.75)
+                      .toFixed(2)
+                      .toString(),
+                  },
+                  {
+                    value: 1,
+                    label: form
+                      .getValues()
+                      .oscillator.period.toFixed(2)
+                      .toString(),
+                  },
+                ]}
+                label={(value) =>
+                  (form.getValues().oscillator.period * value)
+                    .toFixed(2)
+                    .toString()
+                }
+                defaultValue={[
+                  (
+                    form.getValues().spreader
+                      .parameters as TriangularDistributionParameters
+                  )?.left ?? 0,
+                  (
+                    form.getValues().spreader
+                      .parameters as TriangularDistributionParameters
+                  )?.right ?? 1,
+                ]}
+                onChangeEnd={([left, right]) => {
+                  form.setFieldValue('spreader.parameters.left', left);
+                  form.setFieldValue('spreader.parameters.right', right);
+
+                  const mode = (
+                    form.getValues().spreader
+                      .parameters as TriangularDistributionParameters
+                  )?.mode;
+
+                  if (mode != undefined) {
+                    if (mode < left) {
+                      form.setFieldValue('spreader.parameters.mode', left);
+                    } else if (mode > right) {
+                      form.setFieldValue('spreader.parameters.mode', right);
+                    }
+                  }
+                }}
+              />
+            </Stack>
           </Stack>
         )}
 
         {form.getValues().spreader.distribution === Distribution.UNIFORM && (
-          <Stack gap="xs">
+          <Stack gap="4px">
             <Text size="sm">Range</Text>
             <RangeSlider
               domain={[-0.1, 1.1]}

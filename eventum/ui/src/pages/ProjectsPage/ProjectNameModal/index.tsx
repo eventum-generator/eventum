@@ -2,7 +2,7 @@ import { Button, Group, Stack, TextInput } from '@mantine/core';
 import { useForm } from '@mantine/form';
 import { modals } from '@mantine/modals';
 import { notifications } from '@mantine/notifications';
-import { FC, useState } from 'react';
+import { FC } from 'react';
 
 import {
   useCreateGeneratorConfigMutation,
@@ -30,8 +30,6 @@ export const CreateProjectSubmitModal: FC<CreateProjectSubmitModalProps> = ({
   existingProjectNames,
   projectType,
 }) => {
-  const [isCreatingProject, setIsCreatingProject] = useState(false);
-
   const createGeneratorConfig = useCreateGeneratorConfigMutation();
   const uploadGeneratorFile = useUploadGeneratorFileMutation();
 
@@ -61,8 +59,6 @@ export const CreateProjectSubmitModal: FC<CreateProjectSubmitModalProps> = ({
   });
 
   function handleCreate() {
-    setIsCreatingProject(true);
-
     const generatorConfig: GeneratorConfig = {
       input: [{ timer: INPUT_PLUGIN_DEFAULT_CONFIGS.timer }],
       event: {
@@ -79,14 +75,13 @@ export const CreateProjectSubmitModal: FC<CreateProjectSubmitModalProps> = ({
       {
         onError: (error) => {
           modals.closeAll();
-          setIsCreatingProject(false);
 
           notifications.show({
             title: 'Error',
             message: (
               <>
-                Failed to create new project.{' '}
-                <ShowErrorDetailsAnchor error={error} />
+                Failed to create new project
+                <ShowErrorDetailsAnchor error={error} prependDot />
               </>
             ),
             color: 'red',
@@ -118,7 +113,6 @@ export const CreateProjectSubmitModal: FC<CreateProjectSubmitModalProps> = ({
           );
 
           modals.closeAll();
-          setIsCreatingProject(false);
 
           notifications.show({
             title: 'Success',
@@ -131,16 +125,24 @@ export const CreateProjectSubmitModal: FC<CreateProjectSubmitModalProps> = ({
   }
 
   return (
-    <Stack>
-      <TextInput label="Project name" {...form.getInputProps('projectName')} />
-      <Group justify="end">
-        <Button
-          onClick={handleCreate}
-          disabled={isCreatingProject || !form.isDirty() || !form.isValid()}
-        >
-          {isCreatingProject ? 'Creating...' : 'Create'}
-        </Button>
-      </Group>
-    </Stack>
+    <form onSubmit={form.onSubmit(handleCreate)}>
+      <Stack>
+        <TextInput
+          label="Project name"
+          {...form.getInputProps('projectName')}
+        />
+        <Group justify="end">
+          <Button
+            loading={
+              createGeneratorConfig.isPending || uploadGeneratorFile.isPending
+            }
+            disabled={!form.isDirty() || !form.isValid()}
+            type="submit"
+          >
+            Create
+          </Button>
+        </Group>
+      </Stack>
+    </form>
   );
 };

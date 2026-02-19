@@ -214,6 +214,15 @@ const namespaceCompletions: NamespaceMember = {
                 info: '(items: Sequence[T], weights: Sequence[float], n: int) -> list[T]',
               },
             },
+            chance: {
+              completion: {
+                label: 'chance',
+                type: 'function',
+                detail:
+                  'Return `True` with the given probability `prob` (0.0 to 1.0).',
+                info: 'chance(prob: float) -> bool',
+              },
+            },
 
             number: {
               completion: {

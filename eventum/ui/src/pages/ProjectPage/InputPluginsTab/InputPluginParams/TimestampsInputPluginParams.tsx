@@ -27,7 +27,7 @@ export const TimestampsInputPluginParams: FC<
   });
 
   return (
-    <Stack>
+    <Stack gap="xs">
       <Tabs defaultValue="inline">
         <Tabs.List>
           <Tabs.Tab value="inline">Inline</Tabs.Tab>

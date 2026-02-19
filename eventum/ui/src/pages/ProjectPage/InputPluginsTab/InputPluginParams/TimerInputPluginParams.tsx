@@ -28,7 +28,7 @@ export const TimerInputPluginParams: FC<TimerInputPluginParamsProps> = ({
   });
 
   return (
-    <Stack>
+    <Stack gap="xs">
       <Group grow align="start">
         <NumberInput
           label={
@@ -82,7 +82,7 @@ export const TimerInputPluginParams: FC<TimerInputPluginParamsProps> = ({
           placeholder="infinitely"
           suffix=" times"
           {...form.getInputProps('repeat')}
-          value={form.getValues().count ?? ''}
+          value={form.getValues().repeat ?? ''}
           onChange={(value) =>
             form.setFieldValue(
               'repeat',

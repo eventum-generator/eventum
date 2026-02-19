@@ -1,4 +1,5 @@
 import { basename } from 'pathe';
+import z from 'zod';
 
 import {
   FileNode,
@@ -15,10 +16,28 @@ import { apiClient } from '@/api/client';
 import '@/api/routes/instance/schemas';
 import { validateResponse } from '@/api/wrappers';
 
-export async function listGeneratorDirs(): Promise<GeneratorDirsExtendedInfo> {
+export async function listGeneratorDirs(
+  extended: true
+): Promise<GeneratorDirsExtendedInfo>;
+
+export async function listGeneratorDirs(extended: false): Promise<string[]>;
+
+export async function listGeneratorDirs(
+  extended: boolean
+): Promise<GeneratorDirsExtendedInfo | string[]>;
+
+export async function listGeneratorDirs(
+  extended: boolean
+): Promise<GeneratorDirsExtendedInfo | string[]> {
+  const ValidationSchema = extended
+    ? GeneratorDirsExtendedInfoSchema
+    : z.array(z.string());
+
   return await validateResponse(
-    GeneratorDirsExtendedInfoSchema,
-    apiClient.get('/generator-configs/', { params: { extended: true } })
+    ValidationSchema,
+    apiClient.get('/generator-configs/', {
+      params: { extended: extended },
+    })
   );
 }
 
@@ -128,7 +147,7 @@ export async function moveGeneratorFile(
   source: string,
   destination: string
 ) {
-  await apiClient.post(`/generator-configs/${name}/file-move/`, undefined, {
+  await apiClient.post(`/generator-configs/${name}/file-move`, undefined, {
     params: {
       source,
       destination,

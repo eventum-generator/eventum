@@ -22,27 +22,25 @@ export const ScriptEventPluginParams: FC<ScriptEventPluginParamsProps> = ({
   const form = useForm<ScriptEventPluginConfig>({
     initialValues: initialConfig,
     validate: zod4Resolver(ScriptEventPluginConfigSchema),
-    transformValues: (values) => {
-      const newValues = { ...values };
-
-      return newValues;
-    },
-    onValuesChange: () => {
-      onChange(form.getTransformedValues());
-    },
+    onValuesChange: onChange,
     onSubmitPreventDefault: 'always',
     validateInputOnChange: true,
   });
 
   return (
-    <Stack>
+    <Stack gap="xs">
       <ProjectFileSelect
         label={<LabelWithTooltip label="Path" tooltip="Path to script file" />}
         placeholder="path"
         clearable
         searchable
         extensions={['.py']}
+        required
         {...form.getInputProps('path')}
+        value={typeof form.values.path === 'string' ? form.values.path : null}
+        onChange={(value) => {
+          form.setFieldValue('path', value ?? undefined!);
+        }}
       />
     </Stack>
   );

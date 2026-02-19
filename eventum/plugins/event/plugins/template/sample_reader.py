@@ -3,6 +3,7 @@ of different types.
 """
 
 from collections.abc import Callable, Iterable
+from pathlib import Path
 from typing import Any
 
 import structlog
@@ -45,13 +46,16 @@ class Sample:
         return self._dataset[key]
 
 
-def _load_items_sample(config: ItemsSampleConfig) -> Sample:
+def _load_items_sample(config: ItemsSampleConfig, _: Path) -> Sample:
     """Load sample using configuration of type `items`.
 
     Parameters
     ----------
     config: ItemsSampleConfig
         Sample configuration.
+
+    base_path : Path
+        Base path for resolving relative paths.
 
     Returns
     -------
@@ -74,13 +78,16 @@ def _load_items_sample(config: ItemsSampleConfig) -> Sample:
     return Sample(data)
 
 
-def _load_csv_sample(config: CSVSampleConfig) -> Sample:
+def _load_csv_sample(config: CSVSampleConfig, base_path: Path) -> Sample:
     """Load sample using configuration of type `csv`.
 
     Parameters
     ----------
     config: CSVSampleConfig
         Sample configuration.
+
+    base_path : Path
+        Base path for resolving relative paths.
 
     Returns
     -------
@@ -94,7 +101,13 @@ def _load_csv_sample(config: CSVSampleConfig) -> Sample:
 
     """
     data = tablib.Dataset()
-    with config.source.open() as f:
+
+    if config.source.is_absolute():
+        resolved_path = config.source
+    else:
+        resolved_path = base_path / config.source
+
+    with resolved_path.open() as f:
         data.load(
             in_stream=f,
             format='csv',
@@ -104,13 +117,16 @@ def _load_csv_sample(config: CSVSampleConfig) -> Sample:
         return Sample(data)
 
 
-def _load_json_sample(config: JSONSampleConfig) -> Sample:
+def _load_json_sample(config: JSONSampleConfig, base_path: Path) -> Sample:
     """Load sample using configuration of type `json`.
 
     Parameters
     ----------
     config: JSONSampleConfig
         Sample configuration.
+
+    base_path : Path
+        Base path for resolving relative paths.
 
     Returns
     -------
@@ -124,7 +140,13 @@ def _load_json_sample(config: JSONSampleConfig) -> Sample:
 
     """
     data = tablib.Dataset()
-    with config.source.open() as f:
+
+    if config.source.is_absolute():
+        resolved_path = config.source
+    else:
+        resolved_path = base_path / config.source
+
+    with resolved_path.open() as f:
         data.load(
             in_stream=f,
             format='json',
@@ -134,7 +156,7 @@ def _load_json_sample(config: JSONSampleConfig) -> Sample:
 
 def _get_sample_loader(
     sample_type: SampleType,
-) -> Callable[[SampleConfig], Sample]:
+) -> Callable[[SampleConfig, Path], Sample]:
     """Get sample loader for specified sample type.
 
     Parameters
@@ -144,7 +166,7 @@ def _get_sample_loader(
 
     Returns
     -------
-    Callable[[SampleConfig], Sample]
+    Callable[[SampleConfig, Path], Sample]
         Function for loading sample of specified type.
 
     Raises
@@ -167,7 +189,11 @@ def _get_sample_loader(
 class SamplesReader:
     """Samples reader."""
 
-    def __init__(self, config: dict[str, SampleConfig]) -> None:
+    def __init__(
+        self,
+        config: dict[str, SampleConfig],
+        base_path: Path,
+    ) -> None:
         """Initialize samples reader.
 
         Parameters
@@ -175,12 +201,16 @@ class SamplesReader:
         config : dict[str, SampleConfig]
             Sample names to their configurations mapping.
 
+        base_path : Path
+            Base path for resolving relative paths.
+
         Raises
         ------
         SampleLoadError
             If some error occurs during samples loading.
 
         """
+        self._base_path = base_path
         self._samples = self._load_samples(config)
 
     def __getitem__(self, name: str) -> Sample:
@@ -218,7 +248,7 @@ class SamplesReader:
             logger.debug('Loading sample', sample_alias=name)
             loader = _get_sample_loader(sample_config.root.type)
             try:
-                sample = loader(sample_config.root)  # type: ignore[arg-type]
+                sample = loader(sample_config.root, self._base_path)  # type: ignore[arg-type]
             except Exception as e:  # noqa: BLE001
                 msg = 'Failed to load sample'
                 raise SampleLoadError(

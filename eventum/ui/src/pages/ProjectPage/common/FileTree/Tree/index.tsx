@@ -134,7 +134,7 @@ export const Tree: FC<TreeProps> = ({ fileTreeLookup }) => {
       renamingFeature,
     ],
     initialState: {},
-    rootItemId: '.',
+    rootItemId: '',
     getItemName: (item) => item.getItemData().name,
     isItemFolder: (item) => item.getItemData().is_dir,
     openOnDropDelay: 500,

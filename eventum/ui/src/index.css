@@ -14,7 +14,7 @@
   --mantine-color-primary-text: var(--mantine-color-primary-3) !important;
 }
 
-h2 {
+h4 {
   scroll-margin-top: 80px !important; /* fix hidden title under app header  */
 }
 

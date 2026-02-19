@@ -9,9 +9,9 @@ from typing import TYPE_CHECKING, Literal, assert_never
 import structlog
 
 from eventum.logging.file_paths import (
-    construct_api_logfile_path,
     construct_generator_logfile_path,
     construct_main_logfile_path,
+    construct_server_logfile_path,
 )
 from eventum.logging.handlers import RoutingHandler
 from eventum.logging.processors import derive_extras, remove_keys_processor
@@ -272,7 +272,7 @@ def _configure_uvicorn_logger(
 
     for log_type in ('error', 'access'):
         file_handler = logging.handlers.RotatingFileHandler(
-            filename=construct_api_logfile_path(
+            filename=construct_server_logfile_path(
                 logs_dir=logs_dir,
                 log_type=log_type,
             ),
