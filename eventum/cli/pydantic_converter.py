@@ -1,6 +1,7 @@
 """Converted of pydantic models to click options."""
 
 import functools
+import json
 import os
 import sys
 from collections.abc import Callable, Sequence
@@ -22,6 +23,36 @@ from pydantic.fields import FieldInfo
 from pydantic_core import ErrorDetails, PydanticUndefined
 
 from eventum.utils.validation_prettier import prettify_validation_errors
+
+
+class JsonParamType(click_types.ParamType):
+    """Click parameter type that parses JSON strings into dicts."""
+
+    name = 'json'
+
+    def convert(
+        self,
+        value: Any,
+        param: Any | None,
+        ctx: Any | None,
+    ) -> dict[str, Any]:
+        """Parse a JSON string into a dict."""
+        if isinstance(value, dict):
+            return value
+
+        try:
+            result = json.loads(value)
+        except (json.JSONDecodeError, TypeError) as e:
+            self.fail(f'invalid JSON: {e}', param, ctx)
+
+        if not isinstance(result, dict):
+            self.fail(
+                'JSON value must be an object (not array or scalar)',
+                param,
+                ctx,
+            )
+
+        return result
 
 
 def _parse_docstring(model: type[BaseModel]) -> dict[str, str]:
@@ -165,6 +196,8 @@ def _get_type_for_annotation(
         return next(arg for arg in type_args if arg is not NoneType)
     if origin_type is Literal:
         return click_types.Choice(type_args)
+    if origin_type is dict:
+        return JsonParamType()
     return annotation
 
 
