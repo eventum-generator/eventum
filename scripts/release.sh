@@ -87,7 +87,7 @@ success "All checks passed"
 # ── Step 3: Commit & push ──────────────────────────────────────────────────
 if [[ -n "$(git status --porcelain)" ]]; then
   confirm "Commit version bump and push to origin/${DEVELOP_BRANCH}?"
-  git add "$INIT_FILE"
+  git add .
   git commit -m "chore: bump version to ${VERSION}"
   success "Version bump committed"
 fi
