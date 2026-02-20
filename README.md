@@ -12,6 +12,7 @@
 
 <p align="center">
   <a href="https://github.com/eventum-project/eventum-generator/actions/workflows/ci.yml"><img src="https://github.com/eventum-project/eventum-generator/actions/workflows/ci.yml/badge.svg" alt="CI" /></a>
+  <a href="https://codecov.io/gh/eventum-project/eventum-generator"><img src="https://codecov.io/gh/eventum-project/eventum-generator/graph/badge.svg" alt="Coverage" /></a>
   <a href="https://pypi.org/project/eventum-generator"><img src="https://img.shields.io/pypi/v/eventum-generator?color=8282ef" alt="PyPI" /></a>
   <a href="https://pypi.org/project/eventum-generator"><img src="https://img.shields.io/pypi/pyversions/eventum-generator?color=8282ef" alt="Python" /></a>
   <a href="https://hub.docker.com/r/rnv812/eventum-generator"><img src="https://img.shields.io/docker/v/rnv812/eventum-generator?label=docker&color=8282ef" alt="Docker" /></a>
