@@ -151,7 +151,9 @@ def test_json_param_type_rejects_invalid_json():
 
 def test_json_param_type_rejects_non_object():
     pt = JsonParamType()
-    with pytest.raises(click.exceptions.BadParameter, match='must be an object'):
+    with pytest.raises(
+        click.exceptions.BadParameter, match='must be an object'
+    ):
         pt.convert('[1, 2, 3]', None, None)
 
 
