@@ -1,6 +1,6 @@
 """Tests for pydantic to click converter."""
 
-from typing import Literal
+from typing import Any, Literal
 
 import click
 import click.types as click_types
@@ -9,6 +9,7 @@ from click.testing import CliRunner
 from pydantic import BaseModel, Field
 
 from eventum.cli.pydantic_converter import (
+    JsonParamType,
     _get_type_for_annotation,
     _patch_error_locations,
     _strip_none_values,
@@ -123,6 +124,39 @@ def test_get_type_for_annotation_plain():
     assert result is str
 
 
+def test_get_type_for_annotation_dict():
+    result = _get_type_for_annotation(dict[str, Any])
+    assert isinstance(result, JsonParamType)
+
+
+# --- JsonParamType ---
+
+
+def test_json_param_type_parses_valid_json():
+    pt = JsonParamType()
+    assert pt.convert('{"a": 1}', None, None) == {'a': 1}
+
+
+def test_json_param_type_passes_dict_through():
+    pt = JsonParamType()
+    d = {'already': 'parsed'}
+    assert pt.convert(d, None, None) is d
+
+
+def test_json_param_type_rejects_invalid_json():
+    pt = JsonParamType()
+    with pytest.raises(click.exceptions.BadParameter, match='invalid JSON'):
+        pt.convert('not-json', None, None)
+
+
+def test_json_param_type_rejects_non_object():
+    pt = JsonParamType()
+    with pytest.raises(
+        click.exceptions.BadParameter, match='must be an object'
+    ):
+        pt.convert('[1, 2, 3]', None, None)
+
+
 # --- _strip_none_values ---
 
 
@@ -212,3 +246,52 @@ def test_nested_model_uses_defaults():
     result = runner.invoke(nested_cli, ['--host', 'localhost'])
     assert result.exit_code == 0
     assert 'localhost:8080' in result.output
+
+
+# --- Dict field (JSON param) ---
+
+
+class DictConfig(BaseModel):
+    """DictConfig.
+
+    Attributes
+    ----------
+    name : str
+        Name.
+
+    params : dict[str, Any]
+        Extra parameters.
+    """
+
+    name: str
+    params: dict[str, Any] = Field(default_factory=dict)
+
+
+@click.command()
+@from_model(DictConfig)
+def dict_cli(dict_config: DictConfig):
+    click.echo(f'{dict_config.name}:{dict_config.params}')
+
+
+def test_dict_field_from_json_string():
+    runner = CliRunner()
+    result = runner.invoke(
+        dict_cli,
+        ['--name', 'test', '--params', '{"host": "localhost", "port": 9200}'],
+    )
+    assert result.exit_code == 0
+    assert 'host' in result.output
+    assert 'localhost' in result.output
+
+
+def test_dict_field_defaults_to_empty():
+    runner = CliRunner()
+    result = runner.invoke(dict_cli, ['--name', 'test'])
+    assert result.exit_code == 0
+    assert '{}' in result.output
+
+
+def test_dict_field_invalid_json():
+    runner = CliRunner()
+    result = runner.invoke(dict_cli, ['--name', 'test', '--params', 'bad'])
+    assert result.exit_code != 0

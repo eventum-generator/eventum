@@ -2,7 +2,31 @@
 
 All notable changes to this project will be documented in this file.
 
-## 2.0.0 (2026-02-23)
+## 2.0.1 (2026-02-21)
+
+### 🐛 Bug Fixes
+
+- Fix `--params` CLI option not accepting JSON input — added proper JSON parsing for dict-type Click parameters
+- Fix pydantic validation error when validating file path extensions (`.csv`, `.json`, `.jinja`) — replaced `Field(pattern=...)` with `@field_validator` on `Path` fields
+
+### 🧪 Testing
+
+- Add comprehensive tests for API endpoints (auth, generators, configs, instances, startup, secrets, file tree, timestamps aggregation)
+- Add tests for app models (generators, parameters)
+- Add tests for CLI keyring commands and pydantic converter
+- Add tests for core config loader, generator, initializer, and parameters
+- Add tests for ClickHouse and stdout output plugin configs
+- Add tests for server main and UI routes
+
+### 📝 Other Changes
+
+- Update app slogan in CLI splash screen
+- Update documentation links
+- Add Codecov badge to CI
+- Add HTML report export to CI
+- Fix Docker build
+
+## 2.0.0 (2026-02-20)
 
 ### 🚀 Features
 
