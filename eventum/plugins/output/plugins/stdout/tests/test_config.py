@@ -3,7 +3,9 @@
 import pytest
 from pydantic import ValidationError
 
-from eventum.plugins.output.plugins.stdout.config import StdoutOutputPluginConfig
+from eventum.plugins.output.plugins.stdout.config import (
+    StdoutOutputPluginConfig,
+)
 
 
 def test_defaults():

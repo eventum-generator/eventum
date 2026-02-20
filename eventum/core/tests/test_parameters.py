@@ -177,7 +177,8 @@ def test_generator_parameters_as_absolute_already_absolute():
 
 def test_generator_parameters_as_relative():
     params = GeneratorParameters(
-        id='gen1', path=Path('/base/dir/config.yml'),
+        id='gen1',
+        path=Path('/base/dir/config.yml'),
     )
     rel_params = params.as_relative(Path('/base/dir'))
     assert rel_params.path == Path('config.yml')
@@ -191,7 +192,8 @@ def test_generator_parameters_as_relative_already_relative():
 
 def test_generator_parameters_as_relative_non_parent_raises():
     params = GeneratorParameters(
-        id='gen1', path=Path('/other/dir/config.yml'),
+        id='gen1',
+        path=Path('/other/dir/config.yml'),
     )
     with pytest.raises(ValueError):
         params.as_relative(Path('/base/dir'))

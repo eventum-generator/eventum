@@ -17,14 +17,17 @@ from eventum.core.parameters import GenerationParameters
 
 def test_startup_generator_parameters_autostart_default():
     params = StartupGeneratorParameters(
-        id='gen1', path=Path('config.yml'),
+        id='gen1',
+        path=Path('config.yml'),
     )
     assert params.autostart is True
 
 
 def test_startup_generator_parameters_autostart_false():
     params = StartupGeneratorParameters(
-        id='gen1', path=Path('config.yml'), autostart=False,
+        id='gen1',
+        path=Path('config.yml'),
+        autostart=False,
     )
     assert params.autostart is False
 
@@ -46,7 +49,9 @@ def test_build_over_generation_parameters_basic():
 def test_build_over_generation_parameters_override():
     base = GenerationParameters(timezone='UTC')
     result = StartupGeneratorParametersList.build_over_generation_parameters(
-        object=[{'id': 'gen1', 'path': 'config.yml', 'timezone': 'US/Eastern'}],
+        object=[
+            {'id': 'gen1', 'path': 'config.yml', 'timezone': 'US/Eastern'}
+        ],
         generation_parameters=base,
     )
     assert result.root[0].timezone == 'US/Eastern'
@@ -64,11 +69,13 @@ def test_build_over_generation_parameters_empty_list():
 def test_build_over_generation_parameters_nested_override():
     base = GenerationParameters(timezone='UTC')
     result = StartupGeneratorParametersList.build_over_generation_parameters(
-        object=[{
-            'id': 'gen1',
-            'path': 'config.yml',
-            'batch': {'size': 500},
-        }],
+        object=[
+            {
+                'id': 'gen1',
+                'path': 'config.yml',
+                'batch': {'size': 500},
+            }
+        ],
         generation_parameters=base,
     )
     assert result.root[0].batch.size == 500

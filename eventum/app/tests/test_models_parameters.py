@@ -103,21 +103,24 @@ def test_ssl_parameters_default_disabled():
 
 def test_ssl_parameters_enabled_without_certs_raises():
     with pytest.raises(
-        ValidationError, match='certificate and key must be provided',
+        ValidationError,
+        match='certificate and key must be provided',
     ):
         SSLParameters(enabled=True)
 
 
 def test_ssl_parameters_cert_without_key_raises():
     with pytest.raises(
-        ValidationError, match='provided together',
+        ValidationError,
+        match='provided together',
     ):
         SSLParameters(cert=Path('/etc/ssl/cert.pem'))
 
 
 def test_ssl_parameters_key_without_cert_raises():
     with pytest.raises(
-        ValidationError, match='provided together',
+        ValidationError,
+        match='provided together',
     ):
         SSLParameters(cert_key=Path('/etc/ssl/key.pem'))
 

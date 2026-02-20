@@ -79,9 +79,7 @@ def test_me_with_session(client):
         '/auth/login', headers=_basic_auth_header('admin', 'secret')
     )
     session_cookie = login_resp.cookies.get('session_id')
-    response = client.get(
-        '/auth/me', cookies={'session_id': session_cookie}
-    )
+    response = client.get('/auth/me', cookies={'session_id': session_cookie})
     assert response.status_code == 200
     assert response.json() == 'admin'
 

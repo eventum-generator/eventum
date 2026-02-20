@@ -10,7 +10,10 @@ from eventum.api.dependencies.authentication import (
     get_session_user,
     set_session,
 )
-from eventum.app.models.parameters.server import AuthParameters, ServerParameters
+from eventum.app.models.parameters.server import (
+    AuthParameters,
+    ServerParameters,
+)
 
 
 class _FakeContext:
@@ -23,6 +26,7 @@ class _FakeContext:
 
 def _make_settings():
     from unittest.mock import MagicMock
+
     settings = MagicMock()
     settings.server = ServerParameters(
         auth=AuthParameters(user='admin', password='secret'),
@@ -62,6 +66,7 @@ def test_clear_all_sessions():
 
 def test_check_auth_basic_valid():
     import base64
+
     creds = base64.b64encode(b'admin:secret').decode()
     ctx = _FakeContext(headers={'Authorization': f'Basic {creds}'})
     settings = _make_settings()
@@ -71,6 +76,7 @@ def test_check_auth_basic_valid():
 
 def test_check_auth_basic_wrong_creds():
     import base64
+
     creds = base64.b64encode(b'admin:wrong').decode()
     ctx = _FakeContext(headers={'Authorization': f'Basic {creds}'})
     settings = _make_settings()

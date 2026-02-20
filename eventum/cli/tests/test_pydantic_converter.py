@@ -99,7 +99,9 @@ def test_build_object_from_args_flat():
 
 
 def test_build_object_from_args_nested():
-    result = build_object_from_args(server__port=8080, server__host='localhost')
+    result = build_object_from_args(
+        server__port=8080, server__host='localhost'
+    )
     assert result == {'server': {'port': 8080, 'host': 'localhost'}}
 
 
@@ -198,7 +200,8 @@ def nested_cli(outer: Outer):
 def test_nested_model_flattened_options():
     runner = CliRunner()
     result = runner.invoke(
-        nested_cli, ['--host', 'localhost', '--inner.port', '9090'],
+        nested_cli,
+        ['--host', 'localhost', '--inner.port', '9090'],
     )
     assert result.exit_code == 0
     assert 'localhost:9090' in result.output

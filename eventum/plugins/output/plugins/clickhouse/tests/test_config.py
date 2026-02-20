@@ -34,9 +34,7 @@ def test_port_boundary():
     assert config.port == 65535
 
     with pytest.raises(ValidationError):
-        ClickhouseOutputPluginConfig(
-            host='localhost', table='events', port=0
-        )
+        ClickhouseOutputPluginConfig(host='localhost', table='events', port=0)
 
 
 def test_custom_database_and_protocol():

@@ -72,7 +72,8 @@ def test_initializer():
 @patch('eventum.core.plugins_initializer.load_input_plugin')
 def test_init_plugin_not_found(mock_load):
     mock_load.side_effect = PluginNotFoundError(
-        'not found', context={'plugin_name': 'fake'},
+        'not found',
+        context={'plugin_name': 'fake'},
     )
     with pytest.raises(InitializationError, match='not found'):
         init_plugin(
@@ -86,7 +87,8 @@ def test_init_plugin_not_found(mock_load):
 @patch('eventum.core.plugins_initializer.load_input_plugin')
 def test_init_plugin_load_error(mock_load):
     mock_load.side_effect = PluginLoadError(
-        'load failed', context={'plugin_name': 'bad'},
+        'load failed',
+        context={'plugin_name': 'bad'},
     )
     with pytest.raises(InitializationError, match='Failed to load'):
         init_plugin(
@@ -100,15 +102,17 @@ def test_init_plugin_load_error(mock_load):
 @patch('eventum.core.plugins_initializer.load_input_plugin')
 def test_init_plugin_config_validation_error(mock_load):
     mock_config_cls = MagicMock()
-    mock_config_cls.model_validate.side_effect = ValidationError.from_exception_data(
-        title='test',
-        line_errors=[
-            {
-                'type': 'missing',
-                'loc': ('field',),
-                'input': {},
-            },
-        ],
+    mock_config_cls.model_validate.side_effect = (
+        ValidationError.from_exception_data(
+            title='test',
+            line_errors=[
+                {
+                    'type': 'missing',
+                    'loc': ('field',),
+                    'input': {},
+                },
+            ],
+        )
     )
     mock_plugin_info = MagicMock()
     mock_plugin_info.cls = MagicMock()
@@ -130,7 +134,8 @@ def test_init_plugin_configuration_error(mock_load):
     mock_config_cls.model_validate.return_value = MagicMock()
     mock_plugin_cls = MagicMock()
     mock_plugin_cls.side_effect = PluginConfigurationError(
-        'bad config', context={'detail': 'reason'},
+        'bad config',
+        context={'detail': 'reason'},
     )
     mock_plugin_info = MagicMock()
     mock_plugin_info.cls = mock_plugin_cls
@@ -169,7 +174,8 @@ def test_init_plugin_unexpected_error(mock_load):
 @patch('eventum.core.plugins_initializer.load_event_plugin')
 def test_init_plugin_event_type_calls_event_loader(mock_load):
     mock_load.side_effect = PluginNotFoundError(
-        'not found', context={'plugin_name': 'fake'},
+        'not found',
+        context={'plugin_name': 'fake'},
     )
     with pytest.raises(InitializationError):
         init_plugin(
@@ -184,7 +190,8 @@ def test_init_plugin_event_type_calls_event_loader(mock_load):
 @patch('eventum.core.plugins_initializer.load_output_plugin')
 def test_init_plugin_output_type_calls_output_loader(mock_load):
     mock_load.side_effect = PluginNotFoundError(
-        'not found', context={'plugin_name': 'fake'},
+        'not found',
+        context={'plugin_name': 'fake'},
     )
     with pytest.raises(InitializationError):
         init_plugin(

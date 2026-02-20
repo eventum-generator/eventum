@@ -46,7 +46,8 @@ def test_set_with_prompt(mock_pwinput, mock_set_secret):
     result = runner.invoke(cli, ['set', 'api_key'])
     assert result.exit_code == 0
     mock_set_secret.assert_called_once_with(
-        name='api_key', value='prompted_value',
+        name='api_key',
+        value='prompted_value',
     )
 
 

@@ -56,7 +56,8 @@ def test_get_config_before_start():
 @patch('eventum.core.generator.load')
 def test_start_config_load_error(mock_load):
     mock_load.side_effect = ConfigurationLoadError(
-        'bad config', context={'reason': 'test'},
+        'bad config',
+        context={'reason': 'test'},
     )
     gen = Generator(params=_make_params())
     result = gen.start()
@@ -69,7 +70,8 @@ def test_start_config_load_error(mock_load):
 def test_start_init_plugins_error(mock_load, mock_init):
     mock_load.return_value = MagicMock()
     mock_init.side_effect = InitializationError(
-        'init failed', context={'reason': 'test'},
+        'init failed',
+        context={'reason': 'test'},
     )
     gen = Generator(params=_make_params())
     result = gen.start()
@@ -84,7 +86,8 @@ def test_start_executor_init_error(mock_load, mock_init, mock_executor_cls):
     mock_load.return_value = MagicMock()
     mock_init.return_value = MagicMock()
     mock_executor_cls.side_effect = ImproperlyConfiguredError(
-        'bad executor', context={'reason': 'test'},
+        'bad executor',
+        context={'reason': 'test'},
     )
     gen = Generator(params=_make_params())
     result = gen.start()
