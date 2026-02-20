@@ -19,7 +19,7 @@
 </p>
 
 <p align="center">
-  <a href="https://eventum.run/docs"><strong>Documentation</strong></a> &nbsp;·&nbsp;
+  <a href="https://eventum.run"><strong>Documentation</strong></a> &nbsp;·&nbsp;
   <a href="https://eventum.run/docs/tutorials"><strong>Tutorials</strong></a> &nbsp;·&nbsp;
   <a href="https://eventum.run/docs/api"><strong>API Reference</strong></a> &nbsp;·&nbsp;
   <a href="https://github.com/eventum-project/eventum-generator/blob/master/CHANGELOG.md"><strong>Changelog</strong></a>
@@ -43,7 +43,7 @@ Eventum produces synthetic events and delivers them anywhere — in real time or
 
 🔀 **Two modes** — stream events in real time at their scheduled timestamps, or generate everything as fast as possible
 
-🖥️ **Built-in web UI** — [Eventum Studio](https://eventum.run/docs/studio) for visual editing, event preview, and monitoring
+🖥️ **Built-in web UI** — [Eventum Studio](https://eventum.run) for visual editing, event preview, and monitoring
 
 ⚡ **REST API** — start, stop, and manage generators programmatically
 
@@ -101,13 +101,7 @@ eventum generate --path generator.yml --live-mode
 
 ## 🔌 Plugins
 
-| | Type | Available plugins |
-|-|------|-------------------|
-| 🕐 | **Input** | `cron` · `timer` · `linspace` · `static` · `timestamps` · `time_patterns` · `http` |
-| 📄 | **Event** | `template` · `script` · `replay` |
-| 📤 | **Output** | `stdout` · `file` · `http` · `opensearch` · `clickhouse` |
-
-Each part of the pipeline is a plugin. Swap, combine, or extend — change the schedule without touching templates, add new outputs without modifying anything else.
+Each part of the pipeline is a plugin. Swap, combine, or extend — change the schedule without touching templates, add new outputs without modifying anything else. See the [plugin reference](https://eventum.run/docs/plugins) for the full list.
 
 ## 🖥️ Application mode
 
@@ -121,7 +115,7 @@ Starts on port **9474** with **Eventum Studio** (web UI), **REST API**, and **mu
 
 ## 📖 Documentation
 
-Full documentation at **[eventum.run/docs](https://eventum.run/docs)**:
+Full documentation at **[eventum.run](https://eventum.run)**:
 
 - [Getting started](https://eventum.run/docs) — overview and first example
 - [Installation](https://eventum.run/docs/core/introduction/installation) — pip, Docker, or from source
