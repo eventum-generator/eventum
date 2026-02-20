@@ -2,6 +2,7 @@
 FROM python:3.13-slim AS app-build
 
 WORKDIR /app/
+RUN apt-get update && apt-get install -y --no-install-recommends gcc libc6-dev && rm -rf /var/lib/apt/lists/*
 RUN pip install uv
 
 COPY pyproject.toml uv.lock .python-version README.md LICENSE ./

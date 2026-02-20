@@ -36,7 +36,7 @@ logger = structlog.stdlib.get_logger()
     message=SPLASH_SCREEN,
 )
 def cli():  # noqa: ANN201
-    """Events generation platform."""
+    """Data generation platform."""  # noqa: D401
 
 
 def _start_app_instance(config: str) -> App:

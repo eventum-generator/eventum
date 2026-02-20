@@ -67,7 +67,15 @@ class CSVSampleConfig(BaseModel, frozen=True, extra='forbid'):
     type: Literal[SampleType.CSV]
     header: bool = False
     delimiter: str = Field(default=',', min_length=1)
-    source: Path = Field(pattern=r'.*\.csv')
+    source: Path
+
+    @field_validator('source')
+    @classmethod
+    def validate_csv_extension(cls, v: Path) -> Path:  # noqa: D102
+        if v.suffix != '.csv':
+            msg = 'CSV sample source must have .csv extension'
+            raise ValueError(msg)
+        return v
 
 
 class JSONSampleConfig(BaseModel, frozen=True, extra='forbid'):
@@ -84,7 +92,15 @@ class JSONSampleConfig(BaseModel, frozen=True, extra='forbid'):
     """
 
     type: Literal[SampleType.JSON]
-    source: Path = Field(pattern=r'.*\.json')
+    source: Path
+
+    @field_validator('source')
+    @classmethod
+    def validate_json_extension(cls, v: Path) -> Path:  # noqa: D102
+        if v.suffix != '.json':
+            msg = 'JSON sample source must have .json extension'
+            raise ValueError(msg)
+        return v
 
 
 SampleConfigModel = ItemsSampleConfig | CSVSampleConfig | JSONSampleConfig
@@ -127,7 +143,7 @@ class TemplateConfigForGeneralModes(BaseModel, frozen=True, extra='forbid'):
 
     """
 
-    template: Path = Field(pattern=r'.*\.jinja')
+    template: Path
 
     @field_validator('template')
     @classmethod
@@ -135,7 +151,9 @@ class TemplateConfigForGeneralModes(BaseModel, frozen=True, extra='forbid'):
         if v.is_absolute():
             msg = 'Template path must be relative'
             raise ValueError(msg)
-
+        if v.suffix != '.jinja':
+            msg = 'Template path must have .jinja extension'
+            raise ValueError(msg)
         return v
 
 
