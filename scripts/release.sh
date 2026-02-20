@@ -60,7 +60,7 @@ if git rev-parse "$TAG" &>/dev/null; then
 fi
 
 # ── Step 1: Bump version ───────────────────────────────────────────────────
-CURRENT_VERSION=$(python -c "import re; print(re.search(r\"__version__\s*=\s*['\"](.+?)['\"]\", open('${INIT_FILE}').read()).group(1))")
+CURRENT_VERSION=$(grep -oP "__version__\s*=\s*'\K[^']+" "$INIT_FILE")
 info "Current version: ${CURRENT_VERSION}"
 info "New version:     ${VERSION}"
 
@@ -134,7 +134,7 @@ git checkout "$MASTER_BRANCH"
 git pull origin "$MASTER_BRANCH"
 
 # Verify the version in master matches
-MASTER_VERSION=$(python -c "import re; print(re.search(r\"__version__\s*=\s*['\"](.+?)['\"]\", open('${INIT_FILE}').read()).group(1))")
+MASTER_VERSION=$(grep -oP "__version__\s*=\s*'\K[^']+" "$INIT_FILE")
 if [[ "$MASTER_VERSION" != "$VERSION" ]]; then
   error "Version in ${MASTER_BRANCH} is '${MASTER_VERSION}', expected '${VERSION}'. Was the PR merged?"
 fi
