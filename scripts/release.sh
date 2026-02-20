@@ -76,6 +76,9 @@ fi
 info "Running lint..."
 uv run ruff check .
 
+info "Running format check..."
+uv run ruff format --check .
+
 info "Running type check..."
 uv run mypy eventum/
 
