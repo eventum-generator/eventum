@@ -15,7 +15,10 @@ from eventum.plugins.input.plugins.cron.plugin import CronInputPlugin
 def plugin():
     return CronInputPlugin(
         config=CronInputPluginConfig(
-            start='now', end='+60s', expression='* * * * * *', count=1
+            start='2030-01-01T00:00:00',
+            end='2030-01-01T00:01:00',
+            expression='* * * * * *',
+            count=1,
         ),
         params={'id': 1437, 'timezone': timezone('UTC')},
     )
