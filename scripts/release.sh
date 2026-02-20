@@ -1,21 +1,23 @@
 #!/usr/bin/env bash
 # Release script for Eventum
-# Usage: ./scripts/release.sh <version>
-# Example: ./scripts/release.sh 2.0.1
 #
-# Flow:
-#   1. Bump version on develop
-#   2. Run local checks (lint, types, tests)
-#   3. Commit & push develop
-#   4. Create PR develop → master via GitHub CLI
-#   5. After PR is merged, tag master and push tag to trigger release pipeline
+# Usage:
+#   ./scripts/release.sh <version>        # Phase 1: bump, check, push, create PR
+#   ./scripts/release.sh <version> --tag   # Phase 2: tag merged master, trigger release
+#
+# Example:
+#   ./scripts/release.sh 2.0.1
+#   # ... review & merge PR ...
+#   ./scripts/release.sh 2.0.1 --tag
 
 set -euo pipefail
 
 # ── Args ────────────────────────────────────────────────────────────────────
 VERSION="${1:-}"
+MODE="${2:-}"
+
 if [[ -z "$VERSION" ]]; then
-  echo "Usage: $0 <version>"
+  echo "Usage: $0 <version> [--tag]"
   echo "Example: $0 2.0.1"
   exit 1
 fi
@@ -34,7 +36,7 @@ confirm() {
   [[ "$answer" =~ ^[Yy]$ ]] || { echo "Aborted."; exit 1; }
 }
 
-# ── Preflight checks ───────────────────────────────────────────────────────
+# ── Preflight checks (common) ──────────────────────────────────────────────
 info "Releasing Eventum ${VERSION}"
 
 # Ensure we're in the repo root
@@ -48,15 +50,52 @@ if [[ -n "$(git status --porcelain)" ]]; then
   error "Working tree is not clean. Commit or stash changes first."
 fi
 
+# Ensure tag doesn't already exist
+if git rev-parse "$TAG" &>/dev/null; then
+  error "Tag '${TAG}' already exists"
+fi
+
+# ════════════════════════════════════════════════════════════════════════════
+# Phase 2: Tag merged master (--tag mode)
+# ════════════════════════════════════════════════════════════════════════════
+if [[ "$MODE" == "--tag" ]]; then
+  info "Tagging release on ${MASTER_BRANCH}..."
+
+  git fetch origin "$MASTER_BRANCH"
+  git checkout "$MASTER_BRANCH"
+  git pull origin "$MASTER_BRANCH"
+
+  # Verify the version in master matches
+  MASTER_VERSION=$(grep -oP "__version__\s*=\s*'\K[^']+" "$INIT_FILE")
+  if [[ "$MASTER_VERSION" != "$VERSION" ]]; then
+    error "Version in ${MASTER_BRANCH} is '${MASTER_VERSION}', expected '${VERSION}'. Was the PR merged?"
+  fi
+
+  confirm "Create and push tag '${TAG}'? This will trigger the release pipeline."
+
+  git tag -a "$TAG" -m "Release ${VERSION}"
+  git push origin "$TAG"
+  success "Tag ${TAG} pushed — release pipeline triggered"
+
+  # Back to develop
+  git checkout "$DEVELOP_BRANCH"
+  success "Back on ${DEVELOP_BRANCH}"
+
+  echo ""
+  success "Release ${VERSION} complete!"
+  echo "  PyPI + Docker publish will run via GitHub Actions."
+  echo "  Monitor: https://github.com/eventum-project/eventum-generator/actions"
+  exit 0
+fi
+
+# ════════════════════════════════════════════════════════════════════════════
+# Phase 1: Bump, check, push, create PR
+# ════════════════════════════════════════════════════════════════════════════
+
 # Ensure we're on develop
 CURRENT_BRANCH="$(git branch --show-current)"
 if [[ "$CURRENT_BRANCH" != "$DEVELOP_BRANCH" ]]; then
   error "You must be on '${DEVELOP_BRANCH}' branch (currently on '${CURRENT_BRANCH}')"
-fi
-
-# Ensure tag doesn't already exist
-if git rev-parse "$TAG" &>/dev/null; then
-  error "Tag '${TAG}' already exists"
 fi
 
 # ── Step 1: Bump version ───────────────────────────────────────────────────
@@ -123,36 +162,3 @@ echo ""
 info "Next steps:"
 echo "  1. Review & merge the PR: ${PR_URL}"
 echo "  2. After merge, run: $0 ${VERSION} --tag"
-
-# ── Early exit (PR flow) ───────────────────────────────────────────────────
-if [[ "${2:-}" != "--tag" ]]; then
-  exit 0
-fi
-
-# ── Step 5: Tag merged master (--tag mode) ──────────────────────────────────
-info "Tagging release on ${MASTER_BRANCH}..."
-
-git fetch origin "$MASTER_BRANCH"
-git checkout "$MASTER_BRANCH"
-git pull origin "$MASTER_BRANCH"
-
-# Verify the version in master matches
-MASTER_VERSION=$(grep -oP "__version__\s*=\s*'\K[^']+" "$INIT_FILE")
-if [[ "$MASTER_VERSION" != "$VERSION" ]]; then
-  error "Version in ${MASTER_BRANCH} is '${MASTER_VERSION}', expected '${VERSION}'. Was the PR merged?"
-fi
-
-confirm "Create and push tag '${TAG}'? This will trigger the release pipeline."
-
-git tag -a "$TAG" -m "Release ${VERSION}"
-git push origin "$TAG"
-success "Tag ${TAG} pushed — release pipeline triggered"
-
-# Back to develop
-git checkout "$DEVELOP_BRANCH"
-success "Back on ${DEVELOP_BRANCH}"
-
-echo ""
-success "Release ${VERSION} complete!"
-echo "  PyPI + Docker publish will run via GitHub Actions."
-echo "  Monitor: https://github.com/eventum-project/eventum-generator/actions"
