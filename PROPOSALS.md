@@ -1471,6 +1471,180 @@ This would allow flat URL strings in sample data (`"urls": ["www.google.com/sear
 
 ---
 
+## 53. 🆕 Feature: Per-template variables (`vars`) for parameterized template reuse `[High]`
+
+**Context**: Building the `network-cisco-asa` generator with 14 templates covering TCP/UDP/ICMP connection built/teardown, NAT built/teardown, and other event categories.
+
+**Problem**: The Cisco ASA generator has 3 "connection built" templates (`302013-tcp-built`, `302015-udp-built`, `302020-icmp-built`) and 3 "connection teardown" templates (`302014-tcp-teardown`, `302016-udp-teardown`, `302021-icmp-teardown`). These 6 files are ~80% identical in structure — same connection ID counter, same direction selection, same host lookups, same NAT logic, same JSON output structure. The only differences are:
+
+- Protocol name (`tcp`/`udp`/`icmp`) and IANA number (`6`/`17`/`1`)
+- Message ID (`302013`/`302015`/`302020`)
+- Pool name (`tcp_sessions`/`udp_sessions`/`icmp_sessions`)
+- Protocol-specific fields (TCP has teardown reasons and bytes, ICMP has type/code)
+
+Currently, all templates share the same `params` dict — there's no way to pass per-entry variables. This means each protocol variant requires a separate template file even when 120+ lines are identical. In the ASA generator, the TCP built (153 lines) and UDP built (148 lines) templates share ~130 lines verbatim. Multiplied across built+teardown pairs, this is ~400 lines of pure duplication.
+
+The same pattern affects NAT templates (`305011-nat-built` and `305012-nat-teardown` share structure with connection templates) and appears in other generators: `network-checkpoint` has separate templates for accept/drop/reject that share 90% of their JSON structure, and `network-firewall` has protocol-variant session templates.
+
+Note: Proposal #47 addresses *global* computed variables shared by all templates. This proposal addresses *per-entry* variables that differ between template entries pointing to the same `.jinja` file — enabling template reuse rather than just variable sharing.
+
+**Proposal**: Add an optional `vars` (or `template_vars`) section to each template entry in `generator.yml` that injects entry-specific variables into the template's namespace:
+
+```yaml
+templates:
+  # One template file serves all three protocols
+  - tcp_built:
+      template: templates/connection-built.json.jinja
+      chance: 220
+      vars:
+        protocol: tcp
+        iana_number: "6"
+        message_id: "302013"
+        pool_name: tcp_sessions
+        pool_cap: 200
+  - udp_built:
+      template: templates/connection-built.json.jinja    # same file!
+      chance: 75
+      vars:
+        protocol: udp
+        iana_number: "17"
+        message_id: "302015"
+        pool_name: udp_sessions
+        pool_cap: 200
+  - icmp_built:
+      template: templates/connection-built.json.jinja    # same file!
+      chance: 15
+      vars:
+        protocol: icmp
+        iana_number: "1"
+        message_id: "302020"
+        pool_name: icmp_sessions
+        pool_cap: 50
+```
+
+The template would access these via `{{ vars.protocol }}` or a merged namespace:
+
+```jinja2
+{#- Protocol-agnostic connection built template -#}
+{%- set sessions = shared.get(vars.pool_name, []) -%}
+...
+"network": {
+    "iana_number": "{{ vars.iana_number }}",
+    "transport": "{{ vars.protocol }}"
+},
+```
+
+This would collapse the ASA generator's 6 connection templates (TCP/UDP/ICMP × built/teardown) into 2 parameterized templates, eliminating ~400 lines of duplication. The pattern would benefit every generator that has protocol or event-type variants sharing a common structure.
+
+Implementation: in the template plugin, merge `vars` into the render context alongside `params`, `samples`, `shared`, `timestamp`, and `module`. The `vars` dict would be a flat key-value map (no Jinja2 expression evaluation needed — just YAML scalars).
+
+---
+
+## 54. 🆕 Feature: Document and warn about `| tojson` requirement for `event.original` syslog fields `[Medium]`
+
+**Context**: Building the `network-cisco-asa` generator where every template constructs an `event.original` syslog line containing the raw ASA message.
+
+**Problem**: The `event.original` field in ECS contains the raw log line as received by the collector. For syslog-based generators, this means building a string like `"Feb 21 2026 14:30:15 ASA-FW-01 : %ASA-4-106023: Deny tcp src outside:203.0.113.5/52847 dst inside:10.1.1.10/443 by access-group \"OUTSIDE_IN\" [0xa1b2c3d4, 0x0]"`. The natural template pattern is:
+
+```jinja2
+{%- set original_msg = "%ASA-4-106023: Deny " ~ protocol ~ " ... by access-group \"" ~ rule.name ~ "\" [" ~ hash1 ~ ", " ~ hash2 ~ "]" -%}
+...
+"original": "{{ timestamp.strftime('%b %d %Y %H:%M:%S') }} {{ hostname }} : {{ original_msg }}"
+```
+
+This **silently produces invalid JSON** because the escaped quotes (`\"`) in the Jinja2 string become literal `"` in the rendered output, breaking the JSON string boundary. The error manifests as a runtime JSON parse failure (`"JSON is malformed: expected ',' or '}' (byte 678)"`) with no indication of which field or template caused it.
+
+In the ASA generator, this bug appeared in the `106023-acl-deny` template where ACL names are quoted in real ASA syslog output (e.g., `access-group "OUTSIDE_IN"`). The fix required switching to a non-obvious pattern:
+
+```jinja2
+{%- set full_original = timestamp.strftime('%b %d %Y %H:%M:%S') ~ " " ~ hostname ~ " : " ~ original_msg -%}
+"original": {{ full_original | tojson }},
+```
+
+Key insight: `{{ var | tojson }}` (without surrounding double quotes) properly JSON-escapes the string *and* adds the enclosing quotes. This is fundamentally different from `"{{ var }}"` which does not escape inner quotes.
+
+This pattern is needed by every syslog-based generator (6+ in content-packs: Cisco ASA, FortiGate, Check Point, auditd, Snort, Suricata) because real syslog messages routinely contain characters that break JSON: double quotes around identifiers, backslashes in Windows paths, control characters in error messages.
+
+Note: Proposal #15 addresses post-processing JSON validation (parsing and fixing output). Proposal #36 addresses conditional field emission with safe comma handling. This proposal addresses a different gap: the **construction-time** pattern of safely embedding arbitrary strings into JSON string fields — specifically the non-obvious `{{ var | tojson }}` vs `"{{ var }}"` distinction.
+
+**Proposal**: Two complementary improvements:
+
+1. **Documentation**: Add a "JSON String Safety" section to the template API docs with a clear rule: *"For any string field that may contain quotes, backslashes, or control characters, use `{{ var | tojson }}` without surrounding quotes instead of `"{{ var }}"`."* Include a before/after example showing the `event.original` syslog case.
+
+2. **Lint warning**: When `format: json` (#15) is eventually implemented, detect the pattern `"{{ ... }}"` where the rendered value contains unescaped `"` and emit a warning pointing to the field name and suggesting `| tojson`. This would catch the bug at render time instead of at JSON parse time, with a fix suggestion instead of an opaque byte offset.
+
+```text
+WARNING: Field "event.original" contains unescaped double quote at position 45.
+  Hint: Use {{ full_original | tojson }} instead of "{{ original_msg }}" for safe JSON embedding.
+```
+
+---
+
+## 55. 🆕 Feature: Output plugin `optional` flag for graceful degradation when params/secrets are unavailable `[High]`
+
+**Context**: Building the `network-netflow` generator with both stdout and OpenSearch outputs in the same `generator.yml`.
+
+**Problem**: Content-pack generators include both a development output (stdout) and a production output (OpenSearch/ClickHouse) in the same config. The production output uses `${params.*}` and `${secrets.*}` placeholders:
+
+```yaml
+output:
+  - stdout:
+      formatter:
+        format: json
+  - opensearch:
+      hosts:
+        - ${params.opensearch_host}
+      username: ${params.opensearch_user}
+      password: ${secrets.opensearch_password}
+      index: ${params.opensearch_index}
+```
+
+When running locally for development/testing, the config loader attempts to resolve ALL `${params.*}` and `${secrets.*}` tokens across the entire config — including outputs that the user doesn't intend to use. If the opensearch params aren't provided via `--params` or `startup.yml`, or the keyring doesn't have the secret, the generator crashes before rendering a single event.
+
+In the NetFlow generator, testing required:
+
+1. Passing `--params '{"opensearch_host": "...", "opensearch_user": "...", "opensearch_index": "..."}'` with dummy values
+2. Creating a fresh keyring file with a dummy `opensearch_password` secret
+3. Passing `--cryptfile /tmp/test_keyring.cfg` with the correct env var `EVENTUM_KEYRING_PASSWORD`
+4. Tolerating connection-refused errors from the opensearch output in the logs
+
+All of this ceremony just to see stdout output. Every content-pack generator has this same pattern — both stdout and opensearch in the config — and every developer hits this friction when testing locally.
+
+Note: Proposal #38 addresses this with a CLI-level `--only-output stdout` flag that filters outputs before config loading. This proposal addresses a complementary approach: a config-level declaration that makes an output plugin degrade gracefully without requiring the user to remember CLI flags.
+
+**Proposal**: Add an `optional: true` flag to output plugin config that makes the plugin silently skip initialization when its params/secrets can't be resolved:
+
+```yaml
+output:
+  - stdout:
+      formatter:
+        format: json
+  - opensearch:
+      optional: true    # Skip if params/secrets unavailable
+      hosts:
+        - ${params.opensearch_host}
+      username: ${params.opensearch_user}
+      password: ${secrets.opensearch_password}
+      index: ${params.opensearch_index}
+```
+
+When `optional: true` and the config loader encounters unresolvable `${params.*}` or `${secrets.*}` tokens in that output block, it should:
+
+1. Log a notice: `Output 'opensearch' skipped: missing param 'opensearch_host'`
+2. Remove the output from the active pipeline
+3. Continue with remaining outputs
+
+This differs from #38 in several ways:
+
+- **No CLI flag needed** — the config itself declares which outputs are optional
+- **Self-documenting** — reading the config tells you which outputs are required vs nice-to-have
+- **Content-pack friendly** — generator authors can mark production outputs as optional in the distributed config, so end users can test immediately without setup
+- **Composable with #38** — `--only-output` is imperative (user decides at runtime); `optional` is declarative (author decides at design time). Both are useful.
+
+Implementation: in `config_loader.py`, during `${params.*}` / `${secrets.*}` resolution, catch `MissingParam`/`MisssingSecret` errors per output block. If the block has `optional: true`, log and remove it from `GeneratorConfig.output`. Otherwise, raise as today.
+
+---
+
 # ✅ Completed
 
 ## 32. Bug: Stdout output plugin crashes with `writelines` — `NonFileStreamWriter` incompatibility
@@ -1494,3 +1668,151 @@ This would allow flat URL strings in sample data (`"urls": ["www.google.com/sear
 ## 35. Samples: JSON sample loading crashes with unhelpful error on heterogeneous schemas
 
 **Status**: Fixed. Caught `InvalidDimensions` from tablib and re-raised as `SampleLoadError` with clear "inconsistent keys" message.
+
+---
+
+## 56. 🆕 Feature: `| zfill(N)` filter for zero-padded numeric strings `[Medium]`
+
+**Context**: Building the `fortinet-fortimail` generator with type-prefixed monotonic log IDs (10-digit zero-padded: `0200004500`, `0003001234`, `0300000901`).
+
+**Problem**: Jinja2 has no built-in zero-padding filter. The only workaround is a string-slice hack that prepends zeros and takes the last N characters:
+
+```jinja2
+{%- set log_id = "02" ~ ("00000000" ~ (stats_log_seq | string))[-8:] -%}
+{%- set seq_str = ("000000" ~ (session_seq | string))[-6:] -%}
+```
+
+This pattern appears **10+ times** across the 12 FortiMail templates — for statistics log IDs (`02XXXXXXXX`), SMTP event IDs (`0003XXXXXX`), spam log IDs (`0300XXXXXX`), virus log IDs (`0100XXXXXX`), kevent IDs (`0701XXXXXX`/`0704XXXXXX`), and 6-digit session sequence numbers. It's also used in the windows-security generator for process IDs and logon IDs, in network-fortigate for log IDs, and in any generator that needs fixed-width numeric identifiers.
+
+The hack is fragile — if the number exceeds the padding width, the slice silently truncates the leading digits instead of producing a wider string. It's also non-obvious to read: `("000000" ~ (n | string))[-6:]` requires mental parsing to understand "zero-pad to 6 digits."
+
+**Proposal**: Register a custom `zfill` filter (named after Python's `str.zfill()`):
+
+```python
+# In template environment setup:
+env.filters['zfill'] = lambda s, width: str(s).zfill(width)
+```
+
+Usage in templates:
+
+```jinja2
+{%- set log_id = "02" ~ (stats_log_seq | zfill(8)) -%}
+{%- set seq_str = session_seq | zfill(6) -%}
+```
+
+One line of Python, eliminates a fragile 30-character expression repeated across every generator that uses numeric IDs.
+
+---
+
+## 57. 🆕 Feature: JSON sample loading should support dict/mapping format for grouped data `[Medium]`
+
+**Context**: Building the `fortinet-fortimail` generator with 60 email subjects across 5 categories (business, automated, newsletter, spam, phishing).
+
+**Problem**: The natural JSON structure for categorized sample data is a dict mapping category names to arrays:
+
+```json
+{
+    "business": ["Q4 Financial Report", "Meeting Agenda", ...],
+    "spam": ["Congratulations! You have won", ...],
+    "phishing": ["Urgent: Verify your account", ...]
+}
+```
+
+This format is rejected by the JSON sample reader because tablib requires an array of objects. The forced workaround is restructuring into a flat array with a category field:
+
+```json
+[
+    {"category": "business", "text": "Q4 Financial Report"},
+    {"category": "spam", "text": "Congratulations! You have won"},
+    ...
+]
+```
+
+And then using a verbose `selectattr` filter chain in every template that needs a category-specific entry:
+
+```jinja2
+{%- set subject = (samples.subjects | selectattr("category", "equalto", "spam") | list | random).text -%}
+```
+
+This 90-character expression replaces what would be `samples.subjects.spam | random` with a dict format. It's also O(n) per render (scans all 60 entries to find matching category), whereas a dict lookup would be O(1).
+
+Note: Proposal #20 (`index_by`) addresses this from the config side — grouping an array at load time. This proposal addresses it from the data side — supporting dict-format JSON natively without needing a tablib Dataset intermediary.
+
+**Proposal**: When a JSON sample file contains a top-level dict (not an array), expose it directly as a dict of lists. If the values are arrays of strings, wrap them as single-field objects for consistency. If the values are arrays of objects, expose them as-is:
+
+```python
+# In SamplesReader._load_json_sample():
+if isinstance(data, dict):
+    # Expose as grouped sample: samples.subjects.spam → list of items
+    return GroupedSample(data)
+```
+
+Template access:
+
+```jinja2
+{%- set subject = samples.subjects.spam | random -%}
+{%- set virus = samples.viruses | random -%}    {# array format still works #}
+```
+
+This would be complementary to #20 (`index_by`): dict format is for data that is *authored* as grouped (categories known at authoring time); `index_by` is for data that is *stored* flat but *accessed* grouped (categories discovered at load time).
+
+---
+
+## 58. 🆕 Feature: `module.rand.string.pattern()` for formatted random strings `[Medium]`
+
+**Context**: Building the `fortinet-fortimail` generator where every email event has an authentically formatted session ID: `[7 letters][char][6-digit seq]-[7 letters][char][6-digit seq]`.
+
+**Problem**: Generating a FortiMail session ID requires 5 lines of template code:
+
+```jinja2
+{%- set pfx = module.rand.string.letters(7) -%}
+{%- set c1 = module.rand.choice("abcdefghijkmnpqrstuvwxyz") -%}
+{%- set c2 = module.rand.choice("bcdefghjkmnpqrstuvwxyz") -%}
+{%- set seq_str = ("000000" ~ (session_seq | string))[-6:] -%}
+{%- set session_id = pfx ~ c1 ~ seq_str ~ "-" ~ pfx ~ c2 ~ seq_str -%}
+```
+
+This exact 5-line block is **copy-pasted across 7 templates** (5 statistics, 1 SMTP receive, 1 spam-detection fallback). Any format change (e.g., fixing the sequence width or adding uppercase letters) requires editing all 7 copies.
+
+Similar multi-step random string construction appears in other generators: Windows Security's logon IDs (`0x` + 8 hex chars), Sysmon's process GUIDs (`{` + uuid + `}`), FortiGate's session IDs, and Checkpoint's log UIDs.
+
+Note: Proposal #11 (`{% include %}`) addresses this from the template composition side — extracting shared fragments into partials. This proposal addresses it from the API side — providing a one-line way to generate formatted random strings without needing includes or macros.
+
+**Proposal**: Add `module.rand.string.pattern(format_string)` that generates a random string from a mini-DSL:
+
+```python
+# Format specifiers:
+#   %a = lowercase letter    %A = uppercase letter    %l = letter (any case)
+#   %d = digit               %h = hex char            %x = hex char (lower)
+#   Literal characters are preserved
+#   {N} after a specifier = repeat N times
+
+module.rand.string.pattern("%a{7}%a%d{6}-%a{7}%a%d{6}")
+# → "qJgHmRbk003642-qJgHmRbv003642"
+
+module.rand.string.pattern("0x%h{8}")
+# → "0x3F7A1B2E"
+
+module.rand.string.pattern("{%l{8}-%l{4}-%l{4}-%l{4}-%l{12}}")
+# → "{a1b2c3d4-e5f6-7890-abcd-ef1234567890}"
+```
+
+Usage in templates:
+
+```jinja2
+{%- set session_id = module.rand.string.pattern("%a{7}%a" ~ (session_seq | zfill(6)) ~ "-%a{7}%a" ~ (session_seq | zfill(6))) -%}
+```
+
+This reduces 5 lines to 1 line and makes the format self-documenting. For purely random strings (no counter interpolation), it's even simpler:
+
+```jinja2
+{%- set logon_id = module.rand.string.pattern("0x%H{8}") -%}
+```
+
+Implementation: ~30 lines of Python using `re.sub` to replace format specifiers with random characters from the appropriate character set.
+
+---
+
+## 59. 🐛 Bug: CLI `--live-mode` uses non-standard boolean flag syntax `[Low]`
+
+**Status**: Fixed. Modified `_create_option()` in `pydantic_converter.py` to detect `bool` fields and generate standard Click boolean flag pairs (`--flag/--no-flag`). All boolean CLI options (`--live-mode`, `--skip-past`, `--keep-order`) now follow the Click convention.
