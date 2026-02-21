@@ -1,10 +1,11 @@
 import z from 'zod';
 
+import { orPlaceholder } from '../../../placeholder';
 import { BaseInputPluginConfigSchema } from '../base-config';
 
 export const StaticInputPluginConfigSchema = BaseInputPluginConfigSchema.extend(
   {
-    count: z.number().int().gte(1),
+    count: orPlaceholder(z.number().int().gte(1)),
   }
 );
 export type StaticInputPluginConfig = z.infer<
