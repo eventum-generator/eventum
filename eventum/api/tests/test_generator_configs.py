@@ -100,6 +100,36 @@ def test_get_config_not_found(client):
     assert response.status_code == 404
 
 
+def test_get_config_with_placeholders(client, tmp_settings):
+    config_with_placeholders = {
+        'input': [{'cron': {'expression': '* * * * *', 'count': 1}}],
+        'event': {'replay': {'path': 'events.log'}},
+        'output': [
+            {
+                'opensearch': {
+                    'hosts': ['${params.opensearch_host}'],
+                    'username': '${params.opensearch_user}',
+                    'password': '${secrets.opensearch_password}',
+                    'index': '${params.opensearch_index}',
+                    'verify': False,
+                    'formatter': {'format': 'json'},
+                },
+            },
+        ],
+    }
+    gen_dir = tmp_settings.path.generators_dir / 'placeholder_gen'
+    gen_dir.mkdir()
+    config_path = gen_dir / tmp_settings.path.generator_config_filename
+    config_path.write_text(yaml.dump(config_with_placeholders, sort_keys=False))
+    response = client.get('/configs/placeholder_gen')
+    assert response.status_code == 200
+    data = response.json()
+    output_config = data['output'][0]['opensearch']
+    assert output_config['hosts'] == ['${params.opensearch_host}']
+    assert output_config['username'] == '${params.opensearch_user}'
+    assert output_config['password'] == '${secrets.opensearch_password}'
+
+
 def test_get_config_invalid_yaml(client, tmp_settings):
     gen_dir = tmp_settings.path.generators_dir / 'bad_yaml'
     gen_dir.mkdir()
