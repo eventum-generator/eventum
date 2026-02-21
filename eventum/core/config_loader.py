@@ -24,6 +24,31 @@ class ConfigurationLoadError(ContextualError):
     """Error during loading generator configuration."""
 
 
+def _strip_yaml_comments(content: str) -> str:
+    """Strip full-line YAML comments from content.
+
+    Parameters
+    ----------
+    content : str
+        Raw YAML content.
+
+    Returns
+    -------
+    str
+        Content with full-line comments replaced by empty lines.
+
+    """
+    lines: list[str] = []
+
+    for line in content.splitlines():
+        if line.lstrip().startswith('#'):
+            lines.append('')
+        else:
+            lines.append(line)
+
+    return '\n'.join(lines)
+
+
 def _extract_tokens(content: str, prefix: str | None = None) -> list[str]:
     """Extract tokens enclosed within `${}` from the given content.
 
@@ -277,8 +302,10 @@ def load(path: Path, params: dict[str, Any]) -> GeneratorConfig:
             context={'reason': str(e), 'file_path': str(path)},
         ) from None
 
+    active_content = _strip_yaml_comments(content)
+
     logger.debug('Extracting params used in config file')
-    extracted_params = extract_params(content)
+    extracted_params = extract_params(active_content)
     logger.debug('Params is extracted', value=extracted_params)
 
     logger.debug('Preparing param values')
@@ -295,7 +322,7 @@ def load(path: Path, params: dict[str, Any]) -> GeneratorConfig:
         ) from None
 
     logger.debug('Extracting secrets used in config file')
-    extracted_secrets = extract_secrets(content)
+    extracted_secrets = extract_secrets(active_content)
     logger.debug('Secrets is extracted', value=extracted_secrets)
 
     logger.debug('Preparing secret values')
