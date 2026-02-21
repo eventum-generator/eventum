@@ -4,303 +4,154 @@ Feedback gathered from building content-pack generators (linux-auditd, windows-s
 
 ---
 
-## 1. Template API: Missing `module.rand.network.ip_v4_private()` (any range)
+# 🐛 Bugs
 
-**Problem**: When generating network events, you often need "some private IP" regardless of class. Currently you must pick between `ip_v4_private_a()`, `ip_v4_private_b()`, or `ip_v4_private_c()` — which forces the generator author to hardcode a subnet class or add a weighted choice between three functions.
+## 42. Bug: CSV sample parser doesn't handle quoted fields with commas (RFC 4180 violation) `[Critical]`
 
-**Proposal**: Add a generic `module.rand.network.ip_v4_private()` that randomly picks from any RFC 1918 range with realistic weights (most traffic is /24 class C).
+**Context**: Building the `security-suricata` generator with a CSV sample file for HTTP user agent strings.
 
----
+**Problem**: The CSV sample reader fails to parse fields that contain commas, even when properly quoted per RFC 4180. User agent strings naturally contain commas (e.g., `"Mozilla/5.0 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"`). When stored in a CSV with proper double-quote escaping:
 
-## 2. Template API: No `module.rand.network.port()` helpers
-
-**Problem**: Generating realistic port numbers requires manual `module.rand.number.integer(49152, 65535)` for ephemeral ports or hardcoded weighted choices for well-known ports. Every generator repeats this logic.
-
-**Proposal**: Add convenience helpers:
-- `module.rand.network.ephemeral_port()` → random port in 49152–65535
-- `module.rand.network.well_known_port()` → weighted random from common ports (80, 443, 22, 53, etc.)
-
----
-
-## 3. Shared state: No atomic increment / counter primitive
-
-**Problem**: Every single template starts with `shared.get('sequence', 1000)` and ends with `shared.set('sequence', seq + 1)`. This is a very common pattern (monotonic record IDs, sequence numbers) but requires 2 lines of boilerplate in every template.
-
-**Proposal**: Add `shared.increment('key', default=0, step=1)` that atomically gets and increments. Returns the pre-increment value. Saves 2 lines per template and eliminates the possibility of forgetting the final `shared.set()`.
-
----
-
-## 4. Shared state: No built-in queue/pool abstraction
-
-**Problem**: The correlation pattern (producer appends to a list, consumer pops from it, cap the list, fallback when empty) is repeated verbatim across every correlated event pair. In the linux-auditd generator alone, this pattern appears 6 times across auth_sessions, cred_sessions, and running_services pools. It's easy to get wrong — the validation caught a bug where one template peeked (`list[0]`) instead of consuming (`list.pop(0)`).
-
-**Proposal**: Add a built-in pool/queue primitive:
-```
-shared.pool('sessions').push(item)           # append + auto-cap
-shared.pool('sessions').pop()                # pop(0) or None
-shared.pool('sessions').peek()               # read without consuming
-shared.pool('sessions', max_size=50)         # set cap on first use
+```csv
+user_agent
+"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
 ```
 
-This would eliminate ~10 lines of boilerplate per correlated event pair and prevent the peek-vs-pop bug class entirely.
+The parser split on the commas inside the quoted value, producing mangled rows like `{None: [' like Gecko) Chrome/120.0.0.0 Safari/537.36']}` instead of the full user agent string. This forced converting the sample from CSV to JSON format — which works but defeats the purpose of having CSV support for flat lists.
+
+The same issue would affect any CSV sample containing commas in values: SQL queries, log messages, street addresses, product descriptions, comma-separated tags, etc. This is a fundamental limitation since RFC 4180 specifies that commas within double-quoted fields should be preserved as literal characters.
+
+**Workaround**: Convert to JSON format (`user-agents.json` with `[{"user_agent": "..."}]`), which handles arbitrary string content correctly.
+
+**Proposal**: Fix the CSV sample reader to use Python's `csv.reader` (which handles RFC 4180 quoting correctly) instead of whatever custom splitting is currently used. Python's built-in `csv` module has handled quoted-comma fields correctly since Python 2.3 — this is likely a case where tablib's CSV import is being called incorrectly or with wrong dialect settings.
 
 ---
 
-## 5. Samples: No way to pick a random row and keep it as a flat dict
+## 48. Bug: `module.rand.network.ip_v4_public()` should exclude bogon/reserved ranges `[Medium]`
 
-**Problem**: CSV samples accessed as `(samples.usernames | random)` return a row object. When you need multiple fields from the same row, you must store the whole row first (`{%- set u = samples.usernames | random -%}`) and then access fields individually. This is fine, but there's no way to destructure or spread a sample row into the template namespace.
+**Context**: Building the `network-fortigate` generator where source IPs for inbound traffic must be public and non-reserved.
 
-**Proposal**: Consider a `| spread` or `| unpack` Jinja2 filter that sets multiple variables from a dict at once — or document the recommended pattern more prominently.
+**Problem**: `module.rand.network.ip_v4_public()` generates random public IPv4 addresses, but the generated addresses occasionally fall into reserved ranges that wouldn't appear in real internet traffic — documentation ranges (192.0.2.0/24, 198.51.100.0/24, 203.0.113.0/24), benchmarking (198.18.0.0/15), CGNAT (100.64.0.0/10), or multicast (224.0.0.0/4). While these are technically not RFC 1918 private, they're not routable on the public internet and would never appear as source IPs in FortiGate traffic logs.
 
----
+The FortiGate generator uses `ip_v4_public()` extensively in `traffic-forward-deny` (attack sources), `utm-ips` (intrusion sources), `utm-anomaly` (DoS sources), and `event-vpn` (remote tunnel endpoints). Over thousands of events, a small percentage will have documentation-range source IPs, which looks unrealistic in dashboards and can confuse SOC analysts testing detection rules.
 
-## 6. Generator.yml: No way to express correlated template groups
+**Proposal**: Ensure `module.rand.network.ip_v4_public()` excludes all IANA special-purpose address ranges (not just RFC 1918), or add an `ip_v4_routable()` variant that only produces genuinely routable addresses:
 
-**Problem**: In auditd, the PAM login flow is always: USER_AUTH → CRED_ACQ → USER_LOGIN → (session) → CRED_DISP. With `chance` mode, these events fire independently at their own rates, so the correlation pools may drain or overflow depending on timing. The shared state pool pattern is a workaround, not a first-class solution.
+Excluded ranges should include (per IANA IPv4 Special-Purpose Address Registry):
 
-**Proposal**: Consider a `group` or `sequence` picking mode where a single trigger fires a deterministic sequence of templates in order:
-```yaml
-templates:
-  - login_flow:
-      mode: sequence
-      chance: 80
-      steps:
-        - templates/user-auth.json.jinja
-        - templates/cred-acq.json.jinja
-        - templates/user-login.json.jinja
-```
-This would guarantee correct ordering and eliminate the need for inter-template correlation pools for tightly-coupled event sequences.
+- 0.0.0.0/8, 10.0.0.0/8, 100.64.0.0/10, 127.0.0.0/8, 169.254.0.0/16
+- 172.16.0.0/12, 192.0.0.0/24, 192.0.2.0/24, 192.88.99.0/24
+- 192.168.0.0/16, 198.18.0.0/15, 198.51.100.0/24, 203.0.113.0/24
+- 224.0.0.0/3 (multicast + reserved)
 
 ---
 
-## 7. Template API: No `timestamp` formatting helpers
+## 22. Bug: JSON samples require homogeneous schemas (all objects must have identical keys) `[Medium]`
 
-**Problem**: The `timestamp.isoformat()` method works for `@timestamp`, but auditd's raw `msg=audit(epoch:serial)` format requires `timestamp.timestamp()`. Other formats (syslog's `MMM dd HH:MM:SS`, Apache's `[dd/Mon/yyyy:HH:mm:ss +0000]`) need `strftime()`. Each generator reinvents timestamp formatting.
+**Context**: Building the `web-apache` generator with URL sample data where some entries have an `"extension"` field and others don't.
 
-**Proposal**: Add built-in timestamp format helpers or document common patterns:
-- `timestamp.epoch()` → Unix epoch (float)
-- `timestamp.syslog()` → `Feb 21 12:00:01` format
-- `timestamp.apache()` → `[21/Feb/2026:12:00:01 +0000]` format
+**Problem**: When loading JSON sample files, the sample reader creates a `tablib.Dataset` which requires all objects in the array to have the same set of keys. Real-world data often has optional fields — URL paths for static assets have a file extension while page/API URLs don't:
 
----
-
-## 8. Samples: No support for weighted sampling
-
-**Problem**: When picking from sample data, `| random` gives uniform distribution. But in reality, some entries should be picked more often (e.g., `sshd` appears in 40% of auth events, `cron` in 15%). The workaround is `module.rand.weighted_choice()` with hardcoded lists, which bypasses the sample data entirely.
-
-**Proposal**: Support an optional `weight` column in CSV samples or a `weight` field in JSON samples, then provide a `| weighted_random` filter:
-```
-{%- set u = samples.usernames | weighted_random -%}
+```json
+[
+    {"path": "/about", "type": "page", "min_bytes": 5000, "max_bytes": 15000},
+    {"path": "/css/style.css", "extension": "css", "type": "static", "min_bytes": 5000, "max_bytes": 50000}
+]
 ```
 
----
+Loading this fails because the first entry is missing the `"extension"` key. The workaround is adding `"extension": null` to every entry without one — in web-apache this meant manually padding 27 out of 40 entries:
 
-## 9. Template debugging: No dry-run or single-event mode
+```json
+{"path": "/about", "extension": null, "type": "page", "min_bytes": 5000, "max_bytes": 15000}
+```
 
-**Problem**: When developing a new template, you iterate by running `eventum generate --live-mode` and eyeballing stdout. There's no way to render a single template once with fixed inputs to verify the JSON output. If a template has a Jinja2 syntax error, the error message points to the rendered output line, not the source template line.
+This is tedious, error-prone (forget one entry and loading breaks), and makes sample data files harder to read and maintain. Adding a new optional field to some entries requires editing every other entry to add the null placeholder.
 
-**Proposal**: Add a `eventum render --template <path> --params <yaml>` command that renders a single template once with given params and prints the result. Include source-mapped error messages that point to the `.json.jinja` line number.
+**Proposal**: When loading JSON samples, compute the union of all keys across all objects and fill missing keys with `None` before creating the tablib Dataset:
 
----
+```python
+# In SamplesReader._load_json_sample():
+all_keys: set[str] = set()
+for obj in data:
+    all_keys |= obj.keys()
+for obj in data:
+    for key in all_keys:
+        obj.setdefault(key, None)
+```
 
-## 10. Generator.yml: `count` in input doesn't scale with template count
-
-**Problem**: `count: 5` means 5 events per second total, distributed across all templates by chance weight. When you add more event types, you may want to increase the count proportionally. There's no way to say "I want ~2 SYSCALL events per second and ~1 auth event per second" without manual weight math.
-
-**Proposal**: Consider supporting per-template rate targets in addition to global count, or document the relationship between `count`, `chance` weights, and expected per-type throughput more clearly.
-
----
-
-## 11. Template composition: Document and promote `{% include %}` for reducing boilerplate
-
-**Context**: Building the `network-dns` generator (Packetbeat DNS transactions).
-
-**Problem**: The network-dns generator has 10 templates (one per DNS query type: A, AAAA, PTR, CNAME, MX, TXT, SRV, NS, SOA, HTTPS). Each template is ~130 lines, but ~100 lines are identical boilerplate — the `agent`, `client`, `destination`, `ecs`, `event`, `host`, `network`, `network_traffic`, `server`, `source` blocks are the same across all 10. Only `dns.question.type`, `dns.answers`, and a few fields differ per template.
-
-This means ~1000 lines of duplicated JSON across the generator. Any structural change (e.g., adding a new ECS field) requires editing all 10 files identically.
-
-Eventum already uses `FileSystemLoader`, so Jinja2's `{% include %}` and `{% extends %}` are technically available. However:
-
-- They're not documented in the template API reference
-- There's no established convention for partial/fragment files
-- Variable scoping across includes is subtle (included templates share the caller's scope, but `{% extends %}` blocks have different rules)
-
-**Proposal**: Officially support and document template composition:
-
-1. **Document `{% include %}`** in the template API docs with an example showing shared fragments:
-
-   ```text
-   templates/
-     _base.json.jinja           # shared ECS boilerplate (convention: _ prefix)
-     a-query.json.jinja          # {% include '_partials/agent.json.jinja' %}
-   ```
-
-2. **Consider adding a `base_template` config option** in generator.yml that defines a shared skeleton with `{% block %}` markers:
-
-   ```yaml
-   templates:
-     base: templates/_base.json.jinja
-     entries:
-       - a_query:
-           template: templates/a-query.json.jinja
-           chance: 300
-   ```
-
-   Where `_base.json.jinja` uses `{% block dns_answers %}{% endblock %}` and each template uses `{% extends base %}`.
-
-3. **At minimum**, add a "Reducing Boilerplate" section to the docs showing how to use `{% include %}` with file-relative paths, since this is the single biggest pain point for generators with many similar templates.
+This matches how most data tools handle heterogeneous JSON (pandas `json_normalize`, DuckDB `read_json_auto`, jq). It's ~4 lines of code and eliminates a sharp edge that every JSON sample author will hit.
 
 ---
 
-## 12. Template API: Missing `module.rand.network.ip_v6()` generator
+## 24. Bug: Missing `module.rand.crypto.sha1()` hash generator (API inconsistency) `[Low]`
 
-**Context**: Building AAAA query templates for the DNS generator.
+**Context**: Building the `windows-sysmon` generator (15 Sysmon event types with ECS-compatible output).
 
-**Problem**: `module.rand.network` has `ip_v4()`, `ip_v4_private_a/b/c()`, `ip_v4_public()`, and `mac()` — but no IPv6 generator. For AAAA DNS queries, I had to manually construct IPv6 addresses:
+**Problem**: Sysmon events include file and process hashes in SHA1, MD5, SHA256, and IMPHASH formats. The `winlog.event_data.Hashes` field uses the compound format `SHA1=abc,MD5=def,SHA256=ghi,IMPHASH=jkl`, and ECS maps these into `process.hash.sha1`, `process.hash.md5`, `process.hash.sha256`, and `file.hash.*`.
+
+The `module.rand.crypto` namespace currently provides `uuid4()`, `md5()`, and `sha256()` — but **no `sha1()`**. SHA1 is the default and most common hash format in Sysmon configurations, Windows Authenticode signatures, git commit hashes, and many other security data sources.
+
+The workaround in the Sysmon generator was to use `module.rand.string.hex(40)` to produce a random 40-character hex string. This works but is semantically wrong — it bypasses the crypto namespace entirely and won't benefit from any future improvements (e.g., deterministic hashing from input).
 
 ```jinja2
-{%- set ipv6_parts = [] -%}
-{%- for i in range(8) -%}
-  {%- do ipv6_parts.append(module.rand.string.hex(4)) -%}
-{%- endfor -%}
-{%- set answer_ip = ipv6_parts | join(":") -%}
+{# Current workaround — wrong namespace, no semantic meaning #}
+{%- set hash_sha1 = module.rand.string.hex(40) -%}
+{%- set hash_md5 = module.rand.crypto.md5() -%}
+{%- set hash_sha256 = module.rand.crypto.sha256() -%}
 ```
 
-This is 5 lines of boilerplate for something that should be a single function call. It also produces uncompressed addresses (no `::` shorthand) which looks unnatural.
+**Proposal**: Add `module.rand.crypto.sha1()` to match the existing `md5()` and `sha256()`:
 
-**Proposal**: Add IPv6 helpers to `module.rand.network`:
+```jinja2
+{%- set hash_sha1 = module.rand.crypto.sha1() -%}
+```
 
-- `ip_v6()` → random full IPv6 address (e.g., `2001:db8:85a3::8a2e:370:7334`)
-- `ip_v6_global()` → random global unicast IPv6 (2000::/3 range)
-- `ip_v6_link_local()` → random link-local IPv6 (fe80::/10)
-- `ip_v6_ula()` → random unique local address (fc00::/7, the IPv6 equivalent of RFC 1918)
+Implementation: one-liner in `rand.py`'s `CryptoRandom` class, identical pattern to the existing `md5()` and `sha256()` methods — generate 20 random bytes and hex-encode.
 
-Python's `ipaddress.IPv6Address` already supports compressed representation, so the output would be realistic.
+Additionally, consider adding `module.rand.crypto.imphash()` as an alias for `md5()` (since PE import hashes are MD5-based) for semantic clarity in Windows security generators.
 
 ---
 
-## 13. Template API: Missing `module.rand.network.ip_v4_in_subnet(cidr)` for targeted IP generation
+# ✨ Features
 
-**Context**: Building network DNS templates where clients and servers should be in consistent subnets.
+## Template API
 
-**Problem**: Network generators need IPs within specific subnets. For example, DNS clients should come from `192.168.1.0/24` while DNS servers are on `10.0.0.0/24`. Currently, the only options are:
+### 43. Template API: `module.rand.weighted_choice()` should accept a dict directly `[High]`
 
-- `ip_v4_private_c()` → random 192.168.x.x (too broad, different /16 every time)
-- `module.rand.number.integer()` to manually compute octets (verbose, error-prone)
+**Context**: Building 13 Suricata templates that use weighted random selection for status codes, response codes, and protocol choices.
 
-There's no way to say "give me a random IP in 10.0.1.0/24" without raw Python arithmetic.
-
-**Proposal**: Add `module.rand.network.ip_v4_in_subnet(cidr: str) -> str`:
+**Problem**: `module.rand.weighted_choice(items, weights)` requires two parallel lists, but the most natural way to express item→weight mappings in Jinja2 is a dict. Every weighted choice in the Suricata generator required an awkward dict-to-parallel-lists conversion:
 
 ```jinja2
-{%- set client_ip = module.rand.network.ip_v4_in_subnet("192.168.1.0/24") -%}
-{%- set server_ip = module.rand.network.ip_v4_in_subnet("10.0.0.0/28") -%}
+{%- set rcode_weights = {"NOERROR": 90, "NXDOMAIN": 8, "SERVFAIL": 2} -%}
+{%- set rcode = module.rand.weighted_choice(rcode_weights | list, rcode_weights.values() | list) -%}
 ```
 
-Implementation would use `ipaddress.IPv4Network(cidr)` to compute the address range, then pick a random host address. This is ~5 lines of Python using the existing `ipaddress` import already in `rand.py`.
+This pattern appears 15+ times across the 13 Suricata templates — for DNS rcodes, HTTP status codes, HTTP methods, TCP flow states, anomaly types, DHCP message types, alert actions, and direction choices. Each instance requires the same `| list` and `| values() | list` extraction.
+
+**Proposal**: Make `weighted_choice` accept a dict where keys are items and values are weights:
+
+```python
+def weighted_choice(self, items_or_dict, weights=None):
+    if isinstance(items_or_dict, dict):
+        items = list(items_or_dict.keys())
+        weights = list(items_or_dict.values())
+    else:
+        items = items_or_dict
+    return random.choices(items, weights=weights, k=1)[0]
+```
+
+Template code becomes:
+
+```jinja2
+{%- set rcode = module.rand.weighted_choice({"NOERROR": 90, "NXDOMAIN": 8, "SERVFAIL": 2}) -%}
+```
+
+One line instead of two, and the intent is immediately clear. Backward-compatible since the existing two-argument call still works.
 
 ---
 
-## 14. Template API: Missing `module.rand.network.community_id()` for Elastic network events
-
-**Context**: Building ECS-compatible network events (DNS, firewall, IDS) that need Elastic's Community ID flow hash.
-
-**Problem**: Every Packetbeat/Elastic network event includes a `network.community_id` field — a standardized hash of the flow 5-tuple (src_ip, src_port, dst_ip, dst_port, protocol). In the DNS generator, I had to inline this computation:
-
-```jinja2
-{%- set _cid = module.hashlib.sha1((src_ip ~ ":" ~ src_port ~ ">" ~ dns_server ~ ":53").encode()).digest() -%}
-{%- set community_id = "1:" ~ module.base64.b64encode(_cid).decode() -%}
-```
-
-This is fragile (relies on Python string methods in Jinja2), doesn't implement the real Community ID v1 spec (which has specific byte packing), and will be duplicated in every network-type generator (DNS, firewall, IDS, netflow, etc.).
-
-**Proposal**: Add `module.rand.network.community_id(src_ip, src_port, dst_ip, dst_port, protocol)` that implements the [Community ID v1 spec](https://github.com/corelight/community-id-spec). The `protocol` parameter would accept IANA numbers (6=TCP, 17=UDP) or string names ("tcp", "udp").
-
-```jinja2
-{%- set cid = module.rand.network.community_id(src_ip, src_port, dns_server, 53, "udp") -%}
-```
-
-This would be a one-liner instead of a multi-line hash computation, and it would produce spec-compliant output instead of an approximation.
-
----
-
-## 15. Template output: No JSON validation or structured output mode
-
-**Context**: Building 10 DNS templates with conditional JSON blocks.
-
-**Problem**: Templates produce raw text that must be valid JSON. Conditional fields (e.g., `dns.resolved_ip` only present for A/AAAA queries, `dns.question.subdomain` only when non-empty) require careful comma management around `{% if %}` blocks. A single misplaced comma — invisible in a 130-line template — produces invalid JSON that only fails at runtime.
-
-Example of the fragile pattern:
-```jinja2
-        "question": {
-            "class": "IN",
-            "name": "{{ query_name }}",
-            "registered_domain": "{{ registered_domain }}",
-{% if subdomain %}
-            "subdomain": "{{ subdomain }}",
-{% endif %}
-            "top_level_domain": "{{ tld }}",
-            "type": "A"
-        },
-```
-
-If `subdomain` is false, this produces two consecutive commas only if a human accidentally puts the comma in the wrong place. Getting this right across 10 templates requires careful auditing of every `{% if %}` boundary.
-
-**Proposal**: Add a `format: json` option to the template plugin config that post-processes template output:
-
-```yaml
-event:
-  template:
-    format: json          # Validate and normalize output
-    mode: chance
-    templates: [...]
-```
-
-When `format: json` is set:
-
-1. Parse each rendered template output as JSON (fail fast with a clear error pointing to the template alias, not a raw parse error)
-2. Strip trailing commas (the #1 source of template JSON bugs)
-3. Optionally compact or pretty-print
-
-This would eliminate the entire class of "conditional comma" bugs that plague every generator with optional fields.
-
----
-
-## 16. Template API: Timestamp arithmetic helper
-
-**Context**: Building Packetbeat DNS events that have `event.start`, `event.end`, and `event.duration`.
-
-**Problem**: Packetbeat events include `event.start` (when the query was sent) and `event.end` (when the response arrived), with `event.duration` in nanoseconds. Computing the end timestamp from a duration requires:
-
-```jinja2
-{%- set duration_ns = module.rand.number.integer(1000000, 80000000) -%}
-{%- set duration_td = module.datetime.timedelta(microseconds=duration_ns // 1000) -%}
-{%- set end_ts = timestamp + duration_td -%}
-```
-
-This relies on knowing that `module.datetime.timedelta` maps to Python's `datetime.timedelta`, understanding nanosecond-to-microsecond conversion, and trusting that datetime arithmetic works in Jinja2's evaluation context. It's not documented and fragile.
-
-Note: Proposal #7 addresses timestamp *formatting* (ISO, syslog, Apache formats). This proposal addresses timestamp *arithmetic* — computing derived timestamps from the input timestamp, which is a different concern.
-
-**Proposal**: Add offset/arithmetic methods directly on the `timestamp` object:
-
-- `timestamp.add(milliseconds=N)` → new datetime offset by N ms
-- `timestamp.add(seconds=N)` → new datetime offset by N seconds
-- `timestamp.add(microseconds=N)` → new datetime offset by N μs
-- `timestamp.subtract(seconds=N)` → new datetime offset backward
-
-This would simplify the DNS example to:
-
-```jinja2
-{%- set duration_ns = module.rand.number.integer(1000000, 80000000) -%}
-{%- set end_ts = timestamp.add(microseconds=duration_ns // 1000) -%}
-```
-
-Implementation: wrap the `datetime` timestamp in a thin proxy class that delegates all standard methods and adds `add()`/`subtract()` convenience methods.
-
----
-
-## 17. Template API: No statistical distribution helpers beyond uniform and Gaussian
+### 17. Template API: No statistical distribution helpers beyond uniform and Gaussian `[High]`
 
 **Context**: Building the `network-firewall` generator (session durations, byte counts, packet counts).
 
@@ -349,276 +200,49 @@ This would significantly improve the realism of any generator dealing with netwo
 
 ---
 
-## 18. Samples: No `selectattr` with multiple conditions in a single filter
+### 40. Template API: No `selectattr` "in" test for membership filtering `[High]`
 
-**Context**: Building `network-firewall` templates that filter hosts by both subnet and role.
+**Context**: Building Snort templates where internal hosts have different roles (workstation, server, dmz) and templates need hosts matching specific role sets.
 
-**Problem**: Firewall templates frequently need to pick a random host matching multiple criteria — e.g., a server in the DMZ zone, or a workstation in the trust zone. Jinja2's `selectattr` only supports one condition at a time, requiring verbose chaining:
-
-```jinja
-{%- set srv = samples.internal_hosts
-    | selectattr("role", "equalto", "server")
-    | selectattr("subnet", "equalto", "servers")
-    | list
-    | random -%}
-```
-
-This is 4 filters for what is conceptually a single operation: "pick a random server from the servers subnet." Every template that needs filtered sampling repeats this pattern. In the firewall generator, this chain appears 6 times across different templates, each time for a different zone/role combination.
-
-The chain is also fragile: if the filter produces an empty list, `| random` raises an error with no fallback mechanism. The template author must defensively check `| length > 0` before using `| random`, adding more boilerplate.
-
-**Proposal**: Add a custom `| where` Jinja2 filter that accepts a dict of conditions:
-
-```jinja
-{%- set srv = samples.internal_hosts | where(role="server", subnet="servers") | random -%}
-```
-
-Or alternatively, add a `| random_where` that combines filtering and random selection with a built-in empty-list fallback:
-
-```jinja
-{%- set srv = samples.internal_hosts | random_where(role="server", subnet="servers", default=none) -%}
-```
-
-Implementation: register a custom Jinja2 filter via `env.filters['where']` that applies multiple `selectattr` conditions from keyword arguments. The `random_where` variant would additionally apply `| random` with a default for empty results.
-
----
-
-## 19. Samples: No parameter interpolation in sample data files
-
-**Context**: Building the `web-nginx` generator with referer patterns that include the configurable server hostname.
-
-**Problem**: Sample data files (CSV, JSON) are loaded statically at plugin initialization and cannot reference `params.*`. In the nginx generator, referer strings naturally include the server's domain name (e.g., `https://example.com/products`). But because the domain is a configurable param (`params.server_name`), the workaround is storing literal placeholder strings in the CSV and manually replacing them in every template:
-
-```csv
-referer,type
-https://${server_name}/,internal
-https://${server_name}/products,internal
-```
+**Problem**: Jinja2's `selectattr` filter supports tests like `"equalto"`, `"ne"`, `"gt"`, `"lt"` — but not `"in"` for membership testing. When a template needs to select items matching one of several values, `selectattr` can't express this in a single filter:
 
 ```jinja2
-{%- set ref_entry = samples.referers | random -%}
-{%- set referer = ref_entry.referer | replace("${server_name}", server_name) -%}
-```
+{#- This does NOT work — "in" is not a valid selectattr test -#}
+{%- set servers = samples.internal_hosts | selectattr("role", "in", ["server", "dmz"]) | list -%}
 
-This is fragile (the `${server_name}` placeholder looks like Eventum's `${params.*}` substitution syntax but isn't — it's just a hand-rolled string convention), easy to forget, and must be repeated in every template that uses the sample. If a generator has 7 templates all using the same parameterized sample, you get 7 copies of the replacement logic.
-
-The same issue applies to JSON sample files. For example, upstream URLs that include a configurable backend address, or file paths that include a configurable document root.
-
-**Proposal**: Support `${params.*}` interpolation in sample data at load time. When `generator.yml` defines both `params` and `samples`, resolve `${params.*}` references in sample string values after loading:
-
-```csv
-referer,type
-https://${params.server_name}/,internal
-https://${params.server_name}/products,internal
-```
-
-The sample reader already has access to the params dict from the template config. Adding a recursive string replacement pass over loaded sample values would be a small change to `sample_reader.py` and would keep sample data DRY with the generator's configuration. Templates would then use sample values directly without manual replacement.
-
----
-
-## 20. Samples: Pre-indexed grouping for O(1) filtered random access
-
-**Context**: Building the `web-nginx` generator where URLs are categorized (page, asset, api, wellknown, probe) and user agents are typed (browser, mobile, bot, tool, monitor).
-
-**Problem**: The nginx generator's access templates select URLs and user agents by category on every render. With 56 URLs and 24 user agents, this requires a full list scan to build a temporary filtered list each time:
-
-```jinja2
-{%- set category_urls = [] -%}
-{%- for u in samples.urls if u.category == url_category -%}
-  {%- do category_urls.append(u) -%}
-{%- endfor -%}
-{%- set url_entry = category_urls | random -%}
-```
-
-This 4-line pattern appears 4 times across the nginx access templates (filtering URLs by category, user agents by type). At 5 events/second, this means 20 full-list scans per second — O(n) per event for what should be a constant-time lookup.
-
-Note: Proposal #18 addresses the ergonomics of filtering with a `| where` filter. This proposal addresses the **performance** concern — filtering at render time is wasteful when the categories are known at load time.
-
-**Proposal**: Add an `index_by` option to sample definitions in `generator.yml` that pre-builds a grouped lookup dict at load time:
-
-```yaml
-samples:
-  urls:
-    type: json
-    source: samples/urls.json
-    index_by: category
-  user_agents:
-    type: csv
-    source: samples/user_agents.csv
-    header: true
-    index_by: type
-```
-
-Then access in templates as:
-
-```jinja2
-{%- set url_entry = samples.urls.asset | random -%}
-{%- set ua = samples.user_agents.browser | random -%}
-```
-
-At load time, the sample reader would group entries by the specified field and expose them as a dict of lists. This is O(1) lookup per render instead of O(n), self-documenting (the category names appear directly in template code), and requires zero boilerplate in templates.
-
-Implementation: in `sample_reader.py`, after loading the data, if `index_by` is set, build a `defaultdict(list)` grouped by the field value. Expose the grouped dict through the same `samples.<name>` interface. Access to the ungrouped list (for backward compatibility) could remain available via `samples.<name>._all`.
-
----
-
-## 21. Event plugin: Burst/fan-out mode for correlated multi-event groups
-
-**Context**: Building the `web-nginx` generator where a single page load produces 10–30 correlated HTTP requests.
-
-**Problem**: In real nginx traffic, a browser loading a page generates a burst of requests within a 1–3 second window: 1 HTML page + 2–4 CSS files + 3–6 JS bundles + 5–15 images + 1–3 font files + 1–2 API calls. All requests share the same source IP and have the HTML page URL as referer. This burst pattern is the fundamental unit of web traffic.
-
-With the current `chance` mode, each event is independent — there's no way to say "when this template fires, also emit N related events with shared context." You can approximate it by weighting asset templates higher, but the events won't share source IPs or referers, making them uncorrelated noise rather than realistic page loads. Any dashboard showing "requests per user session" or "assets per page view" would show flat uniform distributions instead of the natural clustering.
-
-Note: Proposal #6 addresses *sequential ordering* of different template types (A → B → C in a login flow). This proposal addresses *variable-count bursts* from a single template with shared per-burst context — a fundamentally different pattern. Sequences have a fixed step count and distinct templates per step; bursts have a variable count and reuse the same template with shared variables.
-
-**Proposal**: Add a `burst` option to template entries in `chance` mode:
-
-```yaml
-templates:
-  - page_load:
-      template: templates/access-success.json.jinja
-      chance: 300
-      burst:
-        count: [10, 30]     # random count between 10 and 30
-        context:             # Jinja2 expressions evaluated once per burst
-          burst_ip: "{{ module.rand.network.ip_v4_public() }}"
-          burst_referer: "https://{{ params.server_name }}/"
-```
-
-When `page_load` is selected by the chance picker, the engine would:
-1. Evaluate `context` expressions once, generating a single source IP, referer, etc.
-2. Render the template `count` times (random between 10 and 30), passing the burst context as extra variables alongside the normal `params`, `samples`, `shared`
-3. Emit all rendered events as a single batch
-
-The template would use `burst.burst_ip` when available to produce correlated events, while still varying per-event fields (URL path, response size, user agent) normally:
-
-```jinja2
-{%- if burst is defined -%}
-  {%- set src_ip = burst.burst_ip -%}
-  {%- set referer = burst.burst_referer -%}
-{%- else -%}
-  {%- set src_ip = module.rand.network.ip_v4_public() -%}
-  {%- set referer = "-" -%}
-{%- endif -%}
-```
-
-This directly models the page-load burst pattern that dominates real web traffic, and would also be useful for other bursty data sources: SSH brute-force attempts (N login failures from same IP), log rotation events (burst of writes at rotation time), or monitoring scrapes (batch of metric queries from same collector).
-
----
-
-## 22. Samples: JSON samples require homogeneous schemas (all objects must have identical keys)
-
-**Context**: Building the `web-apache` generator with URL sample data where some entries have an `"extension"` field and others don't.
-
-**Problem**: When loading JSON sample files, the sample reader creates a `tablib.Dataset` which requires all objects in the array to have the same set of keys. Real-world data often has optional fields — URL paths for static assets have a file extension while page/API URLs don't:
-
-```json
-[
-    {"path": "/about", "type": "page", "min_bytes": 5000, "max_bytes": 15000},
-    {"path": "/css/style.css", "extension": "css", "type": "static", "min_bytes": 5000, "max_bytes": 50000}
-]
-```
-
-Loading this fails because the first entry is missing the `"extension"` key. The workaround is adding `"extension": null` to every entry without one — in web-apache this meant manually padding 27 out of 40 entries:
-
-```json
-{"path": "/about", "extension": null, "type": "page", "min_bytes": 5000, "max_bytes": 15000}
-```
-
-This is tedious, error-prone (forget one entry and loading breaks), and makes sample data files harder to read and maintain. Adding a new optional field to some entries requires editing every other entry to add the null placeholder.
-
-**Proposal**: When loading JSON samples, compute the union of all keys across all objects and fill missing keys with `None` before creating the tablib Dataset:
-
-```python
-# In SamplesReader._load_json_sample():
-all_keys: set[str] = set()
-for obj in data:
-    all_keys |= obj.keys()
-for obj in data:
-    for key in all_keys:
-        obj.setdefault(key, None)
-```
-
-This matches how most data tools handle heterogeneous JSON (pandas `json_normalize`, DuckDB `read_json_auto`, jq). It's ~4 lines of code and eliminates a sharp edge that every JSON sample author will hit.
-
----
-
-## 23. Template API: `module.rand.weighted_choice_by` for object sequences with weight attributes
-
-**Context**: Building the `web-apache` generator where 4 of 5 access templates need "pick a random browser User-Agent (not a bot) weighted by market share."
-
-**Problem**: The compound operation of filtering sample data by a field value, then doing a weighted random pick from the filtered subset, requires 8+ lines of boilerplate that was copy-pasted across 4 templates in web-apache:
-
-```jinja
-{%- set browser_uas = [] -%}
-{%- set browser_weights = [] -%}
-{%- for ua in samples.user_agents -%}
-  {%- if ua.type == "browser" or ua.type == "tool" -%}
-    {%- do browser_uas.append(ua) -%}
-    {%- do browser_weights.append(ua.weight) -%}
+{#- Workaround: chain multiple equalto filters and merge, or use a manual loop -#}
+{%- set servers = [] -%}
+{%- for h in samples.internal_hosts -%}
+  {%- if h.role in ["server", "dmz"] -%}
+    {%- do servers.append(h) -%}
   {%- endif -%}
 {%- endfor -%}
-{%- set ua = module.rand.weighted_choice(browser_uas, browser_weights) -%}
 ```
 
-The core issue is that `module.rand.weighted_choice(items, weights)` requires two parallel lists. When the items are objects with a weight attribute, you must manually extract the parallel arrays — which forces the loop pattern. This is the #1 source of boilerplate in the web-apache generator.
+In the Snort generator, this forced replacing filtered sampling with simpler `| random` on the entire host list, losing the ability to restrict certain event types to specific host roles (e.g., web attacks should only target servers/DMZ, not workstations).
 
-Note: Proposal #8 proposes `| weighted_random` as a Jinja2 filter on samples. Proposal #18 proposes `| where` for filtering. Proposal #20 proposes `index_by` for pre-grouped access. This proposal addresses a different gap: telling `weighted_choice` to read weights from an attribute of the items themselves, eliminating the parallel-array extraction loop.
+Note: This is a Jinja2 limitation, not an Eventum-specific bug. However, Eventum's template engine registers custom filters/tests (e.g., the `do` extension), so it can register additional tests.
 
-**Proposal**: Add `module.rand.weighted_choice_by(sequence, weight_attr)` — a variant that accepts a sequence of objects and a weight attribute name:
+**Proposal**: Register a custom `"in"` test for `selectattr`:
 
 ```python
-def weighted_choice_by(self, items: Sequence, weight_attr: str) -> Any:
-    weights = [getattr(item, weight_attr) for item in items]
-    return self.weighted_choice(list(items), weights)
+def in_test(value, seq):
+    return value in seq
+
+env.tests['in'] = in_test
 ```
 
-Combined with Jinja2's built-in `selectattr` (which already works with tablib Row objects), the 8-line pattern becomes 2 lines:
+This would enable the natural pattern:
 
-```jinja
-{%- set browser_uas = samples.user_agents | selectattr('type', 'in', ['browser', 'tool']) | list -%}
-{%- set ua = module.rand.weighted_choice_by(browser_uas, 'weight') -%}
+```jinja2
+{%- set servers = samples.internal_hosts | selectattr("role", "in", ["server", "dmz"]) | list -%}
 ```
 
-If proposal #18's `| where` filter and #20's `index_by` were also implemented, it could become even cleaner:
-
-```jinja
-{%- set ua = module.rand.weighted_choice_by(samples.user_agents.browser, 'weight') -%}
-```
+One line of Python, major ergonomic improvement for any generator that filters sample data by category.
 
 ---
 
-## 24. Template API: Missing `module.rand.crypto.sha1()` hash generator
-
-**Context**: Building the `windows-sysmon` generator (15 Sysmon event types with ECS-compatible output).
-
-**Problem**: Sysmon events include file and process hashes in SHA1, MD5, SHA256, and IMPHASH formats. The `winlog.event_data.Hashes` field uses the compound format `SHA1=abc,MD5=def,SHA256=ghi,IMPHASH=jkl`, and ECS maps these into `process.hash.sha1`, `process.hash.md5`, `process.hash.sha256`, and `file.hash.*`.
-
-The `module.rand.crypto` namespace currently provides `uuid4()`, `md5()`, and `sha256()` — but **no `sha1()`**. SHA1 is the default and most common hash format in Sysmon configurations, Windows Authenticode signatures, git commit hashes, and many other security data sources.
-
-The workaround in the Sysmon generator was to use `module.rand.string.hex(40)` to produce a random 40-character hex string. This works but is semantically wrong — it bypasses the crypto namespace entirely and won't benefit from any future improvements (e.g., deterministic hashing from input).
-
-```jinja2
-{# Current workaround — wrong namespace, no semantic meaning #}
-{%- set hash_sha1 = module.rand.string.hex(40) -%}
-{%- set hash_md5 = module.rand.crypto.md5() -%}
-{%- set hash_sha256 = module.rand.crypto.sha256() -%}
-```
-
-**Proposal**: Add `module.rand.crypto.sha1()` to match the existing `md5()` and `sha256()`:
-
-```jinja2
-{%- set hash_sha1 = module.rand.crypto.sha1() -%}
-```
-
-Implementation: one-liner in `rand.py`'s `CryptoRandom` class, identical pattern to the existing `md5()` and `sha256()` methods — generate 20 random bytes and hex-encode.
-
-Additionally, consider adding `module.rand.crypto.imphash()` as an alias for `md5()` (since PE import hashes are MD5-based) for semantic clarity in Windows security generators.
-
----
-
-## 25. Template API: No path manipulation filters for file path decomposition
+### 25. Template API: No path manipulation filters for file path decomposition `[Medium]`
 
 **Context**: Building Windows Sysmon templates where ECS requires separate `file.name`, `file.directory`, and `file.extension` fields derived from a single `file.path`.
 
@@ -672,7 +296,401 @@ These 3 filters would eliminate ~15 lines of duplicated path manipulation across
 
 ---
 
-## 26. Samples: No render-time variable interpolation in sample data values
+### 13. Template API: Missing `module.rand.network.ip_v4_in_subnet(cidr)` for targeted IP generation `[Medium]`
+
+**Context**: Building network DNS templates where clients and servers should be in consistent subnets.
+
+**Problem**: Network generators need IPs within specific subnets. For example, DNS clients should come from `192.168.1.0/24` while DNS servers are on `10.0.0.0/24`. Currently, the only options are:
+
+- `ip_v4_private_c()` → random 192.168.x.x (too broad, different /16 every time)
+- `module.rand.number.integer()` to manually compute octets (verbose, error-prone)
+
+There's no way to say "give me a random IP in 10.0.1.0/24" without raw Python arithmetic.
+
+**Proposal**: Add `module.rand.network.ip_v4_in_subnet(cidr: str) -> str`:
+
+```jinja2
+{%- set client_ip = module.rand.network.ip_v4_in_subnet("192.168.1.0/24") -%}
+{%- set server_ip = module.rand.network.ip_v4_in_subnet("10.0.0.0/28") -%}
+```
+
+Implementation would use `ipaddress.IPv4Network(cidr)` to compute the address range, then pick a random host address. This is ~5 lines of Python using the existing `ipaddress` import already in `rand.py`.
+
+---
+
+### 7. Template API: No `timestamp` formatting helpers `[Medium]`
+
+**Problem**: The `timestamp.isoformat()` method works for `@timestamp`, but auditd's raw `msg=audit(epoch:serial)` format requires `timestamp.timestamp()`. Other formats (syslog's `MMM dd HH:MM:SS`, Apache's `[dd/Mon/yyyy:HH:mm:ss +0000]`) need `strftime()`. Each generator reinvents timestamp formatting.
+
+**Proposal**: Add built-in timestamp format helpers or document common patterns:
+- `timestamp.epoch()` → Unix epoch (float)
+- `timestamp.syslog()` → `Feb 21 12:00:01` format
+- `timestamp.apache()` → `[21/Feb/2026:12:00:01 +0000]` format
+
+---
+
+### 16. Template API: Timestamp arithmetic helper `[Medium]`
+
+**Context**: Building Packetbeat DNS events that have `event.start`, `event.end`, and `event.duration`.
+
+**Problem**: Packetbeat events include `event.start` (when the query was sent) and `event.end` (when the response arrived), with `event.duration` in nanoseconds. Computing the end timestamp from a duration requires:
+
+```jinja2
+{%- set duration_ns = module.rand.number.integer(1000000, 80000000) -%}
+{%- set duration_td = module.datetime.timedelta(microseconds=duration_ns // 1000) -%}
+{%- set end_ts = timestamp + duration_td -%}
+```
+
+This relies on knowing that `module.datetime.timedelta` maps to Python's `datetime.timedelta`, understanding nanosecond-to-microsecond conversion, and trusting that datetime arithmetic works in Jinja2's evaluation context. It's not documented and fragile.
+
+Note: Proposal #7 addresses timestamp *formatting* (ISO, syslog, Apache formats). This proposal addresses timestamp *arithmetic* — computing derived timestamps from the input timestamp, which is a different concern.
+
+**Proposal**: Add offset/arithmetic methods directly on the `timestamp` object:
+
+- `timestamp.add(milliseconds=N)` → new datetime offset by N ms
+- `timestamp.add(seconds=N)` → new datetime offset by N seconds
+- `timestamp.add(microseconds=N)` → new datetime offset by N μs
+- `timestamp.subtract(seconds=N)` → new datetime offset backward
+
+This would simplify the DNS example to:
+
+```jinja2
+{%- set duration_ns = module.rand.number.integer(1000000, 80000000) -%}
+{%- set end_ts = timestamp.add(microseconds=duration_ns // 1000) -%}
+```
+
+Implementation: wrap the `datetime` timestamp in a thin proxy class that delegates all standard methods and adds `add()`/`subtract()` convenience methods.
+
+---
+
+### 12. Template API: Missing `module.rand.network.ip_v6()` generator `[Medium]`
+
+**Context**: Building AAAA query templates for the DNS generator.
+
+**Problem**: `module.rand.network` has `ip_v4()`, `ip_v4_private_a/b/c()`, `ip_v4_public()`, and `mac()` — but no IPv6 generator. For AAAA DNS queries, I had to manually construct IPv6 addresses:
+
+```jinja2
+{%- set ipv6_parts = [] -%}
+{%- for i in range(8) -%}
+  {%- do ipv6_parts.append(module.rand.string.hex(4)) -%}
+{%- endfor -%}
+{%- set answer_ip = ipv6_parts | join(":") -%}
+```
+
+This is 5 lines of boilerplate for something that should be a single function call. It also produces uncompressed addresses (no `::` shorthand) which looks unnatural.
+
+**Proposal**: Add IPv6 helpers to `module.rand.network`:
+
+- `ip_v6()` → random full IPv6 address (e.g., `2001:db8:85a3::8a2e:370:7334`)
+- `ip_v6_global()` → random global unicast IPv6 (2000::/3 range)
+- `ip_v6_link_local()` → random link-local IPv6 (fe80::/10)
+- `ip_v6_ula()` → random unique local address (fc00::/7, the IPv6 equivalent of RFC 1918)
+
+Python's `ipaddress.IPv6Address` already supports compressed representation, so the output would be realistic.
+
+---
+
+### 41. Template API: No duration formatting helper for human-readable time strings `[Medium]`
+
+**Context**: Building the `vpn-cisco-anyconnect` generator where session disconnect events (ASA message 113019) include session duration in `Xh:Ym:Zs` format (e.g., `7h:32m:15s`).
+
+**Problem**: Converting a duration in seconds to a human-readable string requires 4 lines of manual integer arithmetic in every template that deals with durations:
+
+```jinja2
+{%- set dur_hours = duration_secs // 3600 -%}
+{%- set dur_minutes = (duration_secs % 3600) // 60 -%}
+{%- set dur_seconds = duration_secs % 60 -%}
+{%- set duration_str = "%dh:%02dm:%02ds" | format(dur_hours, dur_minutes, dur_seconds) -%}
+```
+
+This pattern is needed whenever log formats include human-readable durations: Cisco ASA session disconnect (`7h:32m:15s`), firewall session end (`duration=300`), DHCP lease time (`1d:0h:0m`), HTTP request time (`0.045s`). Each format is slightly different but the decomposition logic (seconds → hours/minutes/seconds or days/hours/minutes) is identical.
+
+The Cisco ASA syslog format specifically uses `Duration: Xh:Ym:Zs` in message 113019. Other vendors use different formats: Palo Alto uses `elapsed=Xs`, FortiGate uses `duration=X`, Check Point uses `session_duration: X`. All require the same base conversion from total seconds.
+
+**Proposal**: Add a `| format_duration` filter (or `module.time.format_duration()` function) with configurable format patterns:
+
+```jinja2
+{#- Cisco ASA format -#}
+{%- set duration_str = duration_secs | format_duration('%Hh:%Mm:%Ss') -%}
+{#- → "7h:32m:15s" -#}
+
+{#- Simple HH:MM:SS -#}
+{%- set duration_str = duration_secs | format_duration('%H:%M:%S') -%}
+{#- → "07:32:15" -#}
+
+{#- ISO 8601 duration -#}
+{%- set duration_str = duration_secs | format_duration('iso8601') -%}
+{#- → "PT7H32M15S" -#}
+
+{#- With days for long durations -#}
+{%- set duration_str = duration_secs | format_duration('%dd:%Hh:%Mm') -%}
+{#- → "0d:7h:32m" -#}
+```
+
+The filter would accept total seconds (int or float) and a format string with `%D` (days), `%H` (hours), `%M` (minutes), `%S` (seconds), `%f` (fractional seconds). Predefined aliases like `'iso8601'` and `'hms'` would cover common cases. This eliminates the manual arithmetic and makes the intent self-documenting.
+
+---
+
+### 49. IANA protocol number ↔ transport name mapping helper `[Medium]`
+
+**Context**: Building the `network-juniper-srx` generator where the Elastic integration expects both `network.iana_number` (string) and `network.transport` (name) in every event.
+
+**Problem**: Every network security generator needs to produce both the IANA protocol number (e.g., `"6"`) and the transport name (e.g., `"tcp"`) because ECS uses both fields. The Elastic Juniper SRX integration maps `protocol-id` to `network.iana_number` and derives `network.transport` via a lookup table (0=hopopt, 1=icmp, 6=tcp, 17=udp, 47=gre, 50=esp, etc.).
+
+In the Juniper SRX generator, this forced storing both values redundantly in `network_services.json`:
+
+```json
+{"port": 443, "protocol_id": "6", "transport": "tcp", "name": "junos-https", "weight": 40}
+```
+
+Every network generator (firewall, checkpoint, cisco, snort, suricata, dns, fortigate, juniper-srx) independently maintains this same mapping — some inline in templates, some in sample data, some hardcoded in weighted choice lists. The IDP template needed an `attack_services` dict with both protocol_id and transport for each service. The screen-alert template hardcoded protocol metadata per screen type.
+
+Across all 12 network generators in content-packs, the iana↔transport mapping appears in ~35 locations.
+
+**Proposal**: Add bidirectional IANA protocol mapping helpers to `module.rand.network`:
+
+```python
+module.rand.network.iana_to_transport(6)        # → "tcp"
+module.rand.network.iana_to_transport("17")     # → "udp" (accepts string too)
+module.rand.network.transport_to_iana("tcp")    # → "6" (returns string for ECS)
+module.rand.network.transport_to_iana("icmp")   # → "1"
+```
+
+Implementation: a ~15-entry static dict covering the protocols that appear in real firewall/IDS logs (tcp, udp, icmp, gre, esp, ipv6-icmp, sctp, igmp, vrrp, hopopt). One dict, two lookup functions, ~20 lines of code.
+
+This would allow sample data to store only the port and protocol number (or name), with the template deriving the other:
+
+```jinja2
+{%- set transport = module.rand.network.iana_to_transport(service.protocol_id) -%}
+```
+
+---
+
+### 1. Template API: Missing `module.rand.network.ip_v4_private()` (any range) `[Low]`
+
+**Problem**: When generating network events, you often need "some private IP" regardless of class. Currently you must pick between `ip_v4_private_a()`, `ip_v4_private_b()`, or `ip_v4_private_c()` — which forces the generator author to hardcode a subnet class or add a weighted choice between three functions.
+
+**Proposal**: Add a generic `module.rand.network.ip_v4_private()` that randomly picks from any RFC 1918 range with realistic weights (most traffic is /24 class C).
+
+---
+
+### 2. Template API: No `module.rand.network.port()` helpers `[Low]`
+
+**Problem**: Generating realistic port numbers requires manual `module.rand.number.integer(49152, 65535)` for ephemeral ports or hardcoded weighted choices for well-known ports. Every generator repeats this logic.
+
+**Proposal**: Add convenience helpers:
+- `module.rand.network.ephemeral_port()` → random port in 49152–65535
+- `module.rand.network.well_known_port()` → weighted random from common ports (80, 443, 22, 53, etc.)
+
+---
+
+### 14. Template API: Missing `module.rand.network.community_id()` for Elastic network events `[Low]`
+
+**Context**: Building ECS-compatible network events (DNS, firewall, IDS) that need Elastic's Community ID flow hash.
+
+**Problem**: Every Packetbeat/Elastic network event includes a `network.community_id` field — a standardized hash of the flow 5-tuple (src_ip, src_port, dst_ip, dst_port, protocol). In the DNS generator, I had to inline this computation:
+
+```jinja2
+{%- set _cid = module.hashlib.sha1((src_ip ~ ":" ~ src_port ~ ">" ~ dns_server ~ ":53").encode()).digest() -%}
+{%- set community_id = "1:" ~ module.base64.b64encode(_cid).decode() -%}
+```
+
+This is fragile (relies on Python string methods in Jinja2), doesn't implement the real Community ID v1 spec (which has specific byte packing), and will be duplicated in every network-type generator (DNS, firewall, IDS, netflow, etc.).
+
+**Proposal**: Add `module.rand.network.community_id(src_ip, src_port, dst_ip, dst_port, protocol)` that implements the [Community ID v1 spec](https://github.com/corelight/community-id-spec). The `protocol` parameter would accept IANA numbers (6=TCP, 17=UDP) or string names ("tcp", "udp").
+
+```jinja2
+{%- set cid = module.rand.network.community_id(src_ip, src_port, dns_server, 53, "udp") -%}
+```
+
+This would be a one-liner instead of a multi-line hash computation, and it would produce spec-compliant output instead of an approximation.
+
+---
+
+### 23. Template API: `module.rand.weighted_choice_by` for object sequences with weight attributes `[Low]`
+
+**Context**: Building the `web-apache` generator where 4 of 5 access templates need "pick a random browser User-Agent (not a bot) weighted by market share."
+
+**Problem**: The compound operation of filtering sample data by a field value, then doing a weighted random pick from the filtered subset, requires 8+ lines of boilerplate that was copy-pasted across 4 templates in web-apache:
+
+```jinja
+{%- set browser_uas = [] -%}
+{%- set browser_weights = [] -%}
+{%- for ua in samples.user_agents -%}
+  {%- if ua.type == "browser" or ua.type == "tool" -%}
+    {%- do browser_uas.append(ua) -%}
+    {%- do browser_weights.append(ua.weight) -%}
+  {%- endif -%}
+{%- endfor -%}
+{%- set ua = module.rand.weighted_choice(browser_uas, browser_weights) -%}
+```
+
+The core issue is that `module.rand.weighted_choice(items, weights)` requires two parallel lists. When the items are objects with a weight attribute, you must manually extract the parallel arrays — which forces the loop pattern. This is the #1 source of boilerplate in the web-apache generator.
+
+Note: Proposal #8 proposes `| weighted_random` as a Jinja2 filter on samples. Proposal #18 proposes `| where` for filtering. Proposal #20 proposes `index_by` for pre-grouped access. This proposal addresses a different gap: telling `weighted_choice` to read weights from an attribute of the items themselves, eliminating the parallel-array extraction loop.
+
+**Proposal**: Add `module.rand.weighted_choice_by(sequence, weight_attr)` — a variant that accepts a sequence of objects and a weight attribute name:
+
+```python
+def weighted_choice_by(self, items: Sequence, weight_attr: str) -> Any:
+    weights = [getattr(item, weight_attr) for item in items]
+    return self.weighted_choice(list(items), weights)
+```
+
+Combined with Jinja2's built-in `selectattr` (which already works with tablib Row objects), the 8-line pattern becomes 2 lines:
+
+```jinja
+{%- set browser_uas = samples.user_agents | selectattr('type', 'in', ['browser', 'tool']) | list -%}
+{%- set ua = module.rand.weighted_choice_by(browser_uas, 'weight') -%}
+```
+
+If proposal #18's `| where` filter and #20's `index_by` were also implemented, it could become even cleaner:
+
+```jinja
+{%- set ua = module.rand.weighted_choice_by(samples.user_agents.browser, 'weight') -%}
+```
+
+---
+
+### 37. Template API: `module.rand.string.hex()` inconsistent bit width — no fixed-byte hex generator `[Low]`
+
+**Context**: Building Check Point `loguid` fields that require exact hex segment lengths.
+
+**Problem**: `module.rand.string.hex(n)` generates `n` random hex characters (nibbles), not `n` bytes. This is confusing when the goal is to produce values that match a specific byte width. Check Point's `loguid` format is `{0x<ts_hex>,0x<1byte>,0x<4bytes>,0xc<3.5bytes>}`, which maps to `hex(8), hex(1), hex(8), hex(7)` character counts — not byte counts.
+
+The current API is:
+
+```jinja2
+{%- set loguid = "{0x%s,0x%s,0x%s,0x%s}" | format(
+    ts_hex,
+    module.rand.string.hex(1),    ← 1 hex char = 0.5 bytes (unusual)
+    module.rand.string.hex(8),    ← 8 hex chars = 4 bytes
+    "c" ~ module.rand.string.hex(7)  ← 7 hex chars = 3.5 bytes
+) -%}
+```
+
+Using `hex(1)` to produce a single hex nibble is counterintuitive. In most hex-generation contexts (UUIDs, hashes, tokens), you think in bytes. A `hex_bytes(n)` function that produces `2*n` hex characters (representing `n` random bytes) would be more natural for most use cases.
+
+**Proposal**: Add `module.rand.string.hex_bytes(n)` that generates `n` random bytes as `2*n` hex characters:
+
+```python
+def hex_bytes(self, count: int) -> str:
+    return secrets.token_hex(count)  # n bytes → 2n hex chars
+```
+
+This provides a byte-oriented API alongside the existing nibble-oriented `hex()`. The existing `hex(n)` would remain unchanged for backward compatibility. For the common case of generating hash-like values (MD5 = 16 bytes, SHA1 = 20 bytes, SHA256 = 32 bytes), `hex_bytes` is more natural than counting hex character widths.
+
+---
+
+### 45. `module.rand.geo` helpers for realistic geographic data generation `[Low]`
+
+**Context**: Building the `network-fortigate` generator where traffic events need source/destination country codes and names for GeoIP enrichment (`source.geo.country_iso_code`, `destination.geo.country_name`).
+
+**Problem**: FortiGate (and many other network devices) enrich traffic logs with GeoIP data — country codes, country names, and sometimes city/ASN info. The `network-fortigate` generator needed weighted country selection for both legitimate traffic (US/UK/DE/JP distributed by real CDN traffic patterns) and attack traffic (biased toward known scan/attack origins like CN/RU/KP). Currently this requires hardcoding country lists and weights inline in every template:
+
+```jinja2
+{%- set countries = [
+  {"iso": "US", "name": "United States"},
+  {"iso": "DE", "name": "Germany"},
+  {"iso": "JP", "name": "Japan"},
+  ... 15 more entries ...
+] -%}
+{%- set country_weights = [25, 8, 6, ...] -%}
+{%- set country = module.rand.weighted_choice(countries, country_weights) -%}
+```
+
+This 20+ line block was duplicated across 3 templates (`traffic-forward-close`, `traffic-forward-deny`, `utm-ips`), each with slightly different weight distributions. The country data is identical — only the weights vary by context.
+
+The same problem affects every network security generator: Check Point includes `origin_country`/`dst_country`, Palo Alto logs include `srccountry`/`dstcountry`, Cisco ASA includes geo fields, and ECS itself defines `source.geo.*` / `destination.geo.*` as standard fields.
+
+**Proposal**: Add geographic data helpers to `module.rand`:
+
+```python
+module.rand.geo.country_code()          # → "US" (weighted by internet traffic share)
+module.rand.geo.country_name()          # → "United States"
+module.rand.geo.country()               # → {"iso": "US", "name": "United States"}
+module.rand.geo.country_code(profile="attack")  # → biased toward scan origins
+module.rand.geo.country_code(profile="cdn")     # → biased toward CDN traffic patterns
+```
+
+The `profile` parameter would select from pre-built weight distributions:
+
+- `"traffic"` (default): weighted by global internet traffic (Cloudflare Radar data)
+- `"attack"`: weighted by threat intelligence scan/attack origin data
+- `"enterprise"`: weighted toward US/EU/JP for corporate traffic patterns
+
+Implementation could use a simple dict of ISO 3166-1 alpha-2 codes with pre-computed weight arrays — ~200 lines of static data, zero external dependencies.
+
+---
+
+### 46. `module.rand.network.mac()` with OUI prefix support `[Low]`
+
+**Context**: Building the `network-fortigate` generator where internal hosts have MAC addresses in sample data, and some templates generate dynamic MAC addresses for DHCP and ARP events.
+
+**Problem**: `module.rand.network.mac()` generates a fully random MAC address. In reality, the first 3 octets (OUI — Organizationally Unique Identifier) identify the manufacturer. A realistic network has clusters of MACs from the same vendor (Dell servers share an OUI, HP workstations share another). The FortiGate generator worked around this by hardcoding MACs in the `internal_hosts.csv` sample, but any template needing a dynamic MAC (e.g., rogue device detection, DHCP events) produces unrealistically random OUIs.
+
+FortiGate logs include `srcmac` and `dstmac` in DHCP events and `macaddr` in device detection. ECS maps these to `source.mac` / `destination.mac`. Other network generators (DNS, DHCP, switch logs) face the same issue.
+
+**Proposal**: Extend `module.rand.network.mac()` with optional OUI prefix:
+
+```python
+module.rand.network.mac()                          # → fully random (current behavior)
+module.rand.network.mac(oui="00:50:56")            # → VMware OUI + random suffix
+module.rand.network.mac(vendor="dell")             # → random Dell OUI + random suffix
+module.rand.network.mac(vendor="random_common")    # → weighted pick from top 20 OUIs
+```
+
+Include a small built-in table of ~20 common vendor OUI prefixes (Dell, HP, Lenovo, VMware, Cisco, Intel, Apple, etc.) for the `vendor` parameter. This would produce more realistic MAC distributions without requiring the generator author to hardcode OUI prefixes.
+
+---
+
+## Samples System
+
+### 8. Samples: No support for weighted sampling `[High]`
+
+**Problem**: When picking from sample data, `| random` gives uniform distribution. But in reality, some entries should be picked more often (e.g., `sshd` appears in 40% of auth events, `cron` in 15%). The workaround is `module.rand.weighted_choice()` with hardcoded lists, which bypasses the sample data entirely.
+
+**Proposal**: Support an optional `weight` column in CSV samples or a `weight` field in JSON samples, then provide a `| weighted_random` filter:
+```
+{%- set u = samples.usernames | weighted_random -%}
+```
+
+---
+
+### 19. Samples: No parameter interpolation in sample data files `[High]`
+
+**Context**: Building the `web-nginx` generator with referer patterns that include the configurable server hostname.
+
+**Problem**: Sample data files (CSV, JSON) are loaded statically at plugin initialization and cannot reference `params.*`. In the nginx generator, referer strings naturally include the server's domain name (e.g., `https://example.com/products`). But because the domain is a configurable param (`params.server_name`), the workaround is storing literal placeholder strings in the CSV and manually replacing them in every template:
+
+```csv
+referer,type
+https://${server_name}/,internal
+https://${server_name}/products,internal
+```
+
+```jinja2
+{%- set ref_entry = samples.referers | random -%}
+{%- set referer = ref_entry.referer | replace("${server_name}", server_name) -%}
+```
+
+This is fragile (the `${server_name}` placeholder looks like Eventum's `${params.*}` substitution syntax but isn't — it's just a hand-rolled string convention), easy to forget, and must be repeated in every template that uses the sample. If a generator has 7 templates all using the same parameterized sample, you get 7 copies of the replacement logic.
+
+The same issue applies to JSON sample files. For example, upstream URLs that include a configurable backend address, or file paths that include a configurable document root.
+
+**Proposal**: Support `${params.*}` interpolation in sample data at load time. When `generator.yml` defines both `params` and `samples`, resolve `${params.*}` references in sample string values after loading:
+
+```csv
+referer,type
+https://${params.server_name}/,internal
+https://${params.server_name}/products,internal
+```
+
+The sample reader already has access to the params dict from the template config. Adding a recursive string replacement pass over loaded sample values would be a small change to `sample_reader.py` and would keep sample data DRY with the generator's configuration. Templates would then use sample values directly without manual replacement.
+
+---
+
+### 26. Samples: No render-time variable interpolation in sample data values `[Medium]`
 
 **Context**: Building Sysmon templates with file and registry paths that contain dynamic segments.
 
@@ -723,7 +741,190 @@ This collapses the 4-line replacement chain into 2 lines (define mapping + apply
 
 ---
 
-## 27. Config: No early validation of `${params.*}` / `${secrets.*}` references
+### 18. Samples: No `selectattr` with multiple conditions in a single filter `[Medium]`
+
+**Context**: Building `network-firewall` templates that filter hosts by both subnet and role.
+
+**Problem**: Firewall templates frequently need to pick a random host matching multiple criteria — e.g., a server in the DMZ zone, or a workstation in the trust zone. Jinja2's `selectattr` only supports one condition at a time, requiring verbose chaining:
+
+```jinja
+{%- set srv = samples.internal_hosts
+    | selectattr("role", "equalto", "server")
+    | selectattr("subnet", "equalto", "servers")
+    | list
+    | random -%}
+```
+
+This is 4 filters for what is conceptually a single operation: "pick a random server from the servers subnet." Every template that needs filtered sampling repeats this pattern. In the firewall generator, this chain appears 6 times across different templates, each time for a different zone/role combination.
+
+The chain is also fragile: if the filter produces an empty list, `| random` raises an error with no fallback mechanism. The template author must defensively check `| length > 0` before using `| random`, adding more boilerplate.
+
+**Proposal**: Add a custom `| where` Jinja2 filter that accepts a dict of conditions:
+
+```jinja
+{%- set srv = samples.internal_hosts | where(role="server", subnet="servers") | random -%}
+```
+
+Or alternatively, add a `| random_where` that combines filtering and random selection with a built-in empty-list fallback:
+
+```jinja
+{%- set srv = samples.internal_hosts | random_where(role="server", subnet="servers", default=none) -%}
+```
+
+Implementation: register a custom Jinja2 filter via `env.filters['where']` that applies multiple `selectattr` conditions from keyword arguments. The `random_where` variant would additionally apply `| random` with a default for empty results.
+
+---
+
+### 39. Samples: Inline data samples to eliminate external file dependency for small datasets `[Medium]`
+
+**Context**: Building the `network-snort` generator where JSON sample named access doesn't work (proposal #33), forcing inline data in templates.
+
+**Problem**: When JSON sample data can't be accessed by field name (tuples only — proposal #33), the workaround is inlining the data directly in each template as Jinja2 lists of dicts. For the Snort generator, 57 signatures were split across 13 templates (4–6 sigs each), resulting in ~300 lines of inline data that could have been a single 57-entry JSON file.
+
+Even without the tuple limitation, small datasets (5–15 entries) that are only used by one template don't warrant a separate file. The overhead of creating a file, referencing it in `generator.yml` samples section, and loading it through tablib is disproportionate for inline-grade data.
+
+**Example** — each of 13 Snort templates inlines its own signature list:
+
+```jinja2
+{#- Inline trojan-activity signatures (JSON samples don't support attribute access) -#}
+{%- set sigs = [
+  {"sid": 23493, "gid": 1, "rev": 6, "msg": "MALWARE-CNC Win.Trojan.ZeroAccess..."},
+  {"sid": 40522, "gid": 1, "rev": 3, "msg": "MALWARE-CNC Unix.Trojan.Mirai..."},
+  ...
+] -%}
+```
+
+This works but scatters data across templates. A change to signature metadata requires finding and editing the right template file.
+
+**Proposal**: Support inline sample data in `generator.yml` for small datasets:
+
+```yaml
+samples:
+  internal_hosts:
+    type: csv
+    source: samples/internal_hosts.csv    # file-based for large datasets
+    header: true
+  trojan_sigs:
+    type: inline                          # inline for small datasets
+    data:
+      - {sid: 23493, gid: 1, rev: 6, msg: "MALWARE-CNC Win.Trojan.ZeroAccess..."}
+      - {sid: 40522, gid: 1, rev: 3, msg: "MALWARE-CNC Unix.Trojan.Mirai..."}
+```
+
+Templates would access inline samples identically to file-based ones: `samples.trojan_sigs | random`. This keeps data centralized in the config while avoiding file proliferation for small datasets. Combined with proposal #33 (named access), this would eliminate the need for inline Jinja2 data blocks entirely.
+
+---
+
+### 20. Samples: Pre-indexed grouping for O(1) filtered random access `[Low]`
+
+**Context**: Building the `web-nginx` generator where URLs are categorized (page, asset, api, wellknown, probe) and user agents are typed (browser, mobile, bot, tool, monitor).
+
+**Problem**: The nginx generator's access templates select URLs and user agents by category on every render. With 56 URLs and 24 user agents, this requires a full list scan to build a temporary filtered list each time:
+
+```jinja2
+{%- set category_urls = [] -%}
+{%- for u in samples.urls if u.category == url_category -%}
+  {%- do category_urls.append(u) -%}
+{%- endfor -%}
+{%- set url_entry = category_urls | random -%}
+```
+
+This 4-line pattern appears 4 times across the nginx access templates (filtering URLs by category, user agents by type). At 5 events/second, this means 20 full-list scans per second — O(n) per event for what should be a constant-time lookup.
+
+Note: Proposal #18 addresses the ergonomics of filtering with a `| where` filter. This proposal addresses the **performance** concern — filtering at render time is wasteful when the categories are known at load time.
+
+**Proposal**: Add an `index_by` option to sample definitions in `generator.yml` that pre-builds a grouped lookup dict at load time:
+
+```yaml
+samples:
+  urls:
+    type: json
+    source: samples/urls.json
+    index_by: category
+  user_agents:
+    type: csv
+    source: samples/user_agents.csv
+    header: true
+    index_by: type
+```
+
+Then access in templates as:
+
+```jinja2
+{%- set url_entry = samples.urls.asset | random -%}
+{%- set ua = samples.user_agents.browser | random -%}
+```
+
+At load time, the sample reader would group entries by the specified field and expose them as a dict of lists. This is O(1) lookup per render instead of O(n), self-documenting (the category names appear directly in template code), and requires zero boilerplate in templates.
+
+Implementation: in `sample_reader.py`, after loading the data, if `index_by` is set, build a `defaultdict(list)` grouped by the field value. Expose the grouped dict through the same `samples.<name>` interface. Access to the ungrouped list (for backward compatibility) could remain available via `samples.<name>._all`.
+
+---
+
+## Shared State
+
+### 4. Shared state: No built-in queue/pool abstraction `[High]`
+
+**Problem**: The correlation pattern (producer appends to a list, consumer pops from it, cap the list, fallback when empty) is repeated verbatim across every correlated event pair. In the linux-auditd generator alone, this pattern appears 6 times across auth_sessions, cred_sessions, and running_services pools. It's easy to get wrong — the validation caught a bug where one template peeked (`list[0]`) instead of consuming (`list.pop(0)`).
+
+**Proposal**: Add a built-in pool/queue primitive:
+```
+shared.pool('sessions').push(item)           # append + auto-cap
+shared.pool('sessions').pop()                # pop(0) or None
+shared.pool('sessions').peek()               # read without consuming
+shared.pool('sessions', max_size=50)         # set cap on first use
+```
+
+This would eliminate ~10 lines of boilerplate per correlated event pair and prevent the peek-vs-pop bug class entirely.
+
+---
+
+### 3. Shared state: No atomic increment / counter primitive `[Medium]`
+
+**Problem**: Every single template starts with `shared.get('sequence', 1000)` and ends with `shared.set('sequence', seq + 1)`. This is a very common pattern (monotonic record IDs, sequence numbers) but requires 2 lines of boilerplate in every template.
+
+**Proposal**: Add `shared.increment('key', default=0, step=1)` that atomically gets and increments. Returns the pre-increment value. Saves 2 lines per template and eliminates the possibility of forgetting the final `shared.set()`.
+
+---
+
+### 44. Shared state: No pool utilization monitoring or overflow diagnostics `[Medium]`
+
+**Context**: Building the `security-suricata` generator with two correlation pools (`flows` and `dns_queries`) serving 13 templates.
+
+**Problem**: Correlation pools use shared state lists with manual capping (e.g., `if flows | length > 200: flows = flows[-200:]`). When the pool is always empty (consumers run faster than producers due to chance weight ratios), every consumer event falls back to standalone generation — effectively disabling correlation. When the pool overflows its cap, old entries are silently discarded.
+
+In the Suricata generator, the `flows` pool is fed by 7 templates (DNS, HTTP, TLS, SSH, SMTP, fileinfo, alert) and consumed by 2 templates (flow-tcp, flow-udp). Whether the pool stays balanced depends on the chance weights, which may drift as the generator evolves. There's no way to know at a glance whether correlation is actually working at runtime — the 73% correlation rate I measured during testing was only discoverable by post-processing 1000 events with a custom Python script.
+
+**Example diagnostic questions with no answer today**:
+- "Is my `dns_queries` pool draining faster than it fills?" (→ most answers are uncorrelated)
+- "Is my `flows` pool hitting its cap?" (→ entries are being dropped)
+- "What's the average pool depth over the last 1000 events?" (→ no telemetry)
+
+**Proposal**: Add optional pool diagnostics to shared state, either as:
+
+1. **Structured logging**: When `--log-level debug`, log pool push/pop/overflow events:
+
+   ```text
+   DEBUG shared.pool 'flows' push: depth=42, cap=200
+   DEBUG shared.pool 'flows' pop: depth=41
+   WARN  shared.pool 'flows' overflow: depth=200, dropped=1
+   ```
+
+2. **Stats endpoint**: Expose pool utilization in the generator stats API (`GET /generators/{id}/stats`):
+
+   ```json
+   {"shared_pools": {"flows": {"depth": 42, "cap": 200, "total_pushed": 15000, "total_popped": 14958, "total_dropped": 0}}}
+   ```
+
+3. **Template-accessible stats**: `shared.pool_stats('flows')` returning a dict with `depth`, `push_count`, `pop_count`, `overflow_count` — enabling self-documenting templates that can log correlation health.
+
+This would significantly reduce debugging time for correlation tuning, which is currently a blind trial-and-error process.
+
+---
+
+## Configuration & Validation
+
+### 27. Config: No early validation of `${params.*}` / `${secrets.*}` references `[High]`
 
 **Context**: Investigating the v2.0.2 bug where the API returned validation errors for configs with placeholders, and reviewing the config loading pipeline in `config_loader.py`.
 
@@ -735,50 +936,7 @@ This collapses the 4-line replacement chain into 2 lines (define mapping + apply
 
 ---
 
-## 28. Output: No retry or dead-letter mechanism for failed writes
-
-**Context**: Reviewing the executor's output error handling in `executor.py` — `PluginWriteError` is logged and the batch is discarded with no recovery path.
-
-**Problem**: When an output plugin fails to deliver events (e.g., OpenSearch is temporarily unreachable, HTTP endpoint returns 500), the failed events are silently discarded. The executor logs the error and moves on to the next batch. There is no retry logic, no dead-letter queue, and no way to recover lost events. The only indicator is a `write_failed` counter in stats — but the actual event data is gone.
-
-**Example**: A generator writes to OpenSearch at 1000 EPS. OpenSearch goes down for 30 seconds during a network blip. All events in that window are permanently lost. The operator sees `write_failed` increase in stats but cannot replay the lost events. For continuous monitoring scenarios, this creates gaps that trigger false-positive alerts downstream.
-
-**Proposal**: Add configurable retry behavior to output plugins:
-```yaml
-output:
-  - opensearch:
-      hosts: ["${params.opensearch_host}"]
-      retry:
-        max_attempts: 3
-        backoff: exponential    # linear | exponential | fixed
-        initial_delay: 1.0      # seconds
-      dead_letter:
-        path: ./dead_letter/    # write failed events to files for later replay
-```
-The dead-letter directory would store failed events as timestamped JSON files that can be replayed with the `replay` event plugin, creating a natural recovery loop within Eventum's own pipeline.
-
----
-
-## 29. Generator: No lifecycle event hooks
-
-**Context**: Reviewing `InstanceHooks` in `hooks.py` — only app-level `terminate`, `restart`, and `get_settings_file_path` exist. No per-generator hooks for start, stop, or error events.
-
-**Problem**: There is no way to hook into individual generator lifecycle events. This makes it impossible to implement common operational patterns like sending a notification when a generator crashes, running cleanup logic on shutdown, or exporting custom metrics on completion.
-
-**Example**: In a production deployment with 10 generators, one crashes due to an OpenSearch connection timeout. The operator has no way to get notified except by polling the `/generators` API endpoint or watching logs. There's no webhook, callback, or event system to react to generator state changes programmatically.
-
-**Proposal**: Add generator-level lifecycle hooks configurable in `eventum.yml` or per-generator config:
-```yaml
-hooks:
-  on_start: "curl -s -X POST ${params.webhook_url} -d '{\"event\": \"started\", \"id\": \"${id}\"}'"
-  on_error: "curl -s -X POST ${params.webhook_url} -d '{\"event\": \"error\", \"id\": \"${id}\"}'"
-  on_stop: "curl -s -X POST ${params.webhook_url} -d '{\"event\": \"stopped\", \"id\": \"${id}\"}'"
-```
-Or a Python callback interface registered via API for programmatic integrations.
-
----
-
-## 30. Config: No hot-reload for running generators
+### 30. Config: No hot-reload for running generators `[Medium]`
 
 **Context**: Understanding the generator restart flow — updating a config requires stopping and restarting the generator via `GeneratorManager`, or SIGHUP to restart the entire app.
 
@@ -796,101 +954,17 @@ For the CLI, support `SIGUSR1` per-generator or an `eventum reload --id <generat
 
 ---
 
-## 31. CLI: Config inspection command for discoverability
+## Developer Tooling / CLI
 
-**Context**: Setting up generators and needing to reverse-engineer which `${params.*}` and `${secrets.*}` a config expects by reading YAML and template files manually. Related to proposal #27 (early validation) — inspection is the user-facing complement.
+### 9. Template debugging: No dry-run or single-event mode `[High]`
 
-**Problem**: There is no way to inspect what a generator config expects without reading the YAML and all referenced template files manually. When setting up a new deployment, the operator must find every `${params.*}` and `${secrets.*}` token across the config and templates, then create matching entries in `startup.yml` and the keyring. Template params (referenced via `{{ params.domain }}` inside `.json.jinja` files) are especially hard to discover since they're scattered across many files.
+**Problem**: When developing a new template, you iterate by running `eventum generate --live-mode` and eyeballing stdout. There's no way to render a single template once with fixed inputs to verify the JSON output. If a template has a Jinja2 syntax error, the error message points to the rendered output line, not the source template line.
 
-**Example**: Setting up `windows-security` which uses `${params.opensearch_host}`, `${params.opensearch_user}`, `${params.opensearch_index}`, and `${secrets.opensearch_password}` in the output section, plus `hostname`, `domain`, and other params referenced inside 11 template files. Missing any one causes a runtime crash.
-
-**Proposal**: Add an `eventum inspect --path <generator.yml>` command that outputs:
-```
-Generator: windows-security
-
-Required params (generator.yml):
-  - opensearch_host     (output.opensearch.hosts)
-  - opensearch_user     (output.opensearch.http_auth)
-  - opensearch_index    (output.opensearch.index)
-
-Required secrets (generator.yml):
-  - opensearch_password (output.opensearch.http_auth)
-
-Template params (via {{ params.* }}):
-  - hostname            (templates/4624-logon-success.json.jinja, +10 more)
-  - domain              (templates/4624-logon-success.json.jinja, +8 more)
-```
-This would make generator setup self-documenting and could be combined with proposal #27 to catch mismatches before runtime.
+**Proposal**: Add a `eventum render --template <path> --params <yaml>` command that renders a single template once with given params and prints the result. Include source-mapped error messages that point to the `.json.jinja` line number.
 
 ---
 
-## 36. Template API: No `| tojson_value` filter for conditional JSON field emission
-
-**Context**: Building 11 Check Point templates where many JSON fields are conditionally included based on event type.
-
-**Problem**: When a JSON field should only appear under certain conditions, managing trailing commas around `{% if %}` blocks is error-prone. The existing `| tojson` filter serializes a Python value as JSON, but there's no filter that emits a complete `"key": value` pair conditionally with proper comma handling.
-
-In the network-checkpoint generator, the IPS templates conditionally include `industry_reference` (CVE ID) and the VPN template conditionally includes `ike` and `ike_ids` fields:
-
-```jinja2
-    "version": "5"{% if sig[9] %},
-    "industry_reference": "{{ sig[9] }}"{% endif %}
-```
-
-The comma must go **before** the conditional field when it's the last field, but **after** the preceding field when it's a middle field. Getting this wrong produces invalid JSON that only fails at runtime. Across 11 templates with 3–5 conditional fields each, this is ~40 comma-placement decisions.
-
-Note: Proposal #15 proposes a `format: json` post-processing mode that strips trailing commas. This proposal addresses a different layer — providing a template-level tool to avoid generating the bad commas in the first place, which is useful even without post-processing.
-
-**Proposal**: Add a `| json_field(key)` Jinja2 filter that emits a properly formatted JSON key-value pair (or nothing if the value is None/empty), designed to be used in comma-safe patterns:
-
-```jinja2
-{# Emit key-value pair only if value is truthy, with leading comma #}
-{{ sig[9] | json_field("industry_reference", comma="before") }}
-```
-
-Would output either `, "industry_reference": "CVE-2024-23897"` or empty string.
-
-Alternatively, a simpler approach: add a `| strip_trailing_commas` filter that can be applied to the entire template output:
-
-```jinja2
-{{ output | strip_trailing_commas }}
-```
-
-Implementation: register a filter that removes commas before `}` or `]` in JSON strings — a ~5-line regex.
-
----
-
-## 37. Template API: `module.rand.string.hex()` inconsistent bit width — no fixed-byte hex generator
-
-**Context**: Building Check Point `loguid` fields that require exact hex segment lengths.
-
-**Problem**: `module.rand.string.hex(n)` generates `n` random hex characters (nibbles), not `n` bytes. This is confusing when the goal is to produce values that match a specific byte width. Check Point's `loguid` format is `{0x<ts_hex>,0x<1byte>,0x<4bytes>,0xc<3.5bytes>}`, which maps to `hex(8), hex(1), hex(8), hex(7)` character counts — not byte counts.
-
-The current API is:
-
-```jinja2
-{%- set loguid = "{0x%s,0x%s,0x%s,0x%s}" | format(
-    ts_hex,
-    module.rand.string.hex(1),    ← 1 hex char = 0.5 bytes (unusual)
-    module.rand.string.hex(8),    ← 8 hex chars = 4 bytes
-    "c" ~ module.rand.string.hex(7)  ← 7 hex chars = 3.5 bytes
-) -%}
-```
-
-Using `hex(1)` to produce a single hex nibble is counterintuitive. In most hex-generation contexts (UUIDs, hashes, tokens), you think in bytes. A `hex_bytes(n)` function that produces `2*n` hex characters (representing `n` random bytes) would be more natural for most use cases.
-
-**Proposal**: Add `module.rand.string.hex_bytes(n)` that generates `n` random bytes as `2*n` hex characters:
-
-```python
-def hex_bytes(self, count: int) -> str:
-    return secrets.token_hex(count)  # n bytes → 2n hex chars
-```
-
-This provides a byte-oriented API alongside the existing nibble-oriented `hex()`. The existing `hex(n)` would remain unchanged for backward compatibility. For the common case of generating hash-like values (MD5 = 16 bytes, SHA1 = 20 bytes, SHA256 = 32 bytes), `hex_bytes` is more natural than counting hex character widths.
-
----
-
-## 38. CLI: Output plugin selector for testing without config duplication
+### 38. CLI: Output plugin selector for testing without config duplication `[High]`
 
 **Context**: Building the `network-snort` generator with 13 templates and both stdout + opensearch outputs.
 
@@ -935,221 +1009,469 @@ Implementation: after parsing the config, filter `GeneratorConfig.output` to onl
 
 ---
 
-## 39. Samples: Inline data samples to eliminate external file dependency for small datasets
+### 31. CLI: Config inspection command for discoverability `[Medium]`
 
-**Context**: Building the `network-snort` generator where JSON sample named access doesn't work (proposal #33), forcing inline data in templates.
+**Context**: Setting up generators and needing to reverse-engineer which `${params.*}` and `${secrets.*}` a config expects by reading YAML and template files manually. Related to proposal #27 (early validation) — inspection is the user-facing complement.
 
-**Problem**: When JSON sample data can't be accessed by field name (tuples only — proposal #33), the workaround is inlining the data directly in each template as Jinja2 lists of dicts. For the Snort generator, 57 signatures were split across 13 templates (4–6 sigs each), resulting in ~300 lines of inline data that could have been a single 57-entry JSON file.
+**Problem**: There is no way to inspect what a generator config expects without reading the YAML and all referenced template files manually. When setting up a new deployment, the operator must find every `${params.*}` and `${secrets.*}` token across the config and templates, then create matching entries in `startup.yml` and the keyring. Template params (referenced via `{{ params.domain }}` inside `.json.jinja` files) are especially hard to discover since they're scattered across many files.
 
-Even without the tuple limitation, small datasets (5–15 entries) that are only used by one template don't warrant a separate file. The overhead of creating a file, referencing it in `generator.yml` samples section, and loading it through tablib is disproportionate for inline-grade data.
+**Example**: Setting up `windows-security` which uses `${params.opensearch_host}`, `${params.opensearch_user}`, `${params.opensearch_index}`, and `${secrets.opensearch_password}` in the output section, plus `hostname`, `domain`, and other params referenced inside 11 template files. Missing any one causes a runtime crash.
 
-**Example** — each of 13 Snort templates inlines its own signature list:
-
-```jinja2
-{#- Inline trojan-activity signatures (JSON samples don't support attribute access) -#}
-{%- set sigs = [
-  {"sid": 23493, "gid": 1, "rev": 6, "msg": "MALWARE-CNC Win.Trojan.ZeroAccess..."},
-  {"sid": 40522, "gid": 1, "rev": 3, "msg": "MALWARE-CNC Unix.Trojan.Mirai..."},
-  ...
-] -%}
+**Proposal**: Add an `eventum inspect --path <generator.yml>` command that outputs:
 ```
+Generator: windows-security
 
-This works but scatters data across templates. A change to signature metadata requires finding and editing the right template file.
+Required params (generator.yml):
+  - opensearch_host     (output.opensearch.hosts)
+  - opensearch_user     (output.opensearch.http_auth)
+  - opensearch_index    (output.opensearch.index)
 
-**Proposal**: Support inline sample data in `generator.yml` for small datasets:
+Required secrets (generator.yml):
+  - opensearch_password (output.opensearch.http_auth)
 
-```yaml
-samples:
-  internal_hosts:
-    type: csv
-    source: samples/internal_hosts.csv    # file-based for large datasets
-    header: true
-  trojan_sigs:
-    type: inline                          # inline for small datasets
-    data:
-      - {sid: 23493, gid: 1, rev: 6, msg: "MALWARE-CNC Win.Trojan.ZeroAccess..."}
-      - {sid: 40522, gid: 1, rev: 3, msg: "MALWARE-CNC Unix.Trojan.Mirai..."}
+Template params (via {{ params.* }}):
+  - hostname            (templates/4624-logon-success.json.jinja, +10 more)
+  - domain              (templates/4624-logon-success.json.jinja, +8 more)
 ```
-
-Templates would access inline samples identically to file-based ones: `samples.trojan_sigs | random`. This keeps data centralized in the config while avoiding file proliferation for small datasets. Combined with proposal #33 (named access), this would eliminate the need for inline Jinja2 data blocks entirely.
+This would make generator setup self-documenting and could be combined with proposal #27 to catch mismatches before runtime.
 
 ---
 
-## 40. Template API: No `selectattr` "in" test for membership filtering
+### 11. Template composition: Document and promote `{% include %}` for reducing boilerplate `[Medium]`
 
-**Context**: Building Snort templates where internal hosts have different roles (workstation, server, dmz) and templates need hosts matching specific role sets.
+**Context**: Building the `network-dns` generator (Packetbeat DNS transactions).
 
-**Problem**: Jinja2's `selectattr` filter supports tests like `"equalto"`, `"ne"`, `"gt"`, `"lt"` — but not `"in"` for membership testing. When a template needs to select items matching one of several values, `selectattr` can't express this in a single filter:
+**Problem**: The network-dns generator has 10 templates (one per DNS query type: A, AAAA, PTR, CNAME, MX, TXT, SRV, NS, SOA, HTTPS). Each template is ~130 lines, but ~100 lines are identical boilerplate — the `agent`, `client`, `destination`, `ecs`, `event`, `host`, `network`, `network_traffic`, `server`, `source` blocks are the same across all 10. Only `dns.question.type`, `dns.answers`, and a few fields differ per template.
 
-```jinja2
-{#- This does NOT work — "in" is not a valid selectattr test -#}
-{%- set servers = samples.internal_hosts | selectattr("role", "in", ["server", "dmz"]) | list -%}
+This means ~1000 lines of duplicated JSON across the generator. Any structural change (e.g., adding a new ECS field) requires editing all 10 files identically.
 
-{#- Workaround: chain multiple equalto filters and merge, or use a manual loop -#}
-{%- set servers = [] -%}
-{%- for h in samples.internal_hosts -%}
-  {%- if h.role in ["server", "dmz"] -%}
-    {%- do servers.append(h) -%}
-  {%- endif -%}
-{%- endfor -%}
-```
+Eventum already uses `FileSystemLoader`, so Jinja2's `{% include %}` and `{% extends %}` are technically available. However:
 
-In the Snort generator, this forced replacing filtered sampling with simpler `| random` on the entire host list, losing the ability to restrict certain event types to specific host roles (e.g., web attacks should only target servers/DMZ, not workstations).
+- They're not documented in the template API reference
+- There's no established convention for partial/fragment files
+- Variable scoping across includes is subtle (included templates share the caller's scope, but `{% extends %}` blocks have different rules)
 
-Note: This is a Jinja2 limitation, not an Eventum-specific bug. However, Eventum's template engine registers custom filters/tests (e.g., the `do` extension), so it can register additional tests.
+**Proposal**: Officially support and document template composition:
 
-**Proposal**: Register a custom `"in"` test for `selectattr`:
-
-```python
-def in_test(value, seq):
-    return value in seq
-
-env.tests['in'] = in_test
-```
-
-This would enable the natural pattern:
-
-```jinja2
-{%- set servers = samples.internal_hosts | selectattr("role", "in", ["server", "dmz"]) | list -%}
-```
-
-One line of Python, major ergonomic improvement for any generator that filters sample data by category.
-
----
-
-## 41. Template API: No duration formatting helper for human-readable time strings
-
-**Context**: Building the `vpn-cisco-anyconnect` generator where session disconnect events (ASA message 113019) include session duration in `Xh:Ym:Zs` format (e.g., `7h:32m:15s`).
-
-**Problem**: Converting a duration in seconds to a human-readable string requires 4 lines of manual integer arithmetic in every template that deals with durations:
-
-```jinja2
-{%- set dur_hours = duration_secs // 3600 -%}
-{%- set dur_minutes = (duration_secs % 3600) // 60 -%}
-{%- set dur_seconds = duration_secs % 60 -%}
-{%- set duration_str = "%dh:%02dm:%02ds" | format(dur_hours, dur_minutes, dur_seconds) -%}
-```
-
-This pattern is needed whenever log formats include human-readable durations: Cisco ASA session disconnect (`7h:32m:15s`), firewall session end (`duration=300`), DHCP lease time (`1d:0h:0m`), HTTP request time (`0.045s`). Each format is slightly different but the decomposition logic (seconds → hours/minutes/seconds or days/hours/minutes) is identical.
-
-The Cisco ASA syslog format specifically uses `Duration: Xh:Ym:Zs` in message 113019. Other vendors use different formats: Palo Alto uses `elapsed=Xs`, FortiGate uses `duration=X`, Check Point uses `session_duration: X`. All require the same base conversion from total seconds.
-
-**Proposal**: Add a `| format_duration` filter (or `module.time.format_duration()` function) with configurable format patterns:
-
-```jinja2
-{#- Cisco ASA format -#}
-{%- set duration_str = duration_secs | format_duration('%Hh:%Mm:%Ss') -%}
-{#- → "7h:32m:15s" -#}
-
-{#- Simple HH:MM:SS -#}
-{%- set duration_str = duration_secs | format_duration('%H:%M:%S') -%}
-{#- → "07:32:15" -#}
-
-{#- ISO 8601 duration -#}
-{%- set duration_str = duration_secs | format_duration('iso8601') -%}
-{#- → "PT7H32M15S" -#}
-
-{#- With days for long durations -#}
-{%- set duration_str = duration_secs | format_duration('%dd:%Hh:%Mm') -%}
-{#- → "0d:7h:32m" -#}
-```
-
-The filter would accept total seconds (int or float) and a format string with `%D` (days), `%H` (hours), `%M` (minutes), `%S` (seconds), `%f` (fractional seconds). Predefined aliases like `'iso8601'` and `'hms'` would cover common cases. This eliminates the manual arithmetic and makes the intent self-documenting.
-
----
-
-## 42. Bug: CSV sample parser doesn't handle quoted fields with commas (RFC 4180 violation)
-
-**Context**: Building the `security-suricata` generator with a CSV sample file for HTTP user agent strings.
-
-**Problem**: The CSV sample reader fails to parse fields that contain commas, even when properly quoted per RFC 4180. User agent strings naturally contain commas (e.g., `"Mozilla/5.0 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"`). When stored in a CSV with proper double-quote escaping:
-
-```csv
-user_agent
-"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
-```
-
-The parser split on the commas inside the quoted value, producing mangled rows like `{None: [' like Gecko) Chrome/120.0.0.0 Safari/537.36']}` instead of the full user agent string. This forced converting the sample from CSV to JSON format — which works but defeats the purpose of having CSV support for flat lists.
-
-The same issue would affect any CSV sample containing commas in values: SQL queries, log messages, street addresses, product descriptions, comma-separated tags, etc. This is a fundamental limitation since RFC 4180 specifies that commas within double-quoted fields should be preserved as literal characters.
-
-**Workaround**: Convert to JSON format (`user-agents.json` with `[{"user_agent": "..."}]`), which handles arbitrary string content correctly.
-
-**Proposal**: Fix the CSV sample reader to use Python's `csv.reader` (which handles RFC 4180 quoting correctly) instead of whatever custom splitting is currently used. Python's built-in `csv` module has handled quoted-comma fields correctly since Python 2.3 — this is likely a case where tablib's CSV import is being called incorrectly or with wrong dialect settings.
-
----
-
-## 43. Template API: `module.rand.weighted_choice()` should accept a dict directly
-
-**Context**: Building 13 Suricata templates that use weighted random selection for status codes, response codes, and protocol choices.
-
-**Problem**: `module.rand.weighted_choice(items, weights)` requires two parallel lists, but the most natural way to express item→weight mappings in Jinja2 is a dict. Every weighted choice in the Suricata generator required an awkward dict-to-parallel-lists conversion:
-
-```jinja2
-{%- set rcode_weights = {"NOERROR": 90, "NXDOMAIN": 8, "SERVFAIL": 2} -%}
-{%- set rcode = module.rand.weighted_choice(rcode_weights | list, rcode_weights.values() | list) -%}
-```
-
-This pattern appears 15+ times across the 13 Suricata templates — for DNS rcodes, HTTP status codes, HTTP methods, TCP flow states, anomaly types, DHCP message types, alert actions, and direction choices. Each instance requires the same `| list` and `| values() | list` extraction.
-
-**Proposal**: Make `weighted_choice` accept a dict where keys are items and values are weights:
-
-```python
-def weighted_choice(self, items_or_dict, weights=None):
-    if isinstance(items_or_dict, dict):
-        items = list(items_or_dict.keys())
-        weights = list(items_or_dict.values())
-    else:
-        items = items_or_dict
-    return random.choices(items, weights=weights, k=1)[0]
-```
-
-Template code becomes:
-
-```jinja2
-{%- set rcode = module.rand.weighted_choice({"NOERROR": 90, "NXDOMAIN": 8, "SERVFAIL": 2}) -%}
-```
-
-One line instead of two, and the intent is immediately clear. Backward-compatible since the existing two-argument call still works.
-
----
-
-## 44. Shared state: No pool utilization monitoring or overflow diagnostics
-
-**Context**: Building the `security-suricata` generator with two correlation pools (`flows` and `dns_queries`) serving 13 templates.
-
-**Problem**: Correlation pools use shared state lists with manual capping (e.g., `if flows | length > 200: flows = flows[-200:]`). When the pool is always empty (consumers run faster than producers due to chance weight ratios), every consumer event falls back to standalone generation — effectively disabling correlation. When the pool overflows its cap, old entries are silently discarded.
-
-In the Suricata generator, the `flows` pool is fed by 7 templates (DNS, HTTP, TLS, SSH, SMTP, fileinfo, alert) and consumed by 2 templates (flow-tcp, flow-udp). Whether the pool stays balanced depends on the chance weights, which may drift as the generator evolves. There's no way to know at a glance whether correlation is actually working at runtime — the 73% correlation rate I measured during testing was only discoverable by post-processing 1000 events with a custom Python script.
-
-**Example diagnostic questions with no answer today**:
-- "Is my `dns_queries` pool draining faster than it fills?" (→ most answers are uncorrelated)
-- "Is my `flows` pool hitting its cap?" (→ entries are being dropped)
-- "What's the average pool depth over the last 1000 events?" (→ no telemetry)
-
-**Proposal**: Add optional pool diagnostics to shared state, either as:
-
-1. **Structured logging**: When `--log-level debug`, log pool push/pop/overflow events:
+1. **Document `{% include %}`** in the template API docs with an example showing shared fragments:
 
    ```text
-   DEBUG shared.pool 'flows' push: depth=42, cap=200
-   DEBUG shared.pool 'flows' pop: depth=41
-   WARN  shared.pool 'flows' overflow: depth=200, dropped=1
+   templates/
+     _base.json.jinja           # shared ECS boilerplate (convention: _ prefix)
+     a-query.json.jinja          # {% include '_partials/agent.json.jinja' %}
    ```
 
-2. **Stats endpoint**: Expose pool utilization in the generator stats API (`GET /generators/{id}/stats`):
+2. **Consider adding a `base_template` config option** in generator.yml that defines a shared skeleton with `{% block %}` markers:
 
-   ```json
-   {"shared_pools": {"flows": {"depth": 42, "cap": 200, "total_pushed": 15000, "total_popped": 14958, "total_dropped": 0}}}
+   ```yaml
+   templates:
+     base: templates/_base.json.jinja
+     entries:
+       - a_query:
+           template: templates/a-query.json.jinja
+           chance: 300
    ```
 
-3. **Template-accessible stats**: `shared.pool_stats('flows')` returning a dict with `depth`, `push_count`, `pop_count`, `overflow_count` — enabling self-documenting templates that can log correlation health.
+   Where `_base.json.jinja` uses `{% block dns_answers %}{% endblock %}` and each template uses `{% extends base %}`.
 
-This would significantly reduce debugging time for correlation tuning, which is currently a blind trial-and-error process.
+3. **At minimum**, add a "Reducing Boilerplate" section to the docs showing how to use `{% include %}` with file-relative paths, since this is the single biggest pain point for generators with many similar templates.
 
 ---
 
-# Completed
+## Operations / Reliability
+
+### 28. Output: No retry or dead-letter mechanism for failed writes `[High]`
+
+**Context**: Reviewing the executor's output error handling in `executor.py` — `PluginWriteError` is logged and the batch is discarded with no recovery path.
+
+**Problem**: When an output plugin fails to deliver events (e.g., OpenSearch is temporarily unreachable, HTTP endpoint returns 500), the failed events are silently discarded. The executor logs the error and moves on to the next batch. There is no retry logic, no dead-letter queue, and no way to recover lost events. The only indicator is a `write_failed` counter in stats — but the actual event data is gone.
+
+**Example**: A generator writes to OpenSearch at 1000 EPS. OpenSearch goes down for 30 seconds during a network blip. All events in that window are permanently lost. The operator sees `write_failed` increase in stats but cannot replay the lost events. For continuous monitoring scenarios, this creates gaps that trigger false-positive alerts downstream.
+
+**Proposal**: Add configurable retry behavior to output plugins:
+```yaml
+output:
+  - opensearch:
+      hosts: ["${params.opensearch_host}"]
+      retry:
+        max_attempts: 3
+        backoff: exponential    # linear | exponential | fixed
+        initial_delay: 1.0      # seconds
+      dead_letter:
+        path: ./dead_letter/    # write failed events to files for later replay
+```
+The dead-letter directory would store failed events as timestamped JSON files that can be replayed with the `replay` event plugin, creating a natural recovery loop within Eventum's own pipeline.
+
+---
+
+### 29. Generator: No lifecycle event hooks `[Medium]`
+
+**Context**: Reviewing `InstanceHooks` in `hooks.py` — only app-level `terminate`, `restart`, and `get_settings_file_path` exist. No per-generator hooks for start, stop, or error events.
+
+**Problem**: There is no way to hook into individual generator lifecycle events. This makes it impossible to implement common operational patterns like sending a notification when a generator crashes, running cleanup logic on shutdown, or exporting custom metrics on completion.
+
+**Example**: In a production deployment with 10 generators, one crashes due to an OpenSearch connection timeout. The operator has no way to get notified except by polling the `/generators` API endpoint or watching logs. There's no webhook, callback, or event system to react to generator state changes programmatically.
+
+**Proposal**: Add generator-level lifecycle hooks configurable in `eventum.yml` or per-generator config:
+```yaml
+hooks:
+  on_start: "curl -s -X POST ${params.webhook_url} -d '{\"event\": \"started\", \"id\": \"${id}\"}'"
+  on_error: "curl -s -X POST ${params.webhook_url} -d '{\"event\": \"error\", \"id\": \"${id}\"}'"
+  on_stop: "curl -s -X POST ${params.webhook_url} -d '{\"event\": \"stopped\", \"id\": \"${id}\"}'"
+```
+Or a Python callback interface registered via API for programmatic integrations.
+
+---
+
+# 🔍 For Analysis
+
+> Entries where the problem is clear but the right solution needs more research or discussion before committing to an approach.
+
+---
+
+## 6. Generator.yml: No way to express correlated template groups `[Critical]`
+
+**Problem**: In auditd, the PAM login flow is always: USER_AUTH → CRED_ACQ → USER_LOGIN → (session) → CRED_DISP. With `chance` mode, these events fire independently at their own rates, so the correlation pools may drain or overflow depending on timing. The shared state pool pattern is a workaround, not a first-class solution.
+
+**Proposal**: Consider a `group` or `sequence` picking mode where a single trigger fires a deterministic sequence of templates in order:
+```yaml
+templates:
+  - login_flow:
+      mode: sequence
+      chance: 80
+      steps:
+        - templates/user-auth.json.jinja
+        - templates/cred-acq.json.jinja
+        - templates/user-login.json.jinja
+```
+This would guarantee correct ordering and eliminate the need for inter-template correlation pools for tightly-coupled event sequences.
+
+**Why analysis needed**: Major architectural change — introduces a new picking mode to the event plugin. Interaction with timestamps (should all steps share the same timestamp or be slightly offset?), error handling (what if one step in the sequence fails?), and compatibility with existing `chance`/`spin` modes needs investigation.
+
+---
+
+## 15. Template output: No JSON validation or structured output mode `[High]`
+
+**Context**: Building 10 DNS templates with conditional JSON blocks.
+
+**Problem**: Templates produce raw text that must be valid JSON. Conditional fields (e.g., `dns.resolved_ip` only present for A/AAAA queries, `dns.question.subdomain` only when non-empty) require careful comma management around `{% if %}` blocks. A single misplaced comma — invisible in a 130-line template — produces invalid JSON that only fails at runtime.
+
+Example of the fragile pattern:
+```jinja2
+        "question": {
+            "class": "IN",
+            "name": "{{ query_name }}",
+            "registered_domain": "{{ registered_domain }}",
+{% if subdomain %}
+            "subdomain": "{{ subdomain }}",
+{% endif %}
+            "top_level_domain": "{{ tld }}",
+            "type": "A"
+        },
+```
+
+If `subdomain` is false, this produces two consecutive commas only if a human accidentally puts the comma in the wrong place. Getting this right across 10 templates requires careful auditing of every `{% if %}` boundary.
+
+**Proposal**: Add a `format: json` option to the template plugin config that post-processes template output:
+
+```yaml
+event:
+  template:
+    format: json          # Validate and normalize output
+    mode: chance
+    templates: [...]
+```
+
+When `format: json` is set:
+
+1. Parse each rendered template output as JSON (fail fast with a clear error pointing to the template alias, not a raw parse error)
+2. Strip trailing commas (the #1 source of template JSON bugs)
+3. Optionally compact or pretty-print
+
+This would eliminate the entire class of "conditional comma" bugs that plague every generator with optional fields.
+
+**Why analysis needed**: Multiple possible approaches — post-processing in the event plugin vs template-level filters (see #36). Performance impact of parsing JSON on every render at high EPS. Interaction with non-JSON output formats. Relationship with proposal #36 (template-level filter approach).
+
+---
+
+## 50. Template render skipping for consumer templates when correlation pool is empty `[High]`
+
+**Context**: Building the `network-juniper-srx` generator where `session-close` consumes from a shared session pool populated by `session-create`.
+
+**Problem**: Consumer templates (session-close, session-end, cred-disp, tunnel-disconnect) try to correlate with producer data from shared state pools. When the pool is empty — which happens at generator startup or when consumers fire faster than producers due to chance weight ratios — the consumer template falls back to generating standalone uncorrelated events.
+
+In the Juniper SRX generator, the fallback in `session-close.json.jinja` generates a completely new session with different IPs, ports, policy, and session ID than any existing `session-create` event:
+
+```jinja2
+{%- if active_sessions | length > 0 -%}
+  {%- set session = active_sessions.pop(0) -%}
+  {# ... use correlated session data ... #}
+{%- else -%}
+  {# Fallback: generate standalone session-close with invented data #}
+  {%- set src_ip = (samples.internal_hosts | random).ip -%}
+  {%- set session_id = module.rand.number.integer(100000, 9999999) -%}
+  {# ... 15 more lines of standalone data generation ... #}
+{%- endif -%}
+```
+
+This produces "orphan" session-close events — sessions that appear to close without ever being opened. In real SRX traffic, every SESSION_CLOSE has a preceding SESSION_CREATE. Dashboards showing "sessions opened vs closed" or "session lifecycle" would immediately spot these anomalies.
+
+The same problem affects every correlated generator: firewall session-start/end (content-packs has 4 generators with this pattern), Cisco VPN tunnel-established/disconnected, auditd USER_AUTH/CRED_ACQ pairs, and Suricata flow correlation. Each generator independently implements a 15-line fallback block that degrades data quality.
+
+**Proposal**: Add a template-level skip mechanism that discards the current render and optionally re-picks another template:
+
+Option A — declarative in `generator.yml`:
+```yaml
+templates:
+  - session_close:
+      template: templates/session-close.json.jinja
+      chance: 400
+      requires_shared: active_sessions   # skip if this shared key is empty/missing
+```
+
+Option B — imperative in templates:
+```jinja2
+{%- set active_sessions = shared.get('active_sessions', []) -%}
+{%- if active_sessions | length == 0 -%}
+  {%- do skip() -%}
+{%- endif -%}
+{%- set session = active_sessions.pop(0) -%}
+```
+
+When a template is skipped, the engine would either:
+1. Discard the slot (reduce event count for this batch by 1), or
+2. Re-run the chance picker and render a different template
+
+Option 1 is simpler and preserves the overall event rate. Option 2 would shift the distribution slightly toward non-consumer templates when pools are empty, which is actually more realistic (if there are no open sessions, there should be fewer close events).
+
+This would eliminate the entire class of fallback-generated orphan events and the ~15 lines of fallback boilerplate per consumer template, while improving correlation accuracy from ~70-80% to 100% for pool-based patterns.
+
+**Why analysis needed**: Two fundamentally different approaches (declarative vs imperative). Skip behavior (discard slot vs re-pick) has different trade-offs for event rate and distribution. Interaction with proposal #6 (sequence mode) — if sequences are implemented, the skip pattern may be less needed.
+
+---
+
+## 21. Event plugin: Burst/fan-out mode for correlated multi-event groups `[Medium]`
+
+**Context**: Building the `web-nginx` generator where a single page load produces 10–30 correlated HTTP requests.
+
+**Problem**: In real nginx traffic, a browser loading a page generates a burst of requests within a 1–3 second window: 1 HTML page + 2–4 CSS files + 3–6 JS bundles + 5–15 images + 1–3 font files + 1–2 API calls. All requests share the same source IP and have the HTML page URL as referer. This burst pattern is the fundamental unit of web traffic.
+
+With the current `chance` mode, each event is independent — there's no way to say "when this template fires, also emit N related events with shared context." You can approximate it by weighting asset templates higher, but the events won't share source IPs or referers, making them uncorrelated noise rather than realistic page loads. Any dashboard showing "requests per user session" or "assets per page view" would show flat uniform distributions instead of the natural clustering.
+
+Note: Proposal #6 addresses *sequential ordering* of different template types (A → B → C in a login flow). This proposal addresses *variable-count bursts* from a single template with shared per-burst context — a fundamentally different pattern. Sequences have a fixed step count and distinct templates per step; bursts have a variable count and reuse the same template with shared variables.
+
+**Proposal**: Add a `burst` option to template entries in `chance` mode:
+
+```yaml
+templates:
+  - page_load:
+      template: templates/access-success.json.jinja
+      chance: 300
+      burst:
+        count: [10, 30]     # random count between 10 and 30
+        context:             # Jinja2 expressions evaluated once per burst
+          burst_ip: "{{ module.rand.network.ip_v4_public() }}"
+          burst_referer: "https://{{ params.server_name }}/"
+```
+
+When `page_load` is selected by the chance picker, the engine would:
+1. Evaluate `context` expressions once, generating a single source IP, referer, etc.
+2. Render the template `count` times (random between 10 and 30), passing the burst context as extra variables alongside the normal `params`, `samples`, `shared`
+3. Emit all rendered events as a single batch
+
+The template would use `burst.burst_ip` when available to produce correlated events, while still varying per-event fields (URL path, response size, user agent) normally:
+
+```jinja2
+{%- if burst is defined -%}
+  {%- set src_ip = burst.burst_ip -%}
+  {%- set referer = burst.burst_referer -%}
+{%- else -%}
+  {%- set src_ip = module.rand.network.ip_v4_public() -%}
+  {%- set referer = "-" -%}
+{%- endif -%}
+```
+
+This directly models the page-load burst pattern that dominates real web traffic, and would also be useful for other bursty data sources: SSH brute-force attempts (N login failures from same IP), log rotation events (burst of writes at rotation time), or monitoring scrapes (batch of metric queries from same collector).
+
+**Why analysis needed**: Complex interaction with the event pipeline — bursts produce variable event counts per trigger, which affects batch sizing, timestamp assignment (should burst events share a timestamp or be slightly spread?), and throughput calculations. Overlaps with proposal #6 (sequence mode); a unified "multi-event emission" design may be better than two separate features.
+
+---
+
+## 47. Template variable extraction/sharing via `{% set_shared %}` for cross-template header deduplication `[Medium]`
+
+**Context**: Building the `network-fortigate` generator with 12 templates that all start with the same 4-line parameter extraction block.
+
+**Problem**: All 12 FortiGate templates begin with identical boilerplate extracting common variables from `params`:
+
+```jinja2
+{%- set hostname = params.hostname -%}
+{%- set fqdn = hostname ~ '.' ~ params.domain -%}
+{%- set devid = params.serial_number -%}
+{%- set vd = params.get('vdom', 'root') -%}
+```
+
+And all 12 end their JSON with an identical `observer` block:
+
+```json
+"observer": {
+    "name": "{{ hostname }}",
+    "product": "Fortigate",
+    "serial_number": "{{ devid }}",
+    "type": "firewall",
+    "vendor": "Fortinet"
+}
+```
+
+This is 4 + 7 = 11 lines duplicated × 12 templates = 132 lines of pure boilerplate. Proposal #11 addresses this with `{% include %}`, but includes have a limitation: included fragments can't define variables that the caller then uses in its own body (variables set inside an `{% include %}` are scoped to the include). You'd need `{% extends %}` with blocks, which requires restructuring all templates into a base+child pattern — a heavy refactor for what should be a simple "compute these 4 values once."
+
+Note: Proposal #11 focuses on `{% include %}` for *output fragments* (shared JSON blocks). This proposal addresses a different pattern: *computed variable sharing* — defining variables once that all templates can reference without each template re-deriving them.
+
+**Proposal**: Support a `computed_vars` or `globals` section in the template plugin config that defines Jinja2 expressions evaluated once per render and injected into every template's namespace:
+
+```yaml
+event:
+  template:
+    mode: chance
+    params:
+      hostname: fw-edge-01
+      domain: corp.example.com
+      serial_number: FGT60F0000000001
+    computed:
+      hostname: "{{ params.hostname }}"
+      fqdn: "{{ params.hostname }}.{{ params.domain }}"
+      devid: "{{ params.serial_number }}"
+      vd: "{{ params.get('vdom', 'root') }}"
+    templates:
+      - ...
+```
+
+Templates would then directly use `{{ hostname }}`, `{{ fqdn }}`, `{{ devid }}`, `{{ vd }}` without the extraction block. This eliminates the header boilerplate across all templates and ensures consistency (if the derivation logic changes, it changes in one place).
+
+**Why analysis needed**: Overlaps with proposal #11 (`{% include %}` for fragments). The `computed` approach adds a new config concept and evaluation phase. Need to decide whether `computed` expressions can reference each other (dependency ordering), whether they can use `module.*` and `samples.*`, and how they interact with the existing `params` namespace.
+
+---
+
+## 36. Template API: No `| tojson_value` filter for conditional JSON field emission `[Medium]`
+
+**Context**: Building 11 Check Point templates where many JSON fields are conditionally included based on event type.
+
+**Problem**: When a JSON field should only appear under certain conditions, managing trailing commas around `{% if %}` blocks is error-prone. The existing `| tojson` filter serializes a Python value as JSON, but there's no filter that emits a complete `"key": value` pair conditionally with proper comma handling.
+
+In the network-checkpoint generator, the IPS templates conditionally include `industry_reference` (CVE ID) and the VPN template conditionally includes `ike` and `ike_ids` fields:
+
+```jinja2
+    "version": "5"{% if sig[9] %},
+    "industry_reference": "{{ sig[9] }}"{% endif %}
+```
+
+The comma must go **before** the conditional field when it's the last field, but **after** the preceding field when it's a middle field. Getting this wrong produces invalid JSON that only fails at runtime. Across 11 templates with 3–5 conditional fields each, this is ~40 comma-placement decisions.
+
+Note: Proposal #15 proposes a `format: json` post-processing mode that strips trailing commas. This proposal addresses a different layer — providing a template-level tool to avoid generating the bad commas in the first place, which is useful even without post-processing.
+
+**Proposal**: Add a `| json_field(key)` Jinja2 filter that emits a properly formatted JSON key-value pair (or nothing if the value is None/empty), designed to be used in comma-safe patterns:
+
+```jinja2
+{# Emit key-value pair only if value is truthy, with leading comma #}
+{{ sig[9] | json_field("industry_reference", comma="before") }}
+```
+
+Would output either `, "industry_reference": "CVE-2024-23897"` or empty string.
+
+Alternatively, a simpler approach: add a `| strip_trailing_commas` filter that can be applied to the entire template output:
+
+```jinja2
+{{ output | strip_trailing_commas }}
+```
+
+Implementation: register a filter that removes commas before `}` or `]` in JSON strings — a ~5-line regex.
+
+**Why analysis needed**: Two very different approaches — surgical per-field filter vs whole-output post-processing. Relationship with proposal #15 (format: json mode) which provides a more comprehensive solution at the plugin level. The right approach depends on whether #15 is implemented.
+
+---
+
+## 10. Generator.yml: `count` in input doesn't scale with template count `[Low]`
+
+**Problem**: `count: 5` means 5 events per second total, distributed across all templates by chance weight. When you add more event types, you may want to increase the count proportionally. There's no way to say "I want ~2 SYSCALL events per second and ~1 auth event per second" without manual weight math.
+
+**Proposal**: Consider supporting per-template rate targets in addition to global count, or document the relationship between `count`, `chance` weights, and expected per-type throughput more clearly.
+
+**Why analysis needed**: Two very different approaches — per-template rate targets (new feature, changes the input→event interface) vs better documentation (zero code change). Per-template rates would also interact with proposal #6 (sequence mode) and #21 (burst mode) where event counts are variable.
+
+---
+
+## 5. Samples: No way to pick a random row and keep it as a flat dict `[Low]`
+
+**Problem**: CSV samples accessed as `(samples.usernames | random)` return a row object. When you need multiple fields from the same row, you must store the whole row first (`{%- set u = samples.usernames | random -%}`) and then access fields individually. This is fine, but there's no way to destructure or spread a sample row into the template namespace.
+
+**Proposal**: Consider a `| spread` or `| unpack` Jinja2 filter that sets multiple variables from a dict at once — or document the recommended pattern more prominently.
+
+**Why analysis needed**: Two very different approaches — a `| spread` filter (Jinja2 doesn't natively support setting variables from filters, would need a custom extension) vs documentation (the `{%- set u = ... -%}` pattern works fine). The filter approach may not even be feasible within Jinja2's evaluation model.
+
+---
+
+## 51. 🆕 Feature: CLI `--max-events N` flag for bounded test generation
+
+**Context**: Building the `network-paloalto-url` generator and validating output.
+
+**Problem**: When testing a generator during development, there's no way to generate exactly N events and stop. The cron input plugin fires indefinitely in both live and sample mode, so the only way to get bounded output is `timeout X eventum generate ...`. This sends SIGTERM mid-execution, which truncates the last event — producing an invalid JSON line. Piping to `jq` or `python -m json.tool` fails on the partial final line. The alternative is capturing to a file and discarding the last line, which is fragile.
+
+**Example from the PAN-OS URL Filtering generator**: To analyze the action distribution, the workflow was:
+
+```bash
+timeout 5 uv run eventum generate ... > /tmp/events.jsonl
+# Last line is always truncated: "Unterminated string starting at char 1826"
+python3 -c "...json.loads(line)..." # Must handle the truncated line
+```
+
+The `--batch.size` flag controls how many events are processed per batch but doesn't limit total count. There's no way to say "generate 1000 events and exit cleanly."
+
+**Proposal**: Add a `--max-events N` CLI flag that cleanly stops generation after exactly N events are written to all outputs:
+
+```bash
+eventum generate --path generator.yml --id test --live-mode false --max-events 1000
+```
+
+Implementation: add a counter to the executor that tracks total events written. After reaching the limit, signal the generator to stop gracefully (drain current batch, close output plugins, exit). This ensures the last event is complete and all outputs are properly flushed.
+
+This would eliminate the `timeout` + truncated-line workaround that every generator developer hits during testing.
+
+---
+
+## 52. 🆕 Feature: `| url_components` filter for URL decomposition in templates
+
+**Context**: Building the `network-paloalto-url` generator where ECS requires separate `url.domain`, `url.path`, `url.query`, and `url.extension` fields.
+
+**Problem**: URL Filtering and web proxy generators need to decompose URLs into their ECS components (`url.domain`, `url.path`, `url.query`, `url.extension`). Currently the workarounds are:
+
+1. **Pre-decompose in sample data** (used in this generator): Store `domain` and `path` as separate fields in `url_categories.json`, forcing a nested structure and doubling the sample data size vs. a flat URL string list.
+
+2. **Use `module.urllib.parse`** (verbose and error-prone in Jinja2):
+
+   ```jinja2
+   {%- set parsed = module.urllib.parse.urlparse("https://" ~ url_string) -%}
+   {%- set url_domain = parsed.hostname -%}
+   {%- set url_path = parsed.path -%}
+   {%- set url_query = parsed.query -%}
+   ```
+
+Neither approach is clean. The pre-decomposition inflates sample files and forces URL authors to manually split URLs. The `urlparse` approach requires prepending a scheme (PAN-OS URLs are schemeless like `www.google.com/search?q=test`) and produces attribute access that's fragile across Python versions.
+
+**Proposal**: Add a `| url_components` Jinja2 filter that returns a dict of URL parts, handling schemeless URLs:
+
+```jinja2
+{%- set url = "www.google.com/search?q=test" | url_components -%}
+{{ url.domain }}     → "www.google.com"
+{{ url.path }}       → "/search"
+{{ url.query }}      → "q=test"
+{{ url.extension }}  → ""
+{{ url.original }}   → "www.google.com/search?q=test"
+```
+
+This would allow flat URL strings in sample data (`"urls": ["www.google.com/search?q=test"]`) instead of nested objects, reducing sample file size and complexity. Useful for any web traffic generator: PAN-OS URL Filtering, proxy logs, web server access logs, WAF events.
+
+---
+
+# ✅ Completed
 
 ## 32. Bug: Stdout output plugin crashes with `writelines` — `NonFileStreamWriter` incompatibility
 
