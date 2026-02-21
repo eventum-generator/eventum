@@ -19,6 +19,9 @@ from fastapi import (
 from pydantic import ValidationError
 
 from eventum.api.dependencies.app import GeneratorManagerDep, SettingsDep
+from eventum.api.routers.generator_configs.api_types import (
+    ApiGeneratorConfig as GeneratorConfig,
+)
 from eventum.api.routers.generator_configs.dependencies import (
     CheckConfigurationExistsDep,
     CheckConfigurationNotExistsDep,
@@ -37,11 +40,7 @@ from eventum.api.routers.generator_configs.file_tree import (
 from eventum.api.routers.generator_configs.models import (
     GeneratorDirExtendedInfo,
 )
-from eventum.api.routers.generator_configs.runtime_types import (
-    GeneratorConfig as StrictGeneratorConfig,
-)
 from eventum.api.utils.response_description import merge_responses
-from eventum.core.config import GeneratorConfig as LooseGeneratorConfig
 from eventum.utils.fs_utils import (
     calculate_dir_size,
     get_dir_last_modification_time,
@@ -150,7 +149,7 @@ async def get_generator_config(
         CheckConfigurationExistsDep,
     ],
     settings: SettingsDep,
-) -> LooseGeneratorConfig:
+) -> GeneratorConfig:
     path = (
         settings.path.generators_dir
         / name
@@ -165,7 +164,7 @@ async def get_generator_config(
             lambda: yaml.load(stream=raw_yaml, Loader=yaml.SafeLoader),
         )
 
-        return LooseGeneratorConfig.model_validate(config_data)
+        return GeneratorConfig.model_validate(config_data)
     except OSError as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -211,7 +210,7 @@ async def create_generator_config(
         CheckConfigurationNotExistsDep,
     ],
     config: Annotated[
-        StrictGeneratorConfig,
+        GeneratorConfig,
         Body(description='Generator configuration'),
     ],
     settings: SettingsDep,
@@ -263,7 +262,7 @@ async def update_generator_config(
         CheckConfigurationExistsDep,
     ],
     config: Annotated[
-        StrictGeneratorConfig,
+        GeneratorConfig,
         Body(description='Generator configuration'),
     ],
     settings: SettingsDep,
