@@ -251,13 +251,13 @@ def relax_model(
         root_fi = model_cls.model_fields['root']
         relaxed_root_type = _relax_type(root_fi.annotation)
 
-        relaxed_cls = create_model(
+        relaxed_root_cls = create_model(
             model_cls.__name__,
             __base__=RootModel,
             root=(relaxed_root_type, ...),
         )
-        _relaxed_model_cache[model_cls] = relaxed_cls
-        return relaxed_cls
+        _relaxed_model_cache[model_cls] = relaxed_root_cls
+        return relaxed_root_cls
 
     field_defs: dict[str, tuple[Any, FieldInfo]] = {}
 
