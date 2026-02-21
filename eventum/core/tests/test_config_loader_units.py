@@ -188,11 +188,7 @@ def test_strip_yaml_comments_removes_full_line_comments():
 
 
 def test_strip_yaml_comments_preserves_active_tokens():
-    content = (
-        'hosts:\n'
-        '  - ${params.host}\n'
-        '# - ${params.commented_host}\n'
-    )
+    content = 'hosts:\n  - ${params.host}\n# - ${params.commented_host}\n'
     result = _strip_yaml_comments(content)
     assert '${params.host}' in result
     assert '${params.commented_host}' not in result
@@ -205,8 +201,7 @@ def test_strip_yaml_comments_no_comments():
 
 def test_extract_params_ignores_commented_tokens():
     active_content = _strip_yaml_comments(
-        'host: ${params.host}\n'
-        '# backup: ${params.backup_host}\n'
+        'host: ${params.host}\n# backup: ${params.backup_host}\n'
     )
     result = extract_params(active_content)
     assert result == ['host']

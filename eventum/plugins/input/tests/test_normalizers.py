@@ -215,12 +215,8 @@ def test_normalize_versatile_daterange_none_values_now_start():
 
 
 def test_normalize_versatile_daterange_none_values_min_start():
-    enough_early_for_me = datetime(
-        1900, 1, 1, 0, 0, tzinfo=ZoneInfo('UTC')
-    )
-    enough_late_for_me = datetime(
-        2100, 1, 1, 0, 0, tzinfo=ZoneInfo('UTC')
-    )
+    enough_early_for_me = datetime(1900, 1, 1, 0, 0, tzinfo=ZoneInfo('UTC'))
+    enough_late_for_me = datetime(2100, 1, 1, 0, 0, tzinfo=ZoneInfo('UTC'))
 
     start, end = normalize_versatile_daterange(
         start=None, end=None, timezone=ZoneInfo('UTC'), none_start='min'

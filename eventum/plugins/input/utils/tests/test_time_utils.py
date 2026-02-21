@@ -31,9 +31,7 @@ def test_to_naive():
     result = to_naive(timestamp, timezone=ZoneInfo('Europe/Moscow'))
 
     assert result == datetime64(
-        timestamp.astimezone(ZoneInfo('Europe/Moscow')).replace(
-            tzinfo=None
-        )
+        timestamp.astimezone(ZoneInfo('Europe/Moscow')).replace(tzinfo=None)
     )
 
 

@@ -102,10 +102,12 @@ def test_get_config_not_found(client):
 def test_get_config_with_placeholders(client, tmp_settings):
     config_with_placeholders = {
         'input': [
-            {'cron': {
-                'expression': '* * * * *',
-                'count': '${params.count}',
-            }},
+            {
+                'cron': {
+                    'expression': '* * * * *',
+                    'count': '${params.count}',
+                }
+            },
         ],
         'event': {'replay': {'path': 'events.log'}},
         'output': [
@@ -147,10 +149,12 @@ def test_get_config_with_placeholders(client, tmp_settings):
 def test_create_config_with_placeholders(client, tmp_settings):
     config_with_placeholders = {
         'input': [
-            {'cron': {
-                'expression': '* * * * *',
-                'count': '${params.count}',
-            }},
+            {
+                'cron': {
+                    'expression': '* * * * *',
+                    'count': '${params.count}',
+                }
+            },
         ],
         'event': {'replay': {'path': 'events.log'}},
         'output': [
