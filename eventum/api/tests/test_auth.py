@@ -79,7 +79,8 @@ def test_me_with_session(client):
         '/auth/login', headers=_basic_auth_header('admin', 'secret')
     )
     session_cookie = login_resp.cookies.get('session_id')
-    response = client.get('/auth/me', cookies={'session_id': session_cookie})
+    client.cookies.set('session_id', session_cookie)
+    response = client.get('/auth/me')
     assert response.status_code == 200
     assert response.json() == 'admin'
 
@@ -104,7 +105,8 @@ def test_logout_clears_session(client):
     session_cookie = login_resp.cookies.get('session_id')
     assert get_session_user(session_cookie) == 'admin'
 
-    client.post('/auth/logout', cookies={'session_id': session_cookie})
+    client.cookies.set('session_id', session_cookie)
+    client.post('/auth/logout')
     assert get_session_user(session_cookie) is None
 
 
