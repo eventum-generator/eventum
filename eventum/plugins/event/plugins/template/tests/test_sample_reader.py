@@ -197,6 +197,51 @@ def test_load_nested_json_sample(nested_json_sample_config):
     )
 
 
+def test_csv_sample_named_access(csv_sample_config):
+    sample_reader = SamplesReader(csv_sample_config, BASE_PATH)
+    sample = sample_reader['csv_sample']
+
+    row = sample[0]
+    assert row.name == 'John'
+    assert row.email == 'john@example.com'
+    assert row.position == 'Manager'
+
+    # Index access still works alongside named access
+    assert row[0] == 'John'
+    assert row[1] == 'john@example.com'
+    assert row[2] == 'Manager'
+
+
+def test_json_sample_named_access(json_sample_config):
+    sample_reader = SamplesReader(json_sample_config, BASE_PATH)
+    sample = sample_reader['json_sample']
+
+    row = sample[0]
+    assert row.name == 'John'
+    assert row.email == 'john@example.com'
+    assert row.position == 'Manager'
+
+
+def test_csv_sample_without_header_no_named_access(
+    no_header_csv_sample_config,
+):
+    sample_reader = SamplesReader(no_header_csv_sample_config, BASE_PATH)
+    sample = sample_reader['csv_sample']
+
+    row = sample[0]
+    assert not hasattr(row, 'name')
+    assert row[0] == 'name'
+
+
+def test_items_sample_no_named_access(items_sample_config):
+    sample_reader = SamplesReader(items_sample_config, BASE_PATH)
+    sample = sample_reader['items_sample']
+
+    row = sample[0]
+    assert not hasattr(row, 'name')
+    assert row[0] == 'one'
+
+
 def test_missing_samples(items_sample_config):
     sample_reader = SamplesReader(items_sample_config, BASE_PATH)
     with pytest.raises(KeyError):

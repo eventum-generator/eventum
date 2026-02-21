@@ -2,6 +2,7 @@
 of different types.
 """
 
+from collections import namedtuple
 from collections.abc import Callable, Iterable
 from pathlib import Path
 from typing import Any
@@ -39,11 +40,23 @@ class Sample:
         """
         self._dataset = dataset
 
+        if dataset.headers:
+            self._row_type: type[tuple] | None = namedtuple(  # noqa: PYI024
+                'Row', dataset.headers, rename=True,
+            )
+        else:
+            self._row_type = None
+
     def __len__(self) -> int:
         return len(self._dataset)
 
     def __getitem__(self, key: Any) -> list | tuple:
-        return self._dataset[key]
+        result = self._dataset[key]
+
+        if self._row_type is not None and isinstance(result, tuple):
+            return self._row_type(*result)
+
+        return result
 
 
 def _load_items_sample(config: ItemsSampleConfig, _: Path) -> Sample:
