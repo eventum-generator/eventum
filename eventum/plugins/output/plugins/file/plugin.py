@@ -193,6 +193,9 @@ class FileOutputPlugin(
     async def _write(self, events: Sequence[str]) -> int:
         async with self._cleanup_lock:
             if not await self._is_operable():
+                if not self._file.closed:
+                    await self._file.close()
+
                 try:
                     self._file = await self._reopen_file()
                 except OSError as e:
