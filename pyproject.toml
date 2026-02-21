@@ -117,6 +117,9 @@ addopts = [
     "--cov=eventum",
     "--cov-report=html"
 ]
+filterwarnings = [
+    "ignore:Parsing dates involving a day of month:DeprecationWarning:dateparser",
+]
 
 [tool.coverage.report]
 omit = [
