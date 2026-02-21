@@ -43,8 +43,15 @@ class Sample:
         self._dataset = dataset
 
         if dataset.headers:
-            self._row_type: type[tuple] | None = namedtuple(  # noqa: PYI024
-                'Row', dataset.headers, rename=True,
+            headers = dataset.headers
+        else:
+            headers = [f'_{i}' for i in range(dataset.width)]
+
+        if headers:
+            self._row_type: type[tuple] | None = namedtuple(  # type: ignore[misc] # noqa: PYI024
+                'Row',
+                headers,
+                rename=True,
             )
         else:
             self._row_type = None
