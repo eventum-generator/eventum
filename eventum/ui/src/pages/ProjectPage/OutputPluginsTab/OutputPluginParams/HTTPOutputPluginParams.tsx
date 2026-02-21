@@ -101,7 +101,7 @@ export const HTTPOutputPluginParams: FC<HTTPOutputPluginParamsProps> = ({
         validationError="Invalid JSON"
         minRows={2}
         autosize
-        defaultValue={JSON.stringify(form.values.headers)}
+        defaultValue={JSON.stringify(form.values.headers, undefined, 2)}
         onChange={(value) => {
           if (!value) {
             form.setFieldValue('headers', undefined);

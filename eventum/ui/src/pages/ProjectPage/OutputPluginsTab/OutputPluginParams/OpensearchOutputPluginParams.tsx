@@ -52,7 +52,7 @@ export const OpensearchOutputPluginParams: FC<
         minRows={2}
         autosize
         required
-        defaultValue={JSON.stringify(form.values.hosts)}
+        defaultValue={JSON.stringify(form.values.hosts, undefined, 2)}
         onChange={(value) => {
           if (!value) {
             form.setFieldValue('hosts', undefined!);
