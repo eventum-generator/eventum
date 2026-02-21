@@ -101,7 +101,12 @@ def test_get_config_not_found(client):
 
 def test_get_config_with_placeholders(client, tmp_settings):
     config_with_placeholders = {
-        'input': [{'cron': {'expression': '* * * * *', 'count': 1}}],
+        'input': [
+            {'cron': {
+                'expression': '* * * * *',
+                'count': '${params.count}',
+            }},
+        ],
         'event': {'replay': {'path': 'events.log'}},
         'output': [
             {
@@ -110,7 +115,8 @@ def test_get_config_with_placeholders(client, tmp_settings):
                     'username': '${params.opensearch_user}',
                     'password': '${secrets.opensearch_password}',
                     'index': '${params.opensearch_index}',
-                    'verify': False,
+                    'verify': '${params.verify}',
+                    'connect_timeout': '${params.timeout}',
                     'formatter': {'format': 'json'},
                 },
             },
@@ -125,10 +131,56 @@ def test_get_config_with_placeholders(client, tmp_settings):
     response = client.get('/configs/placeholder_gen')
     assert response.status_code == 200
     data = response.json()
+
+    # String fields preserve placeholders
     output_config = data['output'][0]['opensearch']
     assert output_config['hosts'] == ['${params.opensearch_host}']
     assert output_config['username'] == '${params.opensearch_user}'
     assert output_config['password'] == '${secrets.opensearch_password}'
+
+    # Non-string fields (int, bool) also preserve placeholders
+    assert output_config['verify'] == '${params.verify}'
+    assert output_config['connect_timeout'] == '${params.timeout}'
+    assert data['input'][0]['cron']['count'] == '${params.count}'
+
+
+def test_create_config_with_placeholders(client, tmp_settings):
+    config_with_placeholders = {
+        'input': [
+            {'cron': {
+                'expression': '* * * * *',
+                'count': '${params.count}',
+            }},
+        ],
+        'event': {'replay': {'path': 'events.log'}},
+        'output': [
+            {
+                'opensearch': {
+                    'hosts': ['${params.opensearch_host}'],
+                    'username': '${params.opensearch_user}',
+                    'password': '${secrets.opensearch_password}',
+                    'index': '${params.opensearch_index}',
+                    'verify': '${params.verify}',
+                    'formatter': {'format': 'json'},
+                },
+            },
+        ],
+    }
+    response = client.post(
+        '/configs/placeholder_post',
+        json=config_with_placeholders,
+    )
+    assert response.status_code == 201
+
+    # Verify persisted config preserves placeholders
+    config_path = (
+        tmp_settings.path.generators_dir
+        / 'placeholder_post'
+        / tmp_settings.path.generator_config_filename
+    )
+    saved = yaml.safe_load(config_path.read_text())
+    assert saved['output'][0]['opensearch']['verify'] == '${params.verify}'
+    assert saved['input'][0]['cron']['count'] == '${params.count}'
 
 
 def test_get_config_invalid_yaml(client, tmp_settings):
