@@ -47,12 +47,25 @@ def test_weighted_choice():
     assert result in items
 
 
+def test_weighted_choice_dict():
+    mapping = {'apple': 0.1, 'banana': 0.2, 'cherry': 0.7}
+    result = rand.weighted_choice(mapping)
+    assert result in mapping
+
+
 def test_weighted_choices():
     items = ['red', 'green', 'blue']
     weights = [0.5, 0.3, 0.2]
     results = rand.weighted_choices(items, weights, 5)
     assert len(results) == 5
     assert all(item in items for item in results)
+
+
+def test_weighted_choices_dict():
+    mapping = {'red': 0.5, 'green': 0.3, 'blue': 0.2}
+    results = rand.weighted_choices(mapping, 5)
+    assert len(results) == 5
+    assert all(item in mapping for item in results)
 
 
 def test_chance():

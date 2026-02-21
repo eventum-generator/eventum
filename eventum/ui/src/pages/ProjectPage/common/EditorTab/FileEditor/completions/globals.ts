@@ -201,8 +201,8 @@ const namespaceCompletions: NamespaceMember = {
                 label: 'weighted_choice',
                 type: 'function',
                 detail:
-                  'Return random item from non empty sequence with `weights` probability',
-                info: '(items: Sequence[T], weights: Sequence[float]) -> T',
+                  'Return random item with weighted probability. Accepts (items, weights) or a dict {item: weight}',
+                info: '(items: Sequence[T] | dict[T, float], weights?: Sequence[float]) -> T',
               },
             },
             weighted_choices: {
@@ -210,8 +210,8 @@ const namespaceCompletions: NamespaceMember = {
                 label: 'weighted_choices',
                 type: 'function',
                 detail:
-                  'Return `n` random items from non empty sequence with `weights` probability',
-                info: '(items: Sequence[T], weights: Sequence[float], n: int) -> list[T]',
+                  'Return `n` random items with weighted probability. Accepts (items, weights, n) or (dict, n)',
+                info: '(items: Sequence[T] | dict[T, float], weights: Sequence[float] | int, n?: int) -> list[T]',
               },
             },
             chance: {

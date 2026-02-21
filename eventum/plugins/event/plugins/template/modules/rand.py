@@ -4,7 +4,7 @@ import datetime as dt
 import ipaddress
 import random
 import uuid
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from string import (
     ascii_letters,
     ascii_lowercase,
@@ -12,7 +12,7 @@ from string import (
     digits,
     punctuation,
 )
-from typing import TypeVar
+from typing import TypeVar, overload
 
 T = TypeVar('T')
 
@@ -37,22 +37,81 @@ def choices(items: Sequence[T], n: int) -> list[T]:
     return random.choices(items, k=n)
 
 
-def weighted_choice(items: Sequence[T], weights: Sequence[float]) -> T:
+@overload
+def weighted_choice(
+    items: Mapping[T, float],
+) -> T: ...
+
+
+@overload
+def weighted_choice(
+    items: Sequence[T],
+    weights: Sequence[float],
+) -> T: ...
+
+
+def weighted_choice(
+    items: Sequence[T] | Mapping[T, float],
+    weights: Sequence[float] | None = None,
+) -> T:
     """Return random item from non empty sequence with `weights`
     probability.
+
+    Also accepts a dict mapping items to their weights::
+
+        weighted_choice({'a': 70, 'b': 20, 'c': 10})
     """
+    if isinstance(items, Mapping):
+        return random.choices(
+            list(items.keys()),
+            weights=list(items.values()),
+            k=1,
+        ).pop()
     return random.choices(items, weights=weights, k=1).pop()
 
 
+@overload
+def weighted_choices(
+    items: Mapping[T, float],
+    weights: int,
+) -> list[T]: ...
+
+
+@overload
 def weighted_choices(
     items: Sequence[T],
     weights: Sequence[float],
-    n: int,
+    n: int = ...,
+) -> list[T]: ...
+
+
+def weighted_choices(
+    items: Sequence[T] | Mapping[T, float],
+    weights: Sequence[float] | int,
+    n: int | None = None,
 ) -> list[T]:
     """Return `n` random items from non empty sequence with `weights`
     probability.
+
+    Also accepts a dict mapping items to their weights, with
+    ``n`` as the second argument::
+
+        weighted_choices({'a': 70, 'b': 20, 'c': 10}, 5)
     """
-    return random.choices(items, weights=weights, k=n)
+    if isinstance(items, Mapping) and isinstance(weights, int):
+        return random.choices(
+            list(items.keys()),
+            weights=list(items.values()),
+            k=weights,
+        )
+    if (
+        not isinstance(items, Mapping)
+        and not isinstance(weights, int)
+        and n is not None
+    ):
+        return random.choices(items, weights=weights, k=n)
+    msg = 'expected (dict, n) or (items, weights, n)'
+    raise TypeError(msg)
 
 
 def chance(prob: float) -> bool:
