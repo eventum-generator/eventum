@@ -821,3 +821,296 @@ Template params (via {{ params.* }}):
   - domain              (templates/4624-logon-success.json.jinja, +8 more)
 ```
 This would make generator setup self-documenting and could be combined with proposal #27 to catch mismatches before runtime.
+
+---
+
+## 32. Bug: Stdout output plugin crashes with `writelines` — `NonFileStreamWriter` incompatibility
+
+**Context**: Building and validating the `network-checkpoint` generator (Check Point Security Gateway, 11 templates, 8 software blades).
+
+**Problem**: The stdout output plugin crashes immediately on first write with:
+
+```
+AttributeError: 'NonFileStreamWriter' object has no attribute 'writelines'
+```
+
+The plugin's `_write()` method at `eventum/plugins/output/plugins/stdout/plugin.py:75` calls `self._writer.writelines(lines)`, but `self._writer` is a `NonFileStreamWriter` from the `aioconsole` library (returned by `get_standard_streams()`), which only implements `write()` and `drain()` — not `writelines()`.
+
+This means **stdout output is completely broken** for any generator. The entire network-checkpoint validation had to be done by switching to the `file` output plugin:
+
+```yaml
+# Cannot use:
+output:
+  - stdout:
+      formatter:
+        format: json
+
+# Workaround:
+output:
+  - file:
+      path: /tmp/test-output.jsonl
+      formatter:
+        format: json
+```
+
+**Fix**: Replace `self._writer.writelines(lines)` with a loop:
+
+```python
+for line in lines:
+    self._writer.write(line)
+```
+
+Or concatenate into a single write: `self._writer.write(b''.join(lines))`.
+
+This is a one-line fix that unblocks the most common testing workflow.
+
+---
+
+## 33. Samples: Rows are plain tuples — no named field access despite headers/keys
+
+**Context**: Building the `network-checkpoint` generator with 8 sample data files (CSV with headers, JSON with object keys).
+
+**Problem**: Sample data loaded via `tablib.Dataset` returns rows as **plain Python tuples**, not dicts or named tuples. This means field names from CSV headers and JSON object keys are completely inaccessible at render time. All field access must use positional indices.
+
+This was the single most time-consuming bug during network-checkpoint development — all 11 templates were initially written with named attribute access (the natural expectation), and every one had to be rewritten with positional indices after discovering that `tablib.Dataset[i]` returns `tuple`.
+
+**Expected** (how every template was first written):
+
+```jinja2
+{%- set host = samples.internal_hosts | random -%}
+{%- set src_ip = host.ip -%}
+{%- set hostname = host.hostname -%}
+{%- set subnet = host.subnet -%}
+```
+
+**Actual** (what works — positional index only):
+
+```jinja2
+{#- internal_hosts.csv: 0=ip, 1=hostname, 2=mac, 3=subnet, 4=role -#}
+{%- set host = samples.internal_hosts | random -%}
+{%- set src_ip = host[0] -%}
+{%- set hostname = host[1] -%}
+{%- set subnet = host[3] -%}
+```
+
+The consequences are severe:
+
+1. **Every template needs column-index comments** — Each template must document the column layout as a comment (`0=ip, 1=hostname, 2=mac, ...`) so future editors can understand what `host[3]` means. In network-checkpoint, this is 8 different index maps across 11 templates.
+
+2. **Jinja2's `selectattr` filter is unusable** — `selectattr("subnet", "equalto", "dmz")` fails because tuples have no named attributes. The workaround is a verbose manual loop:
+
+   ```jinja2
+   {%- set dmz_hosts = [] -%}
+   {%- for h in samples.internal_hosts if h[3] == "dmz" -%}
+     {%- do dmz_hosts.append(h) -%}
+   {%- endfor -%}
+   ```
+
+3. **Fragile to schema changes** — Adding a column to a CSV shifts all subsequent indices. If `internal_hosts.csv` gains a new `os` column at position 2, every template using `host[2]` (mac), `host[3]` (subnet), `host[4]` (role) must be updated.
+
+4. **Multiple existing proposals assume named access works** — Proposals #5 (flat dict), #18 (`selectattr` with multiple conditions), #20 (pre-indexed grouping), and #23 (`weighted_choice_by` with attribute name) all assume rows support `row.fieldname`. None of them can be implemented until this fundamental issue is fixed.
+
+**Proposal**: Change `sample_reader.py` to return rows with named field access. Options:
+
+**Option A** — Use `tablib.Dataset.dict` to iterate as dicts:
+
+```python
+class Sample:
+    def __getitem__(self, key):
+        row = self._dataset[key]
+        if self._dataset.headers:
+            return dict(zip(self._dataset.headers, row))
+        return row
+```
+
+**Option B** — Wrap rows in `namedtuple` (preserves both index and named access):
+
+```python
+from collections import namedtuple
+
+class Sample:
+    def __init__(self, dataset):
+        self._dataset = dataset
+        if dataset.headers:
+            self._RowType = namedtuple('Row', dataset.headers)
+        else:
+            self._RowType = None
+
+    def __getitem__(self, key):
+        row = self._dataset[key]
+        if self._RowType:
+            return self._RowType(*row)
+        return row
+```
+
+Option B is preferred because it preserves backward compatibility (index access `row[0]` still works) while adding named access (`row.ip`). It also makes `selectattr` and `| weighted_random` proposals viable.
+
+---
+
+## 34. Config: `${params.*}` tokens extracted from YAML comments cause false-positive missing-params errors
+
+**Context**: Building the `network-checkpoint` generator with a commented-out OpenSearch output section.
+
+**Problem**: The config loader's token extraction (`config_loader.py:20`) uses a regex `r'\${\s*?(\S*?)\s*?}'` that scans the **entire raw YAML file content**, including comments. Any `${params.*}` token inside a YAML comment is treated as a required parameter, causing a startup failure when the param isn't provided.
+
+This is the natural pattern — you want to include a ready-to-use OpenSearch config block in comments so users can uncomment it:
+
+```yaml
+output:
+  - stdout:
+      formatter:
+        format: json
+
+  # Production output — uncomment and configure:
+  # - opensearch:
+  #     hosts:
+  #       - ${params.opensearch_host}
+  #     username: ${params.opensearch_user}
+  #     password: ${secrets.opensearch_password}
+  #     index: ${params.opensearch_index}
+```
+
+This fails at startup with:
+
+```
+Parameters {'opensearch_host', 'opensearch_index', 'opensearch_user'} are missing
+```
+
+The workaround is to remove all `${...}` syntax from comments and replace with plain example values:
+
+```yaml
+  # - opensearch:
+  #     hosts:
+  #       - https://localhost:9200
+  #     username: admin
+  #     index: logs-checkpoint.firewall-default
+```
+
+This defeats the purpose of the commented template — users can't simply uncomment it and provide params; they have to rewrite the values.
+
+**Proposal**: Strip YAML comments before token extraction. Add a preprocessing step in `config_loader.py`:
+
+```python
+def _strip_yaml_comments(content: str) -> str:
+    """Remove YAML comments before token extraction."""
+    lines = []
+    for line in content.splitlines():
+        # Find the first # that's not inside a quoted string
+        stripped = line.lstrip()
+        if stripped.startswith('#'):
+            lines.append('')  # full-line comment → empty
+        else:
+            lines.append(line)
+    return '\n'.join(lines)
+```
+
+Then in `load_config()`:
+
+```python
+content = file_path.read_text()
+content_without_comments = _strip_yaml_comments(content)
+extracted_params = extract_params(content_without_comments)
+# ... but still substitute in the original content for YAML parsing
+```
+
+This preserves the current substitution behavior for active config values while ignoring tokens in comments. A more robust implementation could use a proper YAML-aware comment stripper, but even the simple line-level approach covers the primary use case (full-line `# - opensearch:` comment blocks).
+
+---
+
+## 35. Samples: JSON sample loading silently coerces numeric types to match first-row schema
+
+**Context**: Building the `network-checkpoint` generator with JSON samples containing mixed numeric types.
+
+**Problem**: When `tablib` loads a JSON array into a `Dataset`, it infers column types from the data. If a JSON field is an integer in some rows and absent/null in others, the type handling is inconsistent. More critically, because rows are returned as tuples (see proposal #33), there's no way to verify at load time that a field the template expects as an integer is actually loaded as one.
+
+In the network-checkpoint generator, `ips_signatures.json` has a `severity_num` field that's an integer (1–4) used directly in JSON output:
+
+```json
+[["asm_dynamic_prop_SQL_FINGERPRINT_A", "SQL Injection via HTTP Request", "IPS", "SQL Injection", "...", "High", 3, "4", "2", "CVE-2024-23897", "http", 15]]
+```
+
+When accessed as `sig[6]`, the template outputs `"severity": 3` (integer). But if `tablib` coerces it to a string during loading, the output becomes `"severity": "3"` — invalid for ECS which expects a numeric type. This type mismatch is invisible until you validate the JSON output against an ECS schema.
+
+**Proposal**: Add type-preservation guarantees to JSON sample loading:
+
+1. When loading JSON samples, preserve the original JSON types (int, float, string, bool, null) rather than letting tablib normalize them
+2. Optionally, support a `schema` field in sample config that declares expected column types:
+
+```yaml
+samples:
+  ips_signatures:
+    type: json
+    source: samples/ips_signatures.json
+    schema:
+      severity_num: int
+      weight: int
+      confidence_level: str
+```
+
+This would catch type mismatches at load time (generator startup) rather than at render time (first event), and would provide clear error messages like `"Sample 'ips_signatures' column 'severity_num': expected int, got str at row 3"`.
+
+---
+
+## 36. Template API: No `| tojson_value` filter for conditional JSON field emission
+
+**Context**: Building 11 Check Point templates where many JSON fields are conditionally included based on event type.
+
+**Problem**: When a JSON field should only appear under certain conditions, managing trailing commas around `{% if %}` blocks is error-prone. The existing `| tojson` filter serializes a Python value as JSON, but there's no filter that emits a complete `"key": value` pair conditionally with proper comma handling.
+
+In the network-checkpoint generator, the IPS templates conditionally include `industry_reference` (CVE ID) and the VPN template conditionally includes `ike` and `ike_ids` fields:
+
+```jinja2
+    "version": "5"{% if sig[9] %},
+    "industry_reference": "{{ sig[9] }}"{% endif %}
+```
+
+The comma must go **before** the conditional field when it's the last field, but **after** the preceding field when it's a middle field. Getting this wrong produces invalid JSON that only fails at runtime. Across 11 templates with 3–5 conditional fields each, this is ~40 comma-placement decisions.
+
+Note: Proposal #15 proposes a `format: json` post-processing mode that strips trailing commas. This proposal addresses a different layer — providing a template-level tool to avoid generating the bad commas in the first place, which is useful even without post-processing.
+
+**Proposal**: Add a `| json_field(key)` Jinja2 filter that emits a properly formatted JSON key-value pair (or nothing if the value is None/empty), designed to be used in comma-safe patterns:
+
+```jinja2
+{# Emit key-value pair only if value is truthy, with leading comma #}
+{{ sig[9] | json_field("industry_reference", comma="before") }}
+```
+
+Would output either `, "industry_reference": "CVE-2024-23897"` or empty string.
+
+Alternatively, a simpler approach: add a `| strip_trailing_commas` filter that can be applied to the entire template output:
+
+```jinja2
+{{ output | strip_trailing_commas }}
+```
+
+Implementation: register a filter that removes commas before `}` or `]` in JSON strings — a ~5-line regex.
+
+---
+
+## 37. Template API: `module.rand.string.hex()` inconsistent bit width — no fixed-byte hex generator
+
+**Context**: Building Check Point `loguid` fields that require exact hex segment lengths.
+
+**Problem**: `module.rand.string.hex(n)` generates `n` random hex characters (nibbles), not `n` bytes. This is confusing when the goal is to produce values that match a specific byte width. Check Point's `loguid` format is `{0x<ts_hex>,0x<1byte>,0x<4bytes>,0xc<3.5bytes>}`, which maps to `hex(8), hex(1), hex(8), hex(7)` character counts — not byte counts.
+
+The current API is:
+
+```jinja2
+{%- set loguid = "{0x%s,0x%s,0x%s,0x%s}" | format(
+    ts_hex,
+    module.rand.string.hex(1),    ← 1 hex char = 0.5 bytes (unusual)
+    module.rand.string.hex(8),    ← 8 hex chars = 4 bytes
+    "c" ~ module.rand.string.hex(7)  ← 7 hex chars = 3.5 bytes
+) -%}
+```
+
+Using `hex(1)` to produce a single hex nibble is counterintuitive. In most hex-generation contexts (UUIDs, hashes, tokens), you think in bytes. A `hex_bytes(n)` function that produces `2*n` hex characters (representing `n` random bytes) would be more natural for most use cases.
+
+**Proposal**: Add `module.rand.string.hex_bytes(n)` that generates `n` random bytes as `2*n` hex characters:
+
+```python
+def hex_bytes(self, count: int) -> str:
+    return secrets.token_hex(count)  # n bytes → 2n hex chars
+```
+
+This provides a byte-oriented API alongside the existing nibble-oriented `hex()`. The existing `hex(n)` would remain unchanged for backward compatibility. For the common case of generating hash-like values (MD5 = 16 bytes, SHA1 = 20 bytes, SHA256 = 32 bytes), `hex_bytes` is more natural than counting hex character widths.
