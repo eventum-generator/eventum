@@ -2,6 +2,21 @@
 
 All notable changes to this project will be documented in this file.
 
+## 2.0.2 (2026-02-21)
+
+### 🐛 Bug Fixes
+
+- Fix generator config API GET endpoint returning validation error when config contains `${params.*}` or `${secrets.*}` placeholders — use loose validation for reading and strict validation for creating/updating
+
+### 🧪 Testing
+
+- Add test for reading generator configs with placeholders via API
+
+### 📝 Other Changes
+
+- Update GitHub URLs in README and pyproject.toml to match new organization
+- Improve release script with detailed usage instructions and phase handling
+
 ## 2.0.1 (2026-02-21)
 
 ### 🐛 Bug Fixes

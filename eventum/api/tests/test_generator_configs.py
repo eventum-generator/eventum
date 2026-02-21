@@ -1,8 +1,7 @@
 """Tests for generator configs API router."""
 
-import yaml
-
 import pytest
+import yaml
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
@@ -18,7 +17,7 @@ from eventum.app.models.settings import Settings
 from eventum.core.parameters import GenerationParameters
 
 
-@pytest.fixture()
+@pytest.fixture
 def tmp_settings(tmp_path):
     generators_dir = tmp_path / 'generators'
     generators_dir.mkdir()
@@ -37,12 +36,12 @@ def tmp_settings(tmp_path):
     )
 
 
-@pytest.fixture()
+@pytest.fixture
 def manager():
     return GeneratorManager()
 
 
-@pytest.fixture()
+@pytest.fixture
 def client(tmp_settings, manager):
     app = FastAPI()
     app.state.settings = tmp_settings
@@ -98,6 +97,38 @@ def test_get_config_success(client, tmp_settings):
 def test_get_config_not_found(client):
     response = client.get('/configs/nonexistent')
     assert response.status_code == 404
+
+
+def test_get_config_with_placeholders(client, tmp_settings):
+    config_with_placeholders = {
+        'input': [{'cron': {'expression': '* * * * *', 'count': 1}}],
+        'event': {'replay': {'path': 'events.log'}},
+        'output': [
+            {
+                'opensearch': {
+                    'hosts': ['${params.opensearch_host}'],
+                    'username': '${params.opensearch_user}',
+                    'password': '${secrets.opensearch_password}',
+                    'index': '${params.opensearch_index}',
+                    'verify': False,
+                    'formatter': {'format': 'json'},
+                },
+            },
+        ],
+    }
+    gen_dir = tmp_settings.path.generators_dir / 'placeholder_gen'
+    gen_dir.mkdir()
+    config_path = gen_dir / tmp_settings.path.generator_config_filename
+    config_path.write_text(
+        yaml.dump(config_with_placeholders, sort_keys=False)
+    )
+    response = client.get('/configs/placeholder_gen')
+    assert response.status_code == 200
+    data = response.json()
+    output_config = data['output'][0]['opensearch']
+    assert output_config['hosts'] == ['${params.opensearch_host}']
+    assert output_config['username'] == '${params.opensearch_user}'
+    assert output_config['password'] == '${secrets.opensearch_password}'
 
 
 def test_get_config_invalid_yaml(client, tmp_settings):
