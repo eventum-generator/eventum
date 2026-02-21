@@ -87,7 +87,7 @@ export type TemplateConfig = z.infer<typeof TemplateConfigSchema>;
 
 const TemplateEventPluginConfigCommonFieldsSchema =
   BaseEventPluginConfigSchema.extend({
-    params: z.object().optional(),
+    params: z.record(z.string(), z.any()).optional(),
     samples: z.record(z.string(), SampleConfigSchema).optional(),
   });
 
