@@ -2,9 +2,9 @@
 
 from datetime import datetime
 from typing import Any
+from zoneinfo import available_timezones
 
 from pydantic import BaseModel, Field, field_validator
-from pytz import all_timezones_set
 
 from eventum.plugins.input.fields import VersatileDatetime
 from eventum.plugins.input.normalizers import NonePoint
@@ -188,7 +188,7 @@ class VersatileDatetimeParametersBody(BaseModel, frozen=True, extra='forbid'):
     @field_validator('timezone')
     @classmethod
     def validate_timezone(cls, v: str) -> str:  # noqa: D102
-        if v in all_timezones_set:
+        if v in available_timezones():
             return v
 
         msg = f'Unknown time zone `{v}`'

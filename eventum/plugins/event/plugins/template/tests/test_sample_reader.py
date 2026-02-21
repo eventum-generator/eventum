@@ -119,6 +119,18 @@ def nested_json_sample_config():
     }
 
 
+@pytest.fixture
+def heterogeneous_json_sample_config():
+    return {
+        'json_sample': SampleConfig(
+            root=JSONSampleConfig(
+                type=SampleType.JSON,
+                source=BASE_PATH / 'static/heterogeneous_sample.json',
+            )
+        )
+    }
+
+
 def test_load_items_sample(items_sample_config):
     sample_reader = SamplesReader(items_sample_config, BASE_PATH)
     sample = sample_reader['items_sample']
@@ -195,6 +207,73 @@ def test_load_nested_json_sample(nested_json_sample_config):
         ['jane@example.com', 'jane.public@example.com'],
         'HR',
     )
+
+
+def test_csv_sample_named_access(csv_sample_config):
+    sample_reader = SamplesReader(csv_sample_config, BASE_PATH)
+    sample = sample_reader['csv_sample']
+
+    row = sample[0]
+    assert row.name == 'John'
+    assert row.email == 'john@example.com'
+    assert row.position == 'Manager'
+
+    # Index access still works alongside named access
+    assert row[0] == 'John'
+    assert row[1] == 'john@example.com'
+    assert row[2] == 'Manager'
+
+
+def test_json_sample_named_access(json_sample_config):
+    sample_reader = SamplesReader(json_sample_config, BASE_PATH)
+    sample = sample_reader['json_sample']
+
+    row = sample[0]
+    assert row.name == 'John'
+    assert row.email == 'john@example.com'
+    assert row.position == 'Manager'
+
+    # Index access still works alongside named access
+    assert row[0] == 'John'
+    assert row[1] == 'john@example.com'
+    assert row[2] == 'Manager'
+
+
+def test_csv_sample_without_header_numeric_access(
+    no_header_csv_sample_config,
+):
+    sample_reader = SamplesReader(no_header_csv_sample_config, BASE_PATH)
+    sample = sample_reader['csv_sample']
+
+    row = sample[0]
+    assert row._0 == 'name'
+    assert row._1 == 'email'
+    assert row._2 == 'position'
+
+    # Index access still works alongside numeric named access
+    assert row[0] == 'name'
+    assert row[1] == 'email'
+    assert row[2] == 'position'
+
+
+def test_items_sample_numeric_access(items_sample_config):
+    sample_reader = SamplesReader(items_sample_config, BASE_PATH)
+    sample = sample_reader['items_sample']
+
+    row = sample[0]
+    assert row._0 == 'one'
+    assert row._1 == 'two'
+
+    # Index access still works alongside numeric named access
+    assert row[0] == 'one'
+    assert row[1] == 'two'
+
+
+def test_load_heterogeneous_json_sample_raises(
+    heterogeneous_json_sample_config,
+):
+    with pytest.raises(SampleLoadError, match='inconsistent keys'):
+        SamplesReader(heterogeneous_json_sample_config, BASE_PATH)
 
 
 def test_missing_samples(items_sample_config):

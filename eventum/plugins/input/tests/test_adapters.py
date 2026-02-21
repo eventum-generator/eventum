@@ -1,6 +1,6 @@
 import numpy as np
 import pytest
-from pytz import timezone
+from zoneinfo import ZoneInfo
 
 from eventum.plugins.input.adapters import (
     AsyncIdentifiedTimestampsSyncAdapter,
@@ -20,7 +20,7 @@ def plugin():
             expression='* * * * * *',
             count=1,
         ),
-        params={'id': 1437, 'timezone': timezone('UTC')},
+        params={'id': 1437, 'timezone': ZoneInfo('UTC')},
     )
 
 

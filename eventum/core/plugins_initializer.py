@@ -3,10 +3,10 @@
 from collections.abc import Iterable
 from dataclasses import dataclass
 from typing import Literal, assert_never, overload
+from zoneinfo import ZoneInfo
 
 import structlog
 from pydantic import ValidationError
-from pytz import timezone
 
 from eventum.core.config import PluginConfig, PluginConfigFields
 from eventum.core.parameters import GeneratorParameters
@@ -235,7 +235,7 @@ def init_plugins(
                 config=plugin_conf,
                 params={
                     'id': plugin_id,
-                    'timezone': timezone(params.timezone),
+                    'timezone': ZoneInfo(params.timezone),
                     'base_path': plugins_base_path,
                 },
             ),

@@ -3,9 +3,9 @@
 from abc import ABC
 from datetime import datetime
 from pathlib import Path
+from zoneinfo import ZoneInfo
 
 from pydantic import BaseModel, Field, computed_field
-from pytz import timezone
 
 
 class GeneratorStatus(BaseModel, frozen=True, extra='forbid'):
@@ -115,7 +115,7 @@ class GeneratorStats(BaseModel, frozen=True, extra='forbid'):
     @property
     def uptime(self) -> float:
         """Number of seconds since generator start time."""
-        now = datetime.now().astimezone(tz=timezone('UTC'))
+        now = datetime.now().astimezone(tz=ZoneInfo('UTC'))
         delta_start = now - self.start_time
 
         return delta_start.total_seconds()

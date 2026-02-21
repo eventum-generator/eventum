@@ -3,11 +3,11 @@
 from abc import abstractmethod
 from collections.abc import Callable, Iterator
 from typing import Any, Required, TypeVar, override
+from zoneinfo import ZoneInfo
 
 from numpy import datetime64
 from numpy.typing import NDArray
 from pydantic import RootModel
-from pytz import BaseTzInfo
 
 from eventum.plugins.base.plugin import Plugin, PluginParams
 from eventum.plugins.input.base.config import InputPluginConfig
@@ -19,12 +19,12 @@ class InputPluginParams(PluginParams):
 
     Attributes
     ----------
-    timezone : BaseTzInfo
+    timezone : ZoneInfo
         Timezone that is used for generated timestamps.
 
     """
 
-    timezone: Required[BaseTzInfo]
+    timezone: Required[ZoneInfo]
 
 
 ConfigT = TypeVar(

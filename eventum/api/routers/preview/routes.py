@@ -4,7 +4,7 @@ import asyncio  # noqa: I001
 from typing import TYPE_CHECKING, Annotated, Any
 
 from fastapi import APIRouter, Body, HTTPException, Query, status
-from pytz import timezone
+from zoneinfo import ZoneInfo
 
 from eventum.api.dependencies.app import SettingsDep
 from eventum.api.routers.generator_configs.dependencies import (
@@ -418,7 +418,7 @@ async def normalize_versatile_datetime(
     try:
         return norm_versatile_datetime(
             value=body.value,
-            timezone=timezone(body.timezone),
+            timezone=ZoneInfo(body.timezone),
             relative_base=body.relative_base,
             none_point=body.none_point,
         ).isoformat()

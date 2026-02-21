@@ -1,7 +1,7 @@
 import time
 
 import pytest
-from pytz import timezone
+from zoneinfo import ZoneInfo
 
 from eventum.plugins.input.adapters import IdentifiedTimestampsPluginAdapter
 from eventum.plugins.input.batcher import TimestampsBatcher
@@ -17,7 +17,7 @@ def instant_source():
     return IdentifiedTimestampsPluginAdapter(
         StaticInputPlugin(
             config=StaticInputPluginConfig(count=1000),
-            params={'id': 1, 'timezone': timezone('UTC')},
+            params={'id': 1, 'timezone': ZoneInfo('UTC')},
         )
     )
 
@@ -29,7 +29,7 @@ def delayed_source():
             config=TimerInputPluginConfig(
                 start='now', seconds=0.5, count=1000, repeat=1
             ),
-            params={'id': 1, 'timezone': timezone('UTC')},
+            params={'id': 1, 'timezone': ZoneInfo('UTC')},
         )
     )
 
@@ -39,7 +39,7 @@ def test_scheduler(instant_source):
         source=TimestampsBatcher(
             source=instant_source, batch_size=100, batch_delay=None
         ),
-        timezone=timezone('UTC'),
+        timezone=ZoneInfo('UTC'),
     )
 
     t1 = time.time()
@@ -55,7 +55,7 @@ def test_scheduler_delay(delayed_source):
         source=TimestampsBatcher(
             source=delayed_source, batch_size=100, batch_delay=None
         ),
-        timezone=timezone('UTC'),
+        timezone=ZoneInfo('UTC'),
     )
 
     t1 = time.time()
@@ -72,7 +72,7 @@ async def test_async_scheduler(instant_source):
         source=TimestampsBatcher(
             source=instant_source, batch_size=100, batch_delay=None
         ),
-        timezone=timezone('UTC'),
+        timezone=ZoneInfo('UTC'),
     )
 
     t1 = time.time()
@@ -91,7 +91,7 @@ async def test_async_scheduler_delay(delayed_source):
         source=TimestampsBatcher(
             source=delayed_source, batch_size=100, batch_delay=None
         ),
-        timezone=timezone('UTC'),
+        timezone=ZoneInfo('UTC'),
     )
 
     t1 = time.time()

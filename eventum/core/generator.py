@@ -4,9 +4,9 @@ import os
 import time
 from datetime import datetime
 from threading import Event, Lock, Thread, get_native_id
+from zoneinfo import ZoneInfo
 
 import structlog
-from pytz import timezone
 
 from eventum.core.config import GeneratorConfig
 from eventum.core.config_loader import ConfigurationLoadError, load
@@ -133,7 +133,7 @@ class Generator:
             'Starting execution',
             parameters=self._params.model_dump_json(),
         )
-        self._start_time = datetime.now().astimezone(tz=timezone('UTC'))
+        self._start_time = datetime.now().astimezone(tz=ZoneInfo('UTC'))
         self._initialized_event.set()
         try:
             self._executor.execute()

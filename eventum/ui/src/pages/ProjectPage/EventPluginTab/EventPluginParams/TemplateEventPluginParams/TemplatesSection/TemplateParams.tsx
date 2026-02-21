@@ -100,7 +100,10 @@ export const TemplateParams: FC<TemplateParamsProps> = ({
               />
             }
             {...form.getInputProps('initial', { type: 'checkbox' })}
-            checked={(form.values as TemplateConfigForFSMMode).initial ?? false}
+            checked={
+              ((form.values as TemplateConfigForFSMMode).initial ?? false) ===
+              true
+            }
           />
           <Stack gap="2px">
             <Textarea

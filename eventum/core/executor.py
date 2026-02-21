@@ -4,12 +4,12 @@ import asyncio
 from collections.abc import Sequence
 from datetime import datetime
 from typing import TypedDict, cast
+from zoneinfo import ZoneInfo
 
 import janus
 import structlog
 import uvloop
 from aiostream import stream
-from pytz import timezone
 
 from eventum.core.parameters import GeneratorParameters
 from eventum.exceptions import ContextualError
@@ -88,7 +88,7 @@ class Executor:
         self._event = event
         self._output = list(output)
         self._params = params
-        self._timezone = timezone(self._params.timezone)
+        self._timezone = ZoneInfo(self._params.timezone)
 
         if not self._input:
             msg = 'At least one input plugin must be provided'
@@ -445,7 +445,7 @@ class Executor:
                 strict=False,
             ):
                 params['tags'] = self._input_tags[id]
-                params['timestamp'] = self._timezone.localize(timestamp)
+                params['timestamp'] = timestamp.replace(tzinfo=self._timezone)
 
                 try:
                     events.extend(self._event.produce(params))

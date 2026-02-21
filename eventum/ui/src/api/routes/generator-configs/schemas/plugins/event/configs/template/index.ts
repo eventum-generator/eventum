@@ -1,5 +1,6 @@
 import z from 'zod';
 
+import { orPlaceholder } from '../../../../placeholder';
 import { BaseEventPluginConfigSchema } from '../../base-config';
 import { ConditionSchema } from './template-fsm-conditions';
 
@@ -26,7 +27,7 @@ export type ItemsSampleConfig = z.infer<typeof ItemsSampleConfigSchema>;
 
 const CSVSampleConfigSchema = z.object({
   type: z.literal(SampleType.CSV),
-  header: z.boolean().optional(),
+  header: orPlaceholder(z.boolean()).optional(),
   delimiter: z.string().min(1).optional(),
   source: z.string().endsWith('.csv'),
 });
@@ -54,7 +55,7 @@ export type TemplateConfigForGeneralModes = z.infer<
 
 export const TemplateConfigForChanceModeSchema =
   TemplateConfigForGeneralModesSchema.extend({
-    chance: z.number().gt(0),
+    chance: orPlaceholder(z.number().gt(0)),
   });
 export type TemplateConfigForChanceMode = z.infer<
   typeof TemplateConfigForChanceModeSchema
@@ -71,7 +72,7 @@ export type TemplateTransitions = z.infer<typeof TemplateTransitionsSchema>;
 export const TemplateConfigForFSMModeSchema =
   TemplateConfigForGeneralModesSchema.extend({
     transitions: TemplateTransitionsSchema.optional(),
-    initial: z.boolean().optional(),
+    initial: orPlaceholder(z.boolean()).optional(),
   });
 export type TemplateConfigForFSMMode = z.infer<
   typeof TemplateConfigForFSMModeSchema
@@ -86,7 +87,7 @@ export type TemplateConfig = z.infer<typeof TemplateConfigSchema>;
 
 const TemplateEventPluginConfigCommonFieldsSchema =
   BaseEventPluginConfigSchema.extend({
-    params: z.object().optional(),
+    params: z.record(z.string(), z.any()).optional(),
     samples: z.record(z.string(), SampleConfigSchema).optional(),
   });
 

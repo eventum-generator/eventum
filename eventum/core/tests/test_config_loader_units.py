@@ -8,6 +8,7 @@ from eventum.core.config_loader import (
     _extract_tokens,
     _prepare_params,
     _prepare_secrets,
+    _strip_yaml_comments,
     _substitute_tokens,
     extract_params,
     extract_secrets,
@@ -166,3 +167,41 @@ def test_substitute_tokens_malformed_raises():
             secrets={},
             content='${params.x',
         )
+
+
+# --- _strip_yaml_comments ---
+
+
+def test_strip_yaml_comments_removes_full_line_comments():
+    content = (
+        'output:\n'
+        '  - stdout:\n'
+        '      formatter:\n'
+        '        format: json\n'
+        '  # - opensearch:\n'
+        '  #     hosts:\n'
+        '  #       - ${params.opensearch_host}\n'
+    )
+    result = _strip_yaml_comments(content)
+    assert '${params.opensearch_host}' not in result
+    assert 'stdout' in result
+
+
+def test_strip_yaml_comments_preserves_active_tokens():
+    content = 'hosts:\n  - ${params.host}\n# - ${params.commented_host}\n'
+    result = _strip_yaml_comments(content)
+    assert '${params.host}' in result
+    assert '${params.commented_host}' not in result
+
+
+def test_strip_yaml_comments_no_comments():
+    content = 'key: ${params.value}\n'
+    assert _strip_yaml_comments(content) == content.rstrip('\n')
+
+
+def test_extract_params_ignores_commented_tokens():
+    active_content = _strip_yaml_comments(
+        'host: ${params.host}\n# backup: ${params.backup_host}\n'
+    )
+    result = extract_params(active_content)
+    assert result == ['host']

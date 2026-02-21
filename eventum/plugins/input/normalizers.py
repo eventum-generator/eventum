@@ -2,9 +2,9 @@
 
 from datetime import datetime, time
 from typing import Literal, assert_never
+from zoneinfo import ZoneInfo
 
 import dateparser
-from pytz import BaseTzInfo
 
 from eventum.plugins.input.fields import TimeKeyword, VersatileDatetime
 from eventum.plugins.input.utils.relative_time import parse_relative_time
@@ -14,7 +14,7 @@ type NonePoint = Literal['now', 'min', 'max']
 
 def normalize_versatile_datetime(  # noqa: C901, PLR0912
     value: VersatileDatetime,
-    timezone: BaseTzInfo,
+    timezone: ZoneInfo,
     relative_base: datetime | None = None,
     none_point: NonePoint = 'now',
 ) -> datetime:
@@ -25,7 +25,7 @@ def normalize_versatile_datetime(  # noqa: C901, PLR0912
     value : VersatileDatetime
         Value to normalize.
 
-    timezone : BaseTzInfo
+    timezone : ZoneInfo
         Timezone that is used for returned datetime object.
 
     relative_base : datetime | None
@@ -97,7 +97,7 @@ def normalize_versatile_datetime(  # noqa: C901, PLR0912
                         value,
                         settings={
                             'RELATIVE_BASE': relative_base,
-                            'TIMEZONE': timezone.zone or 'UTC',
+                            'TIMEZONE': timezone.key,
                             'RETURN_AS_TIMEZONE_AWARE': True,
                         },
                     )
@@ -135,7 +135,7 @@ type NoneEndPoint = Literal['now', 'max']
 def normalize_versatile_daterange(
     start: VersatileDatetime,
     end: VersatileDatetime,
-    timezone: BaseTzInfo,
+    timezone: ZoneInfo,
     none_start: NoneStartPoint = 'min',
     none_end: NoneEndPoint = 'max',
 ) -> tuple[datetime, datetime]:
@@ -149,7 +149,7 @@ def normalize_versatile_daterange(
     end : VersatileDatetime
         End of the date range.
 
-    timezone : BaseTzInfo
+    timezone : ZoneInfo
         Timezone that is used for returned datetime objects.
 
     none_start : NoneStartPoint, default='min'

@@ -1,0 +1,4 @@
+[
+    {"path": "/about", "type": "page", "min_bytes": 5000, "max_bytes": 15000},
+    {"path": "/css/style.css", "extension": "css", "type": "static", "min_bytes": 5000, "max_bytes": 50000}
+]

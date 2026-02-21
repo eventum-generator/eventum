@@ -4,7 +4,7 @@ from datetime import datetime
 
 import pytest
 from numpy import datetime64
-from pytz import timezone
+from zoneinfo import ZoneInfo
 
 from eventum.plugins.input.plugins.timestamps.config import (
     TimestampsInputPluginConfig,
@@ -23,7 +23,7 @@ def test_plugin():
         ]
     )
     plugin = TimestampsInputPlugin(
-        config=config, params={'id': 1, 'timezone': timezone('UTC')}
+        config=config, params={'id': 1, 'timezone': ZoneInfo('UTC')}
     )
     timestamps = []
     for batch in plugin.generate(size=100, skip_past=False):
@@ -50,7 +50,7 @@ def timestamps_filename():
 def test_timestamps_from_file(timestamps_filename):
     config = TimestampsInputPluginConfig(source=timestamps_filename)
     plugin = TimestampsInputPlugin(
-        config=config, params={'id': 1, 'timezone': timezone('Europe/Moscow')}
+        config=config, params={'id': 1, 'timezone': ZoneInfo('Europe/Moscow')}
     )
 
     timestamps = []

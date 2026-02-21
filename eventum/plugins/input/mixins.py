@@ -1,9 +1,9 @@
 """Mixins for configuration models."""
 
 from typing import Self
+from zoneinfo import ZoneInfo
 
 from pydantic import model_validator
-from pytz import timezone
 
 from eventum.plugins.input.normalizers import normalize_versatile_daterange
 
@@ -21,14 +21,14 @@ class DaterangeValidatorMixin:
             normalize_versatile_daterange(
                 start=self.start,  # type: ignore[attr-defined]
                 end=self.end,  # type: ignore[attr-defined]
-                timezone=timezone('Etc/GMT-14'),
+                timezone=ZoneInfo('Etc/GMT-14'),
                 none_start='min',
                 none_end='max',
             )
             normalize_versatile_daterange(
                 start=self.start,  # type: ignore[attr-defined]
                 end=self.end,  # type: ignore[attr-defined]
-                timezone=timezone('Etc/GMT+12'),
+                timezone=ZoneInfo('Etc/GMT+12'),
                 none_start='min',
                 none_end='max',
             )

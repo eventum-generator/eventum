@@ -2,12 +2,15 @@
 of different types.
 """
 
+from collections import namedtuple
 from collections.abc import Callable, Iterable
+from io import StringIO
 from pathlib import Path
 from typing import Any
 
 import structlog
 import tablib  # type: ignore[import-untyped]
+from tablib.exceptions import InvalidDimensions  # type: ignore[import-untyped]
 
 from eventum.exceptions import ContextualError
 from eventum.plugins.event.plugins.template.config import (
@@ -39,11 +42,30 @@ class Sample:
         """
         self._dataset = dataset
 
+        if dataset.headers:
+            headers = dataset.headers
+        else:
+            headers = [f'_{i}' for i in range(dataset.width)]
+
+        if headers:
+            self._row_type: type[tuple] | None = namedtuple(  # type: ignore[misc] # noqa: PYI024
+                'Row',
+                headers,
+                rename=True,
+            )
+        else:
+            self._row_type = None
+
     def __len__(self) -> int:
         return len(self._dataset)
 
     def __getitem__(self, key: Any) -> list | tuple:
-        return self._dataset[key]
+        result = self._dataset[key]
+
+        if self._row_type is not None and isinstance(result, tuple):
+            return self._row_type(*result)
+
+        return result
 
 
 def _load_items_sample(config: ItemsSampleConfig, _: Path) -> Sample:
@@ -139,19 +161,29 @@ def _load_json_sample(config: JSONSampleConfig, base_path: Path) -> Sample:
         If some error occurs during sample loading.
 
     """
-    data = tablib.Dataset()
-
     if config.source.is_absolute():
         resolved_path = config.source
     else:
         resolved_path = base_path / config.source
 
     with resolved_path.open() as f:
+        content = f.read()
+
+    data = tablib.Dataset()
+
+    try:
         data.load(
-            in_stream=f,
+            in_stream=StringIO(content),
             format='json',
         )
-        return Sample(data)
+    except InvalidDimensions:
+        msg = 'JSON sample objects have inconsistent keys'
+        raise SampleLoadError(
+            msg,
+            context={'file_path': str(resolved_path)},
+        ) from None
+
+    return Sample(data)
 
 
 def _get_sample_loader(
@@ -249,6 +281,8 @@ class SamplesReader:
             loader = _get_sample_loader(sample_config.root.type)
             try:
                 sample = loader(sample_config.root, self._base_path)  # type: ignore[arg-type]
+            except SampleLoadError:
+                raise
             except Exception as e:  # noqa: BLE001
                 msg = 'Failed to load sample'
                 raise SampleLoadError(

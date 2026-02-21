@@ -1,4 +1,4 @@
-"""Definition of opensearch output plugin."""
+"""Definition of stdout output plugin."""
 
 import asyncio
 from collections.abc import Sequence
@@ -72,7 +72,8 @@ class StdoutOutputPlugin(
                 context={'reason': str(e)},
             ) from e
 
-        self._writer.writelines(lines)
+        for line in lines:
+            self._writer.write(line)
 
         if self._config.flush_interval == 0:
             await self._writer.drain()

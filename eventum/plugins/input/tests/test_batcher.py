@@ -1,5 +1,5 @@
 import pytest
-from pytz import timezone
+from zoneinfo import ZoneInfo
 
 from eventum.plugins.input.adapters import IdentifiedTimestampsPluginAdapter
 from eventum.plugins.input.batcher import TimestampsBatcher
@@ -15,7 +15,7 @@ def source():
     return IdentifiedTimestampsPluginAdapter(
         StaticInputPlugin(
             config=StaticInputPluginConfig(count=1000000),
-            params={'id': 1, 'timezone': timezone('UTC')},
+            params={'id': 1, 'timezone': ZoneInfo('UTC')},
         )
     )
 
@@ -52,7 +52,7 @@ def delay_source():
             config=CronInputPluginConfig(
                 expression='* * * * *', count=1, start='now', end='+60m'
             ),
-            params={'id': 1, 'timezone': timezone('UTC')},
+            params={'id': 1, 'timezone': ZoneInfo('UTC')},
         )
     )
 
@@ -79,7 +79,7 @@ def uneven_delay_source():
                     start='00:00',
                     end='+60m',
                 ),
-                params={'id': 1, 'timezone': timezone('UTC')},
+                params={'id': 1, 'timezone': ZoneInfo('UTC')},
             ),
             CronInputPlugin(
                 config=CronInputPluginConfig(
@@ -88,7 +88,7 @@ def uneven_delay_source():
                     start='00:00',
                     end='+60m',
                 ),
-                params={'id': 1, 'timezone': timezone('UTC')},
+                params={'id': 1, 'timezone': ZoneInfo('UTC')},
             ),
         ]
     )
