@@ -29,6 +29,7 @@ const CSVSampleConfigSchema = z.object({
   type: z.literal(SampleType.CSV),
   header: orPlaceholder(z.boolean()).optional(),
   delimiter: z.string().min(1).optional(),
+  quotechar: z.string().min(1).max(1).optional(),
   source: z.string().endsWith('.csv'),
 });
 export type CSVSampleConfig = z.infer<typeof CSVSampleConfigSchema>;

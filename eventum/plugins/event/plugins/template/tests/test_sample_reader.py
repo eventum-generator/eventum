@@ -280,3 +280,65 @@ def test_missing_samples(items_sample_config):
     sample_reader = SamplesReader(items_sample_config, BASE_PATH)
     with pytest.raises(KeyError):
         sample_reader['missing_samples']
+
+
+@pytest.fixture
+def quoted_csv_sample_config():
+    return {
+        'csv_sample': SampleConfig(
+            root=CSVSampleConfig(
+                type=SampleType.CSV,
+                source=BASE_PATH / 'static/quoted_sample.csv',
+                header=True,
+                delimiter=',',
+            )
+        )
+    }
+
+
+@pytest.fixture
+def unquoted_commas_csv_sample_config():
+    return {
+        'csv_sample': SampleConfig(
+            root=CSVSampleConfig(
+                type=SampleType.CSV,
+                source=BASE_PATH / 'static/unquoted_commas_sample.csv',
+                header=True,
+                delimiter=',',
+            )
+        )
+    }
+
+
+def test_load_csv_sample_with_quoted_commas(quoted_csv_sample_config):
+    """RFC 4180: quoted fields containing commas are parsed correctly."""
+    sample_reader = SamplesReader(quoted_csv_sample_config, BASE_PATH)
+    sample = sample_reader['csv_sample']
+
+    assert len(sample) == 3
+
+    row = sample[0]
+    assert row.user_agent == (
+        'Mozilla/5.0 (Windows NT 10.0; Win64; x64) '
+        'AppleWebKit/537.36 (KHTML, like Gecko) '
+        'Chrome/120.0.0.0 Safari/537.36'
+    )
+    assert row.category == 'browser'
+
+    row = sample[1]
+    assert row.user_agent == (
+        'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)'
+    )
+    assert row.category == 'browser'
+
+    row = sample[2]
+    assert row.user_agent == 'Simple-Agent'
+    assert row.category == 'bot'
+
+
+def test_load_csv_sample_with_unquoted_commas_raises(
+    unquoted_commas_csv_sample_config,
+):
+    """Unquoted fields with commas produce a helpful error."""
+    with pytest.raises(SampleLoadError, match='inconsistent column counts'):
+        SamplesReader(unquoted_commas_csv_sample_config, BASE_PATH)

@@ -130,12 +130,28 @@ def _load_csv_sample(config: CSVSampleConfig, base_path: Path) -> Sample:
         resolved_path = base_path / config.source
 
     with resolved_path.open() as f:
-        data.load(
-            in_stream=f,
-            format='csv',
-            headers=config.header,
-            delimiter=config.delimiter,
-        )
+        try:
+            data.load(
+                in_stream=f,
+                format='csv',
+                headers=config.header,
+                delimiter=config.delimiter,
+                quotechar=config.quotechar,
+            )
+        except InvalidDimensions:
+            hint = (
+                'If values contain the delimiter character, '
+                'wrap them in quotes per RFC 4180'
+            )
+            msg = 'CSV rows have inconsistent column counts'
+            raise SampleLoadError(
+                msg,
+                context={
+                    'file_path': str(resolved_path),
+                    'hint': hint,
+                },
+            ) from None
+
         return Sample(data)
 
 

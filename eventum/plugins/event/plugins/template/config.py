@@ -59,6 +59,10 @@ class CSVSampleConfig(BaseModel, frozen=True, extra='forbid'):
     delimiter : str, default=','
         Delimiter for csv values.
 
+    quotechar : str, default='"'
+        Character used to quote fields containing the delimiter
+        or newlines (RFC 4180).
+
     source : Path
         Path to csv file.
 
@@ -67,6 +71,7 @@ class CSVSampleConfig(BaseModel, frozen=True, extra='forbid'):
     type: Literal[SampleType.CSV]
     header: bool = False
     delimiter: str = Field(default=',', min_length=1)
+    quotechar: str = Field(default='"', min_length=1, max_length=1)
     source: Path
 
     @field_validator('source')
