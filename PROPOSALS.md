@@ -6,27 +6,6 @@ Feedback gathered from building content-pack generators (linux-auditd, windows-s
 
 # 🐛 Bugs
 
-## 42. Bug: CSV sample parser doesn't handle quoted fields with commas (RFC 4180 violation) `[Critical]`
-
-**Context**: Building the `security-suricata` generator with a CSV sample file for HTTP user agent strings.
-
-**Problem**: The CSV sample reader fails to parse fields that contain commas, even when properly quoted per RFC 4180. User agent strings naturally contain commas (e.g., `"Mozilla/5.0 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"`). When stored in a CSV with proper double-quote escaping:
-
-```csv
-user_agent
-"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
-```
-
-The parser split on the commas inside the quoted value, producing mangled rows like `{None: [' like Gecko) Chrome/120.0.0.0 Safari/537.36']}` instead of the full user agent string. This forced converting the sample from CSV to JSON format — which works but defeats the purpose of having CSV support for flat lists.
-
-The same issue would affect any CSV sample containing commas in values: SQL queries, log messages, street addresses, product descriptions, comma-separated tags, etc. This is a fundamental limitation since RFC 4180 specifies that commas within double-quoted fields should be preserved as literal characters.
-
-**Workaround**: Convert to JSON format (`user-agents.json` with `[{"user_agent": "..."}]`), which handles arbitrary string content correctly.
-
-**Proposal**: Fix the CSV sample reader to use Python's `csv.reader` (which handles RFC 4180 quoting correctly) instead of whatever custom splitting is currently used. Python's built-in `csv` module has handled quoted-comma fields correctly since Python 2.3 — this is likely a case where tablib's CSV import is being called incorrectly or with wrong dialect settings.
-
----
-
 ## 48. Bug: `module.rand.network.ip_v4_public()` should exclude bogon/reserved ranges `[Medium]`
 
 **Context**: Building the `network-fortigate` generator where source IPs for inbound traffic must be public and non-reserved.
@@ -1810,6 +1789,12 @@ This reduces 5 lines to 1 line and makes the format self-documenting. For purely
 ```
 
 Implementation: ~30 lines of Python using `re.sub` to replace format specifiers with random characters from the appropriate character set.
+
+---
+
+## 42. Bug: CSV sample parser doesn't handle quoted fields with commas (RFC 4180 violation)
+
+**Status**: Fixed. Tablib already uses Python's `csv.reader` which handles RFC 4180 quoting correctly. Added explicit `quotechar` config option to `CSVSampleConfig` (passed through to tablib), caught `InvalidDimensions` with a helpful `SampleLoadError` including file path and RFC 4180 hint, added `quotechar` to Zod schema and Studio UI, and documented the parameter.
 
 ---
 
