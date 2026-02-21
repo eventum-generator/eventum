@@ -11,9 +11,7 @@ from typing import Literal
 import pytest
 from pydantic import BaseModel, Field, ValidationError
 
-from eventum.api.routers.generator_configs.api_types import (
-    relax_model,
-)
+from eventum.api.routers.generator_configs.api_types import relax_model
 from eventum.plugins.loader import (
     load_event_plugin,
     load_input_plugin,
@@ -83,16 +81,22 @@ class TestOpensearchPlaceholders:
         _rejects(opensearch, {**OS_BASE, 'connect_timeout': 0})
 
     def test_list_elements_placeholder(self, opensearch):
-        _valid(opensearch, {
-            **OS_BASE,
-            'hosts': ['https://node1:9200', PH],
-        })
+        _valid(
+            opensearch,
+            {
+                **OS_BASE,
+                'hosts': ['https://node1:9200', PH],
+            },
+        )
 
     def test_list_all_elements_placeholder(self, opensearch):
-        _valid(opensearch, {
-            **OS_BASE,
-            'hosts': [PH, '${params.host2}'],
-        })
+        _valid(
+            opensearch,
+            {
+                **OS_BASE,
+                'hosts': [PH, '${params.host2}'],
+            },
+        )
 
     def test_list_entire_field_placeholder(self, opensearch):
         _valid(opensearch, {**OS_BASE, 'hosts': PH})
@@ -101,16 +105,22 @@ class TestOpensearchPlaceholders:
         _valid(opensearch, {**OS_BASE, 'formatter': PH})
 
     def test_json_formatter_placeholder_indent(self, opensearch):
-        _valid(opensearch, {
-            **OS_BASE,
-            'formatter': {'format': 'json', 'indent': PH},
-        })
+        _valid(
+            opensearch,
+            {
+                **OS_BASE,
+                'formatter': {'format': 'json', 'indent': PH},
+            },
+        )
 
     def test_template_formatter_placeholder_path(self, opensearch):
-        _valid(opensearch, {
-            **OS_BASE,
-            'formatter': {'format': 'template', 'template': PH},
-        })
+        _valid(
+            opensearch,
+            {
+                **OS_BASE,
+                'formatter': {'format': 'template', 'template': PH},
+            },
+        )
 
     def test_optional_path_placeholder(self, opensearch):
         _valid(opensearch, {**OS_BASE, 'ca_cert': PH})
@@ -125,13 +135,16 @@ class TestOpensearchPlaceholders:
         _valid(opensearch, {**OS_BASE, 'proxy_url': PH})
 
     def test_all_required_as_placeholders(self, opensearch):
-        _valid(opensearch, {
-            'hosts': [PH],
-            'username': SECRET,
-            'password': SECRET,
-            'index': PH,
-            'formatter': PH,
-        })
+        _valid(
+            opensearch,
+            {
+                'hosts': [PH],
+                'username': SECRET,
+                'password': SECRET,
+                'index': PH,
+                'formatter': PH,
+            },
+        )
 
 
 # ── cron (int+Gt, tuple, TypeAlias Union|None) ──────────────────────
@@ -155,31 +168,54 @@ class TestCronPlaceholders:
         _rejects(cron, {'expression': '* * * * *', 'count': 0})
 
     def test_tuple_placeholder(self, cron):
-        _valid(cron, {
-            'expression': '* * * * *', 'count': 1, 'tags': PH,
-        })
+        _valid(
+            cron,
+            {
+                'expression': '* * * * *',
+                'count': 1,
+                'tags': PH,
+            },
+        )
 
     def test_tuple_real_value(self, cron):
-        _valid(cron, {
-            'expression': '* * * * *', 'count': 1, 'tags': ('a', 'b'),
-        })
+        _valid(
+            cron,
+            {
+                'expression': '* * * * *',
+                'count': 1,
+                'tags': ('a', 'b'),
+            },
+        )
 
     def test_type_alias_union_none_placeholder(self, cron):
-        _valid(cron, {
-            'expression': '* * * * *', 'count': 1, 'start': PH,
-        })
+        _valid(
+            cron,
+            {
+                'expression': '* * * * *',
+                'count': 1,
+                'start': PH,
+            },
+        )
 
     def test_type_alias_union_none_value(self, cron):
-        _valid(cron, {
-            'expression': '* * * * *',
-            'count': 1,
-            'start': '2026-01-01T00:00:00',
-        })
+        _valid(
+            cron,
+            {
+                'expression': '* * * * *',
+                'count': 1,
+                'start': '2026-01-01T00:00:00',
+            },
+        )
 
     def test_type_alias_union_none_null(self, cron):
-        _valid(cron, {
-            'expression': '* * * * *', 'count': 1, 'start': None,
-        })
+        _valid(
+            cron,
+            {
+                'expression': '* * * * *',
+                'count': 1,
+                'start': None,
+            },
+        )
 
 
 # ── http input (int+Ge+Le, str+MinLen) ──────────────────────────────
@@ -267,25 +303,34 @@ class TestFileOutputPlaceholders:
     """File output covers Encoding TypeAlias and Literal."""
 
     def test_encoding_alias_placeholder(self, file_output):
-        _valid(file_output, {
-            'path': 'out.log',
-            'formatter': {'format': 'plain'},
-            'encoding': PH,
-        })
+        _valid(
+            file_output,
+            {
+                'path': 'out.log',
+                'formatter': {'format': 'plain'},
+                'encoding': PH,
+            },
+        )
 
     def test_encoding_alias_real_value(self, file_output):
-        _valid(file_output, {
-            'path': 'out.log',
-            'formatter': {'format': 'plain'},
-            'encoding': 'utf_8',
-        })
+        _valid(
+            file_output,
+            {
+                'path': 'out.log',
+                'formatter': {'format': 'plain'},
+                'encoding': 'utf_8',
+            },
+        )
 
     def test_write_mode_literal_placeholder(self, file_output):
-        _valid(file_output, {
-            'path': 'out.log',
-            'formatter': {'format': 'plain'},
-            'write_mode': PH,
-        })
+        _valid(
+            file_output,
+            {
+                'path': 'out.log',
+                'formatter': {'format': 'plain'},
+                'write_mode': PH,
+            },
+        )
 
 
 # ── replay event (Path) ─────────────────────────────────────────────
@@ -334,31 +379,43 @@ class TestPlaceholderValidation:
         _valid(opensearch, {**OS_BASE, 'verify': '${params.verify}'})
 
     def test_secrets_placeholder_accepted(self, opensearch):
-        _valid(opensearch, {
-            **OS_BASE,
-            'password': '${secrets.password}',
-        })
+        _valid(
+            opensearch,
+            {
+                **OS_BASE,
+                'password': '${secrets.password}',
+            },
+        )
 
     def test_invalid_namespace_rejected(self, opensearch):
-        _rejects(opensearch, {
-            **OS_BASE,
-            'connect_timeout': '${invalid.x}',
-        })
+        _rejects(
+            opensearch,
+            {
+                **OS_BASE,
+                'connect_timeout': '${invalid.x}',
+            },
+        )
 
     def test_random_string_rejected(self, opensearch):
-        _rejects(opensearch, {
-            **OS_BASE,
-            'connect_timeout': 'not_a_placeholder',
-        })
+        _rejects(
+            opensearch,
+            {
+                **OS_BASE,
+                'connect_timeout': 'not_a_placeholder',
+            },
+        )
 
     def test_empty_string_in_non_str_field_rejected(self, opensearch):
         _rejects(opensearch, {**OS_BASE, 'verify': ''})
 
     def test_partial_placeholder_rejected(self, opensearch):
-        _rejects(opensearch, {
-            **OS_BASE,
-            'connect_timeout': '${params}',
-        })
+        _rejects(
+            opensearch,
+            {
+                **OS_BASE,
+                'connect_timeout': '${params}',
+            },
+        )
 
 
 # ── relax_model caching ─────────────────────────────────────────────

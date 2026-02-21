@@ -2,7 +2,7 @@ from datetime import datetime, timedelta
 
 import numpy as np
 import pytest
-from pytz import timezone
+from zoneinfo import ZoneInfo
 
 from eventum.plugins.input.merger import InputPluginsMerger
 from eventum.plugins.input.plugins.http.config import HttpInputPluginConfig
@@ -14,7 +14,7 @@ from eventum.plugins.input.plugins.linspace.plugin import LinspaceInputPlugin
 
 
 def test_merger():
-    start = datetime.now(tz=timezone('UTC'))
+    start = datetime.now(tz=ZoneInfo('UTC'))
 
     plugin_1 = LinspaceInputPlugin(
         config=LinspaceInputPluginConfig(
@@ -24,7 +24,7 @@ def test_merger():
         ),
         params={
             'id': 1,
-            'timezone': timezone('UTC'),
+            'timezone': ZoneInfo('UTC'),
         },
     )
 
@@ -36,7 +36,7 @@ def test_merger():
         ),
         params={
             'id': 2,
-            'timezone': timezone('UTC'),
+            'timezone': ZoneInfo('UTC'),
         },
     )
 
@@ -48,7 +48,7 @@ def test_merger():
         ),
         params={
             'id': 3,
-            'timezone': timezone('UTC'),
+            'timezone': ZoneInfo('UTC'),
         },
     )
 

@@ -4,7 +4,7 @@ from concurrent.futures import ThreadPoolExecutor
 
 import pytest
 import requests as rq  # type: ignore[import-untyped]
-from pytz import timezone
+from zoneinfo import ZoneInfo
 
 from eventum.plugins.input.plugins.http.config import HttpInputPluginConfig
 from eventum.plugins.input.plugins.http.plugin import HttpInputPlugin
@@ -17,7 +17,7 @@ def test_plugin():
             config=HttpInputPluginConfig(port=8080),
             params={
                 'id': 1,
-                'timezone': timezone('UTC'),
+                'timezone': ZoneInfo('UTC'),
             },
         )
 

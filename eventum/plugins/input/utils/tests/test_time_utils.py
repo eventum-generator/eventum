@@ -1,7 +1,7 @@
 from datetime import datetime, timedelta
 
 import pytest
-import pytz
+from zoneinfo import ZoneInfo
 from numpy import datetime64, timedelta64
 
 from eventum.plugins.input.utils.time_utils import (
@@ -13,7 +13,7 @@ from eventum.plugins.input.utils.time_utils import (
 
 
 def test_now64():
-    tz = pytz.timezone('Europe/Moscow')
+    tz = ZoneInfo('Europe/Moscow')
     now = datetime.now().astimezone(tz).replace(tzinfo=None)
 
     expected = datetime64(now.isoformat(), 'us')
@@ -27,11 +27,11 @@ def test_timedelta64_to_seconds():
 
 
 def test_to_naive():
-    timestamp = datetime(2024, 1, 1, 0, 0, 0, tzinfo=pytz.timezone('UTC'))
-    result = to_naive(timestamp, timezone=pytz.timezone('Europe/Moscow'))
+    timestamp = datetime(2024, 1, 1, 0, 0, 0, tzinfo=ZoneInfo('UTC'))
+    result = to_naive(timestamp, timezone=ZoneInfo('Europe/Moscow'))
 
     assert result == datetime64(
-        timestamp.astimezone(pytz.timezone('Europe/Moscow')).replace(
+        timestamp.astimezone(ZoneInfo('Europe/Moscow')).replace(
             tzinfo=None
         )
     )

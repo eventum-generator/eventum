@@ -2,7 +2,7 @@ import os
 from pathlib import Path
 
 import pytest
-from pytz import timezone
+from zoneinfo import ZoneInfo
 
 from eventum.plugins.exceptions import PluginConfigurationError
 from eventum.plugins.input.plugins.time_patterns.config import (
@@ -24,7 +24,7 @@ def test_plugin():
         ]
     )
     plugin = TimePatternsInputPlugin(
-        config=config, params={'id': 1, 'timezone': timezone('UTC')}
+        config=config, params={'id': 1, 'timezone': ZoneInfo('UTC')}
     )
 
     timestamps = []
@@ -63,5 +63,5 @@ def test_time_pattern_invalid_config():
 
     with pytest.raises(PluginConfigurationError):
         TimePatternsInputPlugin(
-            config=config, params={'id': 1, 'timezone': timezone('UTC')}
+            config=config, params={'id': 1, 'timezone': ZoneInfo('UTC')}
         )

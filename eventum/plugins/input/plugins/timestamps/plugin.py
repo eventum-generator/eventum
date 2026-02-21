@@ -107,12 +107,14 @@ class TimestampsInputPlugin(
         *,
         skip_past: bool = True,
     ) -> Iterator[NDArray[datetime64]]:
-        start = self._timezone.localize(
-            astype(self._timestamps[0], datetime),  # type: ignore[arg-type]
-        )
-        end = self._timezone.localize(
-            astype(self._timestamps[-1], datetime),  # type: ignore[arg-type]
-        )
+        start = astype(  # type: ignore[attr-defined]
+            self._timestamps[0],
+            datetime,  # type: ignore[arg-type]
+        ).replace(tzinfo=self._timezone)
+        end = astype(  # type: ignore[attr-defined]
+            self._timestamps[-1],
+            datetime,  # type: ignore[arg-type]
+        ).replace(tzinfo=self._timezone)
         self._logger.debug(
             'Generating in range',
             start_timestamp=start.isoformat(),

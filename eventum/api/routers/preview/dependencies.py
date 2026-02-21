@@ -3,10 +3,9 @@
 import asyncio
 from datetime import timedelta
 from typing import Annotated, cast
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from fastapi import Body, Depends, HTTPException, Path, Query, status
-from pytz import BaseTzInfo, UnknownTimeZoneError
-from pytz import timezone as to_timezone
 
 from eventum.api.dependencies.app import SettingsDep
 from eventum.api.routers.generator_configs.dependencies import (
@@ -50,7 +49,7 @@ async def get_timezone(
             description='Timezone that is used for generated timestamps',
         ),
     ] = 'UTC',
-) -> BaseTzInfo:
+) -> ZoneInfo:
     """Get timezone.
 
     Parameters
@@ -60,7 +59,7 @@ async def get_timezone(
 
     Returns
     -------
-    BaseTzInfo
+    ZoneInfo
         Parsed timezone.
 
     Raises
@@ -70,15 +69,15 @@ async def get_timezone(
 
     """
     try:
-        return to_timezone(timezone)
-    except UnknownTimeZoneError:
+        return ZoneInfo(timezone)
+    except (ZoneInfoNotFoundError, KeyError):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail='Timezone is invalid',
         ) from None
 
 
-TimezoneDep = Annotated[BaseTzInfo, Depends(get_timezone)]
+TimezoneDep = Annotated[ZoneInfo, Depends(get_timezone)]
 
 
 @set_responses(

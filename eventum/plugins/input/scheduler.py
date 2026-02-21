@@ -6,8 +6,7 @@ import asyncio
 import time
 from collections.abc import AsyncIterator, Iterator
 from typing import TYPE_CHECKING, override
-
-from pytz import BaseTzInfo
+from zoneinfo import ZoneInfo
 
 from eventum.plugins.input.protocols import (
     IdentifiedTimestamps,
@@ -32,7 +31,7 @@ class BaseBatchScheduler:
     def __init__(
         self,
         source: SupportsIdentifiedTimestampsIterate,
-        timezone: BaseTzInfo,
+        timezone: ZoneInfo,
     ) -> None:
         """Initialize scheduler.
 
@@ -41,7 +40,7 @@ class BaseBatchScheduler:
         source : SupportsIdentifiedTimestampsIterate
             Timestamps source.
 
-        timezone : BaseTzInfo, default=pytz.timezone('UTC')
+        timezone : ZoneInfo
             Timezone of timestamps in batches, used to match timestamps
             with current time.
 
@@ -89,7 +88,7 @@ class BatchScheduler(SupportsIdentifiedTimestampsIterate, BaseBatchScheduler):
     def __init__(
         self,
         source: SupportsIdentifiedTimestampsIterate,
-        timezone: BaseTzInfo,
+        timezone: ZoneInfo,
     ) -> None:
         BaseBatchScheduler.__init__(self, source, timezone)
 
@@ -120,7 +119,7 @@ class AsyncBatchScheduler(
     def __init__(
         self,
         source: SupportsIdentifiedTimestampsIterate,
-        timezone: BaseTzInfo,
+        timezone: ZoneInfo,
     ) -> None:
         BaseBatchScheduler.__init__(self, source, timezone)
 

@@ -2,9 +2,9 @@
 
 from pathlib import Path
 from typing import Any, Self
+from zoneinfo import available_timezones
 
 from pydantic import BaseModel, Field, field_validator, model_validator
-from pytz import all_timezones_set
 
 
 class BatchParameters(BaseModel, extra='forbid', frozen=True):
@@ -103,7 +103,7 @@ class GenerationParameters(BaseModel, extra='forbid', frozen=True):
     @field_validator('timezone')
     @classmethod
     def validate_timezone(cls, v: str) -> str:  # noqa: D102
-        if v in all_timezones_set:
+        if v in available_timezones():
             return v
 
         msg = f'Unknown time zone `{v}`'

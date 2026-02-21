@@ -338,4 +338,4 @@ uv run pytest eventum/plugins/input/plugins/cron/tests/  # Specific plugin
 - **Config Jinja2 tokens** — use `${ params.key }` and `${ secrets.name }` syntax (with spaces inside braces)
 - **FastAPI state injection** — app state (`generator_manager`, `settings`, `instance_hooks`) must be set before first request; patches must be active during request handling, not just at registration time
 - **Batch parameters** — at least one of `batch.size` or `batch.delay` must be set
-- **Timezone** — uses pytz timezone objects internally, config accepts string identifiers
+- **Timezone** — uses ZoneInfo timezone objects internally, config accepts string identifiers

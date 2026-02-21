@@ -3,17 +3,17 @@
 from datetime import datetime, timedelta
 from math import ceil, floor
 from typing import Literal, assert_never
+from zoneinfo import ZoneInfo
 
 from numpy import datetime64, timedelta64
-from pytz import BaseTzInfo
 
 
-def now64(timezone: BaseTzInfo) -> datetime64:
+def now64(timezone: ZoneInfo) -> datetime64:
     """Get current time in specified timezone as `datetime64`.
 
     Parameters
     ----------
-    timezone : BaseTzInfo
+    timezone : ZoneInfo
         Timezone for value of `datetime64` object.
 
     Returns
@@ -45,7 +45,7 @@ def timedelta64_to_seconds(timedelta: timedelta64) -> float:
     return float(timedelta / timedelta64(1000000, 'us'))
 
 
-def to_naive(timestamp: datetime, timezone: BaseTzInfo) -> datetime:
+def to_naive(timestamp: datetime, timezone: ZoneInfo) -> datetime:
     """Convert datetime to naive format for specified timezone. If
     datetime object is naive then current zone info is used for
     conversion.
@@ -55,7 +55,7 @@ def to_naive(timestamp: datetime, timezone: BaseTzInfo) -> datetime:
     timestamp : datetime
         Timestamp to convert.
 
-    timezone: BaseTzInfo
+    timezone: ZoneInfo
         Timezone for localization of datetime value.
 
     Returns

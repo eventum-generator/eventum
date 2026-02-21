@@ -2,7 +2,7 @@ from datetime import datetime
 
 import pytest
 from numpy import datetime64
-from pytz import timezone
+from zoneinfo import ZoneInfo
 
 from eventum.plugins.input.plugins.linspace.config import (
     LinspaceInputPluginConfig,
@@ -48,7 +48,7 @@ def test_plugin(start, end, count, endpoint, expected):
     )
 
     plugin = LinspaceInputPlugin(
-        config=config, params={'id': 1, 'timezone': timezone('UTC')}
+        config=config, params={'id': 1, 'timezone': ZoneInfo('UTC')}
     )
 
     timestamps = []

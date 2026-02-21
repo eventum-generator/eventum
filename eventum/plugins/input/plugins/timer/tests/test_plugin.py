@@ -1,20 +1,20 @@
 from datetime import datetime
 
 from numpy import datetime64
-from pytz import timezone
+from zoneinfo import ZoneInfo
 
 from eventum.plugins.input.plugins.timer.config import TimerInputPluginConfig
 from eventum.plugins.input.plugins.timer.plugin import TimerInputPlugin
 
 
 def test_plugin():
-    start = datetime(2024, 1, 1, 0, 0, 0, tzinfo=timezone('UTC'))
+    start = datetime(2024, 1, 1, 0, 0, 0, tzinfo=ZoneInfo('UTC'))
 
     plugin = TimerInputPlugin(
         config=TimerInputPluginConfig(
             start=start, seconds=1.0, count=3, repeat=86400
         ),
-        params={'id': 1, 'timezone': timezone('UTC')},
+        params={'id': 1, 'timezone': ZoneInfo('UTC')},
     )
 
     timestamps = []

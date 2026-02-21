@@ -1,7 +1,7 @@
 from datetime import datetime
 
 from numpy import datetime64
-from pytz import timezone
+from zoneinfo import ZoneInfo
 
 from eventum.plugins.input.plugins.cron.config import CronInputPluginConfig
 from eventum.plugins.input.plugins.cron.plugin import CronInputPlugin
@@ -12,10 +12,10 @@ def test_plugin():
         config=CronInputPluginConfig(
             expression='* * * * *',
             count=2,
-            start=datetime(2024, 1, 1, 0, 0, 0, tzinfo=timezone('UTC')),
-            end=datetime(2024, 1, 1, 23, 59, 59, tzinfo=timezone('UTC')),
+            start=datetime(2024, 1, 1, 0, 0, 0, tzinfo=ZoneInfo('UTC')),
+            end=datetime(2024, 1, 1, 23, 59, 59, tzinfo=ZoneInfo('UTC')),
         ),
-        params={'id': 1, 'timezone': timezone('UTC')},
+        params={'id': 1, 'timezone': ZoneInfo('UTC')},
     )
 
     timestamps = []
