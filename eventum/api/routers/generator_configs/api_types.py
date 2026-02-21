@@ -25,7 +25,14 @@ from typing import (
 )
 
 from annotated_types import Ge, Gt, Le, Lt
-from pydantic import AfterValidator, BaseModel, ConfigDict, Field, create_model
+from pydantic import (
+    AfterValidator,
+    BaseModel,
+    ConfigDict,
+    Field,
+    RootModel,
+    create_model,
+)
 from pydantic.fields import FieldInfo
 
 from eventum.api.routers.generator_configs.runtime_types import (
@@ -232,6 +239,25 @@ def relax_model(
     # Reserve a slot to break infinite recursion on self-referencing
     # models (unlikely but defensive).
     _relaxed_model_cache[model_cls] = model_cls  # temporary
+
+    # RootModel subclasses need special handling: they must remain
+    # RootModel so that Pydantic transparently unwraps the ``root``
+    # field (i.e. ``{"mode": "chance", ...}`` is accepted directly
+    # without requiring ``{"root": {"mode": "chance", ...}}``).
+    # The discriminator is intentionally dropped because relaxed union
+    # members have non-Literal alternatives that break Pydantic's
+    # discriminated union resolution.
+    if issubclass(model_cls, RootModel):
+        root_fi = model_cls.model_fields['root']
+        relaxed_root_type = _relax_type(root_fi.annotation)
+
+        relaxed_cls = create_model(
+            model_cls.__name__,
+            __base__=RootModel,
+            root=(relaxed_root_type, ...),
+        )
+        _relaxed_model_cache[model_cls] = relaxed_cls
+        return relaxed_cls
 
     field_defs: dict[str, tuple[Any, FieldInfo]] = {}
 
