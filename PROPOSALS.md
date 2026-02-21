@@ -824,233 +824,6 @@ This would make generator setup self-documenting and could be combined with prop
 
 ---
 
-## 32. Bug: Stdout output plugin crashes with `writelines` — `NonFileStreamWriter` incompatibility
-
-**Context**: Building and validating the `network-checkpoint` generator (Check Point Security Gateway, 11 templates, 8 software blades).
-
-**Problem**: The stdout output plugin crashes immediately on first write with:
-
-```
-AttributeError: 'NonFileStreamWriter' object has no attribute 'writelines'
-```
-
-The plugin's `_write()` method at `eventum/plugins/output/plugins/stdout/plugin.py:75` calls `self._writer.writelines(lines)`, but `self._writer` is a `NonFileStreamWriter` from the `aioconsole` library (returned by `get_standard_streams()`), which only implements `write()` and `drain()` — not `writelines()`.
-
-This means **stdout output is completely broken** for any generator. The entire network-checkpoint validation had to be done by switching to the `file` output plugin:
-
-```yaml
-# Cannot use:
-output:
-  - stdout:
-      formatter:
-        format: json
-
-# Workaround:
-output:
-  - file:
-      path: /tmp/test-output.jsonl
-      formatter:
-        format: json
-```
-
-**Fix**: Replace `self._writer.writelines(lines)` with a loop:
-
-```python
-for line in lines:
-    self._writer.write(line)
-```
-
-Or concatenate into a single write: `self._writer.write(b''.join(lines))`.
-
-This is a one-line fix that unblocks the most common testing workflow.
-
----
-
-## 33. Samples: Rows are plain tuples — no named field access despite headers/keys
-
-**Context**: Building the `network-checkpoint` generator with 8 sample data files (CSV with headers, JSON with object keys).
-
-**Problem**: Sample data loaded via `tablib.Dataset` returns rows as **plain Python tuples**, not dicts or named tuples. This means field names from CSV headers and JSON object keys are completely inaccessible at render time. All field access must use positional indices.
-
-This was the single most time-consuming bug during network-checkpoint development — all 11 templates were initially written with named attribute access (the natural expectation), and every one had to be rewritten with positional indices after discovering that `tablib.Dataset[i]` returns `tuple`.
-
-**Expected** (how every template was first written):
-
-```jinja2
-{%- set host = samples.internal_hosts | random -%}
-{%- set src_ip = host.ip -%}
-{%- set hostname = host.hostname -%}
-{%- set subnet = host.subnet -%}
-```
-
-**Actual** (what works — positional index only):
-
-```jinja2
-{#- internal_hosts.csv: 0=ip, 1=hostname, 2=mac, 3=subnet, 4=role -#}
-{%- set host = samples.internal_hosts | random -%}
-{%- set src_ip = host[0] -%}
-{%- set hostname = host[1] -%}
-{%- set subnet = host[3] -%}
-```
-
-The consequences are severe:
-
-1. **Every template needs column-index comments** — Each template must document the column layout as a comment (`0=ip, 1=hostname, 2=mac, ...`) so future editors can understand what `host[3]` means. In network-checkpoint, this is 8 different index maps across 11 templates.
-
-2. **Jinja2's `selectattr` filter is unusable** — `selectattr("subnet", "equalto", "dmz")` fails because tuples have no named attributes. The workaround is a verbose manual loop:
-
-   ```jinja2
-   {%- set dmz_hosts = [] -%}
-   {%- for h in samples.internal_hosts if h[3] == "dmz" -%}
-     {%- do dmz_hosts.append(h) -%}
-   {%- endfor -%}
-   ```
-
-3. **Fragile to schema changes** — Adding a column to a CSV shifts all subsequent indices. If `internal_hosts.csv` gains a new `os` column at position 2, every template using `host[2]` (mac), `host[3]` (subnet), `host[4]` (role) must be updated.
-
-4. **Multiple existing proposals assume named access works** — Proposals #5 (flat dict), #18 (`selectattr` with multiple conditions), #20 (pre-indexed grouping), and #23 (`weighted_choice_by` with attribute name) all assume rows support `row.fieldname`. None of them can be implemented until this fundamental issue is fixed.
-
-**Proposal**: Change `sample_reader.py` to return rows with named field access. Options:
-
-**Option A** — Use `tablib.Dataset.dict` to iterate as dicts:
-
-```python
-class Sample:
-    def __getitem__(self, key):
-        row = self._dataset[key]
-        if self._dataset.headers:
-            return dict(zip(self._dataset.headers, row))
-        return row
-```
-
-**Option B** — Wrap rows in `namedtuple` (preserves both index and named access):
-
-```python
-from collections import namedtuple
-
-class Sample:
-    def __init__(self, dataset):
-        self._dataset = dataset
-        if dataset.headers:
-            self._RowType = namedtuple('Row', dataset.headers)
-        else:
-            self._RowType = None
-
-    def __getitem__(self, key):
-        row = self._dataset[key]
-        if self._RowType:
-            return self._RowType(*row)
-        return row
-```
-
-Option B is preferred because it preserves backward compatibility (index access `row[0]` still works) while adding named access (`row.ip`). It also makes `selectattr` and `| weighted_random` proposals viable.
-
----
-
-## 34. Config: `${params.*}` tokens extracted from YAML comments cause false-positive missing-params errors
-
-**Context**: Building the `network-checkpoint` generator with a commented-out OpenSearch output section.
-
-**Problem**: The config loader's token extraction (`config_loader.py:20`) uses a regex `r'\${\s*?(\S*?)\s*?}'` that scans the **entire raw YAML file content**, including comments. Any `${params.*}` token inside a YAML comment is treated as a required parameter, causing a startup failure when the param isn't provided.
-
-This is the natural pattern — you want to include a ready-to-use OpenSearch config block in comments so users can uncomment it:
-
-```yaml
-output:
-  - stdout:
-      formatter:
-        format: json
-
-  # Production output — uncomment and configure:
-  # - opensearch:
-  #     hosts:
-  #       - ${params.opensearch_host}
-  #     username: ${params.opensearch_user}
-  #     password: ${secrets.opensearch_password}
-  #     index: ${params.opensearch_index}
-```
-
-This fails at startup with:
-
-```
-Parameters {'opensearch_host', 'opensearch_index', 'opensearch_user'} are missing
-```
-
-The workaround is to remove all `${...}` syntax from comments and replace with plain example values:
-
-```yaml
-  # - opensearch:
-  #     hosts:
-  #       - https://localhost:9200
-  #     username: admin
-  #     index: logs-checkpoint.firewall-default
-```
-
-This defeats the purpose of the commented template — users can't simply uncomment it and provide params; they have to rewrite the values.
-
-**Proposal**: Strip YAML comments before token extraction. Add a preprocessing step in `config_loader.py`:
-
-```python
-def _strip_yaml_comments(content: str) -> str:
-    """Remove YAML comments before token extraction."""
-    lines = []
-    for line in content.splitlines():
-        # Find the first # that's not inside a quoted string
-        stripped = line.lstrip()
-        if stripped.startswith('#'):
-            lines.append('')  # full-line comment → empty
-        else:
-            lines.append(line)
-    return '\n'.join(lines)
-```
-
-Then in `load_config()`:
-
-```python
-content = file_path.read_text()
-content_without_comments = _strip_yaml_comments(content)
-extracted_params = extract_params(content_without_comments)
-# ... but still substitute in the original content for YAML parsing
-```
-
-This preserves the current substitution behavior for active config values while ignoring tokens in comments. A more robust implementation could use a proper YAML-aware comment stripper, but even the simple line-level approach covers the primary use case (full-line `# - opensearch:` comment blocks).
-
----
-
-## 35. Samples: JSON sample loading silently coerces numeric types to match first-row schema
-
-**Context**: Building the `network-checkpoint` generator with JSON samples containing mixed numeric types.
-
-**Problem**: When `tablib` loads a JSON array into a `Dataset`, it infers column types from the data. If a JSON field is an integer in some rows and absent/null in others, the type handling is inconsistent. More critically, because rows are returned as tuples (see proposal #33), there's no way to verify at load time that a field the template expects as an integer is actually loaded as one.
-
-In the network-checkpoint generator, `ips_signatures.json` has a `severity_num` field that's an integer (1–4) used directly in JSON output:
-
-```json
-[["asm_dynamic_prop_SQL_FINGERPRINT_A", "SQL Injection via HTTP Request", "IPS", "SQL Injection", "...", "High", 3, "4", "2", "CVE-2024-23897", "http", 15]]
-```
-
-When accessed as `sig[6]`, the template outputs `"severity": 3` (integer). But if `tablib` coerces it to a string during loading, the output becomes `"severity": "3"` — invalid for ECS which expects a numeric type. This type mismatch is invisible until you validate the JSON output against an ECS schema.
-
-**Proposal**: Add type-preservation guarantees to JSON sample loading:
-
-1. When loading JSON samples, preserve the original JSON types (int, float, string, bool, null) rather than letting tablib normalize them
-2. Optionally, support a `schema` field in sample config that declares expected column types:
-
-```yaml
-samples:
-  ips_signatures:
-    type: json
-    source: samples/ips_signatures.json
-    schema:
-      severity_num: int
-      weight: int
-      confidence_level: str
-```
-
-This would catch type mismatches at load time (generator startup) rather than at render time (first event), and would provide clear error messages like `"Sample 'ips_signatures' column 'severity_num': expected int, got str at row 3"`.
-
----
-
 ## 36. Template API: No `| tojson_value` filter for conditional JSON field emission
 
 **Context**: Building 11 Check Point templates where many JSON fields are conditionally included based on event type.
@@ -1114,3 +887,288 @@ def hex_bytes(self, count: int) -> str:
 ```
 
 This provides a byte-oriented API alongside the existing nibble-oriented `hex()`. The existing `hex(n)` would remain unchanged for backward compatibility. For the common case of generating hash-like values (MD5 = 16 bytes, SHA1 = 20 bytes, SHA256 = 32 bytes), `hex_bytes` is more natural than counting hex character widths.
+
+---
+
+## 38. CLI: Output plugin selector for testing without config duplication
+
+**Context**: Building the `network-snort` generator with 13 templates and both stdout + opensearch outputs.
+
+**Problem**: The standard generator config includes production outputs (OpenSearch, ClickHouse) alongside stdout for debugging. When testing during development, the production outputs fail because `${params.opensearch_host}` and `${secrets.opensearch_password}` aren't available — you're testing locally, not deploying. The generator crashes before rendering a single event.
+
+The workaround is creating a separate `test-generator.yml` that duplicates the entire `event` section (params, samples, 13 template entries with chance weights) but only includes stdout in `output`. For the Snort generator, this meant maintaining a 75-line test config that was 90% identical to the 100-line production config. Any template addition required updating both files.
+
+```yaml
+# test-generator.yml — 75 lines, 90% duplicated from generator.yml
+input:
+  - cron:
+      expression: "* * * * * *"
+      count: 5
+
+event:
+  template:
+    mode: chance
+    params:
+      # ... same 5 params ...
+    samples:
+      # ... same 3 samples ...
+    templates:
+      # ... same 13 templates with same weights ...
+
+output:
+  - stdout:                    # ← only difference
+      formatter:
+        format: json
+```
+
+**Proposal**: Add an `--only-output` CLI flag that selects which output plugins to activate:
+
+```bash
+# Only use stdout output, skip opensearch (no params/secrets needed)
+eventum generate --path generator.yml --id test --only-output stdout
+
+# Only use file output
+eventum generate --path generator.yml --id test --only-output file
+```
+
+Implementation: after parsing the config, filter `GeneratorConfig.output` to only include plugins matching the specified name(s). Skip param/secret extraction for removed output blocks. This eliminates the need for separate test configs and keeps the single-source-of-truth pattern for generator definitions.
+
+---
+
+## 39. Samples: Inline data samples to eliminate external file dependency for small datasets
+
+**Context**: Building the `network-snort` generator where JSON sample named access doesn't work (proposal #33), forcing inline data in templates.
+
+**Problem**: When JSON sample data can't be accessed by field name (tuples only — proposal #33), the workaround is inlining the data directly in each template as Jinja2 lists of dicts. For the Snort generator, 57 signatures were split across 13 templates (4–6 sigs each), resulting in ~300 lines of inline data that could have been a single 57-entry JSON file.
+
+Even without the tuple limitation, small datasets (5–15 entries) that are only used by one template don't warrant a separate file. The overhead of creating a file, referencing it in `generator.yml` samples section, and loading it through tablib is disproportionate for inline-grade data.
+
+**Example** — each of 13 Snort templates inlines its own signature list:
+
+```jinja2
+{#- Inline trojan-activity signatures (JSON samples don't support attribute access) -#}
+{%- set sigs = [
+  {"sid": 23493, "gid": 1, "rev": 6, "msg": "MALWARE-CNC Win.Trojan.ZeroAccess..."},
+  {"sid": 40522, "gid": 1, "rev": 3, "msg": "MALWARE-CNC Unix.Trojan.Mirai..."},
+  ...
+] -%}
+```
+
+This works but scatters data across templates. A change to signature metadata requires finding and editing the right template file.
+
+**Proposal**: Support inline sample data in `generator.yml` for small datasets:
+
+```yaml
+samples:
+  internal_hosts:
+    type: csv
+    source: samples/internal_hosts.csv    # file-based for large datasets
+    header: true
+  trojan_sigs:
+    type: inline                          # inline for small datasets
+    data:
+      - {sid: 23493, gid: 1, rev: 6, msg: "MALWARE-CNC Win.Trojan.ZeroAccess..."}
+      - {sid: 40522, gid: 1, rev: 3, msg: "MALWARE-CNC Unix.Trojan.Mirai..."}
+```
+
+Templates would access inline samples identically to file-based ones: `samples.trojan_sigs | random`. This keeps data centralized in the config while avoiding file proliferation for small datasets. Combined with proposal #33 (named access), this would eliminate the need for inline Jinja2 data blocks entirely.
+
+---
+
+## 40. Template API: No `selectattr` "in" test for membership filtering
+
+**Context**: Building Snort templates where internal hosts have different roles (workstation, server, dmz) and templates need hosts matching specific role sets.
+
+**Problem**: Jinja2's `selectattr` filter supports tests like `"equalto"`, `"ne"`, `"gt"`, `"lt"` — but not `"in"` for membership testing. When a template needs to select items matching one of several values, `selectattr` can't express this in a single filter:
+
+```jinja2
+{#- This does NOT work — "in" is not a valid selectattr test -#}
+{%- set servers = samples.internal_hosts | selectattr("role", "in", ["server", "dmz"]) | list -%}
+
+{#- Workaround: chain multiple equalto filters and merge, or use a manual loop -#}
+{%- set servers = [] -%}
+{%- for h in samples.internal_hosts -%}
+  {%- if h.role in ["server", "dmz"] -%}
+    {%- do servers.append(h) -%}
+  {%- endif -%}
+{%- endfor -%}
+```
+
+In the Snort generator, this forced replacing filtered sampling with simpler `| random` on the entire host list, losing the ability to restrict certain event types to specific host roles (e.g., web attacks should only target servers/DMZ, not workstations).
+
+Note: This is a Jinja2 limitation, not an Eventum-specific bug. However, Eventum's template engine registers custom filters/tests (e.g., the `do` extension), so it can register additional tests.
+
+**Proposal**: Register a custom `"in"` test for `selectattr`:
+
+```python
+def in_test(value, seq):
+    return value in seq
+
+env.tests['in'] = in_test
+```
+
+This would enable the natural pattern:
+
+```jinja2
+{%- set servers = samples.internal_hosts | selectattr("role", "in", ["server", "dmz"]) | list -%}
+```
+
+One line of Python, major ergonomic improvement for any generator that filters sample data by category.
+
+---
+
+## 41. Template API: No duration formatting helper for human-readable time strings
+
+**Context**: Building the `vpn-cisco-anyconnect` generator where session disconnect events (ASA message 113019) include session duration in `Xh:Ym:Zs` format (e.g., `7h:32m:15s`).
+
+**Problem**: Converting a duration in seconds to a human-readable string requires 4 lines of manual integer arithmetic in every template that deals with durations:
+
+```jinja2
+{%- set dur_hours = duration_secs // 3600 -%}
+{%- set dur_minutes = (duration_secs % 3600) // 60 -%}
+{%- set dur_seconds = duration_secs % 60 -%}
+{%- set duration_str = "%dh:%02dm:%02ds" | format(dur_hours, dur_minutes, dur_seconds) -%}
+```
+
+This pattern is needed whenever log formats include human-readable durations: Cisco ASA session disconnect (`7h:32m:15s`), firewall session end (`duration=300`), DHCP lease time (`1d:0h:0m`), HTTP request time (`0.045s`). Each format is slightly different but the decomposition logic (seconds → hours/minutes/seconds or days/hours/minutes) is identical.
+
+The Cisco ASA syslog format specifically uses `Duration: Xh:Ym:Zs` in message 113019. Other vendors use different formats: Palo Alto uses `elapsed=Xs`, FortiGate uses `duration=X`, Check Point uses `session_duration: X`. All require the same base conversion from total seconds.
+
+**Proposal**: Add a `| format_duration` filter (or `module.time.format_duration()` function) with configurable format patterns:
+
+```jinja2
+{#- Cisco ASA format -#}
+{%- set duration_str = duration_secs | format_duration('%Hh:%Mm:%Ss') -%}
+{#- → "7h:32m:15s" -#}
+
+{#- Simple HH:MM:SS -#}
+{%- set duration_str = duration_secs | format_duration('%H:%M:%S') -%}
+{#- → "07:32:15" -#}
+
+{#- ISO 8601 duration -#}
+{%- set duration_str = duration_secs | format_duration('iso8601') -%}
+{#- → "PT7H32M15S" -#}
+
+{#- With days for long durations -#}
+{%- set duration_str = duration_secs | format_duration('%dd:%Hh:%Mm') -%}
+{#- → "0d:7h:32m" -#}
+```
+
+The filter would accept total seconds (int or float) and a format string with `%D` (days), `%H` (hours), `%M` (minutes), `%S` (seconds), `%f` (fractional seconds). Predefined aliases like `'iso8601'` and `'hms'` would cover common cases. This eliminates the manual arithmetic and makes the intent self-documenting.
+
+---
+
+## 42. Bug: CSV sample parser doesn't handle quoted fields with commas (RFC 4180 violation)
+
+**Context**: Building the `security-suricata` generator with a CSV sample file for HTTP user agent strings.
+
+**Problem**: The CSV sample reader fails to parse fields that contain commas, even when properly quoted per RFC 4180. User agent strings naturally contain commas (e.g., `"Mozilla/5.0 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"`). When stored in a CSV with proper double-quote escaping:
+
+```csv
+user_agent
+"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+```
+
+The parser split on the commas inside the quoted value, producing mangled rows like `{None: [' like Gecko) Chrome/120.0.0.0 Safari/537.36']}` instead of the full user agent string. This forced converting the sample from CSV to JSON format — which works but defeats the purpose of having CSV support for flat lists.
+
+The same issue would affect any CSV sample containing commas in values: SQL queries, log messages, street addresses, product descriptions, comma-separated tags, etc. This is a fundamental limitation since RFC 4180 specifies that commas within double-quoted fields should be preserved as literal characters.
+
+**Workaround**: Convert to JSON format (`user-agents.json` with `[{"user_agent": "..."}]`), which handles arbitrary string content correctly.
+
+**Proposal**: Fix the CSV sample reader to use Python's `csv.reader` (which handles RFC 4180 quoting correctly) instead of whatever custom splitting is currently used. Python's built-in `csv` module has handled quoted-comma fields correctly since Python 2.3 — this is likely a case where tablib's CSV import is being called incorrectly or with wrong dialect settings.
+
+---
+
+## 43. Template API: `module.rand.weighted_choice()` should accept a dict directly
+
+**Context**: Building 13 Suricata templates that use weighted random selection for status codes, response codes, and protocol choices.
+
+**Problem**: `module.rand.weighted_choice(items, weights)` requires two parallel lists, but the most natural way to express item→weight mappings in Jinja2 is a dict. Every weighted choice in the Suricata generator required an awkward dict-to-parallel-lists conversion:
+
+```jinja2
+{%- set rcode_weights = {"NOERROR": 90, "NXDOMAIN": 8, "SERVFAIL": 2} -%}
+{%- set rcode = module.rand.weighted_choice(rcode_weights | list, rcode_weights.values() | list) -%}
+```
+
+This pattern appears 15+ times across the 13 Suricata templates — for DNS rcodes, HTTP status codes, HTTP methods, TCP flow states, anomaly types, DHCP message types, alert actions, and direction choices. Each instance requires the same `| list` and `| values() | list` extraction.
+
+**Proposal**: Make `weighted_choice` accept a dict where keys are items and values are weights:
+
+```python
+def weighted_choice(self, items_or_dict, weights=None):
+    if isinstance(items_or_dict, dict):
+        items = list(items_or_dict.keys())
+        weights = list(items_or_dict.values())
+    else:
+        items = items_or_dict
+    return random.choices(items, weights=weights, k=1)[0]
+```
+
+Template code becomes:
+
+```jinja2
+{%- set rcode = module.rand.weighted_choice({"NOERROR": 90, "NXDOMAIN": 8, "SERVFAIL": 2}) -%}
+```
+
+One line instead of two, and the intent is immediately clear. Backward-compatible since the existing two-argument call still works.
+
+---
+
+## 44. Shared state: No pool utilization monitoring or overflow diagnostics
+
+**Context**: Building the `security-suricata` generator with two correlation pools (`flows` and `dns_queries`) serving 13 templates.
+
+**Problem**: Correlation pools use shared state lists with manual capping (e.g., `if flows | length > 200: flows = flows[-200:]`). When the pool is always empty (consumers run faster than producers due to chance weight ratios), every consumer event falls back to standalone generation — effectively disabling correlation. When the pool overflows its cap, old entries are silently discarded.
+
+In the Suricata generator, the `flows` pool is fed by 7 templates (DNS, HTTP, TLS, SSH, SMTP, fileinfo, alert) and consumed by 2 templates (flow-tcp, flow-udp). Whether the pool stays balanced depends on the chance weights, which may drift as the generator evolves. There's no way to know at a glance whether correlation is actually working at runtime — the 73% correlation rate I measured during testing was only discoverable by post-processing 1000 events with a custom Python script.
+
+**Example diagnostic questions with no answer today**:
+- "Is my `dns_queries` pool draining faster than it fills?" (→ most answers are uncorrelated)
+- "Is my `flows` pool hitting its cap?" (→ entries are being dropped)
+- "What's the average pool depth over the last 1000 events?" (→ no telemetry)
+
+**Proposal**: Add optional pool diagnostics to shared state, either as:
+
+1. **Structured logging**: When `--log-level debug`, log pool push/pop/overflow events:
+
+   ```text
+   DEBUG shared.pool 'flows' push: depth=42, cap=200
+   DEBUG shared.pool 'flows' pop: depth=41
+   WARN  shared.pool 'flows' overflow: depth=200, dropped=1
+   ```
+
+2. **Stats endpoint**: Expose pool utilization in the generator stats API (`GET /generators/{id}/stats`):
+
+   ```json
+   {"shared_pools": {"flows": {"depth": 42, "cap": 200, "total_pushed": 15000, "total_popped": 14958, "total_dropped": 0}}}
+   ```
+
+3. **Template-accessible stats**: `shared.pool_stats('flows')` returning a dict with `depth`, `push_count`, `pop_count`, `overflow_count` — enabling self-documenting templates that can log correlation health.
+
+This would significantly reduce debugging time for correlation tuning, which is currently a blind trial-and-error process.
+
+---
+
+# Completed
+
+## 32. Bug: Stdout output plugin crashes with `writelines` — `NonFileStreamWriter` incompatibility
+
+**Status**: Fixed. Replaced `self._writer.writelines(lines)` with a loop using `self._writer.write(line)` in `stdout/plugin.py`.
+
+---
+
+## 33. Samples: Rows are plain tuples — no named field access despite headers/keys
+
+**Status**: Fixed. Wrapped rows in `namedtuple` (with `rename=True`) in `Sample.__init__` when headers exist. Both index and named access now work.
+
+---
+
+## 34. Config: `${params.*}` tokens extracted from YAML comments cause false-positive missing-params errors
+
+**Status**: Fixed. Added `_strip_yaml_comments()` preprocessing in `config_loader.py` before token extraction.
+
+---
+
+## 35. Samples: JSON sample loading crashes with unhelpful error on heterogeneous schemas
+
+**Status**: Fixed. Caught `InvalidDimensions` from tablib and re-raised as `SampleLoadError` with clear "inconsistent keys" message.
