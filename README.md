@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="static/logo.svg" alt="Eventum" width="120" />
+  <img src="https://raw.githubusercontent.com/eventum-generator/eventum/master/static/logo.svg" alt="Eventum" width="120" />
 </p>
 
 <h1 align="center">Eventum</h1>
@@ -31,7 +31,7 @@
 Eventum produces synthetic events and delivers them anywhere — in real time or in batch. Generate a continuous stream of logs for your SIEM, seed a staging database with realistic data, or stress-test a pipeline with high-throughput traffic. Define everything in YAML, no code required.
 
 <p align="center">
-  <img src=".github/assets/pipeline.svg" alt="Input → Event → Output pipeline" width="680" />
+  <img src="https://raw.githubusercontent.com/eventum-generator/eventum/master/.github/assets/pipeline.svg" alt="Input → Event → Output pipeline" width="680" />
 </p>
 
 ## ✨ Highlights
