@@ -40,8 +40,8 @@ from eventum.api.routers.generator_configs.models import (
 from eventum.api.routers.generator_configs.runtime_types import (
     GeneratorConfig as StrictGeneratorConfig,
 )
-from eventum.core.config import GeneratorConfig as LooseGeneratorConfig
 from eventum.api.utils.response_description import merge_responses
+from eventum.core.config import GeneratorConfig as LooseGeneratorConfig
 from eventum.utils.fs_utils import (
     calculate_dir_size,
     get_dir_last_modification_time,
