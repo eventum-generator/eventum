@@ -1,8 +1,7 @@
 """Tests for generator configs API router."""
 
-import yaml
-
 import pytest
+import yaml
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
@@ -18,7 +17,7 @@ from eventum.app.models.settings import Settings
 from eventum.core.parameters import GenerationParameters
 
 
-@pytest.fixture()
+@pytest.fixture
 def tmp_settings(tmp_path):
     generators_dir = tmp_path / 'generators'
     generators_dir.mkdir()
@@ -37,12 +36,12 @@ def tmp_settings(tmp_path):
     )
 
 
-@pytest.fixture()
+@pytest.fixture
 def manager():
     return GeneratorManager()
 
 
-@pytest.fixture()
+@pytest.fixture
 def client(tmp_settings, manager):
     app = FastAPI()
     app.state.settings = tmp_settings
