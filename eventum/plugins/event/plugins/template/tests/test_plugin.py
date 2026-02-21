@@ -155,7 +155,9 @@ def test_csv_sample():
     )
 
     assert len(events) == 1
-    assert events.pop() == str(tuple(['John', 'john@example.com', 'Manager']))
+    assert events.pop() == (
+        "Row(name='John', email='john@example.com', position='Manager')"
+    )
 
 
 def test_subprocess():

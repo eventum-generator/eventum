@@ -239,24 +239,34 @@ def test_json_sample_named_access(json_sample_config):
     assert row[2] == 'Manager'
 
 
-def test_csv_sample_without_header_no_named_access(
+def test_csv_sample_without_header_numeric_access(
     no_header_csv_sample_config,
 ):
     sample_reader = SamplesReader(no_header_csv_sample_config, BASE_PATH)
     sample = sample_reader['csv_sample']
 
     row = sample[0]
-    assert not hasattr(row, 'name')
+    assert row._0 == 'name'
+    assert row._1 == 'email'
+    assert row._2 == 'position'
+
+    # Index access still works alongside numeric named access
     assert row[0] == 'name'
+    assert row[1] == 'email'
+    assert row[2] == 'position'
 
 
-def test_items_sample_no_named_access(items_sample_config):
+def test_items_sample_numeric_access(items_sample_config):
     sample_reader = SamplesReader(items_sample_config, BASE_PATH)
     sample = sample_reader['items_sample']
 
     row = sample[0]
-    assert not hasattr(row, 'name')
+    assert row._0 == 'one'
+    assert row._1 == 'two'
+
+    # Index access still works alongside numeric named access
     assert row[0] == 'one'
+    assert row[1] == 'two'
 
 
 def test_load_heterogeneous_json_sample_raises(
