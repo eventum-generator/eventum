@@ -2,6 +2,44 @@
 
 All notable changes to this project will be documented in this file.
 
+## 2.1.0 (2026-02-21)
+
+### 🚀 New Features
+
+- Add named access for CSV and JSON samples — access sample data by column name in templates (e.g., `sample.column_name` instead of `sample[0]`)
+- Add placeholder support in Eventum Studio — plugin config forms now accept `${params.*}` and `${secrets.*}` placeholders
+- Introduce relaxed generator configuration model — API returns configs with placeholders without validation errors
+
+### 🐛 Bug Fixes
+
+- Fix missing dataset headers — generate default column headers when CSV/JSON samples lack them
+- Fix YAML comments breaking config loading — strip full-line comments before Jinja2 template processing
+- Fix file output plugin not closing file before reopening in `_write` method
+- Fix heterogeneous JSON samples with inconsistent keys across records
+- Fix stdout output plugin using `writelines()` — switch to `write()` to avoid bugs on specific platforms
+- Fix template plugin params schema to allow any type of values in common fields (Eventum Studio)
+- Fix `RootModel` subclass handling in type relaxation of API models
+- Fix image URLs in README.md to use absolute paths
+
+### ⚡ Performance
+
+- Migrate from `pytz` to `zoneinfo` — up to 2x speedup in event producing
+
+### 🧪 Testing
+
+- Add tests for generator configs with placeholder support
+- Add tests for heterogeneous JSON sample handling
+- Add tests for config loader YAML comment stripping
+- Add tests for named and index-based sample access
+- Update CSV sample tests for numeric access and improve assertions
+- Suppress deprecation warnings for date parsing in tests
+- Update session handling in auth tests for consistency
+
+### 📝 Other Changes
+
+- Add Eventum Improvement Proposals document
+- Format JSON output for default values in `TemplateEventPluginParams`, `HTTPOutputPluginParams`, and `OpensearchOutputPluginParams`
+
 ## 2.0.2 (2026-02-21)
 
 ### 🐛 Bug Fixes
