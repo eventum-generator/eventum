@@ -119,6 +119,18 @@ def nested_json_sample_config():
     }
 
 
+@pytest.fixture
+def heterogeneous_json_sample_config():
+    return {
+        'json_sample': SampleConfig(
+            root=JSONSampleConfig(
+                type=SampleType.JSON,
+                source=BASE_PATH / 'static/heterogeneous_sample.json',
+            )
+        )
+    }
+
+
 def test_load_items_sample(items_sample_config):
     sample_reader = SamplesReader(items_sample_config, BASE_PATH)
     sample = sample_reader['items_sample']
@@ -221,6 +233,11 @@ def test_json_sample_named_access(json_sample_config):
     assert row.email == 'john@example.com'
     assert row.position == 'Manager'
 
+    # Index access still works alongside named access
+    assert row[0] == 'John'
+    assert row[1] == 'john@example.com'
+    assert row[2] == 'Manager'
+
 
 def test_csv_sample_without_header_no_named_access(
     no_header_csv_sample_config,
@@ -240,6 +257,13 @@ def test_items_sample_no_named_access(items_sample_config):
     row = sample[0]
     assert not hasattr(row, 'name')
     assert row[0] == 'one'
+
+
+def test_load_heterogeneous_json_sample_raises(
+    heterogeneous_json_sample_config,
+):
+    with pytest.raises(SampleLoadError, match='inconsistent keys'):
+        SamplesReader(heterogeneous_json_sample_config, BASE_PATH)
 
 
 def test_missing_samples(items_sample_config):
