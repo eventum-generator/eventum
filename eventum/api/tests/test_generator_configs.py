@@ -119,7 +119,9 @@ def test_get_config_with_placeholders(client, tmp_settings):
     gen_dir = tmp_settings.path.generators_dir / 'placeholder_gen'
     gen_dir.mkdir()
     config_path = gen_dir / tmp_settings.path.generator_config_filename
-    config_path.write_text(yaml.dump(config_with_placeholders, sort_keys=False))
+    config_path.write_text(
+        yaml.dump(config_with_placeholders, sort_keys=False)
+    )
     response = client.get('/configs/placeholder_gen')
     assert response.status_code == 200
     data = response.json()
