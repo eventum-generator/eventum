@@ -2,11 +2,11 @@
 of different types.
 """
 
-from collections import namedtuple
+import random
 from collections.abc import Callable, Iterable
 from io import StringIO
 from pathlib import Path
-from typing import Any
+from typing import Any, Self
 
 import structlog
 import tablib  # type: ignore[import-untyped]
@@ -23,13 +23,71 @@ from eventum.plugins.event.plugins.template.config import (
 
 logger = structlog.stdlib.get_logger()
 
+_EMPTY_FIELD_MAP: dict[str, int] = {}
+
 
 class SampleLoadError(ContextualError):
     """Failed to load sample."""
 
 
+class SamplePickError(ContextualError):
+    """Failed to pick from sample."""
+
+
+class Row(tuple):  # noqa: SLOT001
+    """Immutable sample row with named and index access."""
+
+    def __new__(
+        cls,
+        values: Iterable[Any],
+        field_map: dict[str, int] | None = None,
+    ) -> Self:
+        """Create a new row.
+
+        Parameters
+        ----------
+        values : Iterable[Any]
+            Row values.
+
+        field_map : dict[str, int] | None, default=None
+            Mapping of field names to indices for named
+            access.
+
+        """
+        instance = super().__new__(cls, values)
+        object.__setattr__(
+            instance,
+            '_field_map',
+            field_map if field_map is not None
+            else _EMPTY_FIELD_MAP,
+        )
+        return instance
+
+    def __getattr__(self, name: str) -> Any:
+        try:
+            return self[self._field_map[name]]
+        except KeyError:
+            raise AttributeError(name) from None
+
+    def __repr__(self) -> str:
+        if self._field_map:
+            pairs = ', '.join(
+                f'{f}={self[i]!r}'
+                for f, i in self._field_map.items()
+            )
+            return f'Row({pairs})'
+        return f'Row({super().__repr__()})'
+
+
 class Sample:
-    """Immutable sample."""
+    """Immutable sample with picking support."""
+
+    __slots__ = (
+        '_cum_weights_cache',
+        '_dataset',
+        '_field_map',
+        '_rows',
+    )
 
     def __init__(self, dataset: tablib.Dataset) -> None:
         """Initialize sample.
@@ -45,27 +103,127 @@ class Sample:
         if dataset.headers:
             headers = dataset.headers
         else:
-            headers = [f'_{i}' for i in range(dataset.width)]
+            headers = [
+                f'_{i}' for i in range(dataset.width)
+            ]
 
-        if headers:
-            self._row_type: type[tuple] | None = namedtuple(  # type: ignore[misc] # noqa: PYI024
-                'Row',
-                headers,
-                rename=True,
-            )
-        else:
-            self._row_type = None
+        self._field_map: dict[str, int] = (
+            {name: i for i, name in enumerate(headers)}
+            if headers
+            else _EMPTY_FIELD_MAP
+        )
+
+        self._rows: tuple[Row, ...] = tuple(
+            Row(dataset[i], self._field_map)
+            for i in range(len(dataset))
+        )
+
+        self._cum_weights_cache: dict[
+            str, list[float],
+        ] = {}
 
     def __len__(self) -> int:
-        return len(self._dataset)
+        return len(self._rows)
 
-    def __getitem__(self, key: Any) -> list | tuple:
-        result = self._dataset[key]
+    def __getitem__(self, key: Any) -> Any:
+        if isinstance(key, int):
+            return self._rows[key]
+        return self._dataset[key]
 
-        if self._row_type is not None and isinstance(result, tuple):
-            return self._row_type(*result)
+    def pick(self) -> Row:
+        """Pick a random row (uniform)."""
+        return random.choice(self._rows)
 
-        return result
+    def pick_n(self, n: int) -> list[Row]:
+        """Pick n random rows (uniform, with replacement)."""
+        return random.choices(self._rows, k=n)
+
+    def weighted_pick(self, weight: str) -> Row:
+        """Pick a random row weighted by the named column."""
+        cum_weights = self._get_cum_weights(weight)
+        return random.choices(
+            self._rows,
+            cum_weights=cum_weights,
+            k=1,
+        )[0]
+
+    def weighted_pick_n(
+        self, weight: str, n: int,
+    ) -> list[Row]:
+        """Pick n random rows weighted by the named column."""
+        cum_weights = self._get_cum_weights(weight)
+        return random.choices(
+            self._rows,
+            cum_weights=cum_weights,
+            k=n,
+        )
+
+    def _get_cum_weights(
+        self, column: str,
+    ) -> list[float]:
+        """Get cached cumulative weights for a column."""
+        if column in self._cum_weights_cache:
+            return self._cum_weights_cache[column]
+
+        headers = self._dataset.headers
+        if headers is None or column not in headers:
+            msg = 'Weight column not found in sample'
+            raise SamplePickError(
+                msg,
+                context={
+                    'column': column,
+                    'available_headers': (
+                        list(headers) if headers else []
+                    ),
+                },
+            )
+
+        raw_weights = self._dataset[column]
+
+        cum = 0.0
+        cum_weights: list[float] = []
+        for i, value in enumerate(raw_weights):
+            try:
+                w = float(value)
+            except (TypeError, ValueError):
+                msg = (
+                    'Weight column contains '
+                    'non-numeric value'
+                )
+                raise SamplePickError(
+                    msg,
+                    context={
+                        'column': column,
+                        'row': i,
+                        'value': repr(value),
+                    },
+                ) from None
+
+            if w < 0:
+                msg = (
+                    'Weight column contains '
+                    'negative value'
+                )
+                raise SamplePickError(
+                    msg,
+                    context={
+                        'column': column,
+                        'row': i,
+                        'value': repr(value),
+                    },
+                )
+            cum += w
+            cum_weights.append(cum)
+
+        if cum == 0.0:
+            msg = 'All weights are zero'
+            raise SamplePickError(
+                msg,
+                context={'column': column},
+            )
+
+        self._cum_weights_cache[column] = cum_weights
+        return cum_weights
 
 
 def _load_items_sample(config: ItemsSampleConfig, _: Path) -> Sample:

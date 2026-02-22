@@ -1,0 +1,5 @@
+[
+    {"name": "John", "email": "john@example.com", "weight": 70},
+    {"name": "Jane", "email": "jane@example.com", "weight": 20},
+    {"name": "Bob", "email": "bob@example.com", "weight": 10}
+]
