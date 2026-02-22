@@ -146,9 +146,13 @@ class TemplateConfigForGeneralModes(BaseModel, frozen=True, extra='forbid'):
     template : Path
         Path to template.
 
+    vars : dict[str, Any]
+        Per-template variables accessible in the template via `vars`.
+
     """
 
     template: Path
+    vars: dict[str, Any] = Field(default_factory=dict)
 
     @field_validator('template')
     @classmethod

@@ -348,6 +348,7 @@ class TemplateEventPlugin(
             try:
                 event = template.render(
                     locals=self._template_states[alias],
+                    vars=self._template_configs[alias].vars,
                     **params,
                 )
             except Exception as e:

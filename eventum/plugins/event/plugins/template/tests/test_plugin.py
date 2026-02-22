@@ -450,6 +450,50 @@ def test_timestamp():
     assert events.pop() == ts.isoformat()
 
 
+def test_vars():
+    plugin = TemplateEventPlugin(
+        config=TemplateEventPluginConfig(
+            root=TemplateEventPluginConfigForGeneralModes(
+                params={},
+                samples={},
+                mode=TemplatePickingMode.ALL,
+                templates=[
+                    {
+                        'tcp': TemplateConfigForGeneralModes(
+                            template='connection.jinja',
+                            vars={'protocol': 'tcp', 'iana_number': '6'},
+                        )
+                    },
+                    {
+                        'udp': TemplateConfigForGeneralModes(
+                            template='connection.jinja',
+                            vars={'protocol': 'udp', 'iana_number': '17'},
+                        )
+                    },
+                ],
+            )
+        ),
+        params={
+            'id': 1,
+            'templates_loader': DictLoader(
+                mapping={
+                    'connection.jinja': (
+                        '{{ vars.protocol }}/{{ vars.iana_number }}'
+                    )
+                }
+            ),
+        },
+    )
+
+    events = plugin.produce(
+        params={'tags': tuple(), 'timestamp': datetime.now().astimezone()}
+    )
+
+    assert len(events) == 2
+    assert events[0] == 'tcp/6'
+    assert events[1] == 'udp/17'
+
+
 def test_tags():
     plugin = TemplateEventPlugin(
         config=TemplateEventPluginConfig(

@@ -98,6 +98,13 @@ const namespaceCompletions: NamespaceMember = {
         detail: 'Parameters provided in plugin configuration',
       },
     },
+    vars: {
+      completion: {
+        label: 'vars',
+        type: 'namespace',
+        detail: 'Per-template variables provided in template entry configuration',
+      },
+    },
     samples: {
       completion: {
         label: 'samples',

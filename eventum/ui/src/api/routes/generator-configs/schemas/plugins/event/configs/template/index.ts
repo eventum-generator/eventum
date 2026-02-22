@@ -49,6 +49,7 @@ export type SampleConfig = z.infer<typeof SampleConfigSchema>;
 
 export const TemplateConfigForGeneralModesSchema = z.object({
   template: z.string().endsWith('.jinja'),
+  vars: z.record(z.string(), z.any()).optional(),
 });
 export type TemplateConfigForGeneralModes = z.infer<
   typeof TemplateConfigForGeneralModesSchema
