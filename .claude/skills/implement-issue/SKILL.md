@@ -14,7 +14,8 @@ Implement the GitHub issue **$ARGUMENTS** in the `eventum-generator/eventum` rep
 
 1. Fetch the issue details: `gh issue view <number> --json title,body,labels,assignees,milestone,projectItems`
 2. Read and understand the issue requirements thoroughly.
-3. Explore the relevant parts of the codebase to understand existing patterns, conventions, and where changes are needed.
+3. Check the issues comments and understand intentions of participants.
+4. Explore the relevant parts of the codebase to understand existing patterns, conventions, and where changes are needed.
 
 ### Phase 2: Plan
 
