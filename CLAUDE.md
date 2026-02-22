@@ -315,6 +315,9 @@ uv run pytest eventum/plugins/input/plugins/cron/tests/  # Specific plugin
 
 ## Conventions
 
+- **Performance**: Optimize for high throughput (1M+ events/sec). Cache computed values, pre-build objects at init time, minimize per-call allocations, use O(1) lookups over linear scans. Validate lazily (once on first use, then cached).
+- **Maintainability**: Write clean, well-structured code that is easy to read and extend. Use clear naming, consistent patterns, and logical organization. Code should be self-documenting with concise docstrings on public APIs.
+- **Architecture**: Design extensible, composable abstractions. Prefer proper classes over ad-hoc structures. Keep responsibilities separated and interfaces minimal.
 - **Package manager**: uv
 - **Style**: Ruff with ALL rules enabled (`select = ["ALL"]`), 79-char line length, single quotes
 - **Ignored rules**: `A001`, `A002`, `A006` (builtin shadowing), `ANN401` (Any type), `D105` (magic method docs), `D205` (blank line after summary), `FIX002` (TODO), `S311` (non-crypto random), `S701` (Jinja2 autoescape), `TRY400` (error-instead-of-exception)

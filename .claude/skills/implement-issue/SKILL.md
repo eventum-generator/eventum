@@ -31,6 +31,9 @@ After plan approval, execute the changes:
    - Style: Ruff with ALL rules, single quotes, 79-char lines.
    - Types: Full type annotations, Pydantic models where appropriate.
    - Keep changes minimal and focused on the issue requirements.
+   - **Performance**: Optimize for high throughput — this codebase processes up to 1M+ events/sec. Cache computed values, pre-build objects at init time, minimize per-call allocations, use O(1) lookups over linear scans. Sacrifice verbose error details on hot paths if needed; validate lazily (once on first use, then cached).
+   - **Maintainability**: Write clean, well-structured code that is easy to read and extend. Use clear naming, consistent patterns, and logical organization. Code should be self-documenting with concise docstrings on public APIs.
+   - **Architecture**: Design extensible, composable abstractions. Prefer proper classes over ad-hoc structures. Keep responsibilities separated and interfaces minimal.
 
 2. **Tests** — Add or update tests. Tests are co-located: `<package>/tests/test_<name>.py`. Follow the existing test style in the file being modified.
 
@@ -53,6 +56,7 @@ cd ../docs && pnpm build                       # Docs build clean
 
 ### Phase 5: Close
 
+0. Ask user whether we close the issue first.
 1. **Comment on the issue** with a summary of changes:
    - What was added/changed (brief)
    - Which files were modified
