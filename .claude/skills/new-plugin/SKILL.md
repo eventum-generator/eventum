@@ -82,7 +82,14 @@ Create the docs page at `../docs/content/docs/plugins/<type>/<name>.mdx`:
 - Input→output example showing what the plugin produces
 - Add entry to `../docs/content/docs/plugins/<type>/meta.json`
 
-### Phase 6: Verify
+### Phase 6: Update CLAUDE.md
+
+Update CLAUDE.md files to reflect the new plugin:
+
+1. **`CLAUDE.md`** (this repo) — Update plugin tables and counts. If the plugin adds a new dependency, update the Python dependencies section. Reference the "Keeping CLAUDE.md Accurate" section for the full list of triggers.
+2. **`../docs/CLAUDE.md`** — Add the new plugin docs page to the **Content Structure** tree under `plugins/<type>/`.
+
+### Phase 7: Verify
 
 Run full verification pipeline:
 

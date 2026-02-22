@@ -46,7 +46,14 @@ Before bumping, generate the changelog from git history:
    __version__ = '<version>'
    ```
 
-### Phase 4: Full Verification
+### Phase 4: Update CLAUDE.md
+
+Update CLAUDE.md files to reflect the new version:
+
+1. **`CLAUDE.md`** (this repo) — Update the version number wherever it appears (overview text, package structure tree). Reference the "Keeping CLAUDE.md Accurate" section for the full list of triggers.
+2. **`../docs/CLAUDE.md`** — Add the new changelog version to the **Content Structure** tree under `changelog/`.
+
+### Phase 5: Full Verification
 
 Run the complete check suite:
 
@@ -60,7 +67,7 @@ cd ../docs && pnpm build
 
 Fix any failures before proceeding.
 
-### Phase 5: Present Summary
+### Phase 6: Present Summary
 
 Show the user a summary of all changes:
 - Version bump diff
@@ -70,7 +77,7 @@ Show the user a summary of all changes:
 
 Ask the user to review before committing.
 
-### Phase 6: Commit & PR (on user approval)
+### Phase 7: Commit & PR (on user approval)
 
 1. Commit all changes:
    ```
@@ -83,7 +90,7 @@ Ask the user to review before committing.
    ```
 4. Report the PR URL.
 
-### Phase 7: Tag (after PR merge)
+### Phase 8: Tag (after PR merge)
 
 After the user confirms the PR was merged:
 
