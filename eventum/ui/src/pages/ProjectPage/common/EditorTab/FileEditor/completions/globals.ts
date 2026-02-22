@@ -257,6 +257,50 @@ const namespaceCompletions: NamespaceMember = {
                     info: '(mu: float, sigma: float) -> float',
                   },
                 },
+                lognormal: {
+                  completion: {
+                    label: 'lognormal',
+                    type: 'function',
+                    detail:
+                      'Return random float from a log-normal distribution (always positive, right-skewed)',
+                    info: '(mu: float, sigma: float) -> float',
+                  },
+                },
+                exponential: {
+                  completion: {
+                    label: 'exponential',
+                    type: 'function',
+                    detail:
+                      'Return random float from an exponential distribution',
+                    info: '(lambd: float) -> float',
+                  },
+                },
+                pareto: {
+                  completion: {
+                    label: 'pareto',
+                    type: 'function',
+                    detail:
+                      'Return random float from a Pareto distribution (heavy-tailed, values >= xmin)',
+                    info: '(alpha: float, xmin: float = 1.0) -> float',
+                  },
+                },
+                triangular: {
+                  completion: {
+                    label: 'triangular',
+                    type: 'function',
+                    detail:
+                      'Return random float from a triangular distribution in [low, high] peaking at mode',
+                    info: '(low: float, high: float, mode: float) -> float',
+                  },
+                },
+                clamp: {
+                  completion: {
+                    label: 'clamp',
+                    type: 'function',
+                    detail: 'Clamp value to the range [min, max]',
+                    info: '(value: float, min: float, max: float) -> float',
+                  },
+                },
               },
             },
 
