@@ -329,6 +329,43 @@ uv run pytest eventum/plugins/input/plugins/cron/tests/  # Specific plugin
 - **Commits**: Conventional commits (`feat`, `fix`, `refactor`, `test`, `docs`, etc.) — git-cliff generates changelog
 - **Git**: Main branch is `master`, development on `develop`
 
+## Cross-cutting Change Checklist
+
+When adding, removing, or modifying any feature, check **all** affected layers — not just the immediate code. A feature is not complete until every affected layer is updated.
+
+### All layers
+
+| Layer | Location | What to update |
+|-------|----------|----------------|
+| **Core / Plugins** | `eventum/plugins/` | Implementation, Pydantic config models, type annotations, docstrings |
+| **Tests** | `<package>/tests/` | Add/update tests for new or changed behavior |
+| **UI Zod schemas** | `eventum/ui/src/.../schemas/plugins/<type>/configs/` | Mirror Pydantic config models (manual sync, no codegen) |
+| **UI form components** | `eventum/ui/src/pages/ProjectPage/<Type>PluginsTab/<Type>PluginParams/` | React forms for plugin config fields |
+| **UI autocomplete** | `eventum/ui/src/.../completions/globals.ts` | CodeMirror completions for template context (`module.*`, state, etc.) |
+| **UI plugin unions** | `eventum/ui/src/.../schemas/plugins/<type>/index.ts` | Import + add new plugin to discriminated union |
+| **Documentation** | `../docs/content/docs/` | MDX pages for any user-facing change |
+| **Docs navigation** | `../docs/content/docs/**/meta.json` | Add/remove page entries when adding/removing doc pages |
+| **OpenAPI spec** | `../docs/public/schemas/eventum-openapi.json` | Export from running app, then `pnpm generate-api-docs` |
+| **API docs** | `../docs/content/docs/api/` | Auto-generated — never edit directly, regenerate via script above |
+| **CLI** | `eventum/cli/commands/` | Update Click commands/options if CLI interface changed |
+| **Formatters** | output base plugin + Zod schemas + UI `FormatterParams.tsx` + `formatters.mdx` | All four when adding/changing a formatter |
+| **Content packs** | `../content-packs/generators/*/generator.yml` | Uses hardcoded plugin names — breaks if plugins renamed |
+| **Version** | `eventum/__init__.py` | Single source; pyproject.toml reads it via hatch; git tag must match for release |
+| **README** | `README.md` | Update if feature list, plugin list, or install instructions change |
+
+### By change type
+
+| What changed | Must update |
+|---|---|
+| **New plugin** | Plugin dir + Pydantic config + Zod schema + UI union index + UI form component + MDX doc page + `meta.json` nav |
+| **Rename plugin** | All of above + content-packs `generator.yml` files + changelog |
+| **Plugin config field added/changed** | Pydantic model + Zod schema + UI form component + MDX docs |
+| **Template context variable** | Template plugin implementation + `globals.ts` autocomplete + `template.mdx` docs |
+| **Template module function** | `modules/<name>.py` + tests + `globals.ts` autocomplete + `template.mdx` docs |
+| **API route changed** | FastAPI router + re-export OpenAPI spec + `pnpm generate-api-docs` + UI API calls if applicable |
+| **New formatter** | Output base plugin + Zod schemas + `FormatterParams.tsx` + `formatters.mdx` |
+| **New release** | `eventum/__init__.py` version + CHANGELOG.md (git-cliff) + docs changelog MDX page + `meta.json` |
+
 ## Common Gotchas
 
 - **GeneratorConfig keys must be real plugin names** — the config `input: [{cron: {...}}]` uses the actual plugin name `cron`, not arbitrary identifiers
