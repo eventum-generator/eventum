@@ -88,6 +88,39 @@ def test_number_gauss():
     assert isinstance(value, float)
 
 
+def test_number_lognormal():
+    value = rand.number.lognormal(0, 1)
+    assert isinstance(value, float)
+    assert value > 0
+
+
+def test_number_exponential():
+    value = rand.number.exponential(1.0)
+    assert isinstance(value, float)
+    assert value > 0
+
+
+def test_number_pareto():
+    value = rand.number.pareto(2.0)
+    assert isinstance(value, float)
+    assert value >= 1.0
+
+    value = rand.number.pareto(2.0, xmin=5.0)
+    assert value >= 5.0
+
+
+def test_number_triangular():
+    value = rand.number.triangular(0.0, 10.0, 5.0)
+    assert isinstance(value, float)
+    assert 0.0 <= value <= 10.0
+
+
+def test_number_clamp():
+    assert rand.number.clamp(5.0, 0.0, 10.0) == 5.0
+    assert rand.number.clamp(-1.0, 0.0, 10.0) == 0.0
+    assert rand.number.clamp(15.0, 0.0, 10.0) == 10.0
+
+
 # ---- String Namespace ----
 def test_string_letters_lowercase():
     result = rand.string.letters_lowercase(10)

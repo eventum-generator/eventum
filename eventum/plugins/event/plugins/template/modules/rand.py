@@ -145,6 +145,43 @@ class number:  # noqa: N801
         """
         return random.gauss(mu, sigma)
 
+    @staticmethod
+    def lognormal(mu: float, sigma: float) -> float:
+        """Return random floating point number with log-normal
+        distribution (always positive, right-skewed).
+        """
+        return random.lognormvariate(mu, sigma)
+
+    @staticmethod
+    def exponential(lambd: float) -> float:
+        """Return random floating point number with exponential
+        distribution. `lambd` is the rate parameter (1 / mean).
+        """
+        return random.expovariate(lambd)
+
+    @staticmethod
+    def pareto(alpha: float, xmin: float = 1.0) -> float:
+        """Return random floating point number with Pareto
+        distribution (heavy-tailed, values >= `xmin`).
+        """
+        return xmin * random.paretovariate(alpha)
+
+    @staticmethod
+    def triangular(
+        low: float, high: float, mode: float,
+    ) -> float:
+        """Return random floating point number with triangular
+        distribution in [`low`, `high`] peaking at `mode`.
+        """
+        return random.triangular(low, high, mode)
+
+    @staticmethod
+    def clamp(
+        value: float, min_val: float, max_val: float,
+    ) -> float:
+        """Clamp `value` to the range [`min_val`, `max_val`]."""
+        return max(min_val, min(max_val, value))
+
 
 class string:  # noqa: N801
     """Namespace for generating random strings."""
