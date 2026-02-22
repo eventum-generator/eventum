@@ -16,7 +16,7 @@ export default function FooterOnlyLayout({
     },
     {
       label: 'Community',
-      link: LINKS.TG_COMMUNITY_GROUP,
+      link: LINKS.GITHUB_DISCUSSIONS,
     },
   ];
   return (

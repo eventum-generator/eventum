@@ -59,7 +59,7 @@ export const BOTTOM_NAVIGATION_DATA = [
   {
     label: 'Join the community',
     icon: IconUsersGroup,
-    link: LINKS.TG_COMMUNITY_GROUP,
+    link: LINKS.GITHUB_DISCUSSIONS,
   },
   {
     label: 'Report an issue',
