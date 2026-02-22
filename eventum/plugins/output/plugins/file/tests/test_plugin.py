@@ -217,6 +217,29 @@ async def test_plugin_flush_interval(tmp_path):
 
 
 @pytest.mark.asyncio
+async def test_plugin_creates_intermediate_directories(tmp_path):
+    filepath = tmp_path / 'a' / 'b' / 'c' / 'test'
+    plugin = FileOutputPlugin(
+        config=FileOutputPluginConfig(
+            path=Path(filepath), write_mode='overwrite'
+        ),
+        params={'id': 1},
+    )
+
+    await plugin.open()
+
+    events = ['event1']
+    await plugin.write(events)
+
+    await plugin.close()
+
+    with open(filepath) as f:
+        lines = f.readlines()
+
+    assert events == [line.rstrip(os.linesep) for line in lines]
+
+
+@pytest.mark.asyncio
 async def test_plugin_file_recreation(tmp_path):
     filepath = tmp_path / 'test'
     plugin = FileOutputPlugin(
