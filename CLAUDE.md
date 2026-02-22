@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-Eventum is a flexible synthetic event generation platform built in Python 3.13+. It uses a plugin-based three-stage pipeline (**Input → Event → Output**) to generate timestamps, transform them into events, and deliver events to various destinations. Apache 2.0 licensed, current version 2.0.2.
+Eventum is a flexible synthetic event generation platform built in Python 3.13+. It uses a plugin-based three-stage pipeline (**Input → Event → Output**) to generate timestamps, transform them into events, and deliver events to various destinations. Apache 2.0 licensed, current version 2.1.0.
 
 - **Package name on PyPI**: `eventum-generator`
 - **Homepage**: https://eventum.run
@@ -48,7 +48,7 @@ git cliff -o CHANGELOG.md                  # Generate changelog via git-cliff
 
 ```
 eventum/
-├── __init__.py          # __version__ = '2.0.2'
+├── __init__.py          # __version__ = '2.1.0'
 ├── api/                 # FastAPI REST API routers and dependencies
 │   ├── dependencies/    # FastAPI Depends injection (app, settings, manager)
 │   ├── routers/         # Route groups: auth, docs, generator_configs, generators,
@@ -355,6 +355,7 @@ When adding, removing, or modifying any feature, check **all** affected layers �
 | **Content packs** | `../content-packs/generators/*/generator.yml` | Uses hardcoded plugin names — breaks if plugins renamed |
 | **Version** | `eventum/__init__.py` | Single source; pyproject.toml reads it via hatch; git tag must match for release |
 | **README** | `README.md` | Update if feature list, plugin list, or install instructions change |
+| **CLAUDE.md** | All repos' `CLAUDE.md` | Update if: version bumped, plugin added/removed, architecture changed, new dependency, new CLI option, new API route |
 
 ### By change type
 
@@ -363,11 +364,23 @@ When adding, removing, or modifying any feature, check **all** affected layers �
 | **New plugin** | Plugin dir + Pydantic config + Zod schema + UI union index + UI form component + MDX doc page + `meta.json` nav |
 | **Rename plugin** | All of above + content-packs `generator.yml` files + changelog |
 | **Plugin config field added/changed** | Pydantic model + Zod schema + UI form component + MDX docs |
-| **Template context variable** | Template plugin implementation + `globals.ts` autocomplete + `template.mdx` docs |
-| **Template module function** | `modules/<name>.py` + tests + `globals.ts` autocomplete + `template.mdx` docs |
+| **Template context variable** | Template plugin implementation + `globals.ts` autocomplete + `template.mdx` docs + `../content-packs/.claude/skills/create-generator/api-reference.md` |
+| **Template module function** | `modules/<name>.py` + tests + `globals.ts` autocomplete + `template.mdx` docs + `../content-packs/.claude/skills/create-generator/api-reference.md` |
 | **API route changed** | FastAPI router + re-export OpenAPI spec + `pnpm generate-api-docs` + UI API calls if applicable |
 | **New formatter** | Output base plugin + Zod schemas + `FormatterParams.tsx` + `formatters.mdx` |
-| **New release** | `eventum/__init__.py` version + CHANGELOG.md (git-cliff) + docs changelog MDX page + `meta.json` |
+| **New release** | `eventum/__init__.py` version + CHANGELOG.md (git-cliff) + docs changelog MDX page + `meta.json` + update version in `CLAUDE.md` |
+
+## Workflow Expectations
+
+- **Always test** — every feature/fix must have tests. Tests are part of "done". No exceptions.
+- **Full verification** — run tests + lint + type check before presenting results. If docs were updated, also verify `pnpm build` in `../docs/`.
+- **Checkpoint approach** — plan first, implement code, then check in before tests/docs. Two checkpoints.
+- **Same-session docs** — if a change affects user-facing behavior, update docs in `../docs/content/docs/` in the same session.
+- **Conventional commits** — `feat(scope):`, `fix(scope):`, `refactor(scope):`, `test(scope):`, `docs(scope):`, `chore(scope):`. Scopes: app, api, cli, core, logging, plugins, security, ui, utils, server.
+- **Fix trivial issues** — fix obvious issues (typos, dead imports, clear bugs) near the code you're changing. Ask before bigger refactors.
+- **Create GitHub issues** — for non-trivial improvements discovered during work, create issues with proper labels.
+- **Dependencies** — use the best tool for the job. Quality and maintenance status matter. No artificial dep avoidance, but justify new deps.
+- **Docstrings** — public API only. NumPy-style (Parameters/Returns/Raises). No inline comments unless truly non-obvious.
 
 ## Common Gotchas
 
@@ -379,3 +392,17 @@ When adding, removing, or modifying any feature, check **all** affected layers �
 - **FastAPI state injection** — app state (`generator_manager`, `settings`, `instance_hooks`) must be set before first request; patches must be active during request handling, not just at registration time
 - **Batch parameters** — at least one of `batch.size` or `batch.delay` must be set
 - **Timezone** — uses ZoneInfo timezone objects internally, config accepts string identifiers
+
+## Keeping CLAUDE.md Accurate
+
+This file is the primary context for AI tools working on the codebase. It must stay current. Update it when:
+
+- **Version bump** — update version in overview text and package structure tree (2 places)
+- **New/removed plugin** — update plugin tables and counts
+- **Architecture change** — update package structure tree and key models table
+- **New dependency** — update Python dependencies section
+- **New API route or CLI option** — update REST API or CLI sections
+- **New formatter** — update output formatters table
+- **Config schema change** — update configuration system section
+
+The cross-cutting change checklist above includes a CLAUDE.md row as a reminder.
