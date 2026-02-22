@@ -20,12 +20,12 @@
 </p>
 
 <p align="center">
-  <a href="https://eventum.run"><strong>Documentation</strong></a> &nbsp;·&nbsp;
-  <a href="https://eventum.run/docs/tutorials"><strong>Tutorials</strong></a> &nbsp;·&nbsp;
-  <a href="https://eventum.run/docs/api"><strong>API Reference</strong></a> &nbsp;·&nbsp;
-  <a href="https://github.com/eventum-generator/eventum/blob/master/CHANGELOG.md"><strong>Changelog</strong></a> &nbsp;·&nbsp;
-  <a href="https://github.com/orgs/eventum-generator/projects/4"><strong>Task tracker</strong></a>  &nbsp;·&nbsp;
-  <a href="https://github.com/orgs/eventum-generator/discussions"><strong>Discuss</strong></a>
+  <a href="https://eventum.run"><strong>📖 Documentation</strong></a> &nbsp;·&nbsp;
+  <a href="https://eventum.run/docs/tutorials"><strong>🎓 Tutorials</strong></a> &nbsp;·&nbsp;
+  <a href="https://eventum.run/docs/api"><strong>🔌 API Reference</strong></a> &nbsp;·&nbsp;
+  <a href="https://github.com/eventum-generator/eventum/blob/master/CHANGELOG.md"><strong>📋 Changelog</strong></a> &nbsp;·&nbsp;
+  <a href="https://github.com/orgs/eventum-generator/projects/4"><strong>📅 Task tracker</strong></a>  &nbsp;·&nbsp;
+  <a href="https://github.com/orgs/eventum-generator/discussions"><strong>💬 Discuss</strong></a>
 </p>
 
 ---
