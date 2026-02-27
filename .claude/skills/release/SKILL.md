@@ -116,6 +116,28 @@ Use the same content as the docs changelog MDX (features, bug fixes, testing, ot
 **Full Changelog**: https://github.com/eventum-generator/eventum/compare/v<previous-version>...v<version>
 ```
 
+### Phase 10: Announcement Discussion
+
+Create a discussion in the Announcements category via GraphQL:
+
+```bash
+gh api graphql -f query='
+mutation {
+  createDiscussion(input: {
+    repositoryId: "<repo-node-id>",
+    categoryId: "DIC_kwDOKpjxBc4CfS4C",
+    title: "Eventum <version> Released",
+    body: "..."
+  }) {
+    discussion { url }
+  }
+}'
+```
+
+- Get repo node ID: `gh api graphql -f query='{ repository(owner: "eventum-generator", name: "eventum") { id } }'`
+- Announcements category ID: `DIC_kwDOKpjxBc4CfS4C`
+- Body: brief intro, features and bug fixes from the changelog, install command (`pip install eventum-sdk==<version>`), links to docs changelog and GitHub release.
+
 ### Important
 
 - Each phase requires user confirmation before proceeding to the next.
