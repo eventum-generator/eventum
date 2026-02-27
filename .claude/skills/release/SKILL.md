@@ -102,6 +102,20 @@ After the user confirms the PR was merged:
 
 The tag push triggers the CI release pipeline (PyPI + Docker Hub).
 
+### Phase 9: GitHub Release
+
+Create a GitHub release from the tag:
+
+```bash
+gh release create v<version> --title "Eventum <version>" --notes "..."
+```
+
+Use the same content as the docs changelog MDX (features, bug fixes, testing, other changes) formatted for GitHub. Include a full changelog link at the bottom:
+
+```
+**Full Changelog**: https://github.com/eventum-generator/eventum/compare/v<previous-version>...v<version>
+```
+
 ### Important
 
 - Each phase requires user confirmation before proceeding to the next.
