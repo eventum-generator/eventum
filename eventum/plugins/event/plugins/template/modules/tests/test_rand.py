@@ -47,12 +47,25 @@ def test_weighted_choice():
     assert result in items
 
 
+def test_weighted_choice_dict():
+    mapping = {'apple': 0.1, 'banana': 0.2, 'cherry': 0.7}
+    result = rand.weighted_choice(mapping)
+    assert result in mapping
+
+
 def test_weighted_choices():
     items = ['red', 'green', 'blue']
     weights = [0.5, 0.3, 0.2]
     results = rand.weighted_choices(items, weights, 5)
     assert len(results) == 5
     assert all(item in items for item in results)
+
+
+def test_weighted_choices_dict():
+    mapping = {'red': 0.5, 'green': 0.3, 'blue': 0.2}
+    results = rand.weighted_choices(mapping, 5)
+    assert len(results) == 5
+    assert all(item in mapping for item in results)
 
 
 def test_chance():
@@ -73,6 +86,39 @@ def test_number_floating():
 def test_number_gauss():
     value = rand.number.gauss(0, 1)
     assert isinstance(value, float)
+
+
+def test_number_lognormal():
+    value = rand.number.lognormal(0, 1)
+    assert isinstance(value, float)
+    assert value > 0
+
+
+def test_number_exponential():
+    value = rand.number.exponential(1.0)
+    assert isinstance(value, float)
+    assert value > 0
+
+
+def test_number_pareto():
+    value = rand.number.pareto(2.0)
+    assert isinstance(value, float)
+    assert value >= 1.0
+
+    value = rand.number.pareto(2.0, xmin=5.0)
+    assert value >= 5.0
+
+
+def test_number_triangular():
+    value = rand.number.triangular(0.0, 10.0, 5.0)
+    assert isinstance(value, float)
+    assert 0.0 <= value <= 10.0
+
+
+def test_number_clamp():
+    assert rand.number.clamp(5.0, 0.0, 10.0) == 5.0
+    assert rand.number.clamp(-1.0, 0.0, 10.0) == 0.0
+    assert rand.number.clamp(15.0, 0.0, 10.0) == 10.0
 
 
 # ---- String Namespace ----

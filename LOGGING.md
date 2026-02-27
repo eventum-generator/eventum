@@ -27,6 +27,11 @@
         <td>Any</td>
     </tr>
     <tr>
+        <td>hint</td>
+        <td>Actionable suggestion for resolving the issue</td>
+        <td>str</td>
+    </tr>
+    <tr>
         <td>timeout</td>
         <td>Timeout in seconds</td>
         <td>int</td>

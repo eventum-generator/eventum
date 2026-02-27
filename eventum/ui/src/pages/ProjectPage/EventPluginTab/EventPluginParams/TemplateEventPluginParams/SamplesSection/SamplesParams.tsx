@@ -90,6 +90,7 @@ export const SamplesParams: FC<SamplesParamsProps> = ({
               type: sampleType,
               source: undefined!,
               delimiter: undefined!,
+              quotechar: undefined!,
               header: undefined!,
             });
 
@@ -97,6 +98,7 @@ export const SamplesParams: FC<SamplesParamsProps> = ({
               form.setValues({
                 header: true,
                 delimiter: ',',
+                quotechar: '"',
               });
             } else if (sampleType === SampleType.Items) {
               form.setValues({
@@ -181,6 +183,26 @@ export const SamplesParams: FC<SamplesParamsProps> = ({
                 onChange={(event) => {
                   form.setFieldValue(
                     'delimiter',
+                    event.currentTarget.value !== ''
+                      ? event.currentTarget.value
+                      : undefined!
+                  );
+                }}
+              />
+              <TextInput
+                label={
+                  <LabelWithTooltip
+                    label="Quote char"
+                    tooltip={`Character used to quote fields containing the delimiter (RFC 4180). Default is value is '"' (double quote)`}
+                  />
+                }
+                w="100%"
+                maxLength={1}
+                {...form.getInputProps('quotechar')}
+                value={form.values.quotechar ?? ''}
+                onChange={(event) => {
+                  form.setFieldValue(
+                    'quotechar',
                     event.currentTarget.value !== ''
                       ? event.currentTarget.value
                       : undefined!

@@ -120,6 +120,7 @@ class FileOutputPlugin(
             Opened file.
 
         """
+        self._filepath.parent.mkdir(parents=True, exist_ok=True)
         f = await aiofiles.open(
             file=self._filepath,
             mode='a' if self._config.write_mode == 'append' else 'w',
@@ -141,6 +142,7 @@ class FileOutputPlugin(
             Opened file.
 
         """
+        self._filepath.parent.mkdir(parents=True, exist_ok=True)
         f = await aiofiles.open(
             file=self._filepath,
             mode='a',

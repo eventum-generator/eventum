@@ -98,6 +98,13 @@ const namespaceCompletions: NamespaceMember = {
         detail: 'Parameters provided in plugin configuration',
       },
     },
+    vars: {
+      completion: {
+        label: 'vars',
+        type: 'namespace',
+        detail: 'Per-template variables provided in template entry configuration',
+      },
+    },
     samples: {
       completion: {
         label: 'samples',
@@ -201,8 +208,8 @@ const namespaceCompletions: NamespaceMember = {
                 label: 'weighted_choice',
                 type: 'function',
                 detail:
-                  'Return random item from non empty sequence with `weights` probability',
-                info: '(items: Sequence[T], weights: Sequence[float]) -> T',
+                  'Return random item with weighted probability. Accepts (items, weights) or a dict {item: weight}',
+                info: '(items: Sequence[T] | dict[T, float], weights?: Sequence[float]) -> T',
               },
             },
             weighted_choices: {
@@ -210,8 +217,8 @@ const namespaceCompletions: NamespaceMember = {
                 label: 'weighted_choices',
                 type: 'function',
                 detail:
-                  'Return `n` random items from non empty sequence with `weights` probability',
-                info: '(items: Sequence[T], weights: Sequence[float], n: int) -> list[T]',
+                  'Return `n` random items with weighted probability. Accepts (items, weights, n) or (dict, n)',
+                info: '(items: Sequence[T] | dict[T, float], weights: Sequence[float] | int, n?: int) -> list[T]',
               },
             },
             chance: {
@@ -255,6 +262,50 @@ const namespaceCompletions: NamespaceMember = {
                     detail:
                       'Return random floating point number with Gaussian distribution',
                     info: '(mu: float, sigma: float) -> float',
+                  },
+                },
+                lognormal: {
+                  completion: {
+                    label: 'lognormal',
+                    type: 'function',
+                    detail:
+                      'Return random float from a log-normal distribution (always positive, right-skewed)',
+                    info: '(mu: float, sigma: float) -> float',
+                  },
+                },
+                exponential: {
+                  completion: {
+                    label: 'exponential',
+                    type: 'function',
+                    detail:
+                      'Return random float from an exponential distribution',
+                    info: '(lambd: float) -> float',
+                  },
+                },
+                pareto: {
+                  completion: {
+                    label: 'pareto',
+                    type: 'function',
+                    detail:
+                      'Return random float from a Pareto distribution (heavy-tailed, values >= xmin)',
+                    info: '(alpha: float, xmin: float = 1.0) -> float',
+                  },
+                },
+                triangular: {
+                  completion: {
+                    label: 'triangular',
+                    type: 'function',
+                    detail:
+                      'Return random float from a triangular distribution in [low, high] peaking at mode',
+                    info: '(low: float, high: float, mode: float) -> float',
+                  },
+                },
+                clamp: {
+                  completion: {
+                    label: 'clamp',
+                    type: 'function',
+                    detail: 'Clamp value to the range [min, max]',
+                    info: '(value: float, min: float, max: float) -> float',
                   },
                 },
               },

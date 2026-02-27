@@ -1,4 +1,11 @@
-import { Button, NumberInput, Stack, Switch, Textarea } from '@mantine/core';
+import {
+  Button,
+  JsonInput,
+  NumberInput,
+  Stack,
+  Switch,
+  Textarea,
+} from '@mantine/core';
 import { useForm } from '@mantine/form';
 import { zod4Resolver } from 'mantine-form-zod-resolver';
 import { FC } from 'react';
@@ -143,6 +150,39 @@ export const TemplateParams: FC<TemplateParamsProps> = ({
           </Stack>
         </Stack>
       )}
+
+      <JsonInput
+        label={
+          <LabelWithTooltip
+            label="Variables"
+            tooltip="Per-template variables accessible via vars in the template"
+          />
+        }
+        description="Each variable is an attribute of a single JSON object"
+        placeholder="{ ... }"
+        validationError="Invalid JSON"
+        minRows={4}
+        autosize
+        defaultValue={JSON.stringify(form.values.vars, undefined, 2)}
+        onChange={(value) => {
+          if (!value) {
+            form.setFieldValue('vars', undefined);
+            return;
+          }
+
+          let parsed: unknown;
+          try {
+            parsed = JSON.parse(value);
+          } catch {
+            return;
+          }
+
+          if (typeof parsed === 'object') {
+            form.setFieldValue('vars', parsed as Record<string, never>);
+          }
+        }}
+        error={form.errors.vars}
+      />
 
       <Button variant="default" onClick={() => onDelete(form.values.template)}>
         Remove
