@@ -43,6 +43,7 @@ git cliff -o CHANGELOG.md                  # Generate changelog via git-cliff
 - **Linting excludes**: `**/tests/**`
 - **Types**: Strict mypy with Pydantic plugin; full type annotations required
 - **Docstrings**: NumPy-style (Parameters/Returns/Raises sections). Public API only.
+- **ASCII only in code**: Never use characters that can't be typed on a standard keyboard in code, comments, commit messages, or CLI output. Use `->` not `→`, `-` not `—`, `<-` not `←`, `!=` not `≠`, `*` not `•`, etc. Unicode symbols are fine in prose/docs MDX content only.
 - **Errors**: Custom `ContextualError` base class with `context: dict` for structured error metadata
 - **Logging**: Structlog with bound context variables (`generator_id`, `plugin_name`, `plugin_type`, etc.)
 - **Config models**: All Pydantic, frozen where immutability is needed
