@@ -107,9 +107,7 @@ class ServiceManager:
     def _unit_file_path(self) -> Path:
         """Compute the expected unit file path."""
         if self._user_mode:
-            unit_dir = (
-                Path.home() / '.config' / 'systemd' / 'user'
-            )
+            unit_dir = Path.home() / '.config' / 'systemd' / 'user'
         else:
             unit_dir = Path('/etc/systemd/system')
 
@@ -188,7 +186,10 @@ class ServiceManager:
         with paths.config_file.open('w') as f:
             f.write(CONFIG_HEADER)
             yaml.dump(
-                config, f, default_flow_style=False, sort_keys=False,
+                config,
+                f,
+                default_flow_style=False,
+                sort_keys=False,
             )
 
         return True
@@ -230,9 +231,7 @@ class ServiceManager:
     ) -> str:
         """Render the systemd unit file content."""
         wanted_by = (
-            'default.target'
-            if self._user_mode
-            else 'multi-user.target'
+            'default.target' if self._user_mode else 'multi-user.target'
         )
 
         return UNIT_TEMPLATE.format(
@@ -354,14 +353,18 @@ class ServiceManager:
     def _is_active(self) -> bool:
         """Check if the service is active (running)."""
         result = self._systemctl(
-            'is-active', SERVICE_NAME, check=False,
+            'is-active',
+            SERVICE_NAME,
+            check=False,
         )
         return result.stdout.strip() == 'active'
 
     def _is_enabled(self) -> bool:
         """Check if the service is enabled."""
         result = self._systemctl(
-            'is-enabled', SERVICE_NAME, check=False,
+            'is-enabled',
+            SERVICE_NAME,
+            check=False,
         )
         return result.stdout.strip() == 'enabled'
 

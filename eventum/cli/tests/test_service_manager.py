@@ -309,11 +309,15 @@ def test_generate_unit_content_system(manager, tmp_path):
     )
 
     content = manager.generate_unit_content(
-        paths, Path('/usr/local/bin/eventum'),
+        paths,
+        Path('/usr/local/bin/eventum'),
     )
 
     assert 'WantedBy=multi-user.target' in content
-    assert f'ExecStart=/usr/local/bin/eventum run -c {paths.config_file}' in content
+    assert (
+        f'ExecStart=/usr/local/bin/eventum run -c {paths.config_file}'
+        in content
+    )
     assert 'ExecReload=/bin/kill -HUP $MAINPID' in content
     assert 'SuccessExitStatus=1' in content
 
@@ -325,7 +329,8 @@ def test_generate_unit_content_user(user_manager, tmp_path):
     )
 
     content = user_manager.generate_unit_content(
-        paths, Path('/home/user/.local/bin/eventum'),
+        paths,
+        Path('/home/user/.local/bin/eventum'),
     )
 
     assert 'WantedBy=default.target' in content

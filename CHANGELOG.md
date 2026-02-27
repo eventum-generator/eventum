@@ -2,6 +2,34 @@
 
 All notable changes to this project will be documented in this file.
 
+## 2.2.0 (2026-02-27)
+
+### 🚀 New Features
+
+- Add systemd service management to CLI — install, uninstall, start, stop, restart, and check status of Eventum as a systemd service
+- Implement weighted sampling for CSV and JSON — select sample rows by weight column for non-uniform data generation
+- Add per-template variables in TemplateEventPlugin — templates can define their own local variables alongside shared ones
+- Add random distribution functions — new `rand.gauss`, `rand.triangular`, `rand.expo`, `rand.lognorm`, `rand.beta`, and `rand.pareto` methods
+- Support dict input for `rand.weighted_choice` — pass weight mappings directly without a separate sample file
+
+### 🐛 Bug Fixes
+
+- Add `quotechar` config to CSV sample reader and improve error message for inconsistent column counts
+- Ensure intermediate directories are created for file output plugin
+- Update community links to GitHub Discussions in Eventum Studio navbar and footer
+
+### 🧪 Testing
+
+- Add comprehensive tests for systemd service CLI commands and service manager
+- Add tests for weighted sampling (CSV and JSON, with and without weights)
+- Add tests for new random distribution functions
+- Add tests for file output plugin directory creation
+
+### 📝 Other Changes
+
+- Remove PROPOSALS.md — proposals are now created as GitHub issues
+- Add Claude Code skills for plugin creation, release management, and issue implementation
+
 ## 2.1.0 (2026-02-21)
 
 ### 🚀 New Features

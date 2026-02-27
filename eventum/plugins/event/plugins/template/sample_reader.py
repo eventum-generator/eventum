@@ -58,8 +58,7 @@ class Row(tuple):  # noqa: SLOT001
         object.__setattr__(
             instance,
             '_field_map',
-            field_map if field_map is not None
-            else _EMPTY_FIELD_MAP,
+            field_map if field_map is not None else _EMPTY_FIELD_MAP,
         )
         return instance
 
@@ -72,8 +71,7 @@ class Row(tuple):  # noqa: SLOT001
     def __repr__(self) -> str:
         if self._field_map:
             pairs = ', '.join(
-                f'{f}={self[i]!r}'
-                for f, i in self._field_map.items()
+                f'{f}={self[i]!r}' for f, i in self._field_map.items()
             )
             return f'Row({pairs})'
         return f'Row({super().__repr__()})'
@@ -103,9 +101,7 @@ class Sample:
         if dataset.headers:
             headers = dataset.headers
         else:
-            headers = [
-                f'_{i}' for i in range(dataset.width)
-            ]
+            headers = [f'_{i}' for i in range(dataset.width)]
 
         self._field_map: dict[str, int] = (
             {name: i for i, name in enumerate(headers)}
@@ -114,12 +110,12 @@ class Sample:
         )
 
         self._rows: tuple[Row, ...] = tuple(
-            Row(dataset[i], self._field_map)
-            for i in range(len(dataset))
+            Row(dataset[i], self._field_map) for i in range(len(dataset))
         )
 
         self._cum_weights_cache: dict[
-            str, list[float],
+            str,
+            list[float],
         ] = {}
 
     def __len__(self) -> int:
@@ -148,7 +144,9 @@ class Sample:
         )[0]
 
     def weighted_pick_n(
-        self, weight: str, n: int,
+        self,
+        weight: str,
+        n: int,
     ) -> list[Row]:
         """Pick n random rows weighted by the named column."""
         cum_weights = self._get_cum_weights(weight)
@@ -159,7 +157,8 @@ class Sample:
         )
 
     def _get_cum_weights(
-        self, column: str,
+        self,
+        column: str,
     ) -> list[float]:
         """Get cached cumulative weights for a column."""
         if column in self._cum_weights_cache:
@@ -172,9 +171,7 @@ class Sample:
                 msg,
                 context={
                     'column': column,
-                    'available_headers': (
-                        list(headers) if headers else []
-                    ),
+                    'available_headers': (list(headers) if headers else []),
                 },
             )
 
@@ -186,10 +183,7 @@ class Sample:
             try:
                 w = float(value)
             except (TypeError, ValueError):
-                msg = (
-                    'Weight column contains '
-                    'non-numeric value'
-                )
+                msg = 'Weight column contains non-numeric value'
                 raise SamplePickError(
                     msg,
                     context={
@@ -200,10 +194,7 @@ class Sample:
                 ) from None
 
             if w < 0:
-                msg = (
-                    'Weight column contains '
-                    'negative value'
-                )
+                msg = 'Weight column contains negative value'
                 raise SamplePickError(
                     msg,
                     context={

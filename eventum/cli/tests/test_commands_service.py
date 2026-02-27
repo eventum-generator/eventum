@@ -71,8 +71,10 @@ def test_install_non_interactive(mock_euid, _mock_service_manager, runner):
         cli,
         [
             'install',
-            '--config-dir', '/etc/eventum',
-            '--log-dir', '/var/log/eventum',
+            '--config-dir',
+            '/etc/eventum',
+            '--log-dir',
+            '/var/log/eventum',
             '--no-ask',
         ],
     )
@@ -125,8 +127,10 @@ def test_install_already_installed(mock_euid, _mock_service_manager, runner):
         cli,
         [
             'install',
-            '--config-dir', '/etc/eventum',
-            '--log-dir', '/var/log/eventum',
+            '--config-dir',
+            '/etc/eventum',
+            '--log-dir',
+            '/var/log/eventum',
             '--no-ask',
         ],
     )
@@ -145,8 +149,10 @@ def test_install_binary_not_found(mock_euid, _mock_service_manager, runner):
         cli,
         [
             'install',
-            '--config-dir', '/etc/eventum',
-            '--log-dir', '/var/log/eventum',
+            '--config-dir',
+            '/etc/eventum',
+            '--log-dir',
+            '/var/log/eventum',
             '--no-ask',
         ],
     )
@@ -165,8 +171,10 @@ def test_install_permission_denied(mock_euid, _mock_service_manager, runner):
         cli,
         [
             'install',
-            '--config-dir', '/etc/eventum',
-            '--log-dir', '/var/log/eventum',
+            '--config-dir',
+            '/etc/eventum',
+            '--log-dir',
+            '/var/log/eventum',
             '--no-ask',
         ],
     )
@@ -184,8 +192,10 @@ def test_install_user_mode_auto(mock_euid, _mock_service_manager, runner):
         cli,
         [
             'install',
-            '--config-dir', '/tmp/config',
-            '--log-dir', '/tmp/logs',
+            '--config-dir',
+            '/tmp/config',
+            '--log-dir',
+            '/tmp/logs',
             '--no-ask',
         ],
     )
@@ -207,8 +217,10 @@ def test_install_user_flag_forces_user_mode(
         [
             'install',
             '--user',
-            '--config-dir', '/etc/eventum',
-            '--log-dir', '/var/log/eventum',
+            '--config-dir',
+            '/etc/eventum',
+            '--log-dir',
+            '/var/log/eventum',
             '--no-ask',
         ],
     )
@@ -230,8 +242,10 @@ def test_install_preserves_existing_config(
         cli,
         [
             'install',
-            '--config-dir', '/etc/eventum',
-            '--log-dir', '/var/log/eventum',
+            '--config-dir',
+            '/etc/eventum',
+            '--log-dir',
+            '/var/log/eventum',
             '--no-ask',
         ],
     )
@@ -252,8 +266,10 @@ def test_install_systemd_not_available(mock_euid, runner):
             cli,
             [
                 'install',
-                '--config-dir', '/etc/eventum',
-                '--log-dir', '/var/log/eventum',
+                '--config-dir',
+                '/etc/eventum',
+                '--log-dir',
+                '/var/log/eventum',
                 '--no-ask',
             ],
         )

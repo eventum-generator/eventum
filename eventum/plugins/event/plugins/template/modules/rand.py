@@ -168,7 +168,9 @@ class number:  # noqa: N801
 
     @staticmethod
     def triangular(
-        low: float, high: float, mode: float,
+        low: float,
+        high: float,
+        mode: float,
     ) -> float:
         """Return random floating point number with triangular
         distribution in [`low`, `high`] peaking at `mode`.
@@ -177,7 +179,9 @@ class number:  # noqa: N801
 
     @staticmethod
     def clamp(
-        value: float, min_val: float, max_val: float,
+        value: float,
+        min_val: float,
+        max_val: float,
     ) -> float:
         """Clamp `value` to the range [`min_val`, `max_val`]."""
         return max(min_val, min(max_val, value))

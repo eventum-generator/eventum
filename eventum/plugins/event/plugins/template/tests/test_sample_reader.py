@@ -474,7 +474,8 @@ def test_pick_n_returns_correct_count(csv_sample_config):
 
 def test_weighted_pick_csv(weighted_csv_sample_config):
     sample_reader = SamplesReader(
-        weighted_csv_sample_config, BASE_PATH,
+        weighted_csv_sample_config,
+        BASE_PATH,
     )
     sample = sample_reader['weighted_csv']
 
@@ -485,7 +486,8 @@ def test_weighted_pick_csv(weighted_csv_sample_config):
 
 def test_weighted_pick_json(weighted_json_sample_config):
     sample_reader = SamplesReader(
-        weighted_json_sample_config, BASE_PATH,
+        weighted_json_sample_config,
+        BASE_PATH,
     )
     sample = sample_reader['weighted_json']
 
@@ -498,7 +500,8 @@ def test_weighted_pick_respects_distribution(
     weighted_csv_sample_config,
 ):
     sample_reader = SamplesReader(
-        weighted_csv_sample_config, BASE_PATH,
+        weighted_csv_sample_config,
+        BASE_PATH,
     )
     sample = sample_reader['weighted_csv']
 
@@ -517,7 +520,8 @@ def test_weighted_pick_n_returns_correct_count(
     weighted_csv_sample_config,
 ):
     sample_reader = SamplesReader(
-        weighted_csv_sample_config, BASE_PATH,
+        weighted_csv_sample_config,
+        BASE_PATH,
     )
     sample = sample_reader['weighted_csv']
 
@@ -538,7 +542,8 @@ def test_weighted_pick_non_numeric_weight_raises(
     bad_weights_csv_sample_config,
 ):
     sample_reader = SamplesReader(
-        bad_weights_csv_sample_config, BASE_PATH,
+        bad_weights_csv_sample_config,
+        BASE_PATH,
     )
     sample = sample_reader['bad_weights']
 
@@ -548,7 +553,8 @@ def test_weighted_pick_non_numeric_weight_raises(
 
 def test_weighted_pick_no_headers_raises(flat_items_sample_config):
     sample_reader = SamplesReader(
-        flat_items_sample_config, BASE_PATH,
+        flat_items_sample_config,
+        BASE_PATH,
     )
     sample = sample_reader['items_sample']
 
@@ -558,7 +564,8 @@ def test_weighted_pick_no_headers_raises(flat_items_sample_config):
 
 def test_weighted_pick_caches_weights(weighted_csv_sample_config):
     sample_reader = SamplesReader(
-        weighted_csv_sample_config, BASE_PATH,
+        weighted_csv_sample_config,
+        BASE_PATH,
     )
     sample = sample_reader['weighted_csv']
 
