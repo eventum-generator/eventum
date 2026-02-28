@@ -27,5 +27,7 @@
     },
     "python-envs.pythonProjects": [],
     "python.analysis.diagnosticMode": "workspace",
-    "python.analysis.typeCheckingMode": "standard"
+    "python.analysis.typeCheckingMode": "standard",
+    "mypy-type-checker.importStrategy": "fromEnvironment",
+    "mypy-type-checker.preferDaemon": true
 }
