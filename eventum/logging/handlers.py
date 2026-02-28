@@ -4,7 +4,7 @@ import logging
 from collections.abc import Callable, Hashable
 from typing import override
 
-from lru import LRU
+from eventum.utils.lru_cache import LRUCache
 
 
 class RoutingHandler(logging.Handler):
@@ -70,8 +70,10 @@ class RoutingHandler(logging.Handler):
         self._default_handler = default_handler
         self._formatter = formatter
 
-        self._handlers: LRU[str, logging.Handler] = LRU(size=lru_size)
-        self._handlers.set_callback(lambda _, handler: handler.close())
+        self._handlers: LRUCache[str, logging.Handler] = LRUCache(
+            maxsize=lru_size,
+            on_evict=lambda _, handler: handler.close(),
+        )
 
     @override
     def emit(self, record: logging.LogRecord) -> None:

@@ -19,7 +19,6 @@ from eventum.logging.processors import derive_extras, remove_keys_processor
 if TYPE_CHECKING:
     from structlog.typing import Processor
 
-
 type LogLevel = Literal['DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL']
 
 
