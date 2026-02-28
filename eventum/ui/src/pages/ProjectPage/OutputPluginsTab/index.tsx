@@ -163,6 +163,7 @@ export const OutputPluginsTab: FC<OutputPluginsTabProps> = ({
                 </Center>
               ) : (
                 <OutputPluginParams
+                  key={selectedPluginIndex}
                   outputPluginConfig={pluginsConfig[selectedPluginIndex]!}
                   onChange={handleConfigChange}
                 />

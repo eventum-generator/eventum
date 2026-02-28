@@ -49,7 +49,8 @@ def client(tmp_settings, manager):
     app.state.settings = tmp_settings
     app.state.generator_manager = manager
     app.include_router(router, prefix='/generators')
-    return TestClient(app)
+    with TestClient(app) as c:
+        yield c
 
 
 def _make_config_file(settings, name='test_gen'):

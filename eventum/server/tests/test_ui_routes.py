@@ -16,8 +16,7 @@ def test_spa_returns_index_for_unknown_path(tmp_path):
 
     app = FastAPI()
     app.include_router(router)
-    client = TestClient(app)
-    with patch(f'{MODULE}.WWW_DIR', tmp_path):
+    with TestClient(app) as client, patch(f'{MODULE}.WWW_DIR', tmp_path):
         response = client.get('/some/page')
     assert response.status_code == 200
     assert 'SPA' in response.text
@@ -29,8 +28,7 @@ def test_api_prefix_returns_404(tmp_path):
 
     app = FastAPI()
     app.include_router(router)
-    client = TestClient(app)
-    with patch(f'{MODULE}.WWW_DIR', tmp_path):
+    with TestClient(app) as client, patch(f'{MODULE}.WWW_DIR', tmp_path):
         response = client.get('/api/something')
     assert response.status_code == 404
 
@@ -43,8 +41,7 @@ def test_existing_file_served_directly(tmp_path):
 
     app = FastAPI()
     app.include_router(router)
-    client = TestClient(app)
-    with patch(f'{MODULE}.WWW_DIR', tmp_path):
+    with TestClient(app) as client, patch(f'{MODULE}.WWW_DIR', tmp_path):
         response = client.get('/logo.svg')
     assert response.status_code == 200
     assert 'logo' in response.text

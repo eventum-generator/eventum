@@ -456,10 +456,11 @@ def test_execute_closes_output_on_output_queue_shutdown():
     output_q: PipelineQueue[list[str]] = PipelineQueue(maxsize=10)
 
     # Feed timestamps from a thread
-    threading.Thread(
+    feeder = threading.Thread(
         target=_feed_and_close,
         args=(input_q, [_make_timestamps(count=1)]),
-    ).start()
+    )
+    feeder.start()
 
     # Shut down the output queue before the stage can write
     output_q.shutdown()
@@ -473,6 +474,12 @@ def test_execute_closes_output_on_output_queue_shutdown():
     # Stage should finish without hanging (close() handles ShutDown)
     stage_thread.join(timeout=5)
     assert not stage_thread.is_alive()
+
+    # Unblock the feeder thread — stage exited via ShutDown without
+    # consuming the sentinel, so _feed_and_close is stuck on join().
+    input_q.shutdown()
+    feeder.join(timeout=5)
+    assert not feeder.is_alive()
 
 
 def test_execute_fatal_error_shuts_down_input():

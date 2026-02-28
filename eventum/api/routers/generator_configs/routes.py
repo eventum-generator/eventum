@@ -172,12 +172,12 @@ async def get_generator_config(
         ) from None
     except yaml.error.YAMLError as e:
         raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
             detail=(f'Configuration cannot be read due to parsing error: {e}'),
         ) from None
     except ValidationError as e:
         raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
             detail=(
                 'Configuration cannot be read due to validation error: '
                 f'{prettify_validation_errors(e.errors())}'

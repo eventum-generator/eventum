@@ -56,7 +56,11 @@ export const KafkaOutputPluginParams: FC<KafkaOutputPluginParamsProps> = ({
         minRows={2}
         autosize
         required
-        defaultValue={JSON.stringify(form.values.bootstrap_servers, undefined, 2)}
+        defaultValue={JSON.stringify(
+          form.values.bootstrap_servers,
+          undefined,
+          2
+        )}
         onChange={(value) => {
           if (!value) {
             form.setFieldValue('bootstrap_servers', undefined!);
@@ -103,7 +107,7 @@ export const KafkaOutputPluginParams: FC<KafkaOutputPluginParamsProps> = ({
               'key',
               value.currentTarget.value !== ''
                 ? value.currentTarget.value
-                : undefined,
+                : undefined
             )
           }
         />
@@ -122,9 +126,7 @@ export const KafkaOutputPluginParams: FC<KafkaOutputPluginParamsProps> = ({
         searchable
         {...form.getInputProps('encoding')}
         value={form.getValues().encoding ?? null}
-        onChange={(value) =>
-          form.setFieldValue('encoding', value ?? undefined)
-        }
+        onChange={(value) => form.setFieldValue('encoding', value ?? undefined)}
       />
 
       <TextInput
@@ -141,7 +143,7 @@ export const KafkaOutputPluginParams: FC<KafkaOutputPluginParamsProps> = ({
             'client_id',
             value.currentTarget.value !== ''
               ? value.currentTarget.value
-              : undefined,
+              : undefined
           )
         }
       />
@@ -175,7 +177,7 @@ export const KafkaOutputPluginParams: FC<KafkaOutputPluginParamsProps> = ({
               onChange={(value) =>
                 form.setFieldValue(
                   'acks',
-                  value !== null ? Number(value) : undefined,
+                  value !== null ? (Number(value) as 0 | 1 | -1) : undefined
                 )
               }
             />
@@ -215,7 +217,7 @@ export const KafkaOutputPluginParams: FC<KafkaOutputPluginParamsProps> = ({
               onChange={(value) =>
                 form.setFieldValue(
                   'max_batch_size',
-                  typeof value === 'number' ? value : undefined,
+                  typeof value === 'number' ? value : undefined
                 )
               }
             />
@@ -236,7 +238,7 @@ export const KafkaOutputPluginParams: FC<KafkaOutputPluginParamsProps> = ({
               onChange={(value) =>
                 form.setFieldValue(
                   'max_request_size',
-                  typeof value === 'number' ? value : undefined,
+                  typeof value === 'number' ? value : undefined
                 )
               }
             />
@@ -260,7 +262,7 @@ export const KafkaOutputPluginParams: FC<KafkaOutputPluginParamsProps> = ({
               onChange={(value) =>
                 form.setFieldValue(
                   'linger_ms',
-                  typeof value === 'number' ? value : undefined,
+                  typeof value === 'number' ? value : undefined
                 )
               }
             />
@@ -281,7 +283,7 @@ export const KafkaOutputPluginParams: FC<KafkaOutputPluginParamsProps> = ({
               onChange={(value) =>
                 form.setFieldValue(
                   'retry_backoff_ms',
-                  typeof value === 'number' ? value : undefined,
+                  typeof value === 'number' ? value : undefined
                 )
               }
             />
@@ -305,7 +307,7 @@ export const KafkaOutputPluginParams: FC<KafkaOutputPluginParamsProps> = ({
               onChange={(value) =>
                 form.setFieldValue(
                   'request_timeout_ms',
-                  typeof value === 'number' ? value : undefined,
+                  typeof value === 'number' ? value : undefined
                 )
               }
             />
@@ -319,14 +321,14 @@ export const KafkaOutputPluginParams: FC<KafkaOutputPluginParamsProps> = ({
               placeholder="ms"
               suffix=" ms"
               min={0}
-              step={10000}
+              step={10_000}
               allowDecimal={false}
               {...form.getInputProps('metadata_max_age_ms')}
               value={form.getValues().metadata_max_age_ms ?? ''}
               onChange={(value) =>
                 form.setFieldValue(
                   'metadata_max_age_ms',
-                  typeof value === 'number' ? value : undefined,
+                  typeof value === 'number' ? value : undefined
                 )
               }
             />
@@ -342,14 +344,14 @@ export const KafkaOutputPluginParams: FC<KafkaOutputPluginParamsProps> = ({
             placeholder="ms"
             suffix=" ms"
             min={0}
-            step={10000}
+            step={10_000}
             allowDecimal={false}
             {...form.getInputProps('connections_max_idle_ms')}
             value={form.getValues().connections_max_idle_ms ?? ''}
             onChange={(value) =>
               form.setFieldValue(
                 'connections_max_idle_ms',
-                typeof value === 'number' ? value : undefined,
+                typeof value === 'number' ? value : undefined
               )
             }
           />
@@ -379,7 +381,7 @@ export const KafkaOutputPluginParams: FC<KafkaOutputPluginParamsProps> = ({
                   'transactional_id',
                   value.currentTarget.value !== ''
                     ? value.currentTarget.value
-                    : undefined,
+                    : undefined
                 )
               }
             />
@@ -400,7 +402,7 @@ export const KafkaOutputPluginParams: FC<KafkaOutputPluginParamsProps> = ({
               onChange={(value) =>
                 form.setFieldValue(
                   'transaction_timeout_ms',
-                  typeof value === 'number' ? value : undefined,
+                  typeof value === 'number' ? value : undefined
                 )
               }
             />
@@ -462,7 +464,7 @@ export const KafkaOutputPluginParams: FC<KafkaOutputPluginParamsProps> = ({
                   'sasl_kerberos_service_name',
                   value.currentTarget.value !== ''
                     ? value.currentTarget.value
-                    : undefined,
+                    : undefined
                 )
               }
             />
@@ -483,7 +485,7 @@ export const KafkaOutputPluginParams: FC<KafkaOutputPluginParamsProps> = ({
                   'sasl_plain_username',
                   value.currentTarget.value !== ''
                     ? value.currentTarget.value
-                    : undefined,
+                    : undefined
                 )
               }
             />
@@ -500,7 +502,7 @@ export const KafkaOutputPluginParams: FC<KafkaOutputPluginParamsProps> = ({
                   'sasl_plain_password',
                   value.currentTarget.value !== ''
                     ? value.currentTarget.value
-                    : undefined,
+                    : undefined
                 )
               }
             />
@@ -520,7 +522,7 @@ export const KafkaOutputPluginParams: FC<KafkaOutputPluginParamsProps> = ({
                 'sasl_kerberos_domain_name',
                 value.currentTarget.value !== ''
                   ? value.currentTarget.value
-                  : undefined,
+                  : undefined
               )
             }
           />

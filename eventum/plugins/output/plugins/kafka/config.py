@@ -120,9 +120,15 @@ class KafkaOutputPluginConfig(OutputPluginConfig, frozen=True):
 
     # Performance & Reliability
     acks: Literal[0, 1, -1] = Field(default=1)
-    compression_type: Literal[
-        'gzip', 'snappy', 'lz4', 'zstd',
-    ] | None = Field(default=None)
+    compression_type: (
+        Literal[
+            'gzip',
+            'snappy',
+            'lz4',
+            'zstd',
+        ]
+        | None
+    ) = Field(default=None)
     max_batch_size: int = Field(default=16384, ge=1)
     max_request_size: int = Field(default=1048576, ge=1)
     linger_ms: int = Field(default=0, ge=0)
@@ -133,18 +139,28 @@ class KafkaOutputPluginConfig(OutputPluginConfig, frozen=True):
 
     # Security
     security_protocol: Literal[
-        'PLAINTEXT', 'SSL', 'SASL_PLAINTEXT', 'SASL_SSL',
+        'PLAINTEXT',
+        'SSL',
+        'SASL_PLAINTEXT',
+        'SASL_SSL',
     ] = Field(default='PLAINTEXT')
-    sasl_mechanism: Literal[
-        'PLAIN', 'SCRAM-SHA-256', 'SCRAM-SHA-512',
-    ] | None = Field(default=None)
+    sasl_mechanism: (
+        Literal[
+            'PLAIN',
+            'SCRAM-SHA-256',
+            'SCRAM-SHA-512',
+        ]
+        | None
+    ) = Field(default=None)
     sasl_plain_username: str | None = Field(default=None, min_length=1)
     sasl_plain_password: str | None = Field(default=None, min_length=1)
     sasl_kerberos_service_name: str = Field(
-        default='kafka', min_length=1,
+        default='kafka',
+        min_length=1,
     )
     sasl_kerberos_domain_name: str | None = Field(
-        default=None, min_length=1,
+        default=None,
+        min_length=1,
     )
 
     # SSL/TLS
@@ -179,9 +195,7 @@ class KafkaOutputPluginConfig(OutputPluginConfig, frozen=True):
         has_password = self.sasl_plain_password is not None
 
         if has_username != has_password:
-            msg = (
-                'SASL username and password must be provided together'
-            )
+            msg = 'SASL username and password must be provided together'
             raise ValueError(msg)
 
         return self

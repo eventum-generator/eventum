@@ -73,7 +73,7 @@ export const TcpOutputPluginParams: FC<TcpOutputPluginParamsProps> = ({
           placeholder="port"
           required
           min={1}
-          max={65535}
+          max={65_535}
           step={1}
           allowDecimal={false}
           {...form.getInputProps('port')}

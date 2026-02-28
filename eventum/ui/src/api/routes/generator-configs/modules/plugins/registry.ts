@@ -19,7 +19,7 @@ import {
   IconTerminal2,
   IconTimeDuration45,
 } from '@tabler/icons-react';
-import { createElement } from 'react';
+import React, { createElement, forwardRef } from 'react';
 
 import { EventPluginConfig } from '../../schemas/plugins/event';
 import { EventPluginName } from '../../schemas/plugins/event/base-config';
@@ -47,14 +47,17 @@ import { TcpOutputPluginDefaultConfig } from './default-configs/output/tcp';
 
 /** Scale down filled brand icons to visually match stroked Tabler icons. */
 function brandIcon(BaseIcon: IconType): IconType {
-  return (props) =>
-    createElement(BaseIcon, {
-      ...props,
-      size:
-        typeof props.size === 'number'
-          ? Math.round(props.size * 0.82)
-          : props.size,
-    });
+  const Scaled = forwardRef<SVGSVGElement, React.ComponentPropsWithoutRef<IconType>>(
+    ({ size, ...rest }, ref) =>
+      createElement(BaseIcon, {
+        ...rest,
+        ref,
+        size:
+          typeof size === 'number' ? Math.round(size * 0.82) : size,
+      }),
+  );
+  Scaled.displayName = `BrandIcon(${BaseIcon.displayName ?? 'Icon'})`;
+  return Scaled;
 }
 
 export type PluginType = 'input' | 'event' | 'output';

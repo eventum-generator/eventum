@@ -50,7 +50,8 @@ def client(tmp_path):
     settings = _make_settings(tmp_path)
     app.state.settings = settings
     app.include_router(router, prefix='/auth')
-    return TestClient(app)
+    with TestClient(app) as c:
+        yield c
 
 
 def _basic_auth_header(user, password):

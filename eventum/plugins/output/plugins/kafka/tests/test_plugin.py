@@ -220,5 +220,3 @@ def test_plugin_ssl_context_error():
     )
     with pytest.raises(PluginConfigurationError):
         KafkaOutputPlugin(config=config, params={'id': 1})
-
-

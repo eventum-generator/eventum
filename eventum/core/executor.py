@@ -64,6 +64,7 @@ class Executor:
         output: Sequence[OutputPlugin],
         params: GeneratorParameters,
     ) -> None:
+        """Initialize executor with plugin stages and parameters."""
         if not input:
             msg = 'At least one input plugin must be provided'
             raise ValueError(msg)

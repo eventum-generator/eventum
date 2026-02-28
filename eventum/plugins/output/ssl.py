@@ -59,10 +59,7 @@ def create_ssl_context(
 
     if client_cert is not None or client_key is not None:
         if client_cert is None or client_key is None:
-            msg = (
-                'Client certificate and key '
-                'must be provided together'
-            )
+            msg = 'Client certificate and key must be provided together'
             raise ValueError(msg)
 
         try:
@@ -74,10 +71,7 @@ def create_ssl_context(
             msg = f'Invalid client certificate or key: {e}'
             raise OSError(msg) from e
         except OSError as e:
-            msg = (
-                'Failed to load client certificate '
-                f'or key: {e}'
-            )
+            msg = f'Failed to load client certificate or key: {e}'
             raise OSError(msg) from e
 
     return context

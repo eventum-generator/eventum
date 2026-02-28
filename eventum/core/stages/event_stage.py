@@ -66,6 +66,54 @@ class EventStage:
         self._params = params
         self._timezone = ZoneInfo(self._params.timezone)
 
+    def _produce_batch(
+        self,
+        timestamps: IdentifiedTimestamps,
+        input: PipelineQueue[IdentifiedTimestamps],
+    ) -> tuple[list[str], bool]:
+        """Produce events for a single timestamp batch.
+
+        Returns
+        -------
+        tuple[list[str], bool]
+            Produced events and whether the plugin is exhausted.
+
+        """
+        dt_timestamps = timestamps['timestamp'].astype(dtype=datetime)
+        params: ProduceParams = ProduceParams(
+            tags=...,  # type: ignore[typeddict-item]
+            timestamp=...,  # type: ignore[typeddict-item]
+        )
+        events: list[str] = []
+
+        for id, timestamp in zip(
+            timestamps['id'],
+            dt_timestamps,
+            strict=False,
+        ):
+            params['tags'] = self._input_tags[id]
+            params['timestamp'] = timestamp.replace(
+                tzinfo=self._timezone,
+            )
+
+            try:
+                events.extend(self._plugin.produce(params))
+            except PluginProduceError as e:
+                logger.error(str(e), **e.context)
+            except PluginExhaustedError:
+                logger.debug(
+                    'Events exhausted, closing upstream queue',
+                )
+                input.shutdown()
+                return events, True
+            except Exception as e:
+                logger.exception(
+                    'Unexpected error during event plugin execution',
+                    reason=str(e),
+                )
+
+        return events, False
+
     def execute(
         self,
         input: PipelineQueue[IdentifiedTimestamps],
@@ -99,39 +147,7 @@ class EventStage:
                 if timestamps is None:
                     break
 
-                dt_timestamps = timestamps['timestamp'].astype(dtype=datetime)
-                params: ProduceParams = ProduceParams(
-                    tags=...,  # type: ignore[typeddict-item]
-                    timestamp=...,  # type: ignore[typeddict-item]
-                )
-                events: list[str] = []
-
-                for id, timestamp in zip(
-                    timestamps['id'],
-                    dt_timestamps,
-                    strict=False,
-                ):
-                    params['tags'] = self._input_tags[id]
-                    params['timestamp'] = timestamp.replace(
-                        tzinfo=self._timezone,
-                    )
-
-                    try:
-                        events.extend(self._plugin.produce(params))
-                    except PluginProduceError as e:
-                        logger.error(str(e), **e.context)
-                    except PluginExhaustedError:
-                        logger.debug(
-                            'Events exhausted, closing upstream queue',
-                        )
-                        input.shutdown()
-                        exhausted = True
-                        break
-                    except Exception as e:
-                        logger.exception(
-                            'Unexpected error during event plugin execution',
-                            reason=str(e),
-                        )
+                events, exhausted = self._produce_batch(timestamps, input)
 
                 if events:
                     if output.is_full and self._params.live_mode:

@@ -46,7 +46,8 @@ def client(tmp_settings):
     app = FastAPI()
     app.state.settings = tmp_settings
     app.include_router(router, prefix='/startup')
-    return TestClient(app)
+    with TestClient(app) as c:
+        yield c
 
 
 def _write_startup(settings, entries):
