@@ -129,3 +129,7 @@ A feature is not complete until every affected layer is updated.
 - **Simplicity First**: Make every change as simple as possible. Impact minimal code.
 - **No Laziness**: Find root causes. No temporary fixes. Senior developer standards.
 - **Minimal Impact**: Changes should only touch what’s necessary. Avoid introducing bugs.
+
+## Engineering Excellence — ABSOLUTE REQUIREMENT
+
+This project demands **the highest possible code quality**. Every line of code must demonstrate maximum type safety (precise generics, protocols, overloads, discriminated unions — never `Any`), strict SOLID adherence (single responsibility, open/closed extension, dependency inversion via abstractions), disciplined decomposition (small focused functions, high cohesion, low coupling, composition over inheritance), clean architecture (separation of concerns, encapsulation, self-documenting naming), and performance-conscious design (O(1) lookups, pre-computation at init, lazy evaluation, zero redundant allocations). The codebase is built for **large-scale long-term evolution** — every abstraction must be extensible without modification, every interface must be stable and minimal, every pattern must be consistent across the entire project. **Spend maximum reasoning effort on these requirements. Do not settle for "working" code — the code must be architecturally ideal. If a solution doesn’t pass a principal-engineer-level code review, refactor it before presenting.**
