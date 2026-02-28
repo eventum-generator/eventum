@@ -2,7 +2,7 @@
 such as batcher, merger, scheduler etc.
 """
 
-from collections.abc import AsyncIterator, Iterator
+from collections.abc import Iterator
 from typing import Annotated, Protocol
 
 import numpy as np
@@ -74,24 +74,6 @@ class SupportsIdentifiedTimestampsIterate(Protocol):
         ------
         IdentifiedTimestamps
             Array of timestamps with plugin ids.
-
-        """
-        ...
-
-
-class SupportsAsyncIdentifiedTimestampsIterate(Protocol):
-    """Async version of `SupportsIdentifiedTimestampsIterate` protocol."""
-
-    def iterate(
-        self,
-        *,
-        skip_past: bool = True,
-    ) -> AsyncIterator[IdentifiedTimestamps]:
-        """Iterate over arrays of identified timestamps.
-
-        Notes
-        -----
-        See `SupportsIdentifiedTimestampsIterate.iterate` docstring.
 
         """
         ...
