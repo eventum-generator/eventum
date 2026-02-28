@@ -13,7 +13,6 @@ from eventum.app.models.parameters.server import (
     SSLParameters,
 )
 
-
 # --- PathParameters ---
 
 
@@ -204,7 +203,7 @@ def test_log_parameters_all_valid_levels():
 
 def test_log_parameters_invalid_level_raises():
     with pytest.raises(ValidationError):
-        LogParameters(level='trace')
+        LogParameters(level='trace')  # type: ignore
 
 
 def test_log_parameters_max_bytes_below_minimum_raises():

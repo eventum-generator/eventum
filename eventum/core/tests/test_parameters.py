@@ -12,7 +12,6 @@ from eventum.core.parameters import (
     QueueParameters,
 )
 
-
 # --- BatchParameters ---
 
 
@@ -62,7 +61,7 @@ def test_batch_parameters_delay_minimum_passes():
 def test_batch_parameters_frozen():
     params = BatchParameters()
     with pytest.raises(ValidationError):
-        params.size = 999
+        params.size = 999  # type: ignore
 
 
 # --- QueueParameters ---
@@ -87,7 +86,7 @@ def test_queue_parameters_one_passes():
 
 def test_queue_parameters_extra_fields_forbidden():
     with pytest.raises(ValidationError):
-        QueueParameters(unknown_field=5)
+        QueueParameters(unknown_field=5)  # type: ignore
 
 
 # --- GenerationParameters ---
@@ -147,7 +146,7 @@ def test_generation_parameters_defaults():
 
 def test_generator_parameters_required_fields():
     with pytest.raises(ValidationError):
-        GeneratorParameters()
+        GeneratorParameters()  # type: ignore
 
 
 def test_generator_parameters_empty_id_raises():
@@ -202,4 +201,4 @@ def test_generator_parameters_as_relative_non_parent_raises():
 def test_generator_parameters_frozen():
     params = GeneratorParameters(id='gen1', path=Path('config.yml'))
     with pytest.raises(ValidationError):
-        params.id = 'gen2'
+        params.id = 'gen2'  # type: ignore

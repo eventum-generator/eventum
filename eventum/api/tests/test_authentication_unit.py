@@ -70,7 +70,7 @@ def test_check_auth_basic_valid():
     creds = base64.b64encode(b'admin:secret').decode()
     ctx = _FakeContext(headers={'Authorization': f'Basic {creds}'})
     settings = _make_settings()
-    result = check_auth(ctx, settings)
+    result = check_auth(ctx, settings)  # type: ignore
     assert result == 'admin'
 
 
@@ -81,7 +81,7 @@ def test_check_auth_basic_wrong_creds():
     ctx = _FakeContext(headers={'Authorization': f'Basic {creds}'})
     settings = _make_settings()
     with pytest.raises(HTTPException) as exc_info:
-        check_auth(ctx, settings)
+        check_auth(ctx, settings)  # type: ignore
     assert exc_info.value.status_code == 401
     assert 'Incorrect' in exc_info.value.detail
 
@@ -90,7 +90,7 @@ def test_check_auth_unsupported_scheme():
     ctx = _FakeContext(headers={'Authorization': 'Bearer sometoken'})
     settings = _make_settings()
     with pytest.raises(HTTPException) as exc_info:
-        check_auth(ctx, settings)
+        check_auth(ctx, settings)  # type: ignore
     assert exc_info.value.status_code == 401
     assert 'not supported' in exc_info.value.detail
 
@@ -99,7 +99,7 @@ def test_check_auth_session_cookie():
     set_session('valid_session', 'alice')
     ctx = _FakeContext(cookies={'session_id': 'valid_session'})
     settings = _make_settings()
-    result = check_auth(ctx, settings)
+    result = check_auth(ctx, settings)  # type: ignore
     assert result == 'alice'
     clear_session('valid_session')
 
@@ -108,7 +108,7 @@ def test_check_auth_expired_session():
     ctx = _FakeContext(cookies={'session_id': 'expired_id'})
     settings = _make_settings()
     with pytest.raises(HTTPException) as exc_info:
-        check_auth(ctx, settings)
+        check_auth(ctx, settings)  # type: ignore
     assert exc_info.value.status_code == 401
 
 
@@ -116,5 +116,5 @@ def test_check_auth_no_auth():
     ctx = _FakeContext()
     settings = _make_settings()
     with pytest.raises(HTTPException) as exc_info:
-        check_auth(ctx, settings)
+        check_auth(ctx, settings)  # type: ignore
     assert exc_info.value.status_code == 401

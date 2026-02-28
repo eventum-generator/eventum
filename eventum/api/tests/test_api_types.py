@@ -538,4 +538,4 @@ class TestRelaxModelSynthetic:
 
         relaxed = relax_model(M)
         m = _valid(relaxed, {})
-        assert m.x is None
+        assert m.x is None  # type: ignore

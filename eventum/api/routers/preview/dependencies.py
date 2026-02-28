@@ -70,7 +70,7 @@ async def get_timezone(
     """
     try:
         return ZoneInfo(timezone)
-    except (ZoneInfoNotFoundError, KeyError):
+    except ZoneInfoNotFoundError, KeyError:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail='Timezone is invalid',
@@ -199,17 +199,15 @@ async def load_input_plugins(
         try:
             plugin = await asyncio.to_thread(
                 lambda i=i,  # type: ignore[misc]
-                plugin_config=plugin_config: (
-                    init_plugin(
-                        name=plugin_config.get_name(),
-                        type='input',
-                        config=plugin_config.get_config().model_dump(),
-                        params={
-                            'id': i,
-                            'timezone': timezone,
-                            'base_path': path,
-                        },
-                    )
+                plugin_config=plugin_config: init_plugin(
+                    name=plugin_config.get_name(),
+                    type='input',
+                    config=plugin_config.get_config().model_dump(),
+                    params={
+                        'id': i,
+                        'timezone': timezone,
+                        'base_path': path,
+                    },
                 ),
             )
         except InitializationError as e:
@@ -279,16 +277,14 @@ async def load_event_plugin(
 
     try:
         return await asyncio.to_thread(
-            lambda: (
-                init_plugin(
-                    name=plugin_named_config.get_name(),
-                    type='event',
-                    config=plugin_named_config.get_config().model_dump(),
-                    params={
-                        'id': 1,
-                        'base_path': path,
-                    },
-                )
+            lambda: init_plugin(
+                name=plugin_named_config.get_name(),
+                type='event',
+                config=plugin_named_config.get_config().model_dump(),
+                params={
+                    'id': 1,
+                    'base_path': path,
+                },
             ),
         )
     except InitializationError as e:

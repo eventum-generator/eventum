@@ -59,7 +59,7 @@ def test_build_api_app_has_routers(settings, hooks):
         settings=settings,
         instance_hooks=hooks,
     )
-    paths = [route.path for route in app.routes]
+    paths = [route.path for route in app.routes]  # type: ignore
     assert any('/auth' in p for p in paths)
     assert any('/generators' in p for p in paths)
     assert any('/instance' in p for p in paths)

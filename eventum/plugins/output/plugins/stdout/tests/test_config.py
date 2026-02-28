@@ -27,7 +27,7 @@ def test_stream_stderr():
 
 def test_invalid_stream():
     with pytest.raises(ValidationError):
-        StdoutOutputPluginConfig(stream='invalid')
+        StdoutOutputPluginConfig(stream='invalid')  # type: ignore
 
 
 def test_flush_interval_zero():
