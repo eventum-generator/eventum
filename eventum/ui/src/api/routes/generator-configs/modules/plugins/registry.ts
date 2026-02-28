@@ -1,4 +1,10 @@
 import {
+  IconType,
+  SiApachekafka,
+  SiClickhouse,
+  SiOpensearch,
+} from '@icons-pack/react-simple-icons';
+import {
   Icon,
   IconAsteriskSimple,
   IconBraces,
@@ -7,11 +13,13 @@ import {
   IconCode,
   IconFileDescription,
   IconList,
+  IconNetwork,
   IconNumber100Small,
   IconRepeat,
   IconTerminal2,
   IconTimeDuration45,
 } from '@tabler/icons-react';
+import { createElement } from 'react';
 
 import { EventPluginConfig } from '../../schemas/plugins/event';
 import { EventPluginName } from '../../schemas/plugins/event/base-config';
@@ -32,16 +40,28 @@ import { TimestampsInputPluginDefaultConfig } from './default-configs/input/time
 import { ClickhouseOutputPluginDefaultConfig } from './default-configs/output/clickhouse';
 import { FileOutputPluginDefaultConfig } from './default-configs/output/file';
 import { HTTPOutputPluginDefaultConfig } from './default-configs/output/http';
+import { KafkaOutputPluginDefaultConfig } from './default-configs/output/kafka';
 import { OpensearchOutputPluginDefaultConfig } from './default-configs/output/opensearch';
 import { StdoutOutputPluginDefaultConfig } from './default-configs/output/stdout';
-import { IconClickHouse } from '@/components/ui/icons/IconClickHouse';
-import { IconOpenSearch } from '@/components/ui/icons/IconOpenSearch';
+import { TcpOutputPluginDefaultConfig } from './default-configs/output/tcp';
+
+/** Scale down filled brand icons to visually match stroked Tabler icons. */
+function brandIcon(BaseIcon: IconType): IconType {
+  return (props) =>
+    createElement(BaseIcon, {
+      ...props,
+      size:
+        typeof props.size === 'number'
+          ? Math.round(props.size * 0.82)
+          : props.size,
+    });
+}
 
 export type PluginType = 'input' | 'event' | 'output';
 
 export interface PluginInfo {
   label: string;
-  icon: Icon;
+  icon: Icon | IconType;
   description: string;
 }
 
@@ -105,7 +125,7 @@ export const EVENT_PLUGINS_INFO = {
 export const OUTPUT_PLUGINS_INFO = {
   clickhouse: {
     label: 'ClickHouse',
-    icon: IconClickHouse,
+    icon: brandIcon(SiClickhouse),
     description: 'Index events to ClickHouse',
   },
   file: {
@@ -120,13 +140,23 @@ export const OUTPUT_PLUGINS_INFO = {
   },
   opensearch: {
     label: 'OpenSearch',
-    icon: IconOpenSearch,
+    icon: brandIcon(SiOpensearch),
     description: 'Index events to OpenSearch',
+  },
+  kafka: {
+    label: 'Kafka',
+    icon: brandIcon(SiApachekafka),
+    description: 'Produce events to Apache Kafka topics',
   },
   stdout: {
     label: 'Stdout',
     icon: IconTerminal2,
     description: 'Write events to stdout',
+  },
+  tcp: {
+    label: 'TCP',
+    icon: IconNetwork,
+    description: 'Send events over a TCP connection',
   },
 } as const satisfies Record<OutputPluginName, PluginInfo>;
 
@@ -161,8 +191,10 @@ export const OUTPUT_PLUGIN_DEFAULT_CONFIGS = {
   clickhouse: ClickhouseOutputPluginDefaultConfig,
   file: FileOutputPluginDefaultConfig,
   http: HTTPOutputPluginDefaultConfig,
+  kafka: KafkaOutputPluginDefaultConfig,
   opensearch: OpensearchOutputPluginDefaultConfig,
   stdout: StdoutOutputPluginDefaultConfig,
+  tcp: TcpOutputPluginDefaultConfig,
 } as const satisfies Record<OutputPluginName, OutputPluginConfig>;
 
 export const EVENT_PLUGIN_DEFAULT_ASSETS = {

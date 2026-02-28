@@ -6,8 +6,10 @@ export type OutputPluginName =
   | 'clickhouse'
   | 'file'
   | 'http'
+  | 'kafka'
   | 'opensearch'
-  | 'stdout';
+  | 'stdout'
+  | 'tcp';
 
 export const BaseOutputPluginConfigSchema = z.object({
   formatter: FormatterConfigSchema.optional(),
