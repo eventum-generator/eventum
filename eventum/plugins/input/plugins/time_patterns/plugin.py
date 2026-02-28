@@ -64,7 +64,6 @@ class TimePatternInputPlugin(
     o-----------------------------> t
     Example multiplication with factor x8
 
-
     3. Randomizer - increases or decreases the number of events
     ^
     |.     :                 .
@@ -73,7 +72,6 @@ class TimePatternInputPlugin(
     |:     :     :     :     :
     o-----------------------------> t
     Randomizer variate number of signals for each period
-
 
     4. Spreader - distribute events within one time period
     ^

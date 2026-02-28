@@ -182,7 +182,7 @@ class Sample:
         for i, value in enumerate(raw_weights):
             try:
                 w = float(value)
-            except (TypeError, ValueError):
+            except TypeError, ValueError:
                 msg = 'Weight column contains non-numeric value'
                 raise SamplePickError(
                     msg,

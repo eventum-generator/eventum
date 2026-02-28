@@ -7,7 +7,6 @@ import structlog
 
 from eventum.core.generator import Generator
 from eventum.core.parameters import GeneratorParameters
-from eventum.logging.context import propagate_logger_context
 
 logger = structlog.stdlib.get_logger()
 
@@ -82,7 +81,7 @@ class GeneratorManager:
                 try:
                     generator = self._generators[id]
                     executor.submit(
-                        propagate_logger_context()(generator.stop),
+                        generator.stop,
                     )
                     del self._generators[id]
                 except KeyError:
@@ -152,7 +151,7 @@ class GeneratorManager:
                 try:
                     generator = self._generators[id]
                     future = executor.submit(
-                        propagate_logger_context()(generator.start),
+                        generator.start,
                     )
                     future.add_done_callback(
                         lambda future, id=id: callback(future, id),  # type: ignore[misc]
@@ -197,7 +196,7 @@ class GeneratorManager:
                 if id in self._generators:
                     generator = self._generators[id]
                     executor.submit(
-                        propagate_logger_context()(generator.stop),
+                        generator.stop,
                     )
 
     def bulk_join(self, generator_ids: Iterable[str]) -> None:
@@ -216,7 +215,7 @@ class GeneratorManager:
                 if id in self._generators:
                     generator = self._generators[id]
                     executor.submit(
-                        propagate_logger_context()(generator.join),
+                        generator.join,
                     )
 
     def get_generator(self, generator_id: str) -> Generator:

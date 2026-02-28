@@ -26,7 +26,7 @@ class TemplatePicker(ABC, Generic[T]):
     """
 
     _registered_pickers: ClassVar[
-        dict[TemplatePickingMode, type['TemplatePicker[Any]']]
+        dict[TemplatePickingMode, type[TemplatePicker[Any]]]
     ] = {}
 
     def __init_subclass__(
@@ -92,7 +92,7 @@ class TemplatePicker(ABC, Generic[T]):
     def get_picker(
         cls,
         picking_mode: TemplatePickingMode,
-    ) -> type['TemplatePicker[Any]']:
+    ) -> type[TemplatePicker[Any]]:
         """Get appropriate picker for specified picking mode.
 
         Parameters

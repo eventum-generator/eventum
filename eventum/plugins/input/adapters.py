@@ -8,7 +8,6 @@ import janus
 import numpy as np
 import structlog
 
-from eventum.logging.context import propagate_logger_context
 from eventum.plugins.input.base.plugin import InputPlugin
 from eventum.plugins.input.protocols import (
     IdentifiedTimestamps,
@@ -111,9 +110,8 @@ class AsyncIdentifiedTimestampsSyncAdapter(
             thread_name_prefix='async-identified-timestamps-sync-adapter',
         ) as executor:
             future = executor.submit(
-                propagate_logger_context()(
-                    lambda: self._start_iteration(skip_past=skip_past),
-                ),
+                self._start_iteration,
+                skip_past=skip_past,
             )
             future.add_done_callback(self._finalize_iteration)
 

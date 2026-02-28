@@ -74,9 +74,11 @@ async def get_startup_generator_parameters_list(
 
     try:
         return await asyncio.to_thread(
-            lambda: StartupGeneratorParametersList.build_over_generation_parameters(  # noqa: E501
-                object=parsed_object,
-                generation_parameters=settings.generation,
+            lambda: (
+                StartupGeneratorParametersList.build_over_generation_parameters(
+                    object=parsed_object,
+                    generation_parameters=settings.generation,
+                )
             ),
         ), parsed_object
     except ValidationError as e:

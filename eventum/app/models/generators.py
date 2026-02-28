@@ -32,7 +32,7 @@ class StartupGeneratorParametersList(RootModel, frozen=True):
         cls,
         object: Sequence[dict],
         generation_parameters: GenerationParameters,
-    ) -> 'StartupGeneratorParametersList':
+    ) -> StartupGeneratorParametersList:
         """Build instance using sequence of startup generator parameters
         that are going to be combined with base generation parameters
         from `GenerationParameters` object.

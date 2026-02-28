@@ -1,20 +1,4 @@
 {
-    "conventionalCommits.scopes": [
-        "app",
-        "api",
-        "cli",
-        "core",
-        "logging",
-        "plugins",
-        "security",
-        "ui",
-        "utils",
-        "server"
-    ],
-    "cSpell.words": [
-        "Ugbemugbem",
-        "unminimize"
-    ],
     "cssVariables.lookupFiles": [
         "**/*.css",
         "**/*.scss",
@@ -28,8 +12,8 @@
     "python-envs.pythonProjects": [],
     "python.analysis.diagnosticMode": "workspace",
     "python.analysis.typeCheckingMode": "standard",
-    "ruff.path": ["${workspaceFolder}/.venv/bin/ruff"],
     "mypy-type-checker.importStrategy": "fromEnvironment",
     "mypy-type-checker.preferDaemon": true,
-    "mypy-type-checker.reportingScope": "workspace"
+    "mypy-type-checker.reportingScope": "workspace",
+    "ruff.path": ["${workspaceFolder}/.venv/bin/ruff"],
 }
