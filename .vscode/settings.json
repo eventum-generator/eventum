@@ -28,6 +28,8 @@
     "python-envs.pythonProjects": [],
     "python.analysis.diagnosticMode": "workspace",
     "python.analysis.typeCheckingMode": "standard",
+    "ruff.path": ["${workspaceFolder}/.venv/bin/ruff"],
     "mypy-type-checker.importStrategy": "fromEnvironment",
-    "mypy-type-checker.preferDaemon": true
+    "mypy-type-checker.preferDaemon": true,
+    "mypy-type-checker.reportingScope": "workspace"
 }
