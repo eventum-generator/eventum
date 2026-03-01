@@ -61,7 +61,7 @@ Parse the argument as the version number (e.g., `2.0.3`). If not provided, ask t
   ```
 - Report results
 
-If any check fails: route to the responsible agent (**developer** for code, **docs-writer** for docs), fix, and re-verify.
+If any check fails: route to the responsible agent (**developer** for code, **docs-writer** for docs), fix, and re-verify. If the loop does not converge after 3 cycles, stop and consult the user.
 
 ### Phase 5: Present Summary
 

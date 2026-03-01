@@ -49,7 +49,7 @@ Present the outline to the user for approval before writing.
 
 - Review documentation quality: accuracy, structure, completeness, code examples
 - If verdict is **FAIL**: route findings to **docs-writer** to fix, then re-review
-- Loop until **PASS**
+- Loop until **PASS**. If the loop does not converge after 3 cycles, stop and consult the user.
 
 ### Phase 5: Verify
 
@@ -59,7 +59,7 @@ Present the outline to the user for approval before writing.
 - Verify no broken links or build errors
 - Report status
 
-If build fails: route to **docs-writer** to fix, then re-verify.
+If build fails: route to **docs-writer** to fix, then re-verify. If the loop does not converge after 3 cycles, stop and consult the user.
 
 ### Phase 6: Summary
 

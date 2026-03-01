@@ -51,7 +51,7 @@ Orchestrate the implementation of GitHub issue **$ARGUMENTS** by delegating to y
 - Run full verification pipeline: pytest + ruff + mypy
 - Report results
 
-If QA reports failures: route findings to **developer** to fix, then re-run QA. Loop until all checks pass.
+If QA reports failures: route findings to **developer** to fix, then re-run QA. Loop until all checks pass. If the loop does not converge after 3 cycles, stop and consult the user.
 
 ### Phase 5: Code Review
 
@@ -59,7 +59,7 @@ If QA reports failures: route findings to **developer** to fix, then re-run QA. 
 
 - Review ALL changes as a unit: implementation code + tests
 - If verdict is **FAIL**: route findings to **developer** and/or **qa-engineer** to fix, then re-review
-- Loop until **PASS**
+- Loop until **PASS**. If the loop does not converge after 3 cycles, stop and consult the user.
 
 This is a mandatory quality gate -- do NOT skip it.
 
@@ -78,7 +78,7 @@ This is a mandatory quality gate -- do NOT skip it.
 - If docs were changed: `cd ../docs && pnpm build`
 - Report all-green status
 
-If any check fails: route to the responsible agent (**developer** for code, **docs-writer** for docs), fix, and re-verify.
+If any check fails: route to the responsible agent (**developer** for code, **docs-writer** for docs), fix, and re-verify. If the loop does not converge after 3 cycles, stop and consult the user.
 
 ### Phase 8: Improvements
 

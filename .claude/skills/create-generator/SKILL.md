@@ -72,7 +72,7 @@ Present to user for approval.
   ```
 - Report: event count, JSON validity, ECS field presence, any errors
 
-If validation fails: route findings to **generator-builder** to fix, then re-validate. Loop until all checks pass.
+If validation fails: route findings to **generator-builder** to fix, then re-validate. Loop until all checks pass. If the loop does not converge after 3 cycles, stop and consult the user.
 
 ### Phase 5: Review
 
@@ -80,7 +80,7 @@ If validation fails: route findings to **generator-builder** to fix, then re-val
 
 - Review generator quality: template correctness, parameterization, realism, README completeness
 - If verdict is **FAIL**: route findings to **generator-builder** to fix, then re-review
-- Loop until **PASS**
+- Loop until **PASS**. If the loop does not converge after 3 cycles, stop and consult the user.
 
 ### Phase 6: Final Verification
 
@@ -89,7 +89,7 @@ If validation fails: route findings to **generator-builder** to fix, then re-val
 - Re-run full generator validation after any fixes from review
 - Report all-green status
 
-If any check fails: route to **generator-builder** to fix, then re-verify.
+If any check fails: route to **generator-builder** to fix, then re-verify. If the loop does not converge after 3 cycles, stop and consult the user.
 
 ### Phase 7: Summary
 

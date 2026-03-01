@@ -58,7 +58,7 @@ Parse the argument as `<type>/<name>` where type is `input`, `event`, or `output
 - Run: `uv run ruff check` and `uv run mypy` on all changed files
 - Report results
 
-If QA reports failures: route findings to **developer** to fix, then re-run QA. Loop until all checks pass.
+If QA reports failures: route findings to **developer** to fix, then re-run QA. Loop until all checks pass. If the loop does not converge after 3 cycles, stop and consult the user.
 
 ### Phase 5: Code Review
 
@@ -66,7 +66,7 @@ If QA reports failures: route findings to **developer** to fix, then re-run QA. 
 
 - Review ALL changes: Python plugin code + UI code (if any) + tests
 - If verdict is **FAIL**: route findings to **developer** and/or **qa-engineer** to fix, then re-review
-- Loop until **PASS**
+- Loop until **PASS**. If the loop does not converge after 3 cycles, stop and consult the user.
 
 This is a mandatory quality gate -- do NOT skip it.
 
@@ -98,7 +98,7 @@ This is a mandatory quality gate -- do NOT skip it.
   ```
 - Report all-green status
 
-If any check fails: route to the responsible agent (**developer** for code, **docs-writer** for docs), fix, and re-verify.
+If any check fails: route to the responsible agent (**developer** for code, **docs-writer** for docs), fix, and re-verify. If the loop does not converge after 3 cycles, stop and consult the user.
 
 ### Phase 9: Summary
 
