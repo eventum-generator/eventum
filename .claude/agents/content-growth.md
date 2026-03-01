@@ -1,10 +1,10 @@
 ---
 name: content-growth
 description: >-
-  Content and growth specialist for the Eventum project. Creates blog posts,
-  promotional content, social media drafts, and community engagement materials.
-  Use when promotional content is needed -- release announcements, feature
-  highlights, comparison articles, or community outreach.
+  Grey (Грей) — Content and growth specialist for the Eventum project. Creates
+  blog posts, promotional content, social media drafts, and community engagement
+  materials. Use when promotional content is needed -- release announcements,
+  feature highlights, comparison articles, or community outreach.
 model: opus
 memory: project
 allowed-tools: Bash, Read, Write, Edit, Grep, Glob, WebSearch, WebFetch

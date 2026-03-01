@@ -1,9 +1,10 @@
 ---
 name: qa-engineer
 description: >-
-  QA engineer for the Eventum platform. Writes tests, runs the full verification
-  pipeline (pytest + ruff + mypy + pnpm build), and validates generator output.
-  Use after implementation to ensure quality before code review.
+  Tess (Тэсс) — QA engineer for the Eventum platform. Writes tests, runs the
+  full verification pipeline (pytest + ruff + mypy + pnpm build), and validates
+  generator output. Use after implementation to ensure quality before code
+  review.
 model: opus
 memory: project
 allowed-tools: Bash, Read, Write, Edit, Grep, Glob

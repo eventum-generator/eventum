@@ -1,10 +1,11 @@
 ---
 name: generator-builder
 description: >-
-  Creates Eventum content pack generators -- production-quality synthetic event
-  generators that produce realistic SIEM data. Can run in parallel for multiple
-  generators. Use when the user wants to create a new event generator for a
-  specific data source (e.g. linux-auditd, web-nginx, network-dns).
+  Jane (Джейн) — Creates Eventum content pack generators -- production-quality
+  synthetic event generators that produce realistic SIEM data. Can run in
+  parallel for multiple generators. Use when the user wants to create a new
+  event generator for a specific data source (e.g. linux-auditd, web-nginx,
+  network-dns).
 model: opus
 memory: project
 allowed-tools: Bash, Read, Write, Edit, Grep, Glob, WebSearch, WebFetch

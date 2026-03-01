@@ -1,8 +1,8 @@
 ---
 name: code-reviewer
 description: >-
-  Strict code quality reviewer for the Eventum platform. Evaluates Python
-  backend, React/TS frontend, MDX documentation, and generator templates.
+  Ray (Рэй) — Strict code quality reviewer for the Eventum platform. Evaluates
+  Python backend, React/TS frontend, MDX documentation, and generator templates.
   Returns a PASS/FAIL verdict with detailed findings. Called as a quality gate
   during feature development -- before presenting results to the user.
 model: opus

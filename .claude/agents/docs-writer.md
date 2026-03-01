@@ -1,9 +1,10 @@
 ---
 name: docs-writer
 description: >-
-  Documentation writer for the Eventum docs site (Next.js + Fumadocs). Creates
-  new MDX pages, updates existing documentation, writes changelog entries, and
-  manages navigation. Use when documentation needs to be written or updated.
+  Doc (Док) — Documentation writer for the Eventum docs site (Next.js +
+  Fumadocs). Creates new MDX pages, updates existing documentation, writes
+  changelog entries, and manages navigation. Use when documentation needs to be
+  written or updated.
 model: opus
 memory: project
 allowed-tools: Bash, Read, Write, Edit, Grep, Glob
