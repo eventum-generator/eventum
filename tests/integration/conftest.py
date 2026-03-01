@@ -42,7 +42,11 @@ def _wait_for_service(
 
 
 def _check_opensearch() -> None:
-    r = httpx.get(f'{OPENSEARCH_URL}/_cluster/health', timeout=5)
+    r = httpx.get(
+        f'{OPENSEARCH_URL}/_cluster/health',
+        timeout=5,
+        headers={'Accept-Encoding': ''},
+    )
     r.raise_for_status()
 
 

@@ -159,9 +159,11 @@ class TestDataIntegrity:
             f"Unicode roundtrip failed:\n{result.summary()}"
         )
 
-        # Also verify the raw content survived
+        # Also verify the raw content survived (parse JSON first since
+        # json.dumps uses \uXXXX escapes by default for non-ASCII)
         consumed = await kafka_consumer.consume_all()
-        consumed_text = " ".join(consumed)
+        consumed_parsed = [json.loads(raw) for raw in consumed]
+        consumed_text = json.dumps(consumed_parsed, ensure_ascii=False)
         assert "\u4f60\u597d\u4e16\u754c" in consumed_text, (
             "CJK characters not found in consumed events"
         )
@@ -312,20 +314,38 @@ class TestErrorRecovery:
 
     async def test_large_batch_delivery(
         self,
-        kafka_plugin,
         kafka_consumer,
         event_factory,
     ):
         """5000 events in a single write should all be delivered."""
-        events = event_factory.create_batch(5000, EventSize.SMALL)
+        from eventum.plugins.output.plugins.kafka.config import (
+            KafkaOutputPluginConfig,
+        )
+        from eventum.plugins.output.plugins.kafka.plugin import (
+            KafkaOutputPlugin,
+        )
 
-        result = await _write_and_verify(
-            kafka_plugin, kafka_consumer, events, event_factory,
-            timeout=60,
+        config = KafkaOutputPluginConfig(
+            bootstrap_servers=[KAFKA_BOOTSTRAP],
+            topic=kafka_consumer.topic,
+            linger_ms=50,
+            max_batch_size=262144,
         )
-        assert result.is_perfect, (
-            f"Large batch delivery failed:\n{result.summary()}"
-        )
+        plugin = KafkaOutputPlugin(config=config, params={'id': 1})
+        await plugin.open()
+
+        try:
+            events = event_factory.create_batch(5000, EventSize.SMALL)
+
+            result = await _write_and_verify(
+                plugin, kafka_consumer, events, event_factory,
+                timeout=60,
+            )
+            assert result.is_perfect, (
+                f"Large batch delivery failed:\n{result.summary()}"
+            )
+        finally:
+            await plugin.close()
 
 
 # =========================================================================
@@ -442,20 +462,38 @@ class TestEdgeCases:
 
     async def test_maximum_batch_size(
         self,
-        kafka_plugin,
         kafka_consumer,
         event_factory,
     ):
         """10000 SMALL events in a single write should all arrive."""
-        events = event_factory.create_batch(10_000, EventSize.SMALL)
+        from eventum.plugins.output.plugins.kafka.config import (
+            KafkaOutputPluginConfig,
+        )
+        from eventum.plugins.output.plugins.kafka.plugin import (
+            KafkaOutputPlugin,
+        )
 
-        result = await _write_and_verify(
-            kafka_plugin, kafka_consumer, events, event_factory,
-            timeout=90,
+        config = KafkaOutputPluginConfig(
+            bootstrap_servers=[KAFKA_BOOTSTRAP],
+            topic=kafka_consumer.topic,
+            linger_ms=50,
+            max_batch_size=262144,
         )
-        assert result.is_perfect, (
-            f"Maximum batch delivery failed:\n{result.summary()}"
-        )
+        plugin = KafkaOutputPlugin(config=config, params={'id': 1})
+        await plugin.open()
+
+        try:
+            events = event_factory.create_batch(10_000, EventSize.SMALL)
+
+            result = await _write_and_verify(
+                plugin, kafka_consumer, events, event_factory,
+                timeout=90,
+            )
+            assert result.is_perfect, (
+                f"Maximum batch delivery failed:\n{result.summary()}"
+            )
+        finally:
+            await plugin.close()
 
     async def test_concurrent_writes(
         self,

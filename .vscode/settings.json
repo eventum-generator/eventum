@@ -10,10 +10,10 @@
         "no-inline-html": false
     },
     "python-envs.pythonProjects": [],
-    "python.analysis.diagnosticMode": "workspace",
+    "python.analysis.diagnosticMode": "openFilesOnly",
     "python.analysis.typeCheckingMode": "standard",
     "mypy-type-checker.importStrategy": "fromEnvironment",
     "mypy-type-checker.preferDaemon": true,
-    "mypy-type-checker.reportingScope": "workspace",
+    "mypy-type-checker.reportingScope": "file",
     "ruff.path": ["${workspaceFolder}/.venv/bin/ruff"],
 }

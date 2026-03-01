@@ -66,6 +66,11 @@ class TcpConsumer(BackendConsumer):
         if self._server is None:
             return
 
+        # Close all active client connections so writers detect
+        # the closure immediately (not after TCP retransmission timeout).
+        for writer in list(self._buffers):
+            writer.close()
+
         self._server.close()
         await self._server.wait_closed()
         self._server = None

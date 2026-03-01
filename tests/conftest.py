@@ -8,9 +8,16 @@ with Plotly charts is generated at session end.
 
 from __future__ import annotations
 
+import os
+import sysconfig
 from collections.abc import Generator
 
 import pytest
+
+# On free-threaded Python, disable aiokafka C extensions to prevent
+# the GIL from being re-enabled (extensions haven't declared nogil yet).
+if sysconfig.get_config_var('Py_GIL_DISABLED'):
+    os.environ.setdefault('AIOKAFKA_NO_EXTENSIONS', '1')
 
 from tests.reporting.store import ReportStore
 

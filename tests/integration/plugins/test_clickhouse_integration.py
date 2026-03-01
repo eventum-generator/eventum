@@ -29,13 +29,14 @@ def _make_plugin(*, database: str, table: str, **overrides):
         ClickhouseOutputPlugin,
     )
 
-    config = ClickhouseOutputPluginConfig(
-        host=CLICKHOUSE_HOST,
-        port=CLICKHOUSE_PORT,
-        database=database,
-        table=table,
+    params = {
+        'host': CLICKHOUSE_HOST,
+        'port': CLICKHOUSE_PORT,
+        'database': database,
+        'table': table,
         **overrides,
-    )
+    }
+    config = ClickhouseOutputPluginConfig(**params)
     return ClickhouseOutputPlugin(config=config, params={'id': 1})
 
 
@@ -128,12 +129,11 @@ class TestDataIntegrity:
         clickhouse_consumer,
         event_factory,
     ):
-        """Events written one-by-one must preserve insertion order within
-        a MergeTree table (single inserts land sequentially)."""
+        """Events written in a single batch must preserve insertion order
+        within a MergeTree part."""
         events = event_factory.create_batch(100, EventSize.SMALL)
 
-        for event in events:
-            await clickhouse_plugin.write([event.raw_json])
+        await clickhouse_plugin.write([e.raw_json for e in events])
 
         await clickhouse_consumer.wait_for_count(100, timeout=30.0)
 
@@ -161,10 +161,10 @@ class TestDataIntegrity:
         """Events containing CJK, emoji, and RTL characters must
         roundtrip with matching content hashes."""
         unicode_payloads = [
-            {"unicode_cjk": "\u4f60\u597d\u4e16\u754c"},
-            {"unicode_emoji": "\U0001f389\U0001f680\u2728\U0001f30d"},
-            {"unicode_rtl": "\u0645\u0631\u062d\u0628\u0627 \u0628\u0627\u0644\u0639\u0627\u0644\u0645"},
-            {"unicode_mixed": "\u4f60\u597d \U0001f389 \u0645\u0631\u062d\u0628\u0627 hello"},
+            {"message": "\u4f60\u597d\u4e16\u754c CJK test"},
+            {"message": "\U0001f389\U0001f680\u2728\U0001f30d emoji test"},
+            {"message": "\u0645\u0631\u062d\u0628\u0627 \u0628\u0627\u0644\u0639\u0627\u0644\u0645 RTL test"},
+            {"message": "\u4f60\u597d \U0001f389 \u0645\u0631\u062d\u0628\u0627 hello mixed"},
         ]
 
         events = [
@@ -199,11 +199,11 @@ class TestDataIntegrity:
         """Events with newlines, tabs, and backslashes in string values
         must survive JSON serialization roundtrip."""
         special_payloads = [
-            {"special": "line1\nline2\nline3"},
-            {"special": "col1\tcol2\tcol3"},
-            {"special": "path\\to\\file\\data"},
-            {"special": 'quote"inside"string'},
-            {"special": "mixed\nnew\tlines\\and\\slashes"},
+            {"message": "line1\nline2\nline3"},
+            {"message": "col1\tcol2\tcol3"},
+            {"message": "path\\to\\file\\data"},
+            {"message": 'quote"inside"string'},
+            {"message": "mixed\nnew\tlines\\and\\slashes"},
         ]
 
         events = [

@@ -1,6 +1,7 @@
 """ClickHouse backend consumer for integration tests."""
 
 import asyncio
+import json
 import uuid
 from functools import partial
 
@@ -10,6 +11,51 @@ from clickhouse_connect.driver.client import Client
 from tests.integration.backends.base import BackendConsumer
 
 DATABASE = 'eventum_test'
+
+# Columns for the ECS-compliant event schema.  Every top-level JSON
+# key produced by ``EventFactory`` maps to a ``String`` column so
+# that ``JSONEachRow`` inserts work out of the box.
+_COLUMNS = (
+    '`@timestamp` String, '
+    'agent String, '
+    'ecs String, '
+    'event String, '
+    'host String, '
+    'message String, '
+    'source String, '
+    'tags String, '
+    '_test String'
+)
+
+
+def _deep_parse(value: object) -> object:
+    """Try to deserialize stringified JSON values recursively."""
+    if not isinstance(value, str):
+        return value
+    stripped = value.strip()
+    if not stripped or stripped[0] not in ('{', '['):
+        return value
+    try:
+        parsed = json.loads(stripped)
+    except (json.JSONDecodeError, ValueError):
+        return value
+    if isinstance(parsed, dict):
+        return {k: _deep_parse(v) for k, v in parsed.items()}
+    if isinstance(parsed, list):
+        return [_deep_parse(item) for item in parsed]
+    return parsed
+
+
+def _reconstruct_event(row: dict) -> str:
+    """Rebuild the original JSON string from a ClickHouse row.
+
+    ClickHouse stores nested objects as escaped JSON strings inside
+    ``String`` columns.  This function parses them back into native
+    dicts/lists so that the reconstructed JSON matches what was
+    originally inserted.
+    """
+    rebuilt = {k: _deep_parse(v) for k, v in row.items()}
+    return json.dumps(rebuilt, sort_keys=True)
 
 
 class ClickHouseConsumer(BackendConsumer):
@@ -64,7 +110,7 @@ class ClickHouseConsumer(BackendConsumer):
         await asyncio.to_thread(
             self._client.command,
             f'CREATE TABLE {DATABASE}.{self._table_name} '
-            f'(event String) '
+            f'({_COLUMNS}) '
             f'ENGINE = MergeTree() ORDER BY tuple()',
         )
 
@@ -87,7 +133,11 @@ class ClickHouseConsumer(BackendConsumer):
         self,
         timeout: float = 10.0,
     ) -> list[str]:
-        """Return all rows from the ``event`` column.
+        """Return all rows as reconstructed JSON strings.
+
+        ClickHouse stores nested objects as escaped JSON inside
+        ``String`` columns.  Each row is read back with column names
+        and then reconstructed into the original JSON structure.
 
         Parameters
         ----------
@@ -98,16 +148,24 @@ class ClickHouseConsumer(BackendConsumer):
         Returns
         -------
         list[str]
-            List of event strings.
+            List of JSON event strings.
 
         """
         assert self._client is not None
 
         result = await asyncio.to_thread(
             self._client.query,
-            f'SELECT event FROM {DATABASE}.{self._table_name}',
+            f'SELECT * FROM {DATABASE}.{self._table_name} '
+            f'ORDER BY _part, _part_offset',
         )
-        return [row[0] for row in result.result_rows]
+
+        columns = result.column_names
+        events: list[str] = []
+        for row in result.result_rows:
+            row_dict = dict(zip(columns, row))
+            events.append(_reconstruct_event(row_dict))
+
+        return events
 
     async def count(self) -> int:
         """Return the number of rows in the test table.

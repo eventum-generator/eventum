@@ -8,7 +8,6 @@ import asyncio
 import json
 
 import pytest
-import pytest_asyncio
 
 from tests.integration.event_factory import EventFactory, EventSize
 from tests.integration.verification import EventVerifier
@@ -335,20 +334,35 @@ class TestErrorRecovery:
         await plugin2.close()
         await consumer2.teardown()
 
-    async def test_write_after_server_close(
-        self, tcp_plugin, tcp_consumer, event_factory
-    ):
+    async def test_write_after_server_close(self, event_factory):
         """Writing after the server closes must raise PluginWriteError."""
+        from tests.integration.backends.tcp import TcpConsumer
+
         from eventum.plugins.output.exceptions import PluginWriteError
+        from eventum.plugins.output.plugins.tcp.config import (
+            TcpOutputPluginConfig,
+        )
+        from eventum.plugins.output.plugins.tcp.plugin import TcpOutputPlugin
+
+        consumer = TcpConsumer(host='127.0.0.1', port=0)
+        await consumer.setup()
+
+        config = TcpOutputPluginConfig(
+            host=consumer.host,
+            port=consumer.port,
+            connect_timeout=2,
+        )
+        plugin = TcpOutputPlugin(config=config, params={'id': 1})
+        await plugin.open()
 
         # Write initial events successfully
         events = event_factory.create_batch(10, EventSize.SMALL)
-        await tcp_plugin.write([e.raw_json for e in events])
-        await tcp_consumer.wait_for_count(10, timeout=10.0)
+        await plugin.write([e.raw_json for e in events])
+        await consumer.wait_for_count(10, timeout=10.0)
         await asyncio.sleep(0.5)
 
         # Tear down the server
-        await tcp_consumer.teardown()
+        await consumer.teardown()
 
         # Allow the connection to detect the closure
         await asyncio.sleep(0.5)
@@ -358,8 +372,10 @@ class TestErrorRecovery:
         with pytest.raises((PluginWriteError, OSError)):
             # May need multiple writes for the broken pipe to surface
             for _ in range(5):
-                await tcp_plugin.write([e.raw_json for e in more_events])
+                await plugin.write([e.raw_json for e in more_events])
                 await asyncio.sleep(0.1)
+
+        await plugin.close()
 
 
 # ===================================================================

@@ -46,6 +46,7 @@ class OpenSearchConsumer(BackendConsumer):
             base_url=self._base_url,
             auth=auth,
             verify=False,
+            headers={'Accept-Encoding': ''},
         )
 
         response = await self._client.put(
