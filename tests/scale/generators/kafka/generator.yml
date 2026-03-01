@@ -1,0 +1,13 @@
+input:
+  - static:
+      count: ${params.event_count}
+
+event:
+  script:
+    path: ../base/produce_events.py
+
+output:
+  - kafka:
+      bootstrap_servers:
+        - ${params.kafka_bootstrap}
+      topic: ${params.topic}

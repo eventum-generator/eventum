@@ -87,6 +87,7 @@ dev = [
     "plotly>=6.5.2",
     "pytest>=9.0.2",
     "pytest-asyncio>=1.3.0",
+    "pytest-benchmark>=5.1.0",
     "pytest-cov>=7.0.0",
     "pytest-html>=4.2.0",
     "pytest-httpx>=0.36.0",
@@ -128,6 +129,13 @@ addopts = [
 ]
 filterwarnings = [
     "ignore:Parsing dates involving a day of month:DeprecationWarning:dateparser",
+]
+markers = [
+    "integration: tests requiring Docker backend services",
+    "performance: throughput measurement tests",
+    "longevity: long-running stability tests",
+    "scale: multi-generator saturation tests",
+    "e2e: end-to-end tests via CLI subprocess",
 ]
 
 [tool.coverage.report]

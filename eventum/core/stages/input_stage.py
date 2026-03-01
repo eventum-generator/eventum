@@ -32,7 +32,7 @@ class InputStage:
     """Configures and executes input plugins.
 
     Responsible for building the input pipeline
-    (merger → batcher → scheduler) and producing timestamp
+    (merger -> batcher -> scheduler) and producing timestamp
     batches into a downstream queue.
 
     Parameters
@@ -91,7 +91,7 @@ class InputStage:
         """Build the input pipeline.
 
         All live_mode vs sample_mode branching is centralized here:
-        merger → batcher → [scheduler].
+        merger -> batcher -> [scheduler].
 
         Parameters
         ----------

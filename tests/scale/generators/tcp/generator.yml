@@ -1,0 +1,12 @@
+input:
+  - static:
+      count: ${params.event_count}
+
+event:
+  script:
+    path: ../base/produce_events.py
+
+output:
+  - tcp:
+      host: ${params.tcp_host}
+      port: ${params.tcp_port}
