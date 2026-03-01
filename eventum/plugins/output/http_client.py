@@ -63,6 +63,12 @@ def create_client(  # noqa: PLR0913
     else:
         proxy = httpx.Proxy(proxy_url)
 
+    # Explicitly set accepted encodings to avoid relying on httpx
+    # auto-detection which may advertise zstd even when the zstandard
+    # library is broken (e.g. on free-threaded Python).
+    if headers is not None and 'Accept-Encoding' not in headers:
+        headers['Accept-Encoding'] = 'gzip, deflate'
+
     return httpx.AsyncClient(
         auth=auth,
         headers=headers,

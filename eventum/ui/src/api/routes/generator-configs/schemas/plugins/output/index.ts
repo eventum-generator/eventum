@@ -28,6 +28,10 @@ import {
   TcpOutputPluginConfigSchema,
   TcpOutputPluginNamedConfigSchema,
 } from './configs/tcp';
+import {
+  UdpOutputPluginConfigSchema,
+  UdpOutputPluginNamedConfigSchema,
+} from './configs/udp';
 
 export const OutputPluginNamedConfigSchema = z.union([
   ClickhouseOutputPluginNamedConfigSchema,
@@ -37,6 +41,7 @@ export const OutputPluginNamedConfigSchema = z.union([
   OpensearchOutputPluginNamedConfigSchema,
   StdoutOutputPluginNamedConfigSchema,
   TcpOutputPluginNamedConfigSchema,
+  UdpOutputPluginNamedConfigSchema,
 ]);
 export type OutputPluginNamedConfig = z.infer<
   typeof OutputPluginNamedConfigSchema
@@ -50,5 +55,6 @@ export const OutputPluginConfigSchema = z.union([
   OpensearchOutputPluginConfigSchema,
   StdoutOutputPluginConfigSchema,
   TcpOutputPluginConfigSchema,
+  UdpOutputPluginConfigSchema,
 ]);
 export type OutputPluginConfig = z.infer<typeof OutputPluginConfigSchema>;

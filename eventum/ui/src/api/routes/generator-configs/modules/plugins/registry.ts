@@ -44,6 +44,7 @@ import { KafkaOutputPluginDefaultConfig } from './default-configs/output/kafka';
 import { OpensearchOutputPluginDefaultConfig } from './default-configs/output/opensearch';
 import { StdoutOutputPluginDefaultConfig } from './default-configs/output/stdout';
 import { TcpOutputPluginDefaultConfig } from './default-configs/output/tcp';
+import { UdpOutputPluginDefaultConfig } from './default-configs/output/udp';
 
 /** Scale down filled brand icons to visually match stroked Tabler icons. */
 function brandIcon(BaseIcon: IconType): IconType {
@@ -161,6 +162,11 @@ export const OUTPUT_PLUGINS_INFO = {
     icon: IconNetwork,
     description: 'Send events over a TCP connection',
   },
+  udp: {
+    label: 'UDP',
+    icon: IconNetwork,
+    description: 'Send events as UDP datagrams',
+  },
 } as const satisfies Record<OutputPluginName, PluginInfo>;
 
 export const PLUGINS_INFO = {
@@ -198,6 +204,7 @@ export const OUTPUT_PLUGIN_DEFAULT_CONFIGS = {
   opensearch: OpensearchOutputPluginDefaultConfig,
   stdout: StdoutOutputPluginDefaultConfig,
   tcp: TcpOutputPluginDefaultConfig,
+  udp: UdpOutputPluginDefaultConfig,
 } as const satisfies Record<OutputPluginName, OutputPluginConfig>;
 
 export const EVENT_PLUGIN_DEFAULT_ASSETS = {

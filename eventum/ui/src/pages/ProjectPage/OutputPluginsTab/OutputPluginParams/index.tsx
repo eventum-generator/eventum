@@ -7,6 +7,7 @@ import { KafkaOutputPluginParams } from './KafkaOutputPluginParams';
 import { OpensearchOutputPluginParams } from './OpensearchOutputPluginParams';
 import { StdoutOutputPluginParams } from './StdoutOutputPluginParams';
 import { TcpOutputPluginParams } from './TcpOutputPluginParams';
+import { UdpOutputPluginParams } from './UdpOutputPluginParams';
 import {
   OutputPluginConfig,
   OutputPluginNamedConfig,
@@ -33,6 +34,7 @@ const pluginNamesToParamsComponent = {
   opensearch: OpensearchOutputPluginParams,
   stdout: StdoutOutputPluginParams,
   tcp: TcpOutputPluginParams,
+  udp: UdpOutputPluginParams,
 } as const satisfies {
   [K in OutputPluginName]: FC<{
     initialConfig: PluginNameToConfigType[K];

@@ -9,7 +9,8 @@ export type OutputPluginName =
   | 'kafka'
   | 'opensearch'
   | 'stdout'
-  | 'tcp';
+  | 'tcp'
+  | 'udp';
 
 export const BaseOutputPluginConfigSchema = z.object({
   formatter: FormatterConfigSchema.optional(),
