@@ -37,21 +37,14 @@ git cliff -o CHANGELOG.md                  # Generate changelog via git-cliff
 ## Conventions
 
 - **Package manager**: uv
-- **Style**: Ruff with ALL rules enabled (`select = ["ALL"]`), 79-char line length, single quotes
-- **Ignored rules**: `A001`, `A002`, `A006`, `ANN401`, `D105`, `D205`, `FIX002`, `S311`, `S701`, `TRY400`
-- **Per-file ignores**: `eventum/api/routers/**/routes.py` — `D103`, `FAST003`
-- **Linting excludes**: `**/tests/**`
-- **Types**: Strict mypy with Pydantic plugin; full type annotations required
-- **Docstrings**: NumPy-style (Parameters/Returns/Raises sections). Public API only.
-- **ASCII only in code**: Never use characters that can't be typed on a standard keyboard in code, comments, commit messages, or CLI output. Use `->` not `→`, `-` not `—`, `<-` not `←`, `!=` not `≠`, `*` not `•`, etc. Unicode symbols are fine in prose/docs MDX content only.
-- **Errors**: Custom `ContextualError` base class with `context: dict` for structured error metadata
-- **Logging**: Structlog with bound context variables (`generator_id`, `plugin_name`, `plugin_type`, etc.)
-- **Config models**: All Pydantic, frozen where immutability is needed
+- **Code quality**: Ruff (ALL rules, 79-char lines, single quotes) + strict mypy with Pydantic plugin
+- **ASCII only**: in code, comments, commits, CLI output. Unicode only in docs/MDX prose.
 - **Commits**: Conventional commits (`feat`, `fix`, `refactor`, `test`, `docs`, etc.) — git-cliff generates changelog. Scopes: app, api, cli, core, logging, plugins, security, ui, utils, server.
-- **Git**: Main branch is `master`, development on `develop`
-- **Performance**: Optimize for high throughput. Cache computed values, pre-build objects at init time, minimize per-call allocations, use O(1) lookups over linear scans.
-- **Tests**: Co-located in `*/tests/` directories. Every feature/fix must have tests.
+- **Git**: Main branch `master`, development on `develop`
+- **Tests**: Co-located in `*/tests/`. Every feature/fix must have tests.
 - Don't commit unless explicitly asked
+
+Detailed coding conventions (rule IDs, style specifics, patterns, LSP usage) live in agent files: `developer.md`, `code-reviewer.md`, `qa-engineer.md`.
 
 ## Cross-cutting Change Checklist
 
@@ -59,8 +52,7 @@ A feature is not complete until every affected layer is updated.
 
 | What changed | Must update |
 |---|---|
-| **New plugin** | Plugin dir + Pydantic config + Zod schema + UI union index + UI form component + MDX doc page + `meta.json` nav |
-| **Rename plugin** | All of above + content-packs `generator.yml` files + changelog |
+| **New plugin** | Plugin dir + Pydantic config + Zod schema + UI union index + UI form component + UI registry + MDX doc page + `meta.json` nav |
 | **Plugin config field** | Pydantic model + Zod schema + UI form component + MDX docs |
 | **Template context variable** | Template plugin + `globals.ts` autocomplete + `template.mdx` docs + content-packs `api-reference.md` |
 | **Template module function** | `modules/<name>.py` + tests + `globals.ts` autocomplete + `template.mdx` docs + content-packs `api-reference.md` |
@@ -157,16 +149,3 @@ This project demands the highest possible code quality. Enforce through agents:
 - **Simplicity First**: Make every change as simple as possible. Impact minimal code.
 - **No Laziness**: Find root causes. No temporary fixes. Senior developer standards.
 - **Minimal Impact**: Changes should only touch what is necessary.
-
-## Code Intelligence
-
-Prefer LSP over Grep/Read for code navigation — it's faster, precise, and avoids reading entire files:
-
-- `workspaceSymbol` to find where something is defined
-- `findReferences` to see all usages across the codebase
-- `goToDefinition` / `goToImplementation` to jump to source
-- `hover` for type info without reading the file
-
-Use Grep only when LSP isn't available or for text/pattern searches (comments, strings, config).
-
-After writing or editing code, check LSP diagnostics and fix errors before proceeding.
