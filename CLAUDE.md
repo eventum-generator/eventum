@@ -133,3 +133,16 @@ A feature is not complete until every affected layer is updated.
 ## Engineering Excellence — ABSOLUTE REQUIREMENT
 
 This project demands **the highest possible code quality**. Every line of code must demonstrate maximum type safety (precise generics, protocols, overloads, discriminated unions — never `Any`), strict SOLID adherence (single responsibility, open/closed extension, dependency inversion via abstractions), disciplined decomposition (small focused functions, high cohesion, low coupling, composition over inheritance), clean architecture (separation of concerns, encapsulation, self-documenting naming), and performance-conscious design (O(1) lookups, pre-computation at init, lazy evaluation, zero redundant allocations). The codebase is built for **large-scale long-term evolution** — every abstraction must be extensible without modification, every interface must be stable and minimal, every pattern must be consistent across the entire project. **Spend maximum reasoning effort on these requirements. Do not settle for "working" code — the code must be architecturally ideal. If a solution doesn’t pass a principal-engineer-level code review, refactor it before presenting.**
+
+## Code Intelligence
+
+Prefer LSP over Grep/Read for code navigation — it's faster, precise, and avoids reading entire files:
+
+- `workspaceSymbol` to find where something is defined
+- `findReferences` to see all usages across the codebase
+- `goToDefinition` / `goToImplementation` to jump to source
+- `hover` for type info without reading the file
+
+Use Grep only when LSP isn't available or for text/pattern searches (comments, strings, config).
+
+After writing or editing code, check LSP diagnostics and fix errors before proceeding.
