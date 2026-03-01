@@ -135,6 +135,20 @@ mutation {
 - Get repo node ID: `gh api graphql -f query='{ repository(owner: "eventum-generator", name: "eventum") { id } }'`
 - Announcements category ID: `DIC_kwDOKpjxBc4CfS4C`
 
+### Phase 10: Promotion (Optional)
+
+**TL directly**:
+
+Ask the user: "Would you like to create additional promotional content for this release?"
+
+If yes, **delegate to content-growth agent**:
+
+- Draft blog post for the docs site (`../docs/content/blog/`)
+- Draft social media posts for relevant platforms (Reddit, Twitter/X, LinkedIn, Habr)
+- Suggest external platforms for cross-posting with reasoning
+
+Present drafts to the user for review and publishing.
+
 ### Important
 
 - Each phase requires user confirmation before proceeding to the next.
