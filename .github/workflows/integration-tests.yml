@@ -95,11 +95,9 @@ jobs:
           python-version: ${{ env.PYTHON_VERSION }}
 
       - name: Install dependencies
-        working-directory: eventum
         run: uv sync --group dev
 
       - name: Run integration tests
-        working-directory: eventum
         env:
           OPENSEARCH_URL: http://localhost:9200
           CLICKHOUSE_HOST: localhost
@@ -120,7 +118,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: integration-results-${{ matrix.backend }}
-          path: eventum/reports/
+          path: reports/
           retention-days: 30
 
   performance:
@@ -142,11 +140,9 @@ jobs:
           python-version: ${{ env.PYTHON_VERSION }}
 
       - name: Install dependencies
-        working-directory: eventum
         run: uv sync --group dev
 
       - name: Run performance tests
-        working-directory: eventum
         run: |
           uv run pytest tests/performance/ \
             -m performance \
@@ -161,5 +157,5 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: performance-results
-          path: eventum/reports/
+          path: reports/
           retention-days: 30
