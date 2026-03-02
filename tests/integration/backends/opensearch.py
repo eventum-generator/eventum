@@ -60,6 +60,15 @@ class OpenSearchConsumer(BackendConsumer):
         )
         response.raise_for_status()
 
+    async def set_index_settings(self, settings: dict) -> None:
+        """Update dynamic index settings."""
+        assert self._client is not None
+        response = await self._client.put(
+            f'/{self._index_name}/_settings',
+            json={'index': settings},
+        )
+        response.raise_for_status()
+
     async def teardown(self) -> None:
         """Delete the test index and close the HTTP client."""
         if self._client is None:

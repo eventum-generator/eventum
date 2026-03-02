@@ -134,8 +134,6 @@ filterwarnings = [
 markers = [
     "integration: tests requiring Docker backend services",
     "performance: throughput measurement tests",
-    "longevity: long-running stability tests",
-    "scale: multi-generator saturation tests",
     "e2e: end-to-end tests via CLI subprocess",
 ]
 

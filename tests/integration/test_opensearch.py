@@ -7,10 +7,8 @@ with ``@pytest.mark.integration``.
 
 import asyncio
 import json
-import uuid
 
 import pytest
-import pytest_asyncio
 
 from tests.integration.conftest import OPENSEARCH_URL
 from tests.integration.event_factory import EventFactory, EventSize

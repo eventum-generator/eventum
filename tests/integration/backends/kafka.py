@@ -39,7 +39,7 @@ class KafkaConsumer(BackendConsumer):
 
     async def consume_all(
         self,
-        timeout: float = 10.0,
+        timeout: float = 1.0,
     ) -> list[str]:
         """Read all messages from the topic from the beginning.
 

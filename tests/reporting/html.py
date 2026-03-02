@@ -159,30 +159,112 @@ def _eps_box_plot(results: list[TestResult]) -> str:
     })
 
 
-def _scale_ramp_up(results: list[TestResult]) -> str:
-    """Aggregate EPS vs concurrency level per backend."""
-    scale = [r for r in results if r.scale_data]
-    if not scale:
-        return ''
-    traces = []
-    for r in scale:
-        sd = r.scale_data
-        if sd is None:
+
+_COLORS = ['#636EFA', '#EF553B', '#00CC96', '#AB63FA', '#FFA15A', '#19D3F3']
+
+
+def _parse_input_test(name: str) -> tuple[str, str] | None:
+    """Parse ``test_static[batch=1K]`` -> ``('Static', '1K')``."""
+    if '[batch=' not in name:
+        return None
+    plugin = name.split('[')[0].removeprefix('test_')
+    batch = name.split('batch=')[1].rstrip(']')
+    return plugin.replace('_', ' ').title(), batch
+
+
+def _parse_event_test(name: str) -> tuple[str, str] | None:
+    """Parse ``test_template_minimal`` -> ``('Template', 'minimal')``."""
+    prefixes = ('template', 'script', 'replay')
+    stripped = name.removeprefix('test_')
+    for pfx in prefixes:
+        if stripped.startswith(pfx + '_'):
+            variant = stripped[len(pfx) + 1:]
+            return pfx.title(), variant
+    return None
+
+
+def _input_plugins_chart(results: list[TestResult]) -> str:
+    """Grouped bar chart: input plugins by batch size, log scale."""
+    items: list[tuple[str, str, float, int]] = []
+    for r in results:
+        if not r.report or r.report.eps_mean <= 0:
             continue
-        levels = sorted(sd.keys())
+        parsed = _parse_input_test(_short_name(r.node_id))
+        if parsed:
+            items.append((*parsed, r.report.eps_mean, r.report.total_events))
+
+    if not items:
+        return ''
+
+    batches: list[str] = []
+    for _, b, _, _ in items:
+        if b not in batches:
+            batches.append(b)
+
+    plugins: list[str] = []
+    for p, _, _, _ in items:
+        if p not in plugins:
+            plugins.append(p)
+
+    lookup = {(p, b): (eps, evts) for p, b, eps, evts in items}
+
+    traces = []
+    for i, batch in enumerate(batches):
         traces.append({
-            'x': [str(lv) for lv in levels],
-            'y': [
-                sd[lv]['aggregate_eps']
-                for lv in levels
-            ],
+            'x': plugins,
+            'y': [lookup.get((p, batch), (0, 0))[0] for p in plugins],
             'type': 'bar',
-            'name': _short_name(r.node_id),
+            'name': f'batch={batch}',
+            'marker': {'color': _COLORS[i % len(_COLORS)]},
+            'hovertemplate': '%{x}<br>%{y:,.0f} EPS<extra></extra>',
         })
-    return _js_plot('scale-chart', traces, {
-        'title': 'Scale Ramp-Up: Aggregate EPS',
-        'xaxis': {'title': 'Concurrency Level'},
-        'yaxis': {'title': 'Aggregate EPS'},
+
+    return _js_plot('input-chart', traces, {
+        'title': 'Input Plugins: EPS by Batch Size',
+        'yaxis': {'title': 'Events per Second', 'type': 'log'},
+        'barmode': 'group',
+    })
+
+
+def _event_plugins_chart(results: list[TestResult]) -> str:
+    """Grouped bar chart: event plugins by variant, log scale."""
+    items: list[tuple[str, str, float, int]] = []
+    for r in results:
+        if not r.report or r.report.eps_mean <= 0:
+            continue
+        parsed = _parse_event_test(_short_name(r.node_id))
+        if parsed:
+            items.append((*parsed, r.report.eps_mean, r.report.total_events))
+
+    if not items:
+        return ''
+
+    variants: list[str] = []
+    for _, v, _, _ in items:
+        if v not in variants:
+            variants.append(v)
+
+    plugins: list[str] = []
+    for p, _, _, _ in items:
+        if p not in plugins:
+            plugins.append(p)
+
+    lookup = {(p, v): (eps, evts) for p, v, eps, evts in items}
+
+    traces = []
+    for i, variant in enumerate(variants):
+        traces.append({
+            'x': plugins,
+            'y': [lookup.get((p, variant), (0, 0))[0] for p in plugins],
+            'type': 'bar',
+            'name': variant,
+            'marker': {'color': _COLORS[i % len(_COLORS)]},
+            'hovertemplate': '%{x}<br>%{y:,.0f} EPS<extra></extra>',
+        })
+
+    return _js_plot('event-chart', traces, {
+        'title': 'Event Plugins: EPS by Variant',
+        'yaxis': {'title': 'Events per Second', 'type': 'log'},
         'barmode': 'group',
     })
 
@@ -456,19 +538,22 @@ def generate_html_report(
     results = store.results
     ts = time.strftime('%Y-%m-%d %H:%M:%S')
 
+    input_js = _input_plugins_chart(results)
+    event_js = _event_plugins_chart(results)
+
     charts_js = '\n'.join(
         s for s in [
+            input_js,
+            event_js,
             _eps_time_series(results),
             _rss_time_series(results),
             _resource_chart(results),
             _eps_box_plot(results),
-            _scale_ramp_up(results),
             _trend_chart(results),
         ] if s
     )
 
     has_snap = any(r.snapshots for r in results)
-    has_scale = any(r.scale_data for r in results)
     has_trends = any(
         r.report and r.report.eps_slope is not None
         for r in results
@@ -483,6 +568,16 @@ def generate_html_report(
         '<section><h2>Test Results</h2>',
         _detail_table(results),
         '</section>',
+        _chart_section(
+            'input-chart',
+            'Input Plugins: EPS by Batch Size',
+            visible=bool(input_js),
+        ),
+        _chart_section(
+            'event-chart',
+            'Event Plugins: EPS by Variant',
+            visible=bool(event_js),
+        ),
         _chart_section('eps-chart', 'EPS Over Time', visible=has_snap),
         _chart_section(
             'rss-chart', 'RSS Memory Over Time', visible=has_snap,
@@ -494,9 +589,6 @@ def generate_html_report(
         ),
         _chart_section(
             'eps-box-chart', 'EPS Distribution', visible=has_snap,
-        ),
-        _chart_section(
-            'scale-chart', 'Scale Ramp-Up', visible=has_scale,
         ),
         _chart_section(
             'trend-chart', 'Trend Analysis', visible=has_trends,

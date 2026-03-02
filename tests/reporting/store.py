@@ -8,11 +8,39 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 
-from tests.integration.metrics import (
+from tests.metrics import (
     MetricsCollector,
     PerformanceReport,
     PerformanceSnapshot,
 )
+from tests.performance._helpers import PerfResult
+
+
+def _report_from_perf_result(pr: PerfResult) -> PerformanceReport:
+    """Create a minimal ``PerformanceReport`` from a ``PerfResult``."""
+    eps = pr.total_events / pr.duration_seconds if pr.duration_seconds > 0 else 0.0
+    return PerformanceReport(
+        duration_seconds=pr.duration_seconds,
+        total_events=pr.total_events,
+        eps_mean=eps,
+        eps_stddev=0.0,
+        eps_p50=eps,
+        eps_p95=eps,
+        eps_p99=eps,
+        eps_min=eps,
+        eps_max=eps,
+        rss_start_bytes=0,
+        rss_end_bytes=0,
+        rss_peak_bytes=0,
+        rss_growth_bytes=0,
+        fd_start=0,
+        fd_end=0,
+        fd_peak=0,
+        thread_start=0,
+        thread_end=0,
+        thread_peak=0,
+        gc_collections=(0, 0, 0),
+    )
 
 
 @dataclass
@@ -26,7 +54,6 @@ class TestResult:
     snapshots: list[PerformanceSnapshot] = field(
         default_factory=list,
     )
-    scale_data: dict[int, dict] | None = None
 
 
 class ReportStore:
@@ -45,6 +72,7 @@ class ReportStore:
         node_id: str,
         pytest_report: object,
         metrics_collector: MetricsCollector | None = None,
+        perf_result: PerfResult | None = None,
     ) -> None:
         """Record a test result, extracting metrics."""
         outcome = getattr(pytest_report, 'outcome', 'unknown')
@@ -56,6 +84,8 @@ class ReportStore:
         if metrics_collector is not None:
             perf_report = metrics_collector.last_report
             snapshots = metrics_collector.snapshots
+        elif perf_result is not None and perf_result.duration_seconds > 0:
+            perf_report = _report_from_perf_result(perf_result)
 
         self.results.append(
             TestResult(
@@ -64,33 +94,5 @@ class ReportStore:
                 duration=duration,
                 report=perf_report,
                 snapshots=snapshots,
-            )
-        )
-
-    def add_scale_result(
-        self,
-        node_id: str,
-        scale_data: dict[int, dict],
-    ) -> None:
-        """Attach scale ramp-up data to an existing result.
-
-        Finds the matching ``TestResult`` by *node_id* suffix and
-        attaches *scale_data*; if not found, creates a new entry.
-        """
-        for result in self.results:
-            if (
-                result.node_id.endswith(node_id)
-                or node_id in result.node_id
-            ):
-                result.scale_data = scale_data
-                return
-
-        # Fallback: create a minimal entry
-        self.results.append(
-            TestResult(
-                node_id=node_id,
-                outcome='passed',
-                duration=0.0,
-                scale_data=scale_data,
             )
         )

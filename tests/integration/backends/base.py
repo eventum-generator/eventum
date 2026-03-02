@@ -9,8 +9,8 @@ class BackendConsumer(ABC):
 
     Backend consumers provide a unified interface for reading events
     written by output plugins during integration tests. Each concrete
-    consumer wraps a specific backend (OpenSearch, ClickHouse, Kafka,
-    TCP) and exposes methods to retrieve, count, and wait for events.
+    consumer wraps a specific backend (OpenSearch, ClickHouse, Kafka)
+    and exposes methods to retrieve, count, and wait for events.
     """
 
     @abstractmethod

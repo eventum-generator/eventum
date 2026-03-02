@@ -82,17 +82,6 @@ def pytest_runtest_makereport(
 
     store: ReportStore = item.config._report_store  # type: ignore[attr-defined]  # noqa: SLF001
     mc = item.funcargs.get('metrics_collector')  # type: ignore[attr-defined]
-    store.add_test_result(item.nodeid, report, mc)
+    pr = item.funcargs.get('perf_result')  # type: ignore[attr-defined]
+    store.add_test_result(item.nodeid, report, mc, pr)
 
-
-# ------------------------------------------------------------------
-# Fixture — allow scale tests to contribute data explicitly
-# ------------------------------------------------------------------
-
-
-@pytest.fixture(scope='session')
-def report_store(
-    request: pytest.FixtureRequest,
-) -> ReportStore:
-    """Provide access to the session-scoped ReportStore."""
-    return request.config._report_store  # type: ignore[attr-defined]  # noqa: SLF001

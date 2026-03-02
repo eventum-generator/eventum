@@ -8,11 +8,12 @@ import asyncio
 import json
 
 import pytest
-import pytest_asyncio
 
 from tests.integration.conftest import CLICKHOUSE_HOST, CLICKHOUSE_PORT
 from tests.integration.event_factory import EventFactory, EventSize
 from tests.integration.verification import EventVerifier
+
+pytestmark = pytest.mark.integration
 
 
 # ---------------------------------------------------------------------------
@@ -45,7 +46,6 @@ def _make_plugin(*, database: str, table: str, **overrides):
 # ===================================================================
 
 
-@pytest.mark.integration
 class TestDataIntegrity:
     """Verify that events survive the write-read roundtrip without
     corruption, duplication, or loss."""
@@ -283,7 +283,6 @@ class TestDataIntegrity:
 # ===================================================================
 
 
-@pytest.mark.integration
 class TestErrorRecovery:
     """Verify graceful error handling for misconfiguration and
     failure scenarios."""
@@ -296,8 +295,9 @@ class TestErrorRecovery:
         plugin = _make_plugin(
             database='default',
             table='nonexistent',
-            host='nonexistent-host-12345',
-            connect_timeout=3,
+            host='127.0.0.1',
+            port=19999,
+            connect_timeout=1,
         )
 
         with pytest.raises(PluginOpenError):
@@ -376,7 +376,6 @@ class TestErrorRecovery:
 # ===================================================================
 
 
-@pytest.mark.integration
 class TestEdgeCases:
     """Verify correct behavior at boundary conditions and unusual
     usage patterns."""
@@ -526,7 +525,6 @@ class TestEdgeCases:
 # ===================================================================
 
 
-@pytest.mark.integration
 class TestClickhouseSpecific:
     """Verify ClickHouse-specific storage semantics and plugin
     configuration options."""
