@@ -37,7 +37,7 @@ def _deep_parse(value: object) -> object:
         return value
     try:
         parsed = json.loads(stripped)
-    except (json.JSONDecodeError, ValueError):
+    except json.JSONDecodeError, ValueError:
         return value
     if isinstance(parsed, dict):
         return {k: _deep_parse(v) for k, v in parsed.items()}
@@ -122,8 +122,7 @@ class ClickHouseConsumer(BackendConsumer):
         try:
             await asyncio.to_thread(
                 self._client.command,
-                f'DROP TABLE IF EXISTS '
-                f'{DATABASE}.{self._table_name}',
+                f'DROP TABLE IF EXISTS {DATABASE}.{self._table_name}',
             )
         finally:
             self._client.close()

@@ -27,6 +27,7 @@ class PerfResult:
     total_events: int = 0
     metadata: dict = field(default_factory=dict)
 
+
 # ---------------------------------------------------------------------------
 # Template sources
 # ---------------------------------------------------------------------------

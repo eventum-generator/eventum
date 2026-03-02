@@ -48,20 +48,26 @@ def _eps_time_series(results: list[TestResult]) -> str:
     for r in results:
         if not r.snapshots:
             continue
-        traces.append({
-            'x': [s.timestamp for s in r.snapshots],
-            'y': [s.events_per_second for s in r.snapshots],
-            'mode': 'lines',
-            'name': _short_name(r.node_id),
-        })
+        traces.append(
+            {
+                'x': [s.timestamp for s in r.snapshots],
+                'y': [s.events_per_second for s in r.snapshots],
+                'mode': 'lines',
+                'name': _short_name(r.node_id),
+            }
+        )
     if not traces:
         return ''
-    return _js_plot('eps-chart', traces, {
-        'title': 'Events per Second Over Time',
-        'xaxis': {'title': 'Time (seconds)'},
-        'yaxis': {'title': 'EPS'},
-        'hovermode': 'x unified',
-    })
+    return _js_plot(
+        'eps-chart',
+        traces,
+        {
+            'title': 'Events per Second Over Time',
+            'xaxis': {'title': 'Time (seconds)'},
+            'yaxis': {'title': 'EPS'},
+            'hovermode': 'x unified',
+        },
+    )
 
 
 def _rss_time_series(results: list[TestResult]) -> str:
@@ -70,23 +76,26 @@ def _rss_time_series(results: list[TestResult]) -> str:
     for r in results:
         if not r.snapshots:
             continue
-        traces.append({
-            'x': [s.timestamp for s in r.snapshots],
-            'y': [
-                s.rss_bytes / (1024 * 1024)
-                for s in r.snapshots
-            ],
-            'mode': 'lines',
-            'name': _short_name(r.node_id),
-        })
+        traces.append(
+            {
+                'x': [s.timestamp for s in r.snapshots],
+                'y': [s.rss_bytes / (1024 * 1024) for s in r.snapshots],
+                'mode': 'lines',
+                'name': _short_name(r.node_id),
+            }
+        )
     if not traces:
         return ''
-    return _js_plot('rss-chart', traces, {
-        'title': 'RSS Memory Over Time',
-        'xaxis': {'title': 'Time (seconds)'},
-        'yaxis': {'title': 'RSS (MB)'},
-        'hovermode': 'x unified',
-    })
+    return _js_plot(
+        'rss-chart',
+        traces,
+        {
+            'title': 'RSS Memory Over Time',
+            'xaxis': {'title': 'Time (seconds)'},
+            'yaxis': {'title': 'RSS (MB)'},
+            'hovermode': 'x unified',
+        },
+    )
 
 
 def _resource_chart(results: list[TestResult]) -> str:
@@ -98,21 +107,25 @@ def _resource_chart(results: list[TestResult]) -> str:
             continue
         xs = [s.timestamp for s in r.snapshots]
         name = _short_name(r.node_id)
-        fd_traces.append({
-            'x': xs,
-            'y': [s.fd_count for s in r.snapshots],
-            'mode': 'lines',
-            'name': f'{name} (FD)',
-            'yaxis': 'y',
-        })
-        thread_traces.append({
-            'x': xs,
-            'y': [s.thread_count for s in r.snapshots],
-            'mode': 'lines',
-            'name': f'{name} (threads)',
-            'yaxis': 'y2',
-            'line': {'dash': 'dash'},
-        })
+        fd_traces.append(
+            {
+                'x': xs,
+                'y': [s.fd_count for s in r.snapshots],
+                'mode': 'lines',
+                'name': f'{name} (FD)',
+                'yaxis': 'y',
+            }
+        )
+        thread_traces.append(
+            {
+                'x': xs,
+                'y': [s.thread_count for s in r.snapshots],
+                'mode': 'lines',
+                'name': f'{name} (threads)',
+                'yaxis': 'y2',
+                'line': {'dash': 'dash'},
+            }
+        )
     if not fd_traces:
         return ''
     return _js_plot(
@@ -139,25 +152,28 @@ def _eps_box_plot(results: list[TestResult]) -> str:
         if not r.snapshots:
             continue
         eps = [
-            s.events_per_second
-            for s in r.snapshots
-            if s.events_per_second > 0
+            s.events_per_second for s in r.snapshots if s.events_per_second > 0
         ]
         if not eps:
             continue
-        traces.append({
-            'y': eps,
-            'type': 'box',
-            'name': _short_name(r.node_id),
-            'boxpoints': False,
-        })
+        traces.append(
+            {
+                'y': eps,
+                'type': 'box',
+                'name': _short_name(r.node_id),
+                'boxpoints': False,
+            }
+        )
     if not traces:
         return ''
-    return _js_plot('eps-box-chart', traces, {
-        'title': 'EPS Distribution by Test',
-        'yaxis': {'title': 'Events per Second'},
-    })
-
+    return _js_plot(
+        'eps-box-chart',
+        traces,
+        {
+            'title': 'EPS Distribution by Test',
+            'yaxis': {'title': 'Events per Second'},
+        },
+    )
 
 
 _COLORS = ['#636EFA', '#EF553B', '#00CC96', '#AB63FA', '#FFA15A', '#19D3F3']
@@ -178,7 +194,7 @@ def _parse_event_test(name: str) -> tuple[str, str] | None:
     stripped = name.removeprefix('test_')
     for pfx in prefixes:
         if stripped.startswith(pfx + '_'):
-            variant = stripped[len(pfx) + 1:]
+            variant = stripped[len(pfx) + 1 :]
             return pfx.title(), variant
     return None
 
@@ -210,20 +226,26 @@ def _input_plugins_chart(results: list[TestResult]) -> str:
 
     traces = []
     for i, batch in enumerate(batches):
-        traces.append({
-            'x': plugins,
-            'y': [lookup.get((p, batch), (0, 0))[0] for p in plugins],
-            'type': 'bar',
-            'name': f'batch={batch}',
-            'marker': {'color': _COLORS[i % len(_COLORS)]},
-            'hovertemplate': '%{x}<br>%{y:,.0f} EPS<extra></extra>',
-        })
+        traces.append(
+            {
+                'x': plugins,
+                'y': [lookup.get((p, batch), (0, 0))[0] for p in plugins],
+                'type': 'bar',
+                'name': f'batch={batch}',
+                'marker': {'color': _COLORS[i % len(_COLORS)]},
+                'hovertemplate': '%{x}<br>%{y:,.0f} EPS<extra></extra>',
+            }
+        )
 
-    return _js_plot('input-chart', traces, {
-        'title': 'Input Plugins: EPS by Batch Size',
-        'yaxis': {'title': 'Events per Second', 'type': 'log'},
-        'barmode': 'group',
-    })
+    return _js_plot(
+        'input-chart',
+        traces,
+        {
+            'title': 'Input Plugins: EPS by Batch Size',
+            'yaxis': {'title': 'Events per Second', 'type': 'log'},
+            'barmode': 'group',
+        },
+    )
 
 
 def _event_plugins_chart(results: list[TestResult]) -> str:
@@ -253,27 +275,32 @@ def _event_plugins_chart(results: list[TestResult]) -> str:
 
     traces = []
     for i, variant in enumerate(variants):
-        traces.append({
-            'x': plugins,
-            'y': [lookup.get((p, variant), (0, 0))[0] for p in plugins],
-            'type': 'bar',
-            'name': variant,
-            'marker': {'color': _COLORS[i % len(_COLORS)]},
-            'hovertemplate': '%{x}<br>%{y:,.0f} EPS<extra></extra>',
-        })
+        traces.append(
+            {
+                'x': plugins,
+                'y': [lookup.get((p, variant), (0, 0))[0] for p in plugins],
+                'type': 'bar',
+                'name': variant,
+                'marker': {'color': _COLORS[i % len(_COLORS)]},
+                'hovertemplate': '%{x}<br>%{y:,.0f} EPS<extra></extra>',
+            }
+        )
 
-    return _js_plot('event-chart', traces, {
-        'title': 'Event Plugins: EPS by Variant',
-        'yaxis': {'title': 'Events per Second', 'type': 'log'},
-        'barmode': 'group',
-    })
+    return _js_plot(
+        'event-chart',
+        traces,
+        {
+            'title': 'Event Plugins: EPS by Variant',
+            'yaxis': {'title': 'Events per Second', 'type': 'log'},
+            'barmode': 'group',
+        },
+    )
 
 
 def _trend_chart(results: list[TestResult]) -> str:
     """EPS slope and RSS slope per test."""
     with_trends = [
-        r for r in results
-        if r.report and r.report.eps_slope is not None
+        r for r in results if r.report and r.report.eps_slope is not None
     ]
     if not with_trends:
         return ''
@@ -316,19 +343,23 @@ def _trend_chart(results: list[TestResult]) -> str:
             'marker': {'color': 'rgba(219, 64, 82, 0.7)'},
         },
     ]
-    return _js_plot('trend-chart', traces, {
-        'title': 'Trend Analysis: EPS & RSS Slopes',
-        'yaxis': {
-            'title': 'EPS slope (%/min)',
-            'side': 'left',
+    return _js_plot(
+        'trend-chart',
+        traces,
+        {
+            'title': 'Trend Analysis: EPS & RSS Slopes',
+            'yaxis': {
+                'title': 'EPS slope (%/min)',
+                'side': 'left',
+            },
+            'yaxis2': {
+                'title': 'RSS slope (MB/min)',
+                'side': 'right',
+                'overlaying': 'y',
+            },
+            'barmode': 'group',
         },
-        'yaxis2': {
-            'title': 'RSS slope (MB/min)',
-            'side': 'right',
-            'overlaying': 'y',
-        },
-        'barmode': 'group',
-    })
+    )
 
 
 # ------------------------------------------------------------------
@@ -341,9 +372,7 @@ def _summary_cards(results: list[TestResult]) -> str:
     total = len(results)
     passed = sum(1 for r in results if r.outcome == 'passed')
     failed = sum(1 for r in results if r.outcome == 'failed')
-    skipped = sum(
-        1 for r in results if r.outcome == 'skipped'
-    )
+    skipped = sum(1 for r in results if r.outcome == 'skipped')
     duration = sum(r.duration for r in results)
 
     def _card(value: str, label: str, cls: str = '') -> str:
@@ -375,9 +404,7 @@ def _detail_row(r: TestResult) -> str:
             f'<tr class="{cls}">'
             f'<td title="{r.node_id}">{name}</td>'
             f'<td>{r.outcome}</td>'
-            f'<td>{r.duration:.1f}</td>'
-            + '<td>\u2014</td>' * 10
-            + '</tr>'
+            f'<td>{r.duration:.1f}</td>' + '<td>\u2014</td>' * 10 + '</tr>'
         )
 
     rp = r.report
@@ -429,10 +456,7 @@ def _detail_table(results: list[TestResult]) -> str:
         '</tr>'
     )
     rows = '\n'.join(_detail_row(r) for r in results)
-    return (
-        f'<table><thead>{header}</thead>'
-        f'<tbody>{rows}</tbody></table>'
-    )
+    return f'<table><thead>{header}</thead><tbody>{rows}</tbody></table>'
 
 
 # ------------------------------------------------------------------
@@ -542,7 +566,8 @@ def generate_html_report(
     event_js = _event_plugins_chart(results)
 
     charts_js = '\n'.join(
-        s for s in [
+        s
+        for s in [
             input_js,
             event_js,
             _eps_time_series(results),
@@ -550,13 +575,13 @@ def generate_html_report(
             _resource_chart(results),
             _eps_box_plot(results),
             _trend_chart(results),
-        ] if s
+        ]
+        if s
     )
 
     has_snap = any(r.snapshots for r in results)
     has_trends = any(
-        r.report and r.report.eps_slope is not None
-        for r in results
+        r.report and r.report.eps_slope is not None for r in results
     )
 
     body_parts = [
@@ -580,7 +605,9 @@ def generate_html_report(
         ),
         _chart_section('eps-chart', 'EPS Over Time', visible=has_snap),
         _chart_section(
-            'rss-chart', 'RSS Memory Over Time', visible=has_snap,
+            'rss-chart',
+            'RSS Memory Over Time',
+            visible=has_snap,
         ),
         _chart_section(
             'resource-chart',
@@ -588,10 +615,14 @@ def generate_html_report(
             visible=has_snap,
         ),
         _chart_section(
-            'eps-box-chart', 'EPS Distribution', visible=has_snap,
+            'eps-box-chart',
+            'EPS Distribution',
+            visible=has_snap,
         ),
         _chart_section(
-            'trend-chart', 'Trend Analysis', visible=has_trends,
+            'trend-chart',
+            'Trend Analysis',
+            visible=has_trends,
         ),
         '<footer>Generated by Eventum Test Reporter</footer>',
     ]

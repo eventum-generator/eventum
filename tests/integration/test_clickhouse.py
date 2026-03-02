@@ -70,7 +70,7 @@ class TestDataIntegrity:
         ).verify(consumed)
 
         assert result.is_perfect, (
-            f"Single event roundtrip failed:\n{result.summary()}"
+            f'Single event roundtrip failed:\n{result.summary()}'
         )
 
     async def test_batch_integrity(
@@ -93,7 +93,7 @@ class TestDataIntegrity:
         ).verify(consumed)
 
         assert result.is_perfect, (
-            f"Batch integrity check failed:\n{result.summary()}"
+            f'Batch integrity check failed:\n{result.summary()}'
         )
 
     async def test_no_duplicates(
@@ -117,10 +117,10 @@ class TestDataIntegrity:
         ).verify(consumed)
 
         assert result.duplicates == 0, (
-            f"Duplicate events detected: {result.duplicate_sequence_ids}"
+            f'Duplicate events detected: {result.duplicate_sequence_ids}'
         )
         assert result.total_received == 500, (
-            f"Expected exactly 500 events, got {result.total_received}"
+            f'Expected exactly 500 events, got {result.total_received}'
         )
 
     async def test_order_preservation(
@@ -145,11 +145,11 @@ class TestDataIntegrity:
         ).verify(consumed, check_order=True)
 
         assert result.out_of_order_count == 0, (
-            f"Events arrived out of order: "
-            f"{result.out_of_order_count} out-of-order transitions"
+            f'Events arrived out of order: '
+            f'{result.out_of_order_count} out-of-order transitions'
         )
         assert result.is_perfect, (
-            f"Order preservation check failed:\n{result.summary()}"
+            f'Order preservation check failed:\n{result.summary()}'
         )
 
     async def test_unicode_events(
@@ -161,10 +161,14 @@ class TestDataIntegrity:
         """Events containing CJK, emoji, and RTL characters must
         roundtrip with matching content hashes."""
         unicode_payloads = [
-            {"message": "\u4f60\u597d\u4e16\u754c CJK test"},
-            {"message": "\U0001f389\U0001f680\u2728\U0001f30d emoji test"},
-            {"message": "\u0645\u0631\u062d\u0628\u0627 \u0628\u0627\u0644\u0639\u0627\u0644\u0645 RTL test"},
-            {"message": "\u4f60\u597d \U0001f389 \u0645\u0631\u062d\u0628\u0627 hello mixed"},
+            {'message': '\u4f60\u597d\u4e16\u754c CJK test'},
+            {'message': '\U0001f389\U0001f680\u2728\U0001f30d emoji test'},
+            {
+                'message': '\u0645\u0631\u062d\u0628\u0627 \u0628\u0627\u0644\u0639\u0627\u0644\u0645 RTL test'
+            },
+            {
+                'message': '\u4f60\u597d \U0001f389 \u0645\u0631\u062d\u0628\u0627 hello mixed'
+            },
         ]
 
         events = [
@@ -183,11 +187,11 @@ class TestDataIntegrity:
         ).verify(consumed)
 
         assert result.hash_mismatches == 0, (
-            f"Unicode content was corrupted: "
-            f"{result.hash_mismatches} hash mismatches"
+            f'Unicode content was corrupted: '
+            f'{result.hash_mismatches} hash mismatches'
         )
         assert result.is_perfect, (
-            f"Unicode roundtrip failed:\n{result.summary()}"
+            f'Unicode roundtrip failed:\n{result.summary()}'
         )
 
     async def test_json_special_chars(
@@ -199,11 +203,11 @@ class TestDataIntegrity:
         """Events with newlines, tabs, and backslashes in string values
         must survive JSON serialization roundtrip."""
         special_payloads = [
-            {"message": "line1\nline2\nline3"},
-            {"message": "col1\tcol2\tcol3"},
-            {"message": "path\\to\\file\\data"},
-            {"message": 'quote"inside"string'},
-            {"message": "mixed\nnew\tlines\\and\\slashes"},
+            {'message': 'line1\nline2\nline3'},
+            {'message': 'col1\tcol2\tcol3'},
+            {'message': 'path\\to\\file\\data'},
+            {'message': 'quote"inside"string'},
+            {'message': 'mixed\nnew\tlines\\and\\slashes'},
         ]
 
         events = [
@@ -222,7 +226,7 @@ class TestDataIntegrity:
         ).verify(consumed)
 
         assert result.is_perfect, (
-            f"JSON special chars roundtrip failed:\n{result.summary()}"
+            f'JSON special chars roundtrip failed:\n{result.summary()}'
         )
 
     async def test_large_event(
@@ -245,7 +249,7 @@ class TestDataIntegrity:
         ).verify(consumed)
 
         assert result.is_perfect, (
-            f"Large event roundtrip failed:\n{result.summary()}"
+            f'Large event roundtrip failed:\n{result.summary()}'
         )
 
     async def test_mixed_event_sizes(
@@ -274,7 +278,7 @@ class TestDataIntegrity:
         ).verify(consumed)
 
         assert result.is_perfect, (
-            f"Mixed sizes roundtrip failed:\n{result.summary()}"
+            f'Mixed sizes roundtrip failed:\n{result.summary()}'
         )
 
 
@@ -353,9 +357,7 @@ class TestErrorRecovery:
         events = event_factory.create_batch(5000, EventSize.SMALL)
 
         written = await clickhouse_plugin.write([e.raw_json for e in events])
-        assert written == 5000, (
-            f"Expected 5000 written rows, got {written}"
-        )
+        assert written == 5000, f'Expected 5000 written rows, got {written}'
 
         await clickhouse_consumer.wait_for_count(5000, timeout=30.0)
 
@@ -367,7 +369,7 @@ class TestErrorRecovery:
         ).verify(consumed)
 
         assert result.is_perfect, (
-            f"Large batch resilience check failed:\n{result.summary()}"
+            f'Large batch resilience check failed:\n{result.summary()}'
         )
 
 
@@ -388,11 +390,13 @@ class TestEdgeCases:
         """Writing an empty list must return 0 and leave the table
         unchanged."""
         written = await clickhouse_plugin.write([])
-        assert written == 0, f"Expected 0 written for empty list, got {written}"
+        assert written == 0, (
+            f'Expected 0 written for empty list, got {written}'
+        )
 
         count = await clickhouse_consumer.count()
         assert count == 0, (
-            f"Table should be empty after writing empty list, got {count} rows"
+            f'Table should be empty after writing empty list, got {count} rows'
         )
 
     async def test_rapid_open_close_cycles(
@@ -424,7 +428,7 @@ class TestEdgeCases:
         ).verify(consumed)
 
         assert result.is_perfect, (
-            f"Rapid open/close cycles failed:\n{result.summary()}"
+            f'Rapid open/close cycles failed:\n{result.summary()}'
         )
 
     async def test_double_open_idempotent(
@@ -454,7 +458,7 @@ class TestEdgeCases:
             ).verify(consumed)
 
             assert result.is_perfect, (
-                f"Double open idempotency failed:\n{result.summary()}"
+                f'Double open idempotency failed:\n{result.summary()}'
             )
         finally:
             await plugin.close()
@@ -482,9 +486,7 @@ class TestEdgeCases:
         await clickhouse_consumer.wait_for_count(10000, timeout=60.0)
 
         count = await clickhouse_consumer.count()
-        assert count == 10000, (
-            f"Expected 10000 rows, got {count}"
-        )
+        assert count == 10000, f'Expected 10000 rows, got {count}'
 
     async def test_concurrent_writes(
         self,
@@ -495,8 +497,7 @@ class TestEdgeCases:
         """10 concurrent writes of 100 events each must collectively
         deliver all 1000 events."""
         batches = [
-            event_factory.create_batch(100, EventSize.SMALL)
-            for _ in range(10)
+            event_factory.create_batch(100, EventSize.SMALL) for _ in range(10)
         ]
 
         await asyncio.gather(
@@ -516,7 +517,7 @@ class TestEdgeCases:
         ).verify(consumed)
 
         assert result.is_perfect, (
-            f"Concurrent writes failed:\n{result.summary()}"
+            f'Concurrent writes failed:\n{result.summary()}'
         )
 
 
@@ -544,17 +545,15 @@ class TestClickhouseSpecific:
 
         consumed = await clickhouse_consumer.consume_all()
         assert len(consumed) == 5, (
-            f"Expected 5 stored rows, got {len(consumed)}"
+            f'Expected 5 stored rows, got {len(consumed)}'
         )
 
         for i, raw in enumerate(consumed):
             parsed = json.loads(raw)
             assert isinstance(parsed, dict), (
-                f"Row {i} is not a JSON object: {type(parsed)}"
+                f'Row {i} is not a JSON object: {type(parsed)}'
             )
-            assert '_test' in parsed, (
-                f"Row {i} missing _test metadata field"
-            )
+            assert '_test' in parsed, f'Row {i} missing _test metadata field'
 
     async def test_table_isolation(
         self,
@@ -603,10 +602,10 @@ class TestClickhouseSpecific:
                 consumed_b = await consumer_b.consume_all()
 
                 assert len(consumed_a) == 50, (
-                    f"Table A: expected 50 rows, got {len(consumed_a)}"
+                    f'Table A: expected 50 rows, got {len(consumed_a)}'
                 )
                 assert len(consumed_b) == 30, (
-                    f"Table B: expected 30 rows, got {len(consumed_b)}"
+                    f'Table B: expected 30 rows, got {len(consumed_b)}'
                 )
 
                 # Verify no cross-contamination by batch_id
@@ -621,10 +620,10 @@ class TestClickhouseSpecific:
                 ).verify(consumed_b)
 
                 assert result_a.is_perfect, (
-                    f"Table A contaminated:\n{result_a.summary()}"
+                    f'Table A contaminated:\n{result_a.summary()}'
                 )
                 assert result_b.is_perfect, (
-                    f"Table B contaminated:\n{result_b.summary()}"
+                    f'Table B contaminated:\n{result_b.summary()}'
                 )
             finally:
                 await plugin_a.close()
@@ -655,7 +654,7 @@ class TestClickhouseSpecific:
         ).verify(consumed)
 
         assert result.is_perfect, (
-            f"Multiple sequential writes failed:\n{result.summary()}"
+            f'Multiple sequential writes failed:\n{result.summary()}'
         )
 
     async def test_single_row_insert(
@@ -668,11 +667,11 @@ class TestClickhouseSpecific:
         event = event_factory.create(EventSize.SMALL)
 
         written = await clickhouse_plugin.write([event.raw_json])
-        assert written == 1, f"Expected 1 written row, got {written}"
+        assert written == 1, f'Expected 1 written row, got {written}'
 
         await clickhouse_consumer.wait_for_count(1)
         count = await clickhouse_consumer.count()
-        assert count == 1, f"Expected 1 row in table, got {count}"
+        assert count == 1, f'Expected 1 row in table, got {count}'
 
     async def test_event_content_preserved(
         self,
@@ -689,7 +688,7 @@ class TestClickhouseSpecific:
 
         consumed = await clickhouse_consumer.consume_all()
         assert len(consumed) == 1, (
-            f"Expected 1 consumed event, got {len(consumed)}"
+            f'Expected 1 consumed event, got {len(consumed)}'
         )
 
         parsed = json.loads(consumed[0])
@@ -737,7 +736,7 @@ class TestClickhouseSpecific:
             ).verify(consumed)
 
             assert result.is_perfect, (
-                f"Custom separator test failed:\n{result.summary()}"
+                f'Custom separator test failed:\n{result.summary()}'
             )
         finally:
             await plugin.close()
@@ -757,7 +756,7 @@ class TestClickhouseSpecific:
 
         consumed = await clickhouse_consumer.consume_all()
         assert len(consumed) == 3, (
-            f"Expected 3 consumed events, got {len(consumed)}"
+            f'Expected 3 consumed events, got {len(consumed)}'
         )
 
         for i, raw in enumerate(consumed):
@@ -767,6 +766,6 @@ class TestClickhouseSpecific:
             # LARGE events target ~50KB messages; verify substantial
             # content survived (at least 40KB to allow for overhead).
             assert len(message) >= 40_000, (
-                f"Event {i}: message field truncated — "
-                f"expected >= 40000 chars, got {len(message)}"
+                f'Event {i}: message field truncated — '
+                f'expected >= 40000 chars, got {len(message)}'
             )

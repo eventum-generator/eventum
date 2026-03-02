@@ -98,7 +98,9 @@ def _percentile(sorted_values: list[float], pct: float) -> float:
         return sorted_values[low]
 
     fraction = rank - low
-    return sorted_values[low] + fraction * (sorted_values[high] - sorted_values[low])
+    return sorted_values[low] + fraction * (
+        sorted_values[high] - sorted_values[low]
+    )
 
 
 def _linear_regression(
@@ -151,15 +153,15 @@ def _read_rss_bytes() -> int:
     ``resource.getrusage`` (reports in KiB on Linux, bytes on macOS).
     """
     pid = os.getpid()
-    proc_path = f"/proc/{pid}/status"
+    proc_path = f'/proc/{pid}/status'
     try:
         with open(proc_path) as fh:
             for line in fh:
-                if line.startswith("VmRSS:"):
+                if line.startswith('VmRSS:'):
                     # Format: "VmRSS:    123456 kB"
                     parts = line.split()
                     return int(parts[1]) * 1024
-    except (OSError, ValueError, IndexError):
+    except OSError, ValueError, IndexError:
         pass
 
     # Fallback
@@ -171,7 +173,7 @@ def _read_rss_bytes() -> int:
 def _read_fd_count() -> int:
     """Return current open file-descriptor count."""
     pid = os.getpid()
-    fd_path = f"/proc/{pid}/fd"
+    fd_path = f'/proc/{pid}/fd'
     try:
         return len(os.listdir(fd_path))
     except OSError:
@@ -185,13 +187,13 @@ def _read_thread_count() -> int:
     ``threading.active_count()``.
     """
     pid = os.getpid()
-    proc_path = f"/proc/{pid}/status"
+    proc_path = f'/proc/{pid}/status'
     try:
         with open(proc_path) as fh:
             for line in fh:
-                if line.startswith("Threads:"):
+                if line.startswith('Threads:'):
                     return int(line.split()[1])
-    except (OSError, ValueError, IndexError):
+    except OSError, ValueError, IndexError:
         pass
 
     return threading.active_count()
@@ -200,7 +202,11 @@ def _read_thread_count() -> int:
 def _read_gc_collections() -> tuple[int, int, int]:
     """Return cumulative GC collection counts for gen 0, 1, 2."""
     stats = gc.get_stats()
-    return (stats[0]["collections"], stats[1]["collections"], stats[2]["collections"])
+    return (
+        stats[0]['collections'],
+        stats[1]['collections'],
+        stats[2]['collections'],
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -268,7 +274,7 @@ class MetricsCollector:
     def record_events(self, count: int) -> None:
         """Accumulate *count* events and auto-snapshot if the interval elapsed."""
         if not self._started:
-            raise RuntimeError("MetricsCollector.start() must be called first")
+            raise RuntimeError('MetricsCollector.start() must be called first')
 
         self._total_events += count
         self._events_since_snapshot += count
@@ -294,7 +300,7 @@ class MetricsCollector:
     def finalize(self) -> PerformanceReport:
         """Stop collection and compute the final ``PerformanceReport``."""
         if not self._started:
-            raise RuntimeError("MetricsCollector.start() must be called first")
+            raise RuntimeError('MetricsCollector.start() must be called first')
 
         end_time = time.monotonic()
         duration = end_time - self._start_time
@@ -372,7 +378,9 @@ class MetricsCollector:
             rss_start_bytes=rss_values[0] if rss_values else 0,
             rss_end_bytes=rss_values[-1] if rss_values else 0,
             rss_peak_bytes=max(rss_values) if rss_values else 0,
-            rss_growth_bytes=(rss_values[-1] - rss_values[0]) if rss_values else 0,
+            rss_growth_bytes=(rss_values[-1] - rss_values[0])
+            if rss_values
+            else 0,
             # FD
             fd_start=fd_values[0] if fd_values else 0,
             fd_end=fd_values[-1] if fd_values else 0,

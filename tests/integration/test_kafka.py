@@ -38,7 +38,7 @@ async def _write_and_verify(
     raw = [e.raw_json for e in events]
     written = await plugin.write(raw)
     assert written == len(events), (
-        f"Expected {len(events)} written, got {written}"
+        f'Expected {len(events)} written, got {written}'
     )
 
     await kafka_consumer.wait_for_count(len(events), timeout=timeout)
@@ -70,10 +70,13 @@ class TestDataIntegrity:
         events = [event_factory.create(EventSize.MEDIUM)]
 
         result = await _write_and_verify(
-            kafka_plugin, kafka_consumer, events, event_factory,
+            kafka_plugin,
+            kafka_consumer,
+            events,
+            event_factory,
         )
         assert result.is_perfect, (
-            f"Single event roundtrip failed:\n{result.summary()}"
+            f'Single event roundtrip failed:\n{result.summary()}'
         )
 
     async def test_batch_integrity(
@@ -86,11 +89,14 @@ class TestDataIntegrity:
         events = event_factory.create_batch(1000, EventSize.MEDIUM)
 
         result = await _write_and_verify(
-            kafka_plugin, kafka_consumer, events, event_factory,
+            kafka_plugin,
+            kafka_consumer,
+            events,
+            event_factory,
             timeout=30,
         )
         assert result.is_perfect, (
-            f"Batch integrity check failed:\n{result.summary()}"
+            f'Batch integrity check failed:\n{result.summary()}'
         )
 
     async def test_no_duplicates(
@@ -103,14 +109,17 @@ class TestDataIntegrity:
         events = event_factory.create_batch(500, EventSize.MEDIUM)
 
         result = await _write_and_verify(
-            kafka_plugin, kafka_consumer, events, event_factory,
+            kafka_plugin,
+            kafka_consumer,
+            events,
+            event_factory,
         )
         assert result.duplicates == 0, (
-            f"Found {result.duplicates} duplicate events: "
-            f"duplicate_sequence_ids={result.duplicate_sequence_ids}"
+            f'Found {result.duplicates} duplicate events: '
+            f'duplicate_sequence_ids={result.duplicate_sequence_ids}'
         )
         assert result.total_received == 500, (
-            f"Expected 500 unique events, received {result.total_received}"
+            f'Expected 500 unique events, received {result.total_received}'
         )
 
     async def test_order_preservation(
@@ -123,12 +132,15 @@ class TestDataIntegrity:
         events = event_factory.create_batch(100, EventSize.MEDIUM)
 
         result = await _write_and_verify(
-            kafka_plugin, kafka_consumer, events, event_factory,
+            kafka_plugin,
+            kafka_consumer,
+            events,
+            event_factory,
             check_order=True,
         )
         assert result.out_of_order_count == 0, (
-            f"Order violated: {result.out_of_order_count} out-of-order "
-            f"transitions detected"
+            f'Order violated: {result.out_of_order_count} out-of-order '
+            f'transitions detected'
         )
 
     async def test_unicode_events(
@@ -139,9 +151,9 @@ class TestDataIntegrity:
     ):
         """Events with CJK, emoji, and RTL characters should roundtrip."""
         unicode_payloads = [
-            {"unicode_cjk": "\u4f60\u597d\u4e16\u754c"},
-            {"unicode_emoji": "\U0001f389\U0001f680"},
-            {"unicode_rtl": "\u0645\u0631\u062d\u0628\u0627"},
+            {'unicode_cjk': '\u4f60\u597d\u4e16\u754c'},
+            {'unicode_emoji': '\U0001f389\U0001f680'},
+            {'unicode_rtl': '\u0645\u0631\u062d\u0628\u0627'},
         ]
 
         events = [
@@ -153,10 +165,13 @@ class TestDataIntegrity:
         ]
 
         result = await _write_and_verify(
-            kafka_plugin, kafka_consumer, events, event_factory,
+            kafka_plugin,
+            kafka_consumer,
+            events,
+            event_factory,
         )
         assert result.is_perfect, (
-            f"Unicode roundtrip failed:\n{result.summary()}"
+            f'Unicode roundtrip failed:\n{result.summary()}'
         )
 
         # Also verify the raw content survived (parse JSON first since
@@ -164,14 +179,14 @@ class TestDataIntegrity:
         consumed = await kafka_consumer.consume_all()
         consumed_parsed = [json.loads(raw) for raw in consumed]
         consumed_text = json.dumps(consumed_parsed, ensure_ascii=False)
-        assert "\u4f60\u597d\u4e16\u754c" in consumed_text, (
-            "CJK characters not found in consumed events"
+        assert '\u4f60\u597d\u4e16\u754c' in consumed_text, (
+            'CJK characters not found in consumed events'
         )
-        assert "\U0001f389" in consumed_text, (
-            "Emoji characters not found in consumed events"
+        assert '\U0001f389' in consumed_text, (
+            'Emoji characters not found in consumed events'
         )
-        assert "\u0645\u0631\u062d\u0628\u0627" in consumed_text, (
-            "RTL characters not found in consumed events"
+        assert '\u0645\u0631\u062d\u0628\u0627' in consumed_text, (
+            'RTL characters not found in consumed events'
         )
 
     async def test_json_special_chars(
@@ -182,10 +197,10 @@ class TestDataIntegrity:
     ):
         """Events with newlines, tabs, and backslashes in values should roundtrip."""
         special_fields = {
-            "special_newline": "line1\nline2\nline3",
-            "special_tab": "col1\tcol2\tcol3",
-            "special_backslash": "path\\to\\file",
-            "special_quotes": 'he said "hello"',
+            'special_newline': 'line1\nline2\nline3',
+            'special_tab': 'col1\tcol2\tcol3',
+            'special_backslash': 'path\\to\\file',
+            'special_quotes': 'he said "hello"',
         }
 
         events = [
@@ -196,10 +211,13 @@ class TestDataIntegrity:
         ]
 
         result = await _write_and_verify(
-            kafka_plugin, kafka_consumer, events, event_factory,
+            kafka_plugin,
+            kafka_consumer,
+            events,
+            event_factory,
         )
         assert result.is_perfect, (
-            f"Special chars roundtrip failed:\n{result.summary()}"
+            f'Special chars roundtrip failed:\n{result.summary()}'
         )
 
     async def test_large_event(
@@ -212,11 +230,14 @@ class TestDataIntegrity:
         events = [event_factory.create(EventSize.HUGE)]
 
         result = await _write_and_verify(
-            kafka_plugin, kafka_consumer, events, event_factory,
+            kafka_plugin,
+            kafka_consumer,
+            events,
+            event_factory,
             timeout=20,
         )
         assert result.is_perfect, (
-            f"Large event roundtrip failed:\n{result.summary()}"
+            f'Large event roundtrip failed:\n{result.summary()}'
         )
 
     async def test_mixed_event_sizes(
@@ -233,11 +254,14 @@ class TestDataIntegrity:
         )
 
         result = await _write_and_verify(
-            kafka_plugin, kafka_consumer, events, event_factory,
+            kafka_plugin,
+            kafka_consumer,
+            events,
+            event_factory,
             timeout=20,
         )
         assert result.is_perfect, (
-            f"Mixed sizes roundtrip failed:\n{result.summary()}"
+            f'Mixed sizes roundtrip failed:\n{result.summary()}'
         )
 
 
@@ -303,13 +327,13 @@ class TestErrorRecovery:
 
         written = await kafka_plugin.write(raw)
         assert written == 100, (
-            f"Expected 100 delivery confirmations, got {written}"
+            f'Expected 100 delivery confirmations, got {written}'
         )
 
         await kafka_consumer.wait_for_count(100, timeout=15)
         consumed = await kafka_consumer.consume_all()
         assert len(consumed) == 100, (
-            f"Expected 100 consumed events, got {len(consumed)}"
+            f'Expected 100 consumed events, got {len(consumed)}'
         )
 
     async def test_large_batch_delivery(
@@ -338,11 +362,14 @@ class TestErrorRecovery:
             events = event_factory.create_batch(5000, EventSize.SMALL)
 
             result = await _write_and_verify(
-                plugin, kafka_consumer, events, event_factory,
+                plugin,
+                kafka_consumer,
+                events,
+                event_factory,
                 timeout=60,
             )
             assert result.is_perfect, (
-                f"Large batch delivery failed:\n{result.summary()}"
+                f'Large batch delivery failed:\n{result.summary()}'
             )
         finally:
             await plugin.close()
@@ -359,9 +386,7 @@ class TestEdgeCases:
     async def test_empty_event_list(self, kafka_plugin):
         """Writing an empty list should return 0 without error."""
         written = await kafka_plugin.write([])
-        assert written == 0, (
-            f"Expected 0 for empty write, got {written}"
-        )
+        assert written == 0, f'Expected 0 for empty write, got {written}'
 
     async def test_rapid_open_close_cycles(
         self,
@@ -391,7 +416,7 @@ class TestEdgeCases:
             raw = [e.raw_json for e in events]
             written = await plugin.write(raw)
             assert written == 10, (
-                f"Expected 10 written per cycle, got {written}"
+                f'Expected 10 written per cycle, got {written}'
             )
             total_events += 10
 
@@ -400,8 +425,8 @@ class TestEdgeCases:
         await kafka_consumer.wait_for_count(total_events, timeout=30)
         consumed = await kafka_consumer.consume_all()
         assert len(consumed) == total_events, (
-            f"Expected {total_events} total events after 10 cycles, "
-            f"got {len(consumed)}"
+            f'Expected {total_events} total events after 10 cycles, '
+            f'got {len(consumed)}'
         )
 
     async def test_double_open_idempotent(
@@ -430,13 +455,13 @@ class TestEdgeCases:
         raw = [e.raw_json for e in events]
         written = await plugin.write(raw)
         assert written == 10, (
-            f"Expected 10 written after double open, got {written}"
+            f'Expected 10 written after double open, got {written}'
         )
 
         await kafka_consumer.wait_for_count(10, timeout=15)
         consumed = await kafka_consumer.consume_all()
         assert len(consumed) == 10, (
-            f"Expected 10 events after double open, got {len(consumed)}"
+            f'Expected 10 events after double open, got {len(consumed)}'
         )
 
         await plugin.close()
@@ -486,11 +511,14 @@ class TestEdgeCases:
             events = event_factory.create_batch(10_000, EventSize.SMALL)
 
             result = await _write_and_verify(
-                plugin, kafka_consumer, events, event_factory,
+                plugin,
+                kafka_consumer,
+                events,
+                event_factory,
                 timeout=90,
             )
             assert result.is_perfect, (
-                f"Maximum batch delivery failed:\n{result.summary()}"
+                f'Maximum batch delivery failed:\n{result.summary()}'
             )
         finally:
             await plugin.close()
@@ -503,8 +531,7 @@ class TestEdgeCases:
     ):
         """10 concurrent writes of 100 events should deliver all 1000."""
         batches = [
-            event_factory.create_batch(100, EventSize.SMALL)
-            for _ in range(10)
+            event_factory.create_batch(100, EventSize.SMALL) for _ in range(10)
         ]
 
         write_tasks = [
@@ -514,7 +541,7 @@ class TestEdgeCases:
         results = await asyncio.gather(*write_tasks)
         total_written = sum(results)
         assert total_written == 1000, (
-            f"Expected 1000 total written, got {total_written}"
+            f'Expected 1000 total written, got {total_written}'
         )
 
         await kafka_consumer.wait_for_count(1000, timeout=30)
@@ -527,7 +554,7 @@ class TestEdgeCases:
         )
         result = verifier.verify(consumed, check_order=False)
         assert result.is_perfect, (
-            f"Concurrent writes verification failed:\n{result.summary()}"
+            f'Concurrent writes verification failed:\n{result.summary()}'
         )
 
 
@@ -587,10 +614,10 @@ class TestKafkaSpecific:
             await consumer.stop()
 
         assert len(all_records) == 5, (
-            f"Expected 5 records, got {len(all_records)}"
+            f'Expected 5 records, got {len(all_records)}'
         )
         for record in all_records:
-            assert record.key is not None, "Message key should not be None"
+            assert record.key is not None, 'Message key should not be None'
             assert record.key.decode('utf-8') == 'test-key', (
                 f"Expected key 'test-key', got '{record.key.decode('utf-8')}'"
             )
@@ -650,10 +677,10 @@ class TestKafkaSpecific:
             consumed_b = await consumer_b.consume_all()
 
             assert len(consumed_a) == 50, (
-                f"Topic A: expected 50 events, got {len(consumed_a)}"
+                f'Topic A: expected 50 events, got {len(consumed_a)}'
             )
             assert len(consumed_b) == 30, (
-                f"Topic B: expected 30 events, got {len(consumed_b)}"
+                f'Topic B: expected 30 events, got {len(consumed_b)}'
             )
 
             # Verify no cross-contamination by checking batch_ids
@@ -670,10 +697,10 @@ class TestKafkaSpecific:
             result_b = verifier_b.verify(consumed_b)
 
             assert result_a.is_perfect, (
-                f"Topic A contaminated:\n{result_a.summary()}"
+                f'Topic A contaminated:\n{result_a.summary()}'
             )
             assert result_b.is_perfect, (
-                f"Topic B contaminated:\n{result_b.summary()}"
+                f'Topic B contaminated:\n{result_b.summary()}'
             )
         finally:
             await consumer_a.teardown()
@@ -693,9 +720,7 @@ class TestKafkaSpecific:
             all_events.extend(batch)
             raw = [e.raw_json for e in batch]
             written = await kafka_plugin.write(raw)
-            assert written == 100, (
-                f"Expected 100 per write, got {written}"
-            )
+            assert written == 100, f'Expected 100 per write, got {written}'
 
         await kafka_consumer.wait_for_count(300, timeout=30)
         consumed = await kafka_consumer.consume_all()
@@ -706,7 +731,7 @@ class TestKafkaSpecific:
         )
         result = verifier.verify(consumed)
         assert result.is_perfect, (
-            f"Sequential writes verification failed:\n{result.summary()}"
+            f'Sequential writes verification failed:\n{result.summary()}'
         )
 
     async def test_compression_gzip(
@@ -733,9 +758,7 @@ class TestKafkaSpecific:
         events = event_factory.create_batch(100, EventSize.MEDIUM)
         raw = [e.raw_json for e in events]
         written = await plugin.write(raw)
-        assert written == 100, (
-            f"Expected 100 written with gzip, got {written}"
-        )
+        assert written == 100, f'Expected 100 written with gzip, got {written}'
         await plugin.close()
 
         await kafka_consumer.wait_for_count(100, timeout=15)
@@ -747,7 +770,7 @@ class TestKafkaSpecific:
         )
         result = verifier.verify(consumed)
         assert result.is_perfect, (
-            f"Gzip compression roundtrip failed:\n{result.summary()}"
+            f'Gzip compression roundtrip failed:\n{result.summary()}'
         )
 
     async def test_events_as_utf8(
@@ -761,15 +784,13 @@ class TestKafkaSpecific:
         raw = [e.raw_json for e in events]
 
         written = await kafka_plugin.write(raw)
-        assert written == 10, (
-            f"Expected 10 written, got {written}"
-        )
+        assert written == 10, f'Expected 10 written, got {written}'
 
         await kafka_consumer.wait_for_count(10, timeout=15)
         consumed = await kafka_consumer.consume_all()
 
         assert len(consumed) == 10, (
-            f"Expected 10 consumed, got {len(consumed)}"
+            f'Expected 10 consumed, got {len(consumed)}'
         )
 
         # Verify each consumed event is valid JSON (proper UTF-8 decoding)
@@ -778,10 +799,10 @@ class TestKafkaSpecific:
                 parsed = json.loads(raw_event)
             except json.JSONDecodeError as exc:
                 pytest.fail(
-                    f"Event {i} is not valid JSON after UTF-8 decode: {exc}"
+                    f'Event {i} is not valid JSON after UTF-8 decode: {exc}'
                 )
             assert isinstance(parsed, dict), (
-                f"Event {i} parsed as {type(parsed).__name__}, expected dict"
+                f'Event {i} parsed as {type(parsed).__name__}, expected dict'
             )
 
     async def test_acks_all(
@@ -809,7 +830,7 @@ class TestKafkaSpecific:
         raw = [e.raw_json for e in events]
         written = await plugin.write(raw)
         assert written == 50, (
-            f"Expected 50 written with acks=all, got {written}"
+            f'Expected 50 written with acks=all, got {written}'
         )
         await plugin.close()
 
@@ -822,7 +843,7 @@ class TestKafkaSpecific:
         )
         result = verifier.verify(consumed)
         assert result.is_perfect, (
-            f"acks=all delivery verification failed:\n{result.summary()}"
+            f'acks=all delivery verification failed:\n{result.summary()}'
         )
 
     async def test_event_content_preserved(
@@ -840,45 +861,43 @@ class TestKafkaSpecific:
         consumed = await kafka_consumer.consume_all()
 
         assert len(consumed) == 1, (
-            f"Expected 1 consumed event, got {len(consumed)}"
+            f'Expected 1 consumed event, got {len(consumed)}'
         )
 
         parsed = json.loads(consumed[0])
 
         # Verify core ECS fields exist
-        assert "@timestamp" in parsed, (
+        assert '@timestamp' in parsed, (
             "ECS field '@timestamp' missing from consumed event"
         )
-        assert "agent" in parsed, (
+        assert 'agent' in parsed, (
             "ECS field 'agent' missing from consumed event"
         )
-        assert isinstance(parsed["agent"], dict), (
+        assert isinstance(parsed['agent'], dict), (
             "ECS field 'agent' should be a dict"
         )
-        assert "host" in parsed, (
-            "ECS field 'host' missing from consumed event"
-        )
-        assert isinstance(parsed["host"], dict), (
+        assert 'host' in parsed, "ECS field 'host' missing from consumed event"
+        assert isinstance(parsed['host'], dict), (
             "ECS field 'host' should be a dict"
         )
-        assert "message" in parsed, (
+        assert 'message' in parsed, (
             "ECS field 'message' missing from consumed event"
         )
-        assert "_test" in parsed, (
+        assert '_test' in parsed, (
             "Test metadata field '_test' missing from consumed event"
         )
 
         # Verify test metadata roundtrip
-        test_meta = parsed["_test"]
-        assert test_meta["batch_id"] == event_factory.batch_id, (
-            f"batch_id mismatch: expected {event_factory.batch_id}, "
-            f"got {test_meta['batch_id']}"
+        test_meta = parsed['_test']
+        assert test_meta['batch_id'] == event_factory.batch_id, (
+            f'batch_id mismatch: expected {event_factory.batch_id}, '
+            f'got {test_meta["batch_id"]}'
         )
-        assert test_meta["sequence_id"] == events[0].sequence_id, (
-            f"sequence_id mismatch: expected {events[0].sequence_id}, "
-            f"got {test_meta['sequence_id']}"
+        assert test_meta['sequence_id'] == events[0].sequence_id, (
+            f'sequence_id mismatch: expected {events[0].sequence_id}, '
+            f'got {test_meta["sequence_id"]}'
         )
-        assert test_meta["content_hash"] == events[0].content_hash, (
-            f"content_hash mismatch: expected {events[0].content_hash}, "
-            f"got {test_meta['content_hash']}"
+        assert test_meta['content_hash'] == events[0].content_hash, (
+            f'content_hash mismatch: expected {events[0].content_hash}, '
+            f'got {test_meta["content_hash"]}'
         )

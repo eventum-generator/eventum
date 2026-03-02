@@ -18,7 +18,11 @@ from tests.performance._helpers import PerfResult
 
 def _report_from_perf_result(pr: PerfResult) -> PerformanceReport:
     """Create a minimal ``PerformanceReport`` from a ``PerfResult``."""
-    eps = pr.total_events / pr.duration_seconds if pr.duration_seconds > 0 else 0.0
+    eps = (
+        pr.total_events / pr.duration_seconds
+        if pr.duration_seconds > 0
+        else 0.0
+    )
     return PerformanceReport(
         duration_seconds=pr.duration_seconds,
         total_events=pr.total_events,

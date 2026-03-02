@@ -37,11 +37,7 @@ class OpenSearchConsumer(BackendConsumer):
 
     async def setup(self) -> None:
         """Create the test index with minimal resource settings."""
-        auth = (
-            (self._username, self._password)
-            if self._username
-            else None
-        )
+        auth = (self._username, self._password) if self._username else None
         self._client = httpx.AsyncClient(
             base_url=self._base_url,
             auth=auth,
@@ -148,9 +144,7 @@ class OpenSearchConsumer(BackendConsumer):
                 result = response.json()
                 scroll_id = result.get('_scroll_id')
                 hits = result['hits']['hits']
-                events.extend(
-                    json.dumps(hit['_source']) for hit in hits
-                )
+                events.extend(json.dumps(hit['_source']) for hit in hits)
         finally:
             # Clean up scroll context
             if scroll_id is not None:

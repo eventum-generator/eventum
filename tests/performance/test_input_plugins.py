@@ -262,8 +262,7 @@ def test_timestamps(
     """Measure timestamps plugin: pre-defined timestamp list iteration."""
     base = datetime(2024, 1, 1, tzinfo=ZoneInfo('UTC'))
     source = [
-        base + timedelta(seconds=i)
-        for i in range(EVENT_COUNT + batch_size)
+        base + timedelta(seconds=i) for i in range(EVENT_COUNT + batch_size)
     ]
 
     config = TimestampsInputPluginConfig(source=source)

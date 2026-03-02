@@ -84,4 +84,3 @@ def pytest_runtest_makereport(
     mc = item.funcargs.get('metrics_collector')  # type: ignore[attr-defined]
     pr = item.funcargs.get('perf_result')  # type: ignore[attr-defined]
     store.add_test_result(item.nodeid, report, mc, pr)
-

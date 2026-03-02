@@ -339,45 +339,53 @@ def test_template_complex(
     perf_result: PerfResult,
 ) -> None:
     """Measure FSM mode: 3 templates, shared state transitions."""
-    loader = DictLoader({
-        'a.jinja': _FSM_TEMPLATE_A,
-        'b.jinja': _FSM_TEMPLATE_B,
-        'c.jinja': _FSM_TEMPLATE_C,
-    })
+    loader = DictLoader(
+        {
+            'a.jinja': _FSM_TEMPLATE_A,
+            'b.jinja': _FSM_TEMPLATE_B,
+            'c.jinja': _FSM_TEMPLATE_C,
+        }
+    )
     config = TemplateEventPluginConfig(
         root=TemplateEventPluginConfigForFSMMode(
             params={},
             samples={},
             mode=TemplatePickingMode.FSM,
             templates=[
-                {'state_a': TemplateConfigForFSMMode(
-                    template=Path('a.jinja'),
-                    initial=True,
-                    transitions=[
-                        TemplateTransition(
-                            to='state_b',
-                            when=Ge(ge={'shared.counter': 3}),
-                        ),
-                    ],
-                )},
-                {'state_b': TemplateConfigForFSMMode(
-                    template=Path('b.jinja'),
-                    transitions=[
-                        TemplateTransition(
-                            to='state_c',
-                            when=Always(always=None),
-                        ),
-                    ],
-                )},
-                {'state_c': TemplateConfigForFSMMode(
-                    template=Path('c.jinja'),
-                    transitions=[
-                        TemplateTransition(
-                            to='state_a',
-                            when=Always(always=None),
-                        ),
-                    ],
-                )},
+                {
+                    'state_a': TemplateConfigForFSMMode(
+                        template=Path('a.jinja'),
+                        initial=True,
+                        transitions=[
+                            TemplateTransition(
+                                to='state_b',
+                                when=Ge(ge={'shared.counter': 3}),
+                            ),
+                        ],
+                    )
+                },
+                {
+                    'state_b': TemplateConfigForFSMMode(
+                        template=Path('b.jinja'),
+                        transitions=[
+                            TemplateTransition(
+                                to='state_c',
+                                when=Always(always=None),
+                            ),
+                        ],
+                    )
+                },
+                {
+                    'state_c': TemplateConfigForFSMMode(
+                        template=Path('c.jinja'),
+                        transitions=[
+                            TemplateTransition(
+                                to='state_a',
+                                when=Always(always=None),
+                            ),
+                        ],
+                    )
+                },
             ],
         ),
     )

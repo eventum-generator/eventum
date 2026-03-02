@@ -41,21 +41,21 @@ class VerificationResult:
     def summary(self) -> str:
         """Return a human-readable multi-line summary."""
         lines = [
-            f"received={self.total_received} expected={self.total_expected}",
-            f"hash_mismatches={self.hash_mismatches}",
-            f"duplicates={self.duplicates}",
-            f"missing_sequence_ids={len(self.missing_sequence_ids)}",
-            f"out_of_order={self.out_of_order_count}",
-            f"duplicate_sequence_ids={len(self.duplicate_sequence_ids)}",
-            f"corrupted_events={len(self.corrupted_events)}",
-            f"is_perfect={self.is_perfect}",
+            f'received={self.total_received} expected={self.total_expected}',
+            f'hash_mismatches={self.hash_mismatches}',
+            f'duplicates={self.duplicates}',
+            f'missing_sequence_ids={len(self.missing_sequence_ids)}',
+            f'out_of_order={self.out_of_order_count}',
+            f'duplicate_sequence_ids={len(self.duplicate_sequence_ids)}',
+            f'corrupted_events={len(self.corrupted_events)}',
+            f'is_perfect={self.is_perfect}',
         ]
-        return "\n".join(lines)
+        return '\n'.join(lines)
 
 
 def _compute_content_hash(payload: dict) -> str:
     """Compute SHA-256 hex digest of the payload without the ``_test`` field."""
-    clean = {k: v for k, v in payload.items() if k != "_test"}
+    clean = {k: v for k, v in payload.items() if k != '_test'}
     serialized = json.dumps(clean, sort_keys=True)
     return hashlib.sha256(serialized.encode()).hexdigest()
 
@@ -118,16 +118,16 @@ class EventVerifier:
                 event = json.loads(raw)
             except (json.JSONDecodeError, TypeError) as exc:
                 result.corrupted_events.append(
-                    {"raw": raw[:500], "error": f"JSON parse error: {exc}"}
+                    {'raw': raw[:500], 'error': f'JSON parse error: {exc}'}
                 )
                 continue
 
-            test_meta = event.get("_test")
+            test_meta = event.get('_test')
             if not isinstance(test_meta, dict):
                 # Not a test-instrumented event — skip silently
                 continue
 
-            if test_meta.get("batch_id") != self._expected_batch_id:
+            if test_meta.get('batch_id') != self._expected_batch_id:
                 continue
 
             matched_events.append(event)
@@ -138,22 +138,22 @@ class EventVerifier:
         sequence_ids: list[int] = []
 
         for event in matched_events:
-            test_meta = event["_test"]
-            expected_hash = test_meta.get("content_hash", "")
+            test_meta = event['_test']
+            expected_hash = test_meta.get('content_hash', '')
 
             actual_hash = _compute_content_hash(event)
             if actual_hash != expected_hash:
                 result.hash_mismatches += 1
                 result.corrupted_events.append(
                     {
-                        "sequence_id": test_meta.get("sequence_id"),
-                        "expected_hash": expected_hash,
-                        "actual_hash": actual_hash,
-                        "error": "content hash mismatch",
+                        'sequence_id': test_meta.get('sequence_id'),
+                        'expected_hash': expected_hash,
+                        'actual_hash': actual_hash,
+                        'error': 'content hash mismatch',
                     }
                 )
 
-            seq_id = test_meta.get("sequence_id")
+            seq_id = test_meta.get('sequence_id')
             if isinstance(seq_id, int):
                 sequence_ids.append(seq_id)
 
