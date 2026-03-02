@@ -34,7 +34,7 @@ uv run pytest tests/integration/test_kafka.py -v --no-cov
 
 ## Performance
 
-Pure CPU throughput benchmarks for input and event plugins. No Docker required.
+Pure CPU throughput benchmarks for input and event plugins.
 
 ```bash
 # Input plugins (6 plugins x 3 batch sizes = 18 tests)
