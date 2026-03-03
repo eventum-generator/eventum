@@ -31,14 +31,14 @@ def test_nested_structure(tmp_path):
 
     node = build_file_tree(d)
     assert node.is_dir is True
-    assert len(node.children) == 1
+    assert len(node.children) == 1  # type: ignore
 
-    sub = node.children[0]
+    sub = node.children[0]  # type: ignore
     assert sub.name == 'sub'
     assert sub.is_dir is True
-    assert len(sub.children) == 1
-    assert sub.children[0].name == 'file.txt'
-    assert sub.children[0].is_dir is False
+    assert len(sub.children) == 1  # type: ignore
+    assert sub.children[0].name == 'file.txt'  # type: ignore
+    assert sub.children[0].is_dir is False  # type: ignore
 
 
 def test_mixed_files_and_dirs(tmp_path):
@@ -50,9 +50,9 @@ def test_mixed_files_and_dirs(tmp_path):
 
     node = build_file_tree(d)
     assert node.is_dir is True
-    assert len(node.children) == 2
+    assert len(node.children) == 2  # type: ignore
 
-    names = {child.name for child in node.children}
+    names = {child.name for child in node.children}  # type: ignore
     assert names == {'config.yml', 'templates'}
 
 

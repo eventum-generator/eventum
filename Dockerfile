@@ -1,5 +1,5 @@
 # Stage 1: Build app
-FROM python:3.13-slim AS app-build
+FROM python:3.14-slim AS app-build
 
 WORKDIR /app/
 RUN apt-get update && apt-get install -y --no-install-recommends gcc libc6-dev && rm -rf /var/lib/apt/lists/*
@@ -24,7 +24,7 @@ RUN npm run build
 
 
 # Stage 3: Assemble final image
-FROM python:3.13-slim
+FROM python:3.14-slim
 
 WORKDIR /app/
 COPY --from=app-build /app/eventum/ /app/eventum/

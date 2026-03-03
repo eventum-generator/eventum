@@ -19,12 +19,12 @@ def test_minimal_valid():
 
 def test_missing_host():
     with pytest.raises(ValidationError):
-        ClickhouseOutputPluginConfig(table='events')
+        ClickhouseOutputPluginConfig(table='events')  # type: ignore
 
 
 def test_missing_table():
     with pytest.raises(ValidationError):
-        ClickhouseOutputPluginConfig(host='localhost')
+        ClickhouseOutputPluginConfig(host='localhost')  # type: ignore
 
 
 def test_port_boundary():

@@ -16,6 +16,7 @@
   <a href="https://pypi.org/project/eventum-generator"><img src="https://img.shields.io/pypi/v/eventum-generator?color=3873a3" alt="PyPI" /></a>
   <a href="https://pypi.org/project/eventum-generator"><img src="https://img.shields.io/pypi/pyversions/eventum-generator?color=3873a3" alt="Python" /></a>
   <a href="https://hub.docker.com/r/rnv812/eventum-generator"><img src="https://img.shields.io/docker/v/rnv812/eventum-generator?label=docker&color=2986ff" alt="Docker" /></a>
+  <a href="https://pepy.tech/projects/eventum-generator"><img src="https://static.pepy.tech/badge/eventum-generator?color=8282ef" alt="Downloads" /></a>
   <a href="https://github.com/eventum-generator/eventum/blob/master/LICENSE"><img src="https://img.shields.io/github/license/eventum-generator/eventum?color=8282ef" alt="License" /></a>
 </p>
 
@@ -125,6 +126,22 @@ Full documentation at **[eventum.run](https://eventum.run)**:
 - [Core concepts](https://eventum.run/docs/core/concepts/generator) — pipeline, plugins, scheduling
 - [Plugin reference](https://eventum.run/docs/plugins) — every plugin with full parameter tables
 - [Tutorials](https://eventum.run/docs/tutorials) — end-to-end walkthroughs (SIEM, clickstream, IoT, and more)
+
+## 📊 Activity
+
+<p align="center">
+  <img src="https://repobeats.axiom.co/api/embed/f22feef9f6aaae3972c8368e5e425dd06be42c87.svg" alt="Repobeats analytics image" />
+</p>
+
+<p align="center">
+  <a href="https://star-history.com/#eventum-generator/eventum&Date">
+    <picture>
+      <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/svg?repos=eventum-generator/eventum&type=Date&theme=dark" />
+      <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/svg?repos=eventum-generator/eventum&type=Date" />
+      <img alt="Star History Chart" src="https://api.star-history.com/svg?repos=eventum-generator/eventum&type=Date" width="680" />
+    </picture>
+  </a>
+</p>
 
 ## 📄 License
 

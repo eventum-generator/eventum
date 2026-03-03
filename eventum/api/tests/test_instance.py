@@ -49,7 +49,8 @@ def client(tmp_settings, hooks):
     app.state.settings = tmp_settings
     app.state.instance_hooks = hooks
     app.include_router(router, prefix='/instance')
-    return TestClient(app)
+    with TestClient(app) as c:
+        yield c
 
 
 # --- GET /info ---

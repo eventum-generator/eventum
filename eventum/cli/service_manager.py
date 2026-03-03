@@ -8,6 +8,13 @@ from dataclasses import dataclass
 from pathlib import Path
 
 import yaml
+from flatten_dict import flatten  # type: ignore[import-untyped]
+
+from eventum.app.models.parameters.log import LogParameters
+from eventum.app.models.parameters.path import PathParameters
+from eventum.app.models.parameters.server import ServerParameters
+from eventum.app.models.settings import Settings
+from eventum.core.parameters import GenerationParameters
 
 SERVICE_NAME = 'eventum'
 
@@ -306,21 +313,21 @@ class ServiceManager:
     @staticmethod
     def _build_config_dict(paths: ServicePaths) -> dict:
         """Build the config dict for eventum.yml."""
-        return {
-            'server.ui_enabled': True,
-            'server.api_enabled': True,
-            'server.host': '0.0.0.0',  # noqa: S104
-            'server.port': 9474,
-            'server.auth.user': 'eventum',
-            'server.auth.password': 'eventum',
-            'generation.timezone': 'UTC',
-            'log.level': 'info',
-            'log.format': 'plain',
-            'path.logs': str(paths.log_dir),
-            'path.startup': str(paths.startup_file),
-            'path.generators_dir': str(paths.generators_dir),
-            'path.keyring_cryptfile': str(paths.cryptfile),
-        }
+        settings = Settings(
+            server=ServerParameters(),
+            generation=GenerationParameters(),
+            log=LogParameters(),
+            path=PathParameters(
+                logs=paths.log_dir,
+                startup=paths.startup_file,
+                generators_dir=paths.generators_dir,
+                keyring_cryptfile=paths.cryptfile,
+            ),
+        )
+        return flatten(
+            settings.model_dump(mode='json', exclude_none=True),
+            reducer='dot',
+        )
 
     def _systemctl(
         self,

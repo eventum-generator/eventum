@@ -80,7 +80,7 @@ def test_init_plugin_not_found(mock_load):
             name='fake',
             type='input',
             config={},
-            params={'id': 1, 'timezone': None, 'base_path': Path('.')},
+            params={'id': 1, 'timezone': None, 'base_path': Path('.')},  # type: ignore
         )
 
 
@@ -95,7 +95,7 @@ def test_init_plugin_load_error(mock_load):
             name='bad',
             type='input',
             config={},
-            params={'id': 1, 'timezone': None, 'base_path': Path('.')},
+            params={'id': 1, 'timezone': None, 'base_path': Path('.')},  # type: ignore
         )
 
 
@@ -124,7 +124,7 @@ def test_init_plugin_config_validation_error(mock_load):
             name='test_plugin',
             type='input',
             config={'bad': 'data'},
-            params={'id': 1, 'timezone': None, 'base_path': Path('.')},
+            params={'id': 1, 'timezone': None, 'base_path': Path('.')},  # type: ignore
         )
 
 
@@ -147,7 +147,7 @@ def test_init_plugin_configuration_error(mock_load):
             name='test_plugin',
             type='input',
             config={},
-            params={'id': 1, 'timezone': None, 'base_path': Path('.')},
+            params={'id': 1, 'timezone': None, 'base_path': Path('.')},  # type: ignore
         )
 
 
@@ -167,7 +167,7 @@ def test_init_plugin_unexpected_error(mock_load):
             name='test_plugin',
             type='input',
             config={},
-            params={'id': 1, 'timezone': None, 'base_path': Path('.')},
+            params={'id': 1, 'timezone': None, 'base_path': Path('.')},  # type: ignore
         )
 
 

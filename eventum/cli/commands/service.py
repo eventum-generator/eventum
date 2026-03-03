@@ -314,7 +314,7 @@ def _extract_log_dir(
             data = yaml.load(f, Loader=yaml.SafeLoader)
         if isinstance(data, dict) and 'path.logs' in data:
             return Path(data['path.logs'])
-    except (OSError, yaml.error.YAMLError):
+    except OSError, yaml.error.YAMLError:
         click.echo(
             f'Warning: Could not read {svc_status.config_file}, '
             'log directory will not be purged.',

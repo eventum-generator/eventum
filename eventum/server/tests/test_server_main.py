@@ -34,7 +34,7 @@ def test_build_no_services(mock_api, mock_ui):
         enabled_services={},
         generator_manager=manager,
         settings=settings,
-        instance_hooks=hooks,
+        instance_hooks=hooks,  # type: ignore
     )
     assert isinstance(app, FastAPI)
 
@@ -48,7 +48,7 @@ def test_build_api_only():
             enabled_services={'api': True},
             generator_manager=manager,
             settings=settings,
-            instance_hooks=hooks,
+            instance_hooks=hooks,  # type: ignore
         )
         mock_inject.assert_called_once()
     assert isinstance(app, FastAPI)
@@ -63,7 +63,7 @@ def test_build_ui_only():
             enabled_services={'ui': True},
             generator_manager=manager,
             settings=settings,
-            instance_hooks=hooks,
+            instance_hooks=hooks,  # type: ignore
         )
         mock_inject.assert_called_once()
     assert isinstance(app, FastAPI)
@@ -83,7 +83,7 @@ def test_build_both_services():
             enabled_services={'api': True, 'ui': True},
             generator_manager=manager,
             settings=settings,
-            instance_hooks=hooks,
+            instance_hooks=hooks,  # type: ignore
         )
         mock_api.assert_called_once()
         mock_ui.assert_called_once()

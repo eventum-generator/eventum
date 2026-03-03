@@ -27,7 +27,7 @@ class FileNode(BaseModel, frozen=True, extra='forbid'):
 
     name: str
     is_dir: bool
-    children: list['FileNode'] | None = None  # only for directories
+    children: list[FileNode] | None = None  # only for directories
 
 
 def build_file_tree(path: Path) -> FileNode:

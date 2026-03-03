@@ -176,6 +176,7 @@ export const InputPluginsTab: FC<InputPluginsTabProps> = ({
                 </Center>
               ) : (
                 <InputPluginParams
+                  key={selectedPluginIndex}
                   inputPluginConfig={pluginsConfig[selectedPluginIndex]!}
                   onChange={handleConfigChange}
                 />

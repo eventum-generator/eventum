@@ -49,7 +49,8 @@ def test_cli_invalid():
     runner = CliRunner()
     result = runner.invoke(cli, [])
     assert result.exit_code != 0
-    assert "Missing option '--name'" in result.output
+    assert '"--name"' in result.output
+    assert 'required' in result.output
 
 
 def test_parse_docstring_extracts_field_doc():
@@ -110,12 +111,12 @@ def test_build_object_from_args_nested():
 
 
 def test_get_type_for_annotation_optional_int():
-    result = _get_type_for_annotation(int | None)
+    result = _get_type_for_annotation(int | None)  # type: ignore
     assert result is int
 
 
 def test_get_type_for_annotation_literal():
-    result = _get_type_for_annotation(Literal['a', 'b'])
+    result = _get_type_for_annotation(Literal['a', 'b'])  # type: ignore
     assert isinstance(result, click_types.Choice)
 
 
@@ -182,7 +183,7 @@ def test_patch_error_locations():
     errors = [
         {'loc': ('live_mode',), 'msg': 'err', 'type': 'value_error'},
     ]
-    _patch_error_locations(errors)
+    _patch_error_locations(errors)  # type: ignore
     assert errors[0]['loc'] == ('--live-mode',)
 
 
@@ -190,7 +191,7 @@ def test_patch_error_locations_nested():
     errors = [
         {'loc': ('server', 'port'), 'msg': 'err', 'type': 'value_error'},
     ]
-    _patch_error_locations(errors)
+    _patch_error_locations(errors)  # type: ignore
     assert errors[0]['loc'] == ('--server', 'port')
 
 

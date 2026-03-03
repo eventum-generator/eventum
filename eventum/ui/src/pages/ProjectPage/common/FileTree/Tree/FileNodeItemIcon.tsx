@@ -1,4 +1,5 @@
 import { ItemInstance } from '@headless-tree/core';
+import { SiJinja } from '@icons-pack/react-simple-icons';
 import { Flex } from '@mantine/core';
 import {
   IconBraces,
@@ -13,7 +14,6 @@ import {
 import { FC } from 'react';
 
 import { FileNode } from '@/api/routes/generator-configs/schemas';
-import { IconJinja } from '@/components/ui/icons/IconJinja';
 
 interface FileNodeItemIconProps {
   item: ItemInstance<FileNode>;
@@ -48,7 +48,7 @@ export const FileNodeItemIcon: FC<FileNodeItemIconProps> = ({ item }) => {
   if (fileName.endsWith('.jinja')) {
     return (
       <Flex c="gray.6">
-        <IconJinja size={size} />
+        <SiJinja size={size} />
       </Flex>
     );
   }

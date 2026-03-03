@@ -2,9 +2,9 @@
 
 import asyncio  # noqa: I001
 from typing import TYPE_CHECKING, Annotated, Any
+from zoneinfo import ZoneInfo
 
 from fastapi import APIRouter, Body, HTTPException, Query, status
-from zoneinfo import ZoneInfo
 
 from eventum.api.dependencies.app import SettingsDep
 from eventum.api.routers.generator_configs.dependencies import (

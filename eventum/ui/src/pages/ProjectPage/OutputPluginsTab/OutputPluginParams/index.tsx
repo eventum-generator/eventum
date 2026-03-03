@@ -3,8 +3,11 @@ import { FC } from 'react';
 import { ClickhouseOutputPluginParams } from './ClickhouseOutputPluginParams';
 import { FileOutputPluginParams } from './FileOutputPluginParams';
 import { HTTPOutputPluginParams } from './HTTPOutputPluginParams';
+import { KafkaOutputPluginParams } from './KafkaOutputPluginParams';
 import { OpensearchOutputPluginParams } from './OpensearchOutputPluginParams';
 import { StdoutOutputPluginParams } from './StdoutOutputPluginParams';
+import { TcpOutputPluginParams } from './TcpOutputPluginParams';
+import { UdpOutputPluginParams } from './UdpOutputPluginParams';
 import {
   OutputPluginConfig,
   OutputPluginNamedConfig,
@@ -27,8 +30,11 @@ const pluginNamesToParamsComponent = {
   clickhouse: ClickhouseOutputPluginParams,
   file: FileOutputPluginParams,
   http: HTTPOutputPluginParams,
+  kafka: KafkaOutputPluginParams,
   opensearch: OpensearchOutputPluginParams,
   stdout: StdoutOutputPluginParams,
+  tcp: TcpOutputPluginParams,
+  udp: UdpOutputPluginParams,
 } as const satisfies {
   [K in OutputPluginName]: FC<{
     initialConfig: PluginNameToConfigType[K];

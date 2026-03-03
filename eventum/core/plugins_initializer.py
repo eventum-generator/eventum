@@ -11,19 +11,28 @@ from pydantic import ValidationError
 from eventum.core.config import PluginConfig, PluginConfigFields
 from eventum.core.parameters import GeneratorParameters
 from eventum.exceptions import ContextualError
-from eventum.plugins.event.base.plugin import EventPlugin, EventPluginParams
+from eventum.plugins.event.base.plugin import (
+    EventPlugin,
+    EventPluginParams,
+)
 from eventum.plugins.exceptions import (
     PluginConfigurationError,
     PluginLoadError,
     PluginNotFoundError,
 )
-from eventum.plugins.input.base.plugin import InputPlugin, InputPluginParams
+from eventum.plugins.input.base.plugin import (
+    InputPlugin,
+    InputPluginParams,
+)
 from eventum.plugins.loader import (
     load_event_plugin,
     load_input_plugin,
     load_output_plugin,
 )
-from eventum.plugins.output.base.plugin import OutputPlugin, OutputPluginParams
+from eventum.plugins.output.base.plugin import (
+    OutputPlugin,
+    OutputPluginParams,
+)
 from eventum.utils.validation_prettier import prettify_validation_errors
 
 logger = structlog.stdlib.get_logger()

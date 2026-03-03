@@ -110,11 +110,11 @@ class TimestampsInputPlugin(
         start = astype(  # type: ignore[attr-defined]
             self._timestamps[0],
             datetime,  # type: ignore[arg-type]
-        ).replace(tzinfo=self._timezone)
+        ).replace(tzinfo=self._timezone)  # type: ignore  # noqa: PGH003
         end = astype(  # type: ignore[attr-defined]
             self._timestamps[-1],
             datetime,  # type: ignore[arg-type]
-        ).replace(tzinfo=self._timezone)
+        ).replace(tzinfo=self._timezone)  # type: ignore  # noqa: PGH003
         self._logger.debug(
             'Generating in range',
             start_timestamp=start.isoformat(),

@@ -1,20 +1,4 @@
 {
-    "conventionalCommits.scopes": [
-        "app",
-        "api",
-        "cli",
-        "core",
-        "logging",
-        "plugins",
-        "security",
-        "ui",
-        "utils",
-        "server"
-    ],
-    "cSpell.words": [
-        "Ugbemugbem",
-        "unminimize"
-    ],
     "cssVariables.lookupFiles": [
         "**/*.css",
         "**/*.scss",
@@ -26,6 +10,10 @@
         "no-inline-html": false
     },
     "python-envs.pythonProjects": [],
-    "python.analysis.diagnosticMode": "workspace",
-    "python.analysis.typeCheckingMode": "standard"
+    "python.analysis.diagnosticMode": "openFilesOnly",
+    "python.analysis.typeCheckingMode": "standard",
+    "mypy-type-checker.importStrategy": "fromEnvironment",
+    "mypy-type-checker.preferDaemon": true,
+    "mypy-type-checker.reportingScope": "file",
+    "ruff.path": ["${workspaceFolder}/.venv/bin/ruff"],
 }

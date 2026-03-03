@@ -22,7 +22,7 @@ PH = '${params.x}'
 SECRET = '${secrets.key}'
 
 
-# ── helpers ──────────────────────────────────────────────────────────
+# -- helpers ----------------------------------------------------------
 
 
 def _relaxed(plugin_type: str, name: str) -> type[BaseModel]:
@@ -45,8 +45,8 @@ def _rejects(cls: type[BaseModel], data: dict) -> None:
         cls.model_validate(data)
 
 
-# ── opensearch (bool, int+Ge, list[HttpUrl], Path|None, HttpUrl|None,
-#                nested model, discriminated union) ───────────────────
+# -- opensearch (bool, int+Ge, list[HttpUrl], Path|None, HttpUrl|None,
+#                nested model, discriminated union) -------------------
 
 OS_BASE = {
     'hosts': ['https://localhost:9200'],
@@ -147,7 +147,7 @@ class TestOpensearchPlaceholders:
         )
 
 
-# ── cron (int+Gt, tuple, TypeAlias Union|None) ──────────────────────
+# -- cron (int+Gt, tuple, TypeAlias Union|None) ----------------------
 
 
 @pytest.fixture
@@ -218,7 +218,7 @@ class TestCronPlaceholders:
         )
 
 
-# ── http input (int+Ge+Le, str+MinLen) ──────────────────────────────
+# -- http input (int+Ge+Le, str+MinLen) ------------------------------
 
 
 @pytest.fixture
@@ -242,7 +242,7 @@ class TestHttpInputPlaceholders:
         _rejects(http_input, {'host': '0.0.0.0', 'port': 70000})
 
 
-# ── timer (float+Ge) ────────────────────────────────────────────────
+# -- timer (float+Ge) ------------------------------------------------
 
 
 @pytest.fixture
@@ -263,7 +263,7 @@ class TestTimerPlaceholders:
         _rejects(timer, {'seconds': -1.0, 'count': 1})
 
 
-# ── clickhouse (ClickHouseDsn, Literal, TypeAlias StrEnum) ──────────
+# -- clickhouse (ClickHouseDsn, Literal, TypeAlias StrEnum) ----------
 
 
 @pytest.fixture
@@ -291,7 +291,7 @@ class TestClickhousePlaceholders:
         _valid(clickhouse, {**CH_BASE, 'input_format': PH})
 
 
-# ── file output (TypeAlias Encoding, Literal write_mode) ────────────
+# -- file output (TypeAlias Encoding, Literal write_mode) ------------
 
 
 @pytest.fixture
@@ -333,7 +333,7 @@ class TestFileOutputPlaceholders:
         )
 
 
-# ── replay event (Path) ─────────────────────────────────────────────
+# -- replay event (Path) ---------------------------------------------
 
 
 @pytest.fixture
@@ -351,7 +351,7 @@ class TestReplayPlaceholders:
         _valid(replay, {'path': '/data/events.log'})
 
 
-# ── timestamps input (Union[list[datetime], Path]) ──────────────────
+# -- timestamps input (Union[list[datetime], Path]) ------------------
 
 
 @pytest.fixture
@@ -369,7 +369,7 @@ class TestTimestampsPlaceholders:
         _valid(timestamps, {'source': '/data/ts.txt'})
 
 
-# ── placeholder string validation ───────────────────────────────────
+# -- placeholder string validation -----------------------------------
 
 
 class TestPlaceholderValidation:
@@ -418,7 +418,7 @@ class TestPlaceholderValidation:
         )
 
 
-# ── relax_model caching ─────────────────────────────────────────────
+# -- relax_model caching ---------------------------------------------
 
 
 class TestRelaxModelCaching:
@@ -437,7 +437,7 @@ class TestRelaxModelCaching:
         assert relax_model(os_cls) is not relax_model(ch_cls)
 
 
-# ── relax_model with synthetic models ────────────────────────────────
+# -- relax_model with synthetic models --------------------------------
 
 
 class TestRelaxModelSynthetic:
@@ -538,4 +538,4 @@ class TestRelaxModelSynthetic:
 
         relaxed = relax_model(M)
         m = _valid(relaxed, {})
-        assert m.x is None
+        assert m.x is None  # type: ignore

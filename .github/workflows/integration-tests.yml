@@ -1,0 +1,165 @@
+name: Integration & Performance Tests
+
+on:
+  push:
+    branches: [master, develop]
+    paths:
+      - 'eventum/plugins/**'
+      - 'eventum/core/**'
+      - 'tests/**'
+  pull_request:
+    branches: [master]
+    paths:
+      - 'eventum/plugins/**'
+      - 'eventum/core/**'
+      - 'tests/**'
+  workflow_dispatch:
+
+env:
+  PYTHON_VERSION: '3.14'
+  UV_VERSION: '0.6'
+
+jobs:
+  integration:
+    name: Integration (${{ matrix.backend }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        backend: [opensearch, clickhouse, kafka]
+
+    services:
+      opensearch:
+        image: opensearchproject/opensearch:2.19.0
+        ports:
+          - 9200:9200
+        env:
+          discovery.type: single-node
+          DISABLE_SECURITY_PLUGIN: 'true'
+          OPENSEARCH_JAVA_OPTS: '-Xms512m -Xmx512m'
+        options: >-
+          --health-cmd "curl -sf http://localhost:9200/_cluster/health"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 10
+          --health-start-period 30s
+
+      clickhouse:
+        image: clickhouse/clickhouse-server:25.3
+        ports:
+          - 8123:8123
+        env:
+          CLICKHOUSE_SKIP_USER_SETUP: '1'
+        options: >-
+          --health-cmd "clickhouse-client --query 'SELECT 1'"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 10
+          --health-start-period 10s
+
+      kafka:
+        image: apache/kafka:4.0.0
+        ports:
+          - 9094:9094
+        env:
+          KAFKA_NODE_ID: '0'
+          KAFKA_PROCESS_ROLES: 'broker,controller'
+          KAFKA_CONTROLLER_QUORUM_VOTERS: '0@localhost:9093'
+          KAFKA_LISTENERS: 'PLAINTEXT://:9092,CONTROLLER://:9093,EXTERNAL://:9094'
+          KAFKA_ADVERTISED_LISTENERS: 'PLAINTEXT://localhost:9092,EXTERNAL://localhost:9094'
+          KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: 'CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT,EXTERNAL:PLAINTEXT'
+          KAFKA_CONTROLLER_LISTENER_NAMES: 'CONTROLLER'
+          KAFKA_INTER_BROKER_LISTENER_NAME: 'PLAINTEXT'
+          KAFKA_AUTO_CREATE_TOPICS_ENABLE: 'true'
+          KAFKA_LOG_RETENTION_HOURS: '1'
+          KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: '1'
+          KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: '1'
+          KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: '1'
+        options: >-
+          --health-cmd "/opt/kafka/bin/kafka-topics.sh --bootstrap-server localhost:9092 --list"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 10
+          --health-start-period 30s
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          version: ${{ env.UV_VERSION }}
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          freethreaded: true
+
+      - name: Install dependencies
+        run: uv sync --group dev
+
+      - name: Run integration tests
+        env:
+          OPENSEARCH_URL: http://localhost:9200
+          CLICKHOUSE_HOST: localhost
+          CLICKHOUSE_PORT: '8123'
+          KAFKA_BOOTSTRAP: localhost:9094
+        run: |
+          uv run pytest tests/integration/test_${{ matrix.backend }}.py \
+            -m integration \
+            -v \
+            --no-cov \
+            --tb=short \
+            --junitxml=reports/integration-${{ matrix.backend }}.xml \
+            --html=reports/integration-${{ matrix.backend }}.html \
+            --self-contained-html
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: integration-results-${{ matrix.backend }}
+          path: reports/
+          retention-days: 30
+
+  performance:
+    name: Performance
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          version: ${{ env.UV_VERSION }}
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          freethreaded: true
+
+      - name: Install dependencies
+        run: uv sync --group dev
+
+      - name: Run performance tests
+        run: |
+          uv run pytest tests/performance/ \
+            -m performance \
+            -v -s \
+            --no-cov \
+            --tb=short \
+            --junitxml=reports/performance.xml \
+            --test-report=reports/performance.html
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: performance-results
+          path: reports/
+          retention-days: 30

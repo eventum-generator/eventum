@@ -1,93 +1,105 @@
 ---
 name: implement-issue
-description: Implement a GitHub issue end-to-end — plan, code, test, document, verify, close.
-user-invocable: true
-disable-model-invocation: true
+description: Implement a GitHub issue end-to-end -- orchestrate agents through plan, code, test, review, document, verify, close.
+user-invokable: true
 argument-hint: "#<issue-number>"
 ---
 
 ## Implement GitHub Issue
 
-Implement the GitHub issue **$ARGUMENTS** in the `eventum-generator/eventum` repository, following the full lifecycle below.
+Orchestrate the implementation of GitHub issue **$ARGUMENTS** by delegating to your team of agents.
 
 ### Phase 1: Understand
 
+**TL directly**:
+
 1. Fetch the issue details: `gh issue view <number> --json title,body,labels,assignees,milestone,projectItems`
-2. Read and understand the issue requirements thoroughly.
-3. Check the issue comments and understand intentions of participants.
-4. Explore the relevant parts of the codebase to understand existing patterns, conventions, and where changes are needed.
+2. Read the issue comments to understand intentions of participants.
 
-### Phase 2: Plan
+**Delegate to researcher agent** (optional -- use for complex issues or unfamiliar areas):
 
-1. Enter plan mode and design an implementation approach.
-2. Identify all files that need to be created or modified (code, tests, docs).
-3. Consult the **cross-cutting change checklist** in CLAUDE.md to ensure all affected layers are covered.
-4. Present the plan to the user for approval before writing any code.
+- Explore the relevant parts of the codebase
+- Identify existing patterns, conventions, and where changes are needed
+- Report findings
+
+### Phase 2: Design
+
+**Delegate to architect agent** (skip for simple bug fixes):
+
+- Design an implementation approach based on issue requirements and researcher findings
+- Identify all files that need to be created or modified
+- Consult the cross-cutting change checklist in CLAUDE.md
+- Produce 2-3 options with recommendation
+
+**TL directly**: Present the plan to the user for approval before proceeding.
 
 ### Phase 3: Implement
 
-After plan approval, execute the changes:
+**Delegate to developer agent**:
 
-1. **Code** — Make the implementation changes in the `eventum` Python package. Follow existing conventions:
-   - Style: Ruff with ALL rules, single quotes, 79-char lines.
-   - Types: Full type annotations, Pydantic models where appropriate.
-   - Keep changes minimal and focused on the issue requirements.
-   - **Explicit over clever** — straightforward code that anyone can understand immediately. Avoid magic, metaprogramming, or complex patterns.
-   - **SOLID + composition** — single responsibility, dependency injection, composition over inheritance. Extensible, composable abstractions.
-   - **Performance** — optimize obvious bottlenecks but keep code readable. Pre-compute at init, cache computed values, minimize per-call allocations. Profile before hand-optimizing.
-   - **Docstrings** — public API only, NumPy-style (Parameters/Returns/Raises). No inline comments unless truly non-obvious.
-   - **Fix trivial issues** — fix obvious problems (typos, dead imports, clear bugs) near the code you're changing.
+- Implement all code changes (Python backend + React/TS frontend if needed)
+- Follow the architect's design if one exists
+- Run ruff/mypy on own code before returning
 
-2. **Tests** — Every feature/fix must have tests. Tests are part of "done", no exceptions.
-   - Co-located: `<package>/tests/test_<name>.py`
-   - Follow the existing test style in the file being modified.
-   - Test core logic, edge cases, and error paths.
+**Checkpoint**: Present the developer's changes to the user before proceeding.
 
-3. **Documentation** — Feature isn't done until docs are updated (same session).
-   - If the change affects user-facing behavior, update the relevant docs in `../docs/content/docs/`.
-   - Match existing MDX formatting (tables, code blocks, callouts).
-   - Use approachable guide style with input→output examples.
+### Phase 4: Test
 
-4. **CLAUDE.md** — If the change adds/removes plugins, changes architecture, bumps version, or adds CLI options, update the relevant CLAUDE.md files (see "Keeping CLAUDE.md Accurate" section).
+**Delegate to qa-engineer agent**:
 
-**Checkpoint**: After implementing code, check in with the user before proceeding to tests and docs.
+- Write tests for all new functionality (co-located in `<package>/tests/test_<name>.py`)
+- Run full verification pipeline: pytest + ruff + mypy
+- Report results
 
-### Phase 4: Verify
+If QA reports failures: route findings to **developer** to fix, then re-run QA. Loop until all checks pass. If the loop does not converge after 3 cycles, stop and consult the user.
 
-Run the full verification pipeline and fix any failures:
+### Phase 5: Code Review
 
+**Delegate to code-reviewer agent**:
+
+- Review ALL changes as a unit: implementation code + tests
+- If verdict is **FAIL**: route findings to **developer** and/or **qa-engineer** to fix, then re-review
+- Loop until **PASS**. If the loop does not converge after 3 cycles, stop and consult the user.
+
+This is a mandatory quality gate -- do NOT skip it.
+
+### Phase 6: Documentation
+
+**Delegate to docs-writer agent** (if change affects user-facing behavior):
+
+- Update relevant docs in `../docs/content/docs/`
+- Add changelog entry to `CHANGELOG.md` under `## Unreleased`
+
+### Phase 7: Final Verification
+
+**Delegate to qa-engineer agent**:
+
+- Run the full pipeline: pytest + ruff + mypy
+- If docs were changed: `cd ../docs && pnpm build`
+- Report all-green status
+
+If any check fails: route to the responsible agent (**developer** for code, **docs-writer** for docs), fix, and re-verify. If the loop does not converge after 3 cycles, stop and consult the user.
+
+### Phase 8: Improvements
+
+**TL directly**:
+
+If non-trivial improvements were discovered during implementation, create GitHub issues:
 ```bash
-uv run pytest <relevant-test-file> -v          # Tests pass
-uv run ruff check <changed-files>              # Lint clean
-uv run mypy <changed-source-files>             # Types clean
-```
-
-If documentation was updated, also verify the docs site builds:
-```bash
-cd ../docs && pnpm build                       # Docs build clean
-```
-
-### Phase 5: Improvements
-
-If you discovered non-trivial improvements during implementation, create GitHub issues:
-```bash
-gh issue create --repo eventum-generator/eventum --title "<concise title>" --body "<problem + proposed solution>"
+gh issue create --repo eventum-generator/eventum --title "<title>" --body "<problem + proposed solution>"
 ```
 Check existing issues first to avoid duplicates.
 
-### Phase 6: Close
+### Phase 9: Close
+
+**TL directly**:
 
 1. Ask user whether to close the issue.
-2. **Comment on the issue** with a summary of changes:
-   - What was added/changed (brief)
-   - Which files were modified
-   - Usage example (if applicable)
-3. **Close the issue**: `gh issue close <number> --reason completed`
-4. Verify the issue state: `gh issue view <number> --json state,projectItems`
+2. Comment on the issue with a summary of changes (what changed, which files, usage example).
+3. Close: `gh issue close <number> --reason completed`
 
 ### Important
 
-- Do NOT commit or push unless the user explicitly asks. When committing, use conventional commits: `feat(scope):`, `fix(scope):`, etc.
-- Do NOT create files that aren't necessary — prefer editing existing files.
+- Do NOT commit or push unless the user explicitly asks. Use conventional commits: `feat(scope):`, `fix(scope):`, etc.
 - Track progress with the todo list throughout.
 - If blocked or uncertain, ask the user rather than guessing.
