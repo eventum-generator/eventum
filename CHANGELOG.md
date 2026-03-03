@@ -2,6 +2,33 @@
 
 All notable changes to this project will be documented in this file.
 
+## 2.3.0 (2026-03-03)
+
+### 🚀 New Features
+
+- Add Kafka output plugin — full Apache Kafka integration with SASL auth, SSL/mTLS, compression (gzip/snappy/lz4/zstd), and batching, powered by aiokafka
+- Add TCP output plugin — send events over persistent TCP connections with SSL/TLS and auto-reconnect
+- Add UDP output plugin — send events as UDP datagrams
+
+### ⚡ Performance
+
+- Migrated to Python 3.14t (free-threaded) for improved concurrency
+- Improved core architecture with multithreading for better performance and reliability
+
+### 📦 Dependencies
+
+- Added `aiokafka`
+- Removed `aiostream`, `janus`, `lru-dict`, `uvloop`
+
+### 🧪 Testing
+
+- Expanded test coverage with integration and performance tests
+
+### 📝 Other Changes
+
+- Expanded template plugin documentation
+- Added blog to the documentation site
+
 ## 2.2.0 (2026-02-27)
 
 ### 🚀 New Features
