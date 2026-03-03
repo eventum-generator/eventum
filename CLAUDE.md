@@ -1,6 +1,6 @@
 # CLAUDE.md
 
-Eventum is a synthetic event generation platform with a three-stage plugin pipeline (Input → Event → Output). Python 3.13+, Apache 2.0 licensed.
+Eventum is a synthetic event generation platform with a three-stage plugin pipeline (Input → Event → Output). Python 3.14+, Apache 2.0 licensed.
 
 - **Package name**: `eventum-generator`
 - **Homepage**: https://eventum.run
