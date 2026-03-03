@@ -34,7 +34,7 @@ uv run pytest tests/integration/test_kafka.py -v --no-cov
 
 ## Performance
 
-Pure CPU throughput benchmarks for input and event plugins. No Docker required.
+Pure CPU throughput benchmarks for input and event plugins.
 
 > **Why no output plugin benchmarks?** Output plugins are I/O-bound — their
 > throughput is limited by the backend or the underlying library, not by Eventum
