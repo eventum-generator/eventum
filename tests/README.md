@@ -36,6 +36,21 @@ uv run pytest tests/integration/test_kafka.py -v --no-cov
 
 Pure CPU throughput benchmarks for input and event plugins. No Docker required.
 
+> **Why no output plugin benchmarks?** Output plugins are I/O-bound — their
+> throughput is limited by the backend or the underlying library, not by Eventum
+> code. Benchmarking them would measure the library/network, not the plugin
+> logic.
+>
+> | Output plugin | Library              |
+> |---------------|----------------------|
+> | OpenSearch    | httpx                |
+> | ClickHouse    | clickhouse-connect   |
+> | Kafka         | aiokafka             |
+> | HTTP          | httpx                |
+> | File          | aiofiles             |
+> | TCP / UDP     | asyncio (stdlib)     |
+> | Stdout        | aioconsole           |
+
 ```bash
 # Input plugins (6 plugins x 3 batch sizes = 18 tests)
 uv run pytest tests/performance/test_input_plugins.py -m performance --no-cov -vs
