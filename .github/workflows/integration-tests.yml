@@ -93,6 +93,7 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: ${{ env.PYTHON_VERSION }}
+          freethreaded: true
 
       - name: Install dependencies
         run: uv sync --group dev
@@ -138,6 +139,7 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: ${{ env.PYTHON_VERSION }}
+          freethreaded: true
 
       - name: Install dependencies
         run: uv sync --group dev
