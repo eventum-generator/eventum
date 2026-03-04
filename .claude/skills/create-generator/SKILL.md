@@ -91,7 +91,20 @@ If validation fails: route findings to **generator-builder** to fix, then re-val
 
 If any check fails: route to **generator-builder** to fix, then re-verify. If the loop does not converge after 3 cycles, stop and consult the user.
 
-### Phase 7: Summary
+### Phase 7: Add to Hub
+
+**Delegate to docs-writer agent**:
+
+- Create a new generator data file at `../docs/lib/hub-data/generators/<slug>.ts`:
+  - Study existing generator files in `../docs/lib/hub-data/generators/` for patterns
+  - Follow the `GeneratorMeta` interface from `../docs/lib/hub-types.ts`
+  - Fill in all fields: slug, displayName, category, description, dataSource, format, eventCount, templateCount, highlights, generatorId, eventTypes, realismFeatures, parameters, sampleOutputs
+  - Pick the right `CategoryId` from `../docs/lib/hub-categories.ts`
+  - Write a concise, source-focused description (not "Generates realistic...")
+- Add the import and array entry in `../docs/lib/hub-data/index.ts`
+- Verify with `cd ../docs && pnpm build`
+
+### Phase 8: Summary
 
 **TL directly**:
 
@@ -99,12 +112,13 @@ Present to the user:
 - Generator created and its location
 - Event types and distributions
 - Validation results (event count, JSON validity, ECS compliance)
+- Hub page URL: `/hub/<slug>`
 
-### Phase 8: Improvements
+### Phase 9: Improvements
 
 **TL directly**:
 
-Ask user before creating improvement issues. If approved:
+Ask the user before creating improvement issues. If approved:
 - Check existing issues: `gh issue list --repo eventum-generator/eventum --limit 100 --state open`
 - Create issues for template API gaps, UX improvements, or missing features discovered during development
 
