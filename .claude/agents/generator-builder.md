@@ -83,17 +83,25 @@ Multiple generator-builder agents may run simultaneously for different generator
 
 ## Validation
 
-Always validate before returning:
+You are responsible for fully validating your generators before returning. Run the complete 5-check protocol below.
+
+### Check 1: Mass Rendering
+
+Generate a large volume of events in **sample mode** to catch rare stochastic failures. With `chance` mode and `module.rand.*`, some combinations only appear 1-in-10,000 renders.
+
+**Choose the event count yourself** — at minimum 100,000 events, more if the generator has many templates or complex conditionals. The goal is to exercise every stochastic path.
 
 ```bash
+cd ../content-packs
+
 # Generate events in sample mode
-cd ../content-packs && eventum generate \
+eventum generate \
   --path generators/<name>/generator.yml \
   --id test \
   --live-mode false \
   -vvvvv
 
-# Verify JSON validity and ECS fields
+# Validate EVERY event: JSON parse + required ECS fields
 python3 -c "
 import json, sys
 path = '../content-packs/generators/<name>/output/events.json'
@@ -102,32 +110,155 @@ with open(path) as f:
     lines = [l.strip() for l in f if l.strip()]
 if not lines:
     print('FAIL: no events'); sys.exit(1)
+errors = []
 for i, line in enumerate(lines, 1):
-    doc = json.loads(line)
+    try:
+        doc = json.loads(line)
+    except json.JSONDecodeError as e:
+        errors.append(f'line {i}: invalid JSON: {e}')
+        continue
     missing = required - doc.keys()
     if missing:
-        print(f'FAIL: line {i} missing {missing}'); sys.exit(1)
-print(f'OK: {len(lines)} events, all valid')
+        errors.append(f'line {i}: missing {missing}')
+if errors:
+    print(f'FAIL: {len(errors)} errors in {len(lines)} events:')
+    for e in errors[:20]:
+        print(f'  {e}')
+    if len(errors) > 20:
+        print(f'  ... and {len(errors) - 20} more')
+    sys.exit(1)
+print(f'PASS: {len(lines)} events, all valid JSON with required ECS fields')
 "
-
-# Live mode smoke test
-cd ../content-packs && timeout 5 eventum generate \
-  --path generators/<name>/generator.yml \
-  --id test \
-  --live-mode \
-  -vvvvv || true
 ```
+
+### Check 2: Conditional Branch Coverage
+
+Read every `.jinja` template and identify all `{% if %}` / `{% else %}` branches. Verify the rendered output exercises both sides.
+
+1. Read each template, list all conditional branches
+2. For each condition, determine what drives it (`module.rand.chance()`, `weighted_choice()`, sample field comparisons)
+3. Grep the output for distinguishing markers from each branch (unique field values, different structures)
+4. If any branch appears unreachable, report it as a warning
+
+### Check 3: Sample Data Integrity
+
+Verify all sample data files are valid and complete.
+
+```bash
+python3 -c "
+import csv, json, sys, os, yaml
+
+gen_dir = '../content-packs/generators/<name>'
+with open(f'{gen_dir}/generator.yml') as f:
+    config = yaml.safe_load(f)
+
+samples = config.get('event', {}).get('template', {}).get('samples', {})
+errors = []
+
+for name, sample_cfg in samples.items():
+    source = f'{gen_dir}/{sample_cfg[\"source\"]}'
+
+    if not os.path.exists(source):
+        errors.append(f'{name}: file not found: {source}')
+        continue
+
+    stype = sample_cfg.get('type', '')
+
+    if stype == 'csv':
+        with open(source, newline='') as f:
+            reader = csv.reader(f)
+            rows = list(reader)
+        if len(rows) < 2 if sample_cfg.get('header') else len(rows) < 1:
+            errors.append(f'{name}: CSV has no data rows')
+        for i, row in enumerate(rows):
+            for j, cell in enumerate(row):
+                if cell.strip() == '':
+                    errors.append(f'{name}: empty cell at row {i+1}, col {j+1}')
+
+    elif stype == 'json':
+        with open(source) as f:
+            data = json.load(f)
+        if isinstance(data, list) and len(data) == 0:
+            errors.append(f'{name}: JSON array is empty')
+        elif isinstance(data, dict) and len(data) == 0:
+            errors.append(f'{name}: JSON object is empty')
+
+    elif stype == 'items':
+        items = sample_cfg.get('source', [])
+        if len(items) == 0:
+            errors.append(f'{name}: items list is empty')
+
+if errors:
+    print(f'FAIL: {len(errors)} sample data issues:')
+    for e in errors:
+        print(f'  {e}')
+    sys.exit(1)
+print(f'PASS: {len(samples)} sample datasets validated')
+"
+```
+
+Additionally, cross-reference sample fields with template usage — verify every `account.account_id`, `row.username` style access corresponds to a real column/key in the sample files.
+
+### Check 4: Memory & Performance Stability
+
+Check that templates don't accumulate state unboundedly. Also flag optimization opportunities as **warnings** (clarity and correctness take priority over raw speed).
+
+1. **State growth** (FAIL if found): Grep templates for `shared.set(`, `locals.set(`, `globals.set(`, `.append(`, `.update(`. Verify each write has a corresponding cleanup or cap. Unbounded growth = memory leak.
+
+2. **Performance recommendations** (WARN, not FAIL):
+   - Large lookup dicts (50+ items) rebuilt every render — suggest precomputing in `shared`
+   - Faker/Mimesis where `module.rand.*` has an equivalent — Faker/Mimesis are fine for rich data but `module.rand.*` is faster for simple randomness
+   - `{% for %}` loops over entire samples when `| random` or `.pick()` would work
+
+### Check 5: Special Character Safety
+
+Scan sample data for strings containing `"`, `\`, unicode, newlines. If found, confirm all events from Check 1 still parsed as valid JSON. If dangerous characters caused JSON parse failures, templates need proper escaping (`| tojson` filter).
+
+## Template Performance Tips
+
+Templates render on every event. Prioritize **clarity and correctness** first — optimize only where it matters. All Jinja2 features are fair game; these tips help when throughput matters.
+
+- **`module.rand.*` is the fastest randomness source** — prefer it over Faker/Mimesis for per-event fields when an equivalent function exists. Faker/Mimesis are fine for fields that need their rich data (names, emails, user agents, etc.)
+- **`samples.<name> | random` and `.pick()`** select a random row in O(1) — prefer over manual `{% for %}` loops when you just need one random item
+- **Lookup dicts from samples** can be precomputed in `shared` state to avoid rebuilding on every render. This is optional — for small samples (<50 items) the cost is negligible:
+  ```jinja
+  {%- if not shared.get('_finding_types_map') -%}
+    {%- set map = {} -%}
+    {%- for ft in samples.finding_types -%}
+      {%- do map.update({ft.type: ft}) -%}
+    {%- endfor -%}
+    {%- do shared.set('_finding_types_map', map) -%}
+  {%- endif -%}
+  {%- set finding_type = shared._finding_types_map[finding_type_name] -%}
+  ```
+- **`| join` filter** is cleaner than string concatenation in loops
+- **`| tojson` filter** on string values guarantees valid JSON escaping for `"`, `\`, unicode
 
 ## Self-Review Checklist
 
 Before returning to the Team Lead:
 
+**Correctness**:
 - [ ] Templates produce valid JSON (no trailing commas, no conditional gaps)
+- [ ] 100,000+ events generated in sample mode and 100% parse as valid JSON with ECS fields
+- [ ] All `{% if %}` / `{% else %}` branches produce valid JSON on both sides
 - [ ] All sample/template paths in generator.yml exist
-- [ ] Chance weights produce realistic distribution
+
+**Sample data integrity**:
+- [ ] No empty CSV rows or JSON arrays in sample files
+- [ ] Every column/key referenced in templates exists in the corresponding sample
+- [ ] Strings with quotes `"`, backslashes `\`, or unicode in samples are properly escaped in template output (use `| tojson` filter for string interpolation where needed)
+
+**Memory & performance** (see "Template Performance Tips" section above):
+- [ ] No unbounded state growth -- every `shared.set()` / `locals.set()` / `.append()` has a cap or cleanup
 - [ ] Shared state pools are capped with fallbacks for empty pools
+- [ ] Consider precomputing large lookup dicts in `shared` if the sample has 50+ items
+- [ ] Prefer `module.rand.*` over Faker/Mimesis where an equivalent function exists
+
+**Design quality**:
 - [ ] No duplicated boilerplate that could use macros/imports/vars
 - [ ] No hardcoded values that should be in params or samples
+- [ ] Chance weights produce realistic distribution
 - [ ] Realistic distributions (not uniform for everything)
 - [ ] Parameters have sensible defaults -- works out-of-the-box
 - [ ] README is complete (event types, params, sample output, references)
@@ -149,11 +280,12 @@ Report your work clearly:
 - `samples/` -- [list of sample files]
 - `README.md` -- documentation
 
-### Validation Results
-- Sample mode: [N] events generated
-- JSON validity: PASS / FAIL
-- ECS fields: PASS / FAIL
-- Live mode: PASS / FAIL
+### Validation Results (5-check protocol)
+- Check 1 — Mass rendering: [N] events, PASS / FAIL
+- Check 2 — Branch coverage: [N]/[N] branches verified, PASS / FAIL
+- Check 3 — Sample integrity: [N] datasets, PASS / FAIL
+- Check 4 — Memory & performance: PASS / FAIL + [warnings]
+- Check 5 — Special char safety: PASS / FAIL
 
 ### Design Decisions
 - [Key decision and rationale]
