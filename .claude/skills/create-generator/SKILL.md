@@ -30,7 +30,7 @@ Orchestrate the creation of a new content pack generator for **$ARGUMENTS** by d
 
 ### Phase 2: Design
 
-**TL directly**:
+**Delegate to generator-builder agent**:
 
 Based on researcher's findings, outline the generator architecture:
 - Picking mode (chance, fsm, spin, all, chain)
@@ -58,7 +58,7 @@ Present to user for approval.
 
 ### Phase 4: Validate
 
-**Delegate to qa-engineer agent**:
+**Delegate to generator-builder agent**:
 
 - Run generator validation:
   ```bash
@@ -76,7 +76,7 @@ If validation fails: route findings to **generator-builder** to fix, then re-val
 
 ### Phase 5: Review
 
-**Delegate to code-reviewer agent**:
+**Delegate to generator-builder agent**:
 
 - Review generator quality: template correctness, parameterization, realism, README completeness
 - If verdict is **FAIL**: route findings to **generator-builder** to fix, then re-review
@@ -84,7 +84,7 @@ If validation fails: route findings to **generator-builder** to fix, then re-val
 
 ### Phase 6: Final Verification
 
-**Delegate to qa-engineer agent**:
+**Delegate to generator-builder agent**:
 
 - Re-run full generator validation after any fixes from review
 - Report all-green status
