@@ -422,18 +422,26 @@ Only include sections that have data. Check `sample_event.json` for which `relat
 
 Run the validation protocol below. **All checks must pass before returning.**
 
-#### Check 1: Rendering Test
+**CRITICAL rules for running generators:**
+- **DO NOT** check Python/eventum versions, install packages, or verify the environment — it is already set up.
+- **DO NOT** use `--live-mode true` (default) — it runs in real-time and hangs forever waiting for cron ticks.
+- **ALWAYS** use `--live-mode false` (sample mode) — it generates all timestamps at once and exits.
+- **ALWAYS** wrap with `timeout 15` — sample mode on a cron without `end` date generates until datetime.max, so it must be killed after enough events are collected.
+- The generator writes events to its output file. After timeout kills the process, the file already has events — validate those.
 
-Generate events in sample mode, validate every event from the output file. **Never use verbose logging** (`-v` flags) — it causes CPU overload.
+#### Check 1: Rendering Test
 
 ```bash
 cd ../content-packs
 
-# Generate events — output goes to file (output/events.json)
-eventum generate \
+# Generate events in sample mode with 15s timeout.
+# timeout kills the process after 15s — this is expected and normal.
+# Exit code 124 = killed by timeout = OK (events are already in the output file).
+timeout 15 eventum generate \
   --path generators/<name>/generator.yml \
   --id test \
-  --live-mode false
+  --live-mode false \
+  || true
 
 # Validate: JSON parse + required ECS fields
 python3 -c "
@@ -606,6 +614,9 @@ These are real issues found in existing generators. Avoid them:
 | `params.hostname` without `.get()` | Crashes when param not provided | `params.get('hostname', 'srv-01')` |
 | Copying architecture from existing generators | Existing generators have known quality issues | Use decision trees in Step 2 |
 | `-v` or `-vvvvv` flags during validation | CPU overload, never finishes | No verbosity flags — ever |
+| Running without `timeout` wrapper | Cron without `end` generates until datetime.max — hangs forever | Always `timeout 15 eventum generate ...` |
+| Using `--live-mode true` (default) for validation | Live mode waits for real-time cron ticks — hangs | Always `--live-mode false` for validation |
+| Checking Python/eventum versions, installing packages | Wastes time, environment is already set up | Just run the generator directly |
 
 ## Important
 
