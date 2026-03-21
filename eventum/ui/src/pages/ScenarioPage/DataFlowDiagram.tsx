@@ -169,6 +169,7 @@ const edgeHighlightedStyle = {
   ...edgeStyle,
   opacity: 1,
   strokeWidth: 3,
+  stroke: 'var(--mantine-primary-color-filled)',
 };
 
 export function DataFlowDiagram({
@@ -254,11 +255,13 @@ export function DataFlowDiagram({
         const isConnectedToNode =
           sourceNodeId === highlightedNodeId || targetNodeId === highlightedNodeId;
 
+        const isHighlighted = isThisEdge || isConnectedToNode;
         const style = hasHighlight
-          ? isThisEdge || isConnectedToNode
-            ? edgeHighlightedStyle
-            : edgeDimmedStyle
+          ? isHighlighted ? edgeHighlightedStyle : edgeDimmedStyle
           : edgeStyle;
+        const markerColor = hasHighlight && isHighlighted
+          ? 'var(--mantine-primary-color-filled)'
+          : 'var(--mantine-color-text)';
 
         flowEdges.push({
           id: edgeId,
@@ -267,12 +270,9 @@ export function DataFlowDiagram({
           sourceHandle: 'source',
           targetHandle: 'target',
           type: 'default',
-          animated: true,
+          animated: !hasHighlight || isHighlighted,
           style,
-          markerEnd: {
-            type: MarkerType.ArrowClosed,
-            color: 'var(--mantine-color-text)',
-          },
+          markerEnd: { type: MarkerType.ArrowClosed, color: markerColor },
         });
       }
 
@@ -288,11 +288,13 @@ export function DataFlowDiagram({
         const isConnectedToNode =
           sourceNodeId === highlightedNodeId || targetNodeId === highlightedNodeId;
 
+        const isHighlighted = isThisEdge || isConnectedToNode;
         const style = hasHighlight
-          ? isThisEdge || isConnectedToNode
-            ? edgeHighlightedStyle
-            : edgeDimmedStyle
+          ? isHighlighted ? edgeHighlightedStyle : edgeDimmedStyle
           : edgeStyle;
+        const markerColor = hasHighlight && isHighlighted
+          ? 'var(--mantine-primary-color-filled)'
+          : 'var(--mantine-color-text)';
 
         flowEdges.push({
           id: edgeId,
@@ -301,12 +303,9 @@ export function DataFlowDiagram({
           sourceHandle: 'source',
           targetHandle: 'target',
           type: 'default',
-          animated: true,
+          animated: !hasHighlight || isHighlighted,
           style,
-          markerEnd: {
-            type: MarkerType.ArrowClosed,
-            color: 'var(--mantine-color-text)',
-          },
+          markerEnd: { type: MarkerType.ArrowClosed, color: markerColor },
         });
       }
     }
