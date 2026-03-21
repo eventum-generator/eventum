@@ -1,98 +1,151 @@
 import {
   Alert,
+  Anchor,
   Box,
   Button,
   Center,
   Container,
   Group,
   Loader,
+  Select,
   Stack,
   Text,
   TextInput,
 } from '@mantine/core';
+import { isNotEmpty, useForm } from '@mantine/form';
+import { modals } from '@mantine/modals';
 import { notifications } from '@mantine/notifications';
-import { IconAlertSquareRounded, IconSearch } from '@tabler/icons-react';
-import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { useMemo, useState } from 'react';
+import { IconAlertSquareRounded } from '@tabler/icons-react';
+import { FC, useMemo } from 'react';
 
-import { useStartupGenerators } from '@/api/hooks/useStartup';
-import { updateGeneratorInStartup } from '@/api/routes/startup';
-import { StartupGeneratorParameters } from '@/api/routes/startup/schemas';
+import {
+  useGeneratorConfigPathMutation,
+  useGeneratorDirs,
+} from '@/api/hooks/useGeneratorConfigs';
+import { useAddGeneratorMutation, useGenerators } from '@/api/hooks/useGenerators';
+import { useAddGeneratorToStartupMutation } from '@/api/hooks/useStartup';
+import { GeneratorParameters } from '@/api/routes/generators/schemas';
 import { ShowErrorDetailsAnchor } from '@/components/ui/ShowErrorDetailsAnchor';
+import { ROUTE_PATHS } from '@/routing/paths';
 
 interface AddGeneratorModalProps {
   scenarioName: string;
 }
 
-export const AddGeneratorModal = ({ scenarioName }: AddGeneratorModalProps) => {
-  const queryClient = useQueryClient();
-  const [search, setSearch] = useState('');
-
-  const {
-    data: startupEntries,
-    isLoading,
-    isError,
-    error,
-    isSuccess,
-  } = useStartupGenerators();
-
-  const availableEntries = useMemo(() => {
-    if (!startupEntries) return [];
-
-    return startupEntries.filter(
-      (entry) => !(entry.scenarios ?? []).includes(scenarioName)
-    );
-  }, [startupEntries, scenarioName]);
-
-  const filteredEntries = useMemo(() => {
-    if (!search.trim()) return availableEntries;
-
-    const lowerSearch = search.toLowerCase();
-    return availableEntries.filter(
-      (entry) =>
-        entry.id.toLowerCase().includes(lowerSearch) ||
-        entry.path.toLowerCase().includes(lowerSearch)
-    );
-  }, [availableEntries, search]);
-
-  const addToScenario = useMutation({
-    mutationFn: async ({
-      entry,
-    }: {
-      entry: StartupGeneratorParameters;
-    }) => {
-      const updatedScenarios = [...(entry.scenarios ?? []), scenarioName];
-      await updateGeneratorInStartup(entry.id, {
-        ...entry,
-        scenarios: updatedScenarios,
-      });
+export const AddGeneratorModal: FC<AddGeneratorModalProps> = ({
+  scenarioName,
+}) => {
+  const form = useForm<GeneratorParameters>({
+    initialValues: {
+      id: '',
+      path: '',
     },
-    onSuccess: async (_, { entry }) => {
-      await queryClient.invalidateQueries({ queryKey: ['startup'] });
-      await queryClient.invalidateQueries({
-        queryKey: ['globals-usage', entry.id],
-      });
-      notifications.show({
-        title: 'Success',
-        message: `Added "${entry.id}" to scenario`,
-        color: 'green',
-      });
+    validate: {
+      id: (value) => {
+        if (!value) return 'Instance name is required';
+        if (existingIds.includes(value)) return 'Instance with this name already exists';
+        return null;
+      },
+      path: isNotEmpty('Project is required'),
     },
-    onError: (error) => {
-      notifications.show({
-        title: 'Error',
-        message: (
-          <>
-            Failed to add generator to scenario
-            <ShowErrorDetailsAnchor error={error} prependDot />
-          </>
-        ),
-        color: 'red',
-      });
-    },
+    validateInputOnChange: true,
+    onSubmitPreventDefault: 'always',
   });
 
-  if (isLoading) {
+  const {
+    data: generatorDirs,
+    isLoading: isGeneratorDirsLoading,
+    isSuccess: isGeneratorDirsSuccess,
+    isError: isGeneratorDirsError,
+    error: generatorDirsError,
+  } = useGeneratorDirs(false);
+
+  const { data: generators } = useGenerators();
+
+  const existingIds = useMemo(
+    () => (generators ?? []).map((g) => g.id),
+    [generators]
+  );
+
+  const addGenerator = useAddGeneratorMutation();
+  const addGeneratorToStartup = useAddGeneratorToStartupMutation();
+  const getGeneratorConfigPath = useGeneratorConfigPathMutation();
+
+  function handleCreate(values: typeof form.values) {
+    getGeneratorConfigPath.mutate(
+      { name: values.path },
+      {
+        onSuccess: (resolvedPath) => {
+          addGenerator.mutate(
+            { id: values.id, params: { ...values, path: resolvedPath } },
+            {
+              onSuccess: () => {
+                addGeneratorToStartup.mutate(
+                  {
+                    id: values.id,
+                    params: {
+                      ...values,
+                      path: resolvedPath,
+                      autostart: false,
+                      scenarios: [scenarioName],
+                    },
+                  },
+                  {
+                    onSuccess: () => {
+                      notifications.show({
+                        title: 'Success',
+                        message: `Instance "${values.id}" added to scenario`,
+                        color: 'green',
+                      });
+                      modals.closeAll();
+                    },
+                    onError: (error) => {
+                      notifications.show({
+                        title: 'Error',
+                        message: (
+                          <>
+                            Failed to add instance to startup
+                            <ShowErrorDetailsAnchor error={error} prependDot />
+                          </>
+                        ),
+                        color: 'red',
+                      });
+                    },
+                  }
+                );
+              },
+              onError: (error) => {
+                notifications.show({
+                  title: 'Error',
+                  message: (
+                    <>
+                      Failed to create instance
+                      <ShowErrorDetailsAnchor error={error} prependDot />
+                    </>
+                  ),
+                  color: 'red',
+                });
+              },
+            }
+          );
+        },
+        onError: (error) => {
+          notifications.show({
+            title: 'Error',
+            message: (
+              <>
+                Failed to resolve project config path
+                <ShowErrorDetailsAnchor error={error} prependDot />
+              </>
+            ),
+            color: 'red',
+          });
+        },
+      }
+    );
+  }
+
+  if (isGeneratorDirsLoading) {
     return (
       <Center>
         <Loader size="lg" />
@@ -100,70 +153,64 @@ export const AddGeneratorModal = ({ scenarioName }: AddGeneratorModalProps) => {
     );
   }
 
-  if (isError) {
+  if (isGeneratorDirsError) {
     return (
       <Container size="md">
         <Alert
           variant="default"
-          icon={<Box c="red" component={IconAlertSquareRounded}></Box>}
-          title="Failed to load generators"
+          icon={<Box c="red" component={IconAlertSquareRounded} />}
+          title="Failed to load list of projects"
         >
-          {error.message}
-          <ShowErrorDetailsAnchor error={error} prependDot />
+          {generatorDirsError.message}
+          <ShowErrorDetailsAnchor error={generatorDirsError} prependDot />
         </Alert>
       </Container>
     );
   }
 
-  if (isSuccess) {
+  if (isGeneratorDirsSuccess) {
     return (
-      <Stack>
-        <TextInput
-          leftSection={<IconSearch size={16} />}
-          placeholder="Search generators..."
-          value={search}
-          onChange={(event) => setSearch(event.target.value)}
-        />
+      <form onSubmit={form.onSubmit(handleCreate)}>
+        <Stack>
+          <TextInput
+            label="Instance name"
+            placeholder="name"
+            required
+            {...form.getInputProps('id')}
+          />
+          <Select
+            label="Project"
+            data={generatorDirs}
+            searchable
+            nothingFoundMessage="No project found"
+            placeholder="Select project"
+            clearable
+            required
+            {...form.getInputProps('path')}
+          />
 
-        {availableEntries.length === 0 ? (
-          <Text size="sm" c="dimmed" ta="center">
-            All generators are already in this scenario.
-          </Text>
-        ) : filteredEntries.length === 0 ? (
-          <Text size="sm" c="dimmed" ta="center">
-            No generators match your search.
-          </Text>
-        ) : (
-          <Stack gap="xs" mah={400} style={{ overflowY: 'auto' }}>
-            {filteredEntries.map((entry) => {
-              const isAdding =
-                addToScenario.isPending &&
-                addToScenario.variables?.entry.id === entry.id;
+          <Group justify="space-between">
+            <Box>
+              {generatorDirs.length === 0 && (
+                <Text size="sm">
+                  Have no projects?{' '}
+                  <Anchor size="sm" href={ROUTE_PATHS.PROJECTS}>
+                    Create new
+                  </Anchor>
+                </Text>
+              )}
+            </Box>
 
-              return (
-                <Group key={entry.id} justify="space-between" wrap="nowrap">
-                  <Stack gap={0} style={{ minWidth: 0 }}>
-                    <Text size="sm" fw={500} truncate>
-                      {entry.id}
-                    </Text>
-                    <Text size="xs" c="dimmed" truncate>
-                      {entry.path}
-                    </Text>
-                  </Stack>
-                  <Button
-                    size="xs"
-                    variant="light"
-                    loading={isAdding}
-                    onClick={() => addToScenario.mutate({ entry })}
-                  >
-                    Add
-                  </Button>
-                </Group>
-              );
-            })}
-          </Stack>
-        )}
-      </Stack>
+            <Button
+              disabled={!form.isValid()}
+              loading={addGenerator.isPending}
+              type="submit"
+            >
+              Add
+            </Button>
+          </Group>
+        </Stack>
+      </form>
     );
   }
 
