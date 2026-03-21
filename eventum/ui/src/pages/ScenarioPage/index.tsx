@@ -313,11 +313,10 @@ export default function ScenarioPage() {
 
   function handleHighlightEdge(generatorId: string, keyName: string, direction?: 'write' | 'read') {
     if (generatorId && keyName) {
-      setHighlightedNodeId(`key-${keyName}`);
+      setHighlightedNodeId(null);
       const prefix = direction ?? 'write';
       setHighlightedEdgeId(`${prefix}-${generatorId}-${keyName}`);
     } else {
-      setHighlightedNodeId(null);
       setHighlightedEdgeId(null);
     }
   }
