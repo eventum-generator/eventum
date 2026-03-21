@@ -190,9 +190,6 @@ export const GeneratorCard: FC<GeneratorCardProps> = ({
             <Text size="sm" fw={500} truncate>
               {generatorId}
             </Text>
-            <Text size="xs" c="dimmed" truncate>
-              {projectName}
-            </Text>
           </Group>
         </UnstyledButton>
 
