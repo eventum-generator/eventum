@@ -69,7 +69,7 @@ const InstanceNode = memo(({ data }: NodeProps<InstanceNodeType>) => (
       id="source"
       style={{
         background: 'var(--mantine-color-dimmed)',
-        top: '35%',
+        top: '25%',
       }}
       isConnectable={false}
     />
@@ -79,7 +79,7 @@ const InstanceNode = memo(({ data }: NodeProps<InstanceNodeType>) => (
       id="target"
       style={{
         background: 'var(--mantine-color-dimmed)',
-        top: '65%',
+        top: '75%',
       }}
       isConnectable={false}
     />
@@ -121,7 +121,7 @@ const KeyNode = memo(({ data }: NodeProps<KeyNodeType>) => (
       id="target"
       style={{
         background: 'var(--mantine-color-dimmed)',
-        top: '35%',
+        top: '25%',
       }}
       isConnectable={false}
     />
@@ -131,7 +131,7 @@ const KeyNode = memo(({ data }: NodeProps<KeyNodeType>) => (
       id="source"
       style={{
         background: 'var(--mantine-color-dimmed)',
-        top: '65%',
+        top: '75%',
       }}
       isConnectable={false}
     />
