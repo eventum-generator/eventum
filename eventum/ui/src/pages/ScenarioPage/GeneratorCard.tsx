@@ -282,14 +282,30 @@ export const GeneratorCard: FC<GeneratorCardProps> = ({
                 </Group>
               </UnstyledButton>
               {usage.writes.map((key) => (
-                <Group key={`w-${key}`} gap={4} pl={22} wrap="nowrap">
+                <Group
+                  key={`w-${key}`}
+                  gap={4}
+                  pl={22}
+                  wrap="nowrap"
+                  style={{ cursor: 'default', borderRadius: 4, padding: '2px 4px 2px 22px' }}
+                  onMouseEnter={() => onHighlightEdge?.(generatorId, key)}
+                  onMouseLeave={() => onHighlightEdge?.('', '')}
+                >
                   <IconArrowRight size={12} style={{ flexShrink: 0 }} />
                   <Text size="xs" ff="monospace">{key}</Text>
                   <Text size="xs" c="dimmed">(write)</Text>
                 </Group>
               ))}
               {usage.reads.map((key) => (
-                <Group key={`r-${key}`} gap={4} pl={22} wrap="nowrap">
+                <Group
+                  key={`r-${key}`}
+                  gap={4}
+                  pl={22}
+                  wrap="nowrap"
+                  style={{ cursor: 'default', borderRadius: 4, padding: '2px 4px 2px 22px' }}
+                  onMouseEnter={() => onHighlightEdge?.(generatorId, key)}
+                  onMouseLeave={() => onHighlightEdge?.('', '')}
+                >
                   <IconArrowLeft size={12} style={{ flexShrink: 0 }} />
                   <Text size="xs" ff="monospace">{key}</Text>
                   <Text size="xs" c="dimmed">(read)</Text>
