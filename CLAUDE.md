@@ -108,10 +108,11 @@ Each agent has a human name (EN / RU) for easy reference:
 
 1. **One agent per step** -- don’t ask an agent to do work outside its specialty.
 2. **Parallel when independent** -- run agents in parallel when their work doesn’t depend on each other.
-3. **Code review before completion** -- all implementation changes go through **Ray** before marking work as done. Loop: FAIL -> fix -> re-review until PASS. Progress checkpoints (showing intermediate work to the user mid-pipeline) are allowed before review.
-4. **When to use Richie vs Archie** -- use **Richie** when the task requires web research (external APIs, specs, libraries), reading >5 files to understand patterns, or investigating unfamiliar areas. Use **Archie** directly when the relevant codebase context is already known and the task is about design decisions, not information gathering.
-5. **Iterate on failure** -- if an agent produces poor output, send specific feedback and retry.
-6. **Business agents are advisory** -- Stu and Grey produce recommendations and drafts. The user makes final decisions on strategy and publishing.
+3. **Agent Teams for complex tasks** -- for tasks with 3+ independent phases or agents that can work in parallel, prefer creating an **agent team** over sequential subagent calls. Teams give each agent its own context window and allow direct agent-to-agent communication. Use teams when: multiple agents need to work simultaneously (e.g. Dave on code + Doc on docs), the task is large enough that sequential execution is wasteful, or agents need to coordinate without you as middleman. Use sequential subagents for simple 1-2 agent tasks. When creating a team, ensure **file ownership is split** -- no two teammates edit the same files.
+4. **Code review before completion** -- all implementation changes go through **Ray** before marking work as done. Loop: FAIL -> fix -> re-review until PASS. Progress checkpoints (showing intermediate work to the user mid-pipeline) are allowed before review.
+5. **When to use Richie vs Archie** -- use **Richie** when the task requires web research (external APIs, specs, libraries), reading >5 files to understand patterns, or investigating unfamiliar areas. Use **Archie** directly when the relevant codebase context is already known and the task is about design decisions, not information gathering.
+6. **Iterate on failure** -- if an agent produces poor output, send specific feedback and retry.
+7. **Business agents are advisory** -- Stu and Grey produce recommendations and drafts. The user makes final decisions on strategy and publishing.
 
 ### Standard Pipelines
 

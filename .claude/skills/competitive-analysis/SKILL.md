@@ -3,7 +3,12 @@ name: competitive-analysis
 description: Deep-dive competitive analysis of a specific tool or product category. Produces positioning recommendations and feature gap analysis.
 user-invokable: true
 argument-hint: "<competitor-or-category> (e.g. 'vector', 'logstash', 'load-testing-tools')"
+context: fork
 ---
+
+## Current state
+- Current features: !`grep -c 'class.*Plugin' eventum/plugins/**/plugin.py 2>/dev/null || echo "N/A"`
+- GitHub stats: !`gh api repos/eventum-dev/eventum --jq '{stars: .stargazers_count, forks: .forks_count, issues: .open_issues_count}'`
 
 ## Competitive Analysis
 

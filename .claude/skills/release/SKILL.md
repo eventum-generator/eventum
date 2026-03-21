@@ -3,7 +3,14 @@ name: release
 description: Prepare and execute an Eventum release -- orchestrate agents through changelog, version bump, verification, PR, tag.
 user-invokable: true
 argument-hint: "<version> (e.g. 2.0.3)"
+context: fork
 ---
+
+## Current state
+- Current version: !`grep -m1 '__version__' eventum/__init__.py`
+- Unreleased changes: !`git log $(git describe --tags --abbrev=0)..HEAD --oneline`
+- Branch status: !`git status --short`
+- CI status: !`gh run list --limit 3`
 
 ## Release Eventum
 

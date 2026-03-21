@@ -3,7 +3,13 @@ name: implement-issue
 description: Implement a GitHub issue end-to-end -- orchestrate agents through plan, code, test, review, document, verify, close.
 user-invokable: true
 argument-hint: "#<issue-number>"
+context: fork
 ---
+
+## Current state
+- Issue details: !`gh issue view $ARGUMENTS --json title,body,labels,assignees`
+- Recent commits: !`git log --oneline -10`
+- Branch status: !`git status --short`
 
 ## Implement GitHub Issue
 

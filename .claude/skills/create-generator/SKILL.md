@@ -3,7 +3,12 @@ name: create-generator
 description: Create a new Eventum content pack generator -- delegate to generator-builder agent for end-to-end research, build, and validation.
 user-invocable: true
 argument-hint: "<data-source-name> (e.g. linux-auditd, web-nginx, network-dns)"
+context: fork
 ---
+
+## Current state
+- Existing generators: !`ls ../content-packs/generators/`
+- Generator count: !`ls ../content-packs/generators/ | wc -l`
 
 ## Create Event Generator
 

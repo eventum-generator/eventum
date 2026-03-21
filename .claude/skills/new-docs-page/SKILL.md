@@ -3,7 +3,12 @@ name: new-docs-page
 description: Create a new documentation page for the Eventum docs site -- orchestrate agents through research, write, review, verify.
 user-invokable: true
 argument-hint: "<section>/<page-name> (e.g. plugins/input/kafka, core/secrets)"
+context: fork
 ---
+
+## Current state
+- Existing docs: !`ls ../docs/content/docs/`
+- Recent doc commits: !`cd ../docs && git log --oneline -5`
 
 ## Create New Documentation Page
 

@@ -160,3 +160,4 @@ cython_debug/
 
 # Emitted ui build
 www/
+.claude/logs/

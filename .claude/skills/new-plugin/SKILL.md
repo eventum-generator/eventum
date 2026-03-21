@@ -3,7 +3,12 @@ name: new-plugin
 description: Add a new input, event, or output plugin to Eventum -- orchestrate agents through research, design, code, UI, review, docs.
 user-invokable: true
 argument-hint: "<type>/<name> (e.g. input/kafka, output/s3, event/jsonl)"
+context: fork
 ---
+
+## Current state
+- Existing plugins: !`ls eventum/plugins/`
+- Recent commits: !`git log --oneline -5`
 
 ## Add New Plugin
 
