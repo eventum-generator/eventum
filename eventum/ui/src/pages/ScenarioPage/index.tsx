@@ -366,100 +366,100 @@ export default function ScenarioPage() {
           </Button>
         </Group>
 
-        <Paper withBorder p="sm">
-          <Group justify="space-between" align="center">
-            <Text size="sm" c="dimmed">
-              {scenarioEntries.length} instance
-              {scenarioEntries.length !== 1 ? 's' : ''} &middot;{' '}
-              {allGlobalKeys.size} global key
-              {allGlobalKeys.size !== 1 ? 's' : ''}
-            </Text>
-            <Group gap="xs">
-              <Button
-                variant="default"
-                leftSection={<IconPlayerStop size={16} />}
-                onClick={handleStopAll}
-                loading={bulkStop.isPending}
-                disabled={scenarioGeneratorIds.length === 0}
-              >
-                Stop All
-              </Button>
-              <Button
-                leftSection={<IconPlayerPlay size={16} />}
-                onClick={handleStartAll}
-                loading={bulkStart.isPending}
-                disabled={scenarioGeneratorIds.length === 0}
-              >
-                Start All
-              </Button>
+        <Paper withBorder p="md">
+          <Stack gap="sm">
+            <Group justify="space-between" align="center">
+              <Group gap="sm" align="center">
+                <Title order={5} fw="normal">
+                  Instances
+                </Title>
+                <Text size="xs" c="dimmed">
+                  {scenarioEntries.length} instance
+                  {scenarioEntries.length !== 1 ? 's' : ''} &middot;{' '}
+                  {allGlobalKeys.size} global key
+                  {allGlobalKeys.size !== 1 ? 's' : ''}
+                </Text>
+              </Group>
+              <Group gap="xs">
+                <Button
+                  variant="default"
+                  size="xs"
+                  leftSection={<IconPlus size={14} />}
+                  onClick={handleOpenAddModal}
+                >
+                  Add
+                </Button>
+                <Button
+                  variant="default"
+                  size="xs"
+                  leftSection={<IconPlayerStop size={14} />}
+                  onClick={handleStopAll}
+                  loading={bulkStop.isPending}
+                  disabled={scenarioGeneratorIds.length === 0}
+                >
+                  Stop All
+                </Button>
+                <Button
+                  size="xs"
+                  leftSection={<IconPlayerPlay size={14} />}
+                  onClick={handleStartAll}
+                  loading={bulkStart.isPending}
+                  disabled={scenarioGeneratorIds.length === 0}
+                >
+                  Start All
+                </Button>
+              </Group>
             </Group>
-          </Group>
+
+            {scenarioEntries.length === 0 ? (
+              <Center py="xl">
+                <Stack align="center" gap="md">
+                  <IconLayersSubtract size={48} color="gray" />
+                  <Text c="dimmed" ta="center">
+                    Add your first instances to build a scenario
+                  </Text>
+                </Stack>
+              </Center>
+            ) : (
+              <Stack gap="sm">
+                {scenarioEntries.map((entry) => (
+                  <div key={entry.id} id={`instance-card-${entry.id}`}>
+                    <GeneratorCard
+                      generatorId={entry.id}
+                      generatorPath={entry.path}
+                      status={generatorStatusMap.get(entry.id)}
+                      onRemove={() => handleRemoveGenerator(entry)}
+                    />
+                  </div>
+                ))}
+              </Stack>
+            )}
+          </Stack>
         </Paper>
 
-        {scenarioEntries.length > 0 && allGlobalKeys.size > 0 && (
-          <DataFlowDiagram
-            scenarioEntries={scenarioEntries}
-            generatorStatusMap={generatorStatusMap}
-            globalsUsageMap={globalsUsageMap}
-            onInstanceClick={handleDiagramInstanceClick}
-            onKeyClick={handleDiagramKeyClick}
-          />
+        {scenarioEntries.length > 0 && (
+          <Grid>
+            <Grid.Col span={7}>
+              {allGlobalKeys.size > 0 && (
+                <DataFlowDiagram
+                  scenarioEntries={scenarioEntries}
+                  generatorStatusMap={generatorStatusMap}
+                  globalsUsageMap={globalsUsageMap}
+                  onInstanceClick={handleDiagramInstanceClick}
+                  onKeyClick={handleDiagramKeyClick}
+                />
+              )}
+            </Grid.Col>
+            <Grid.Col span={5}>
+              <GlobalStatePanel
+                generatorNames={scenarioGeneratorIds}
+                generatorPaths={generatorPathMap}
+                globalsUsageResults={globalsUsageQueries}
+                selectedKey={selectedGlobalKey}
+              />
+            </Grid.Col>
+          </Grid>
         )}
-
-        <Grid>
-          <Grid.Col span={8}>
-            <Paper withBorder p="md">
-              <Stack gap="sm">
-                <Group justify="space-between" align="center">
-                  <Title order={5} fw="normal">
-                    Instances
-                  </Title>
-                  <Button
-                    variant="default"
-                    size="xs"
-                    leftSection={<IconPlus size={14} />}
-                    onClick={handleOpenAddModal}
-                  >
-                    Add
-                  </Button>
-                </Group>
-
-                {scenarioEntries.length === 0 ? (
-                  <Center py="xl">
-                    <Stack align="center" gap="md">
-                      <IconLayersSubtract size={48} color="gray" />
-                      <Text c="dimmed" ta="center">
-                        Add your first instances to build a scenario
-                      </Text>
-                    </Stack>
-                  </Center>
-                ) : (
-                  <Stack gap="sm">
-                    {scenarioEntries.map((entry) => (
-                      <div key={entry.id} id={`instance-card-${entry.id}`}>
-                        <GeneratorCard
-                          generatorId={entry.id}
-                          generatorPath={entry.path}
-                          status={generatorStatusMap.get(entry.id)}
-                          onRemove={() => handleRemoveGenerator(entry)}
-                        />
-                      </div>
-                    ))}
-                  </Stack>
-                )}
-              </Stack>
-            </Paper>
-          </Grid.Col>
-
-          <Grid.Col span={4}>
-            <GlobalStatePanel
-              generatorNames={scenarioGeneratorIds}
-              generatorPaths={generatorPathMap}
-              globalsUsageResults={globalsUsageQueries}
-              selectedKey={selectedGlobalKey}
-            />
-          </Grid.Col>
-        </Grid>
       </Stack>
     </Container>
   );
