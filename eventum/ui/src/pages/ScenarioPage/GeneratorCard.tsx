@@ -14,6 +14,8 @@ import { notifications } from '@mantine/notifications';
 import {
   IconChevronDown,
   IconChevronRight,
+  IconArrowRight,
+  IconArrowLeft,
   IconExternalLink,
   IconEye,
   IconFile,
@@ -280,20 +282,18 @@ export const GeneratorCard: FC<GeneratorCardProps> = ({
                 </Group>
               </UnstyledButton>
               {usage.writes.map((key) => (
-                <Text key={`w-${key}`} size="xs" c="dimmed" pl={22}>
-                  &rarr;{' '}
-                  <Text span ff="monospace" size="xs">{key}</Text>
-                  {' '}
-                  <Text span size="xs" c="dimmed">(write)</Text>
-                </Text>
+                <Group key={`w-${key}`} gap={4} pl={22} wrap="nowrap">
+                  <IconArrowRight size={12} style={{ flexShrink: 0 }} />
+                  <Text size="xs" ff="monospace">{key}</Text>
+                  <Text size="xs" c="dimmed">(write)</Text>
+                </Group>
               ))}
               {usage.reads.map((key) => (
-                <Text key={`r-${key}`} size="xs" c="dimmed" pl={22}>
-                  &larr;{' '}
-                  <Text span ff="monospace" size="xs">{key}</Text>
-                  {' '}
-                  <Text span size="xs" c="dimmed">(read)</Text>
-                </Text>
+                <Group key={`r-${key}`} gap={4} pl={22} wrap="nowrap">
+                  <IconArrowLeft size={12} style={{ flexShrink: 0 }} />
+                  <Text size="xs" ff="monospace">{key}</Text>
+                  <Text size="xs" c="dimmed">(read)</Text>
+                </Group>
               ))}
             </Stack>
           ))}
