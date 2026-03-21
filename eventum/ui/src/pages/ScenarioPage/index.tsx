@@ -22,7 +22,7 @@ import {
   IconPlayerPlay,
   IconPlayerStop,
   IconPlus,
-  IconServer,
+  IconPlayerPlay as IconPlayerPlayNav,
 } from '@tabler/icons-react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useCallback, useMemo, useRef, useState } from 'react';
@@ -364,16 +364,16 @@ export default function ScenarioPage() {
               }}
               // eslint-disable-next-line jsx-a11y/no-autofocus -- intentional for inline rename UX
               autoFocus
-              size="lg"
+              size="md"
               styles={{
-                input: { fontSize: 'var(--mantine-h2-font-size)', fontWeight: 400 },
+                input: { fontSize: 'var(--mantine-h3-font-size)', fontWeight: 700 },
               }}
               style={{ maxWidth: 400 }}
             />
           ) : (
             <Title
-              order={2}
-              fw="normal"
+              order={3}
+              fw="bold"
               style={{ cursor: 'pointer' }}
               onClick={handleStartEdit}
             >
@@ -394,12 +394,11 @@ export default function ScenarioPage() {
             <Stack gap="sm">
               <Group justify="space-between" align="center">
                 <Group gap="xs">
-                  <IconServer size={18} />
+                  <IconPlayerPlayNav size={18} />
                   <Title order={5} fw="normal">Instances</Title>
                 </Group>
                 <Button
                   variant="default"
-                  size="xs"
                   leftSection={<IconPlus size={14} />}
                   onClick={handleOpenAddModal}
                 >
@@ -436,7 +435,7 @@ export default function ScenarioPage() {
                     <Group justify="space-between" align="center">
                       <Group gap="sm" align="center">
                         <Group gap="xs">
-                          <IconServer size={18} />
+                          <IconPlayerPlayNav size={18} />
                           <Title order={5} fw="normal">Instances</Title>
                         </Group>
                         <Text size="xs" c="dimmed">
@@ -446,7 +445,6 @@ export default function ScenarioPage() {
                       <Group gap="xs">
                         <Button
                           variant="default"
-                          size="xs"
                           leftSection={<IconPlus size={14} />}
                           onClick={handleOpenAddModal}
                         >
@@ -454,7 +452,6 @@ export default function ScenarioPage() {
                         </Button>
                         <Button
                           variant="default"
-                          size="xs"
                           leftSection={<IconPlayerStop size={14} />}
                           onClick={handleStopAll}
                           loading={bulkStop.isPending}
@@ -464,7 +461,6 @@ export default function ScenarioPage() {
                         </Button>
                         <Button
                           variant="default"
-                          size="xs"
                           leftSection={<IconPlayerPlay size={14} />}
                           onClick={handleStartAll}
                           loading={bulkStart.isPending}
