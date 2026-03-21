@@ -262,36 +262,40 @@ export const GeneratorCard: FC<GeneratorCardProps> = ({
             </Text>
           )}
           {[...templateMap.entries()].map(([template, usage]) => (
-            <UnstyledButton
-              key={template}
-              onClick={() => setPreviewTemplate(template)}
-              onMouseEnter={() => {
-                // Highlight all keys this template interacts with
-                const firstKey = usage.writes[0] ?? usage.reads[0];
-                if (firstKey) onHighlightEdge?.(generatorId, firstKey);
-              }}
-              onMouseLeave={() => onHighlightEdge?.('', '')}
-              style={{ cursor: 'pointer' }}
-            >
-              <Group gap="xs" wrap="nowrap">
-                <IconFile size={14} style={{ flexShrink: 0 }} />
-                <Text size="xs" ff="monospace" fw={500}>
-                  {template}
-                </Text>
-                <Group gap={4} wrap="nowrap">
-                  {usage.writes.map((key) => (
-                    <Text key={`w-${key}`} size="xs" c="dimmed" ff="monospace">
-                      W:{key}
-                    </Text>
-                  ))}
-                  {usage.reads.map((key) => (
-                    <Text key={`r-${key}`} size="xs" c="dimmed" ff="monospace">
-                      R:{key}
-                    </Text>
-                  ))}
+            <Stack key={template} gap={2}>
+              <UnstyledButton
+                onClick={() => setPreviewTemplate(template)}
+                onMouseEnter={() => {
+                  const firstKey = usage.writes[0] ?? usage.reads[0];
+                  if (firstKey) onHighlightEdge?.(generatorId, firstKey);
+                }}
+                onMouseLeave={() => onHighlightEdge?.('', '')}
+                style={{ cursor: 'pointer' }}
+              >
+                <Group gap="xs" wrap="nowrap">
+                  <IconFile size={14} style={{ flexShrink: 0 }} />
+                  <Text size="xs" ff="monospace" fw={500} td="underline">
+                    {template}
+                  </Text>
                 </Group>
-              </Group>
-            </UnstyledButton>
+              </UnstyledButton>
+              {usage.writes.map((key) => (
+                <Text key={`w-${key}`} size="xs" c="dimmed" pl={22}>
+                  &rarr;{' '}
+                  <Text span ff="monospace" size="xs">{key}</Text>
+                  {' '}
+                  <Text span size="xs" c="dimmed">(write)</Text>
+                </Text>
+              ))}
+              {usage.reads.map((key) => (
+                <Text key={`r-${key}`} size="xs" c="dimmed" pl={22}>
+                  &larr;{' '}
+                  <Text span ff="monospace" size="xs">{key}</Text>
+                  {' '}
+                  <Text span size="xs" c="dimmed">(read)</Text>
+                </Text>
+              ))}
+            </Stack>
           ))}
         </Stack>
       </Collapse>
