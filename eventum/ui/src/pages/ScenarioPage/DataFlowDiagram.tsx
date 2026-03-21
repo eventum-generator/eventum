@@ -83,7 +83,7 @@ const InstanceNode = memo(({ data }: NodeProps<InstanceNodeType>) => (
       }}
       isConnectable={false}
     />
-    <Group gap="xs" wrap="nowrap">
+    <Group gap="sm" wrap="nowrap" px={4}>
       <Indicator
         color={data.statusColor}
         size={8}
