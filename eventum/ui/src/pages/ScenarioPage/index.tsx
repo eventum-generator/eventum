@@ -366,21 +366,11 @@ export default function ScenarioPage() {
           </Button>
         </Group>
 
-        <Paper withBorder p="md">
-          <Stack gap="sm">
-            <Group justify="space-between" align="center">
-              <Group gap="sm" align="center">
-                <Title order={5} fw="normal">
-                  Instances
-                </Title>
-                <Text size="xs" c="dimmed">
-                  {scenarioEntries.length} instance
-                  {scenarioEntries.length !== 1 ? 's' : ''} &middot;{' '}
-                  {allGlobalKeys.size} global key
-                  {allGlobalKeys.size !== 1 ? 's' : ''}
-                </Text>
-              </Group>
-              <Group gap="xs">
+        {scenarioEntries.length === 0 ? (
+          <Paper withBorder p="md">
+            <Stack gap="sm">
+              <Group justify="space-between" align="center">
+                <Title order={5} fw="normal">Instances</Title>
                 <Button
                   variant="default"
                   size="xs"
@@ -389,29 +379,7 @@ export default function ScenarioPage() {
                 >
                   Add
                 </Button>
-                <Button
-                  variant="default"
-                  size="xs"
-                  leftSection={<IconPlayerStop size={14} />}
-                  onClick={handleStopAll}
-                  loading={bulkStop.isPending}
-                  disabled={scenarioGeneratorIds.length === 0}
-                >
-                  Stop All
-                </Button>
-                <Button
-                  size="xs"
-                  leftSection={<IconPlayerPlay size={14} />}
-                  onClick={handleStartAll}
-                  loading={bulkStart.isPending}
-                  disabled={scenarioGeneratorIds.length === 0}
-                >
-                  Start All
-                </Button>
               </Group>
-            </Group>
-
-            {scenarioEntries.length === 0 ? (
               <Center py="xl">
                 <Stack align="center" gap="md">
                   <IconLayersSubtract size={48} color="gray" />
@@ -420,35 +388,75 @@ export default function ScenarioPage() {
                   </Text>
                 </Stack>
               </Center>
-            ) : (
-              <Stack gap="sm">
-                {scenarioEntries.map((entry) => (
-                  <div key={entry.id} id={`instance-card-${entry.id}`}>
-                    <GeneratorCard
-                      generatorId={entry.id}
-                      generatorPath={entry.path}
-                      status={generatorStatusMap.get(entry.id)}
-                      onRemove={() => handleRemoveGenerator(entry)}
-                    />
-                  </div>
-                ))}
-              </Stack>
-            )}
-          </Stack>
-        </Paper>
-
-        {scenarioEntries.length > 0 && (
+            </Stack>
+          </Paper>
+        ) : (
           <Grid>
             <Grid.Col span={7}>
-              {allGlobalKeys.size > 0 && (
-                <DataFlowDiagram
-                  scenarioEntries={scenarioEntries}
-                  generatorStatusMap={generatorStatusMap}
-                  globalsUsageMap={globalsUsageMap}
-                  onInstanceClick={handleDiagramInstanceClick}
-                  onKeyClick={handleDiagramKeyClick}
-                />
-              )}
+              <Stack>
+                {allGlobalKeys.size > 0 && (
+                  <DataFlowDiagram
+                    scenarioEntries={scenarioEntries}
+                    generatorStatusMap={generatorStatusMap}
+                    globalsUsageMap={globalsUsageMap}
+                    onInstanceClick={handleDiagramInstanceClick}
+                    onKeyClick={handleDiagramKeyClick}
+                  />
+                )}
+                <Paper withBorder p="md">
+                  <Stack gap="sm">
+                    <Group justify="space-between" align="center">
+                      <Group gap="sm" align="center">
+                        <Title order={5} fw="normal">Instances</Title>
+                        <Text size="xs" c="dimmed">
+                          {scenarioEntries.length} instance{scenarioEntries.length !== 1 ? 's' : ''}
+                        </Text>
+                      </Group>
+                      <Group gap="xs">
+                        <Button
+                          variant="default"
+                          size="xs"
+                          leftSection={<IconPlus size={14} />}
+                          onClick={handleOpenAddModal}
+                        >
+                          Add
+                        </Button>
+                        <Button
+                          variant="default"
+                          size="xs"
+                          leftSection={<IconPlayerStop size={14} />}
+                          onClick={handleStopAll}
+                          loading={bulkStop.isPending}
+                          disabled={scenarioGeneratorIds.length === 0}
+                        >
+                          Stop All
+                        </Button>
+                        <Button
+                          size="xs"
+                          leftSection={<IconPlayerPlay size={14} />}
+                          onClick={handleStartAll}
+                          loading={bulkStart.isPending}
+                          disabled={scenarioGeneratorIds.length === 0}
+                        >
+                          Start All
+                        </Button>
+                      </Group>
+                    </Group>
+                    <Stack gap="sm">
+                      {scenarioEntries.map((entry) => (
+                        <div key={entry.id} id={`instance-card-${entry.id}`}>
+                          <GeneratorCard
+                            generatorId={entry.id}
+                            generatorPath={entry.path}
+                            status={generatorStatusMap.get(entry.id)}
+                            onRemove={() => handleRemoveGenerator(entry)}
+                          />
+                        </div>
+                      ))}
+                    </Stack>
+                  </Stack>
+                </Paper>
+              </Stack>
             </Grid.Col>
             <Grid.Col span={5}>
               <GlobalStatePanel
