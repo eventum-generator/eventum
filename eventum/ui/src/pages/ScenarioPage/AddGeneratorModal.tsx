@@ -1,32 +1,22 @@
 import {
   Alert,
-  Anchor,
   Box,
-  Button,
   Center,
   Container,
-  Group,
   Loader,
   Select,
   Stack,
-  Text,
-  TextInput,
 } from '@mantine/core';
-import { isNotEmpty, useForm } from '@mantine/form';
 import { modals } from '@mantine/modals';
 import { notifications } from '@mantine/notifications';
 import { IconAlertSquareRounded } from '@tabler/icons-react';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { FC, useMemo } from 'react';
 
-import {
-  useGeneratorConfigPathMutation,
-  useGeneratorDirs,
-} from '@/api/hooks/useGeneratorConfigs';
-import { useAddGeneratorMutation, useGenerators } from '@/api/hooks/useGenerators';
-import { useAddGeneratorToStartupMutation } from '@/api/hooks/useStartup';
-import { GeneratorParameters } from '@/api/routes/generators/schemas';
+import { useStartupGenerators } from '@/api/hooks/useStartup';
+import { updateGeneratorInStartup } from '@/api/routes/startup';
+import { StartupGeneratorParameters } from '@/api/routes/startup/schemas';
 import { ShowErrorDetailsAnchor } from '@/components/ui/ShowErrorDetailsAnchor';
-import { ROUTE_PATHS } from '@/routing/paths';
 
 interface AddGeneratorModalProps {
   scenarioName: string;
@@ -35,117 +25,63 @@ interface AddGeneratorModalProps {
 export const AddGeneratorModal: FC<AddGeneratorModalProps> = ({
   scenarioName,
 }) => {
-  const form = useForm<GeneratorParameters>({
-    initialValues: {
-      id: '',
-      path: '',
-    },
-    validate: {
-      id: (value) => {
-        if (!value) return 'Instance name is required';
-        if (existingIds.includes(value)) return 'Instance with this name already exists';
-        return null;
-      },
-      path: isNotEmpty('Project is required'),
-    },
-    validateInputOnChange: true,
-    onSubmitPreventDefault: 'always',
-  });
+  const queryClient = useQueryClient();
 
   const {
-    data: generatorDirs,
-    isLoading: isGeneratorDirsLoading,
-    isSuccess: isGeneratorDirsSuccess,
-    isError: isGeneratorDirsError,
-    error: generatorDirsError,
-  } = useGeneratorDirs(false);
+    data: startupEntries,
+    isLoading,
+    isError,
+    error,
+    isSuccess,
+  } = useStartupGenerators();
 
-  const { data: generators } = useGenerators();
-
-  const existingIds = useMemo(
-    () => (generators ?? []).map((g) => g.id),
-    [generators]
-  );
-
-  const addGenerator = useAddGeneratorMutation();
-  const addGeneratorToStartup = useAddGeneratorToStartupMutation();
-  const getGeneratorConfigPath = useGeneratorConfigPathMutation();
-
-  function handleCreate(values: typeof form.values) {
-    getGeneratorConfigPath.mutate(
-      { name: values.path },
-      {
-        onSuccess: (resolvedPath) => {
-          addGenerator.mutate(
-            { id: values.id, params: { ...values, path: resolvedPath } },
-            {
-              onSuccess: () => {
-                addGeneratorToStartup.mutate(
-                  {
-                    id: values.id,
-                    params: {
-                      ...values,
-                      path: resolvedPath,
-                      autostart: false,
-                      scenarios: [scenarioName],
-                    },
-                  },
-                  {
-                    onSuccess: () => {
-                      notifications.show({
-                        title: 'Success',
-                        message: `Instance "${values.id}" added to scenario`,
-                        color: 'green',
-                      });
-                      modals.closeAll();
-                    },
-                    onError: (error) => {
-                      notifications.show({
-                        title: 'Error',
-                        message: (
-                          <>
-                            Failed to add instance to startup
-                            <ShowErrorDetailsAnchor error={error} prependDot />
-                          </>
-                        ),
-                        color: 'red',
-                      });
-                    },
-                  }
-                );
-              },
-              onError: (error) => {
-                notifications.show({
-                  title: 'Error',
-                  message: (
-                    <>
-                      Failed to create instance
-                      <ShowErrorDetailsAnchor error={error} prependDot />
-                    </>
-                  ),
-                  color: 'red',
-                });
-              },
-            }
-          );
-        },
-        onError: (error) => {
-          notifications.show({
-            title: 'Error',
-            message: (
-              <>
-                Failed to resolve project config path
-                <ShowErrorDetailsAnchor error={error} prependDot />
-              </>
-            ),
-            color: 'red',
-          });
-        },
-      }
+  const availableEntries = useMemo(() => {
+    if (!startupEntries) return [];
+    return startupEntries.filter(
+      (entry) => !(entry.scenarios ?? []).includes(scenarioName)
     );
-  }
+  }, [startupEntries, scenarioName]);
 
-  if (isGeneratorDirsLoading) {
+  const entryMap = useMemo(() => {
+    const map = new Map<string, StartupGeneratorParameters>();
+    for (const entry of availableEntries) {
+      map.set(entry.id, entry);
+    }
+    return map;
+  }, [availableEntries]);
+
+  const addToScenario = useMutation({
+    mutationFn: async ({ entry }: { entry: StartupGeneratorParameters }) => {
+      const updatedScenarios = [...(entry.scenarios ?? []), scenarioName];
+      await updateGeneratorInStartup(entry.id, {
+        ...entry,
+        scenarios: updatedScenarios,
+      });
+    },
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ['startup'] });
+      notifications.show({
+        title: 'Success',
+        message: 'Instance added to scenario',
+        color: 'green',
+      });
+      modals.closeAll();
+    },
+    onError: (addError) => {
+      notifications.show({
+        title: 'Error',
+        message: (
+          <>
+            Failed to add instance
+            <ShowErrorDetailsAnchor error={addError} prependDot />
+          </>
+        ),
+        color: 'red',
+      });
+    },
+  });
+
+  if (isLoading) {
     return (
       <Center>
         <Loader size="lg" />
@@ -153,64 +89,38 @@ export const AddGeneratorModal: FC<AddGeneratorModalProps> = ({
     );
   }
 
-  if (isGeneratorDirsError) {
+  if (isError) {
     return (
       <Container size="md">
         <Alert
           variant="default"
           icon={<Box c="red" component={IconAlertSquareRounded} />}
-          title="Failed to load list of projects"
+          title="Failed to load instances"
         >
-          {generatorDirsError.message}
-          <ShowErrorDetailsAnchor error={generatorDirsError} prependDot />
+          {error.message}
+          <ShowErrorDetailsAnchor error={error} prependDot />
         </Alert>
       </Container>
     );
   }
 
-  if (isGeneratorDirsSuccess) {
+  if (isSuccess) {
     return (
-      <form onSubmit={form.onSubmit(handleCreate)}>
-        <Stack>
-          <TextInput
-            label="Instance name"
-            placeholder="name"
-            required
-            {...form.getInputProps('id')}
-          />
-          <Select
-            label="Project"
-            data={generatorDirs}
-            searchable
-            nothingFoundMessage="No project found"
-            placeholder="Select project"
-            clearable
-            required
-            {...form.getInputProps('path')}
-          />
-
-          <Group justify="space-between">
-            <Box>
-              {generatorDirs.length === 0 && (
-                <Text size="sm">
-                  Have no projects?{' '}
-                  <Anchor size="sm" href={ROUTE_PATHS.PROJECTS}>
-                    Create new
-                  </Anchor>
-                </Text>
-              )}
-            </Box>
-
-            <Button
-              disabled={!form.isValid()}
-              loading={addGenerator.isPending}
-              type="submit"
-            >
-              Add
-            </Button>
-          </Group>
-        </Stack>
-      </form>
+      <Stack>
+        <Select
+          label="Instance"
+          data={availableEntries.map((e) => e.id)}
+          searchable
+          nothingFoundMessage="No instances available"
+          placeholder="Select instance"
+          onChange={(value) => {
+            if (!value) return;
+            const entry = entryMap.get(value);
+            if (entry) addToScenario.mutate({ entry });
+          }}
+          disabled={addToScenario.isPending || availableEntries.length === 0}
+        />
+      </Stack>
     );
   }
 
