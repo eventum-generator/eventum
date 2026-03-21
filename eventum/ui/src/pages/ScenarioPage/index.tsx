@@ -22,6 +22,7 @@ import {
   IconPlayerPlay,
   IconPlayerStop,
   IconPlus,
+  IconServer,
 } from '@tabler/icons-react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useCallback, useMemo, useRef, useState } from 'react';
@@ -57,6 +58,7 @@ export default function ScenarioPage() {
   const [editName, setEditName] = useState(scenarioName);
   const [selectedGlobalKey, setSelectedGlobalKey] = useState<string | null>(null);
   const [highlightedNodeId, setHighlightedNodeId] = useState<string | null>(null);
+  const [expandedCardId, setExpandedCardId] = useState<string | null>(null);
   const isRenaming = useRef(false);
 
   const {
@@ -292,6 +294,7 @@ export default function ScenarioPage() {
   }
 
   function handleDiagramInstanceClick(instanceId: string) {
+    setExpandedCardId(instanceId);
     document.getElementById(`instance-card-${instanceId}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' });
   }
 
@@ -388,7 +391,10 @@ export default function ScenarioPage() {
           <Paper withBorder p="md">
             <Stack gap="sm">
               <Group justify="space-between" align="center">
-                <Title order={5} fw="normal">Instances</Title>
+                <Group gap="xs">
+                  <IconServer size={18} />
+                  <Title order={5} fw="normal">Instances</Title>
+                </Group>
                 <Button
                   variant="default"
                   size="xs"
@@ -426,7 +432,10 @@ export default function ScenarioPage() {
                   <Stack gap="sm">
                     <Group justify="space-between" align="center">
                       <Group gap="sm" align="center">
-                        <Title order={5} fw="normal">Instances</Title>
+                        <Group gap="xs">
+                          <IconServer size={18} />
+                          <Title order={5} fw="normal">Instances</Title>
+                        </Group>
                         <Text size="xs" c="dimmed">
                           {scenarioEntries.length} instance{scenarioEntries.length !== 1 ? 's' : ''}
                         </Text>
@@ -451,6 +460,7 @@ export default function ScenarioPage() {
                           Stop All
                         </Button>
                         <Button
+                          variant="default"
                           size="xs"
                           leftSection={<IconPlayerPlay size={14} />}
                           onClick={handleStartAll}
@@ -469,6 +479,12 @@ export default function ScenarioPage() {
                             generatorPath={entry.path}
                             status={generatorStatusMap.get(entry.id)}
                             globalsUsage={globalsUsageMap.get(entry.id)}
+                            isExpanded={expandedCardId === entry.id}
+                            onToggleExpand={() =>
+                              setExpandedCardId((prev) =>
+                                prev === entry.id ? null : entry.id
+                              )
+                            }
                             onRemove={() => handleRemoveGenerator(entry)}
                             onHover={handleCardHover}
                             onHighlightEdge={handleHighlightEdge}

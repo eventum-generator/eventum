@@ -11,7 +11,7 @@ import {
   type Node,
   type NodeProps,
 } from '@xyflow/react';
-import { IconDatabase, IconPlayerPlay } from '@tabler/icons-react';
+import { IconDatabase, IconPlayerPlay, IconRoute } from '@tabler/icons-react';
 import { memo, useMemo } from 'react';
 
 import { GeneratorStatus } from '@/api/routes/generators/schemas';
@@ -271,7 +271,8 @@ export function DataFlowDiagram({
           : edgeStyle;
 
         if (isBidi) {
-          // Bidirectional: single edge with arrows on both ends
+          // Bidirectional: solid line (not animated) with arrows on both ends
+          const bidiStyle = { ...style, strokeDasharray: undefined };
           flowEdges.push({
             id: `bidi-${generatorId}-${ref.key}`,
             source: sourceNodeId,
@@ -279,8 +280,8 @@ export function DataFlowDiagram({
             sourceHandle: 'source',
             targetHandle: 'target',
             type: 'default',
-            animated: true,
-            style,
+            animated: false,
+            style: bidiStyle,
             markerEnd: {
               type: MarkerType.ArrowClosed,
               color: 'var(--mantine-color-text)',
@@ -355,9 +356,25 @@ export function DataFlowDiagram({
 
   return (
     <Paper withBorder p="md">
-      <Title order={5} fw="normal" mb="sm">
-        Data Flow
-      </Title>
+      <Group gap="xs" mb="sm">
+        <IconRoute size={18} />
+        <Title order={5} fw="normal">
+          Data Flow
+        </Title>
+      </Group>
+      <style>{`
+        .react-flow__controls button {
+          background-color: var(--mantine-color-body);
+          color: var(--mantine-color-text);
+          border-color: var(--mantine-color-default-border);
+        }
+        .react-flow__controls button:hover {
+          background-color: var(--mantine-color-default-hover);
+        }
+        .react-flow__controls button svg {
+          fill: var(--mantine-color-text);
+        }
+      `}</style>
       <div style={{ height: containerHeight }}>
         <ReactFlow
           nodes={nodes}
