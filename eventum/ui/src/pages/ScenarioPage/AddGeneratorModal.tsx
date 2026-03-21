@@ -1,8 +1,10 @@
 import {
   Alert,
   Box,
+  Button,
   Center,
   Container,
+  Group,
   Loader,
   Select,
   Stack,
@@ -11,12 +13,54 @@ import { modals } from '@mantine/modals';
 import { notifications } from '@mantine/notifications';
 import { IconAlertSquareRounded } from '@tabler/icons-react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { FC, useMemo } from 'react';
+import { FC, useMemo, useState } from 'react';
 
 import { useStartupGenerators } from '@/api/hooks/useStartup';
 import { updateGeneratorInStartup } from '@/api/routes/startup';
 import { StartupGeneratorParameters } from '@/api/routes/startup/schemas';
 import { ShowErrorDetailsAnchor } from '@/components/ui/ShowErrorDetailsAnchor';
+
+function AddInstanceForm({
+  availableEntries,
+  entryMap,
+  isPending,
+  onAdd,
+}: {
+  availableEntries: StartupGeneratorParameters[];
+  entryMap: Map<string, StartupGeneratorParameters>;
+  isPending: boolean;
+  onAdd: (entry: StartupGeneratorParameters) => void;
+}) {
+  const [selected, setSelected] = useState<string | null>(null);
+
+  return (
+    <Stack>
+      <Select
+        label="Instance"
+        data={availableEntries.map((e) => e.id)}
+        searchable
+        nothingFoundMessage="No instances available"
+        placeholder="Select instance"
+        value={selected}
+        onChange={setSelected}
+        disabled={isPending || availableEntries.length === 0}
+      />
+      <Group justify="flex-end">
+        <Button
+          disabled={!selected}
+          loading={isPending}
+          onClick={() => {
+            if (!selected) return;
+            const entry = entryMap.get(selected);
+            if (entry) onAdd(entry);
+          }}
+        >
+          Add
+        </Button>
+      </Group>
+    </Stack>
+  );
+}
 
 interface AddGeneratorModalProps {
   scenarioName: string;
@@ -106,21 +150,12 @@ export const AddGeneratorModal: FC<AddGeneratorModalProps> = ({
 
   if (isSuccess) {
     return (
-      <Stack>
-        <Select
-          label="Instance"
-          data={availableEntries.map((e) => e.id)}
-          searchable
-          nothingFoundMessage="No instances available"
-          placeholder="Select instance"
-          onChange={(value) => {
-            if (!value) return;
-            const entry = entryMap.get(value);
-            if (entry) addToScenario.mutate({ entry });
-          }}
-          disabled={addToScenario.isPending || availableEntries.length === 0}
-        />
-      </Stack>
+      <AddInstanceForm
+        availableEntries={availableEntries}
+        entryMap={entryMap}
+        isPending={addToScenario.isPending}
+        onAdd={(entry) => addToScenario.mutate({ entry })}
+      />
     );
   }
 
