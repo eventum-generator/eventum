@@ -37,8 +37,15 @@ from eventum.api.routers.generator_configs.file_tree import (
     FileNode,
     build_file_tree,
 )
+from eventum.api.routers.generator_configs.globals_detector import (
+    GlobalsUsage,
+    detect_globals_usage,
+)
 from eventum.api.routers.generator_configs.models import (
     GeneratorDirExtendedInfo,
+    GlobalsReferenceResponse,
+    GlobalsUsageResponse,
+    GlobalsWarningResponse,
 )
 from eventum.api.utils.response_description import merge_responses
 from eventum.utils.fs_utils import (
@@ -771,3 +778,75 @@ async def copy_generator_file(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f'File cannot be copied due to OS error: {e}',
         ) from None
+
+
+@router.get(
+    '/{name}/globals-usage',
+    summary='Get globals usage for a generator',
+    description=(
+        'Detect globals.set/get usage in Jinja2 templates via AST analysis.'
+    ),
+    responses=merge_responses(
+        check_directory_is_allowed.responses,
+        check_configuration_exists.responses,
+    ),
+)
+async def get_generator_globals_usage(
+    name: Annotated[
+        str,
+        CheckDirectoryIsAllowedDep,
+        CheckConfigurationExistsDep,
+    ],
+    settings: SettingsDep,
+) -> GlobalsUsageResponse:
+    generator_dir = settings.path.generators_dir / name
+
+    usage = GlobalsUsage()
+
+    template_files: list[tuple[Path, str]] = []
+    for pattern in ('**/*.j2', '**/*.jinja'):
+        for filepath in generator_dir.glob(pattern):
+            if filepath.is_file():
+                rel_path = str(filepath.relative_to(generator_dir))
+                template_files.append((filepath, rel_path))
+
+    for filepath, rel_path in template_files:
+        try:
+            async with aiofiles.open(filepath, 'r', encoding='utf-8') as f:
+                source = await f.read()
+            template_usage = await asyncio.to_thread(
+                detect_globals_usage, source, rel_path
+            )
+            usage.merge(template_usage)
+        except Exception:
+            continue
+
+    return GlobalsUsageResponse(
+        writes=[
+            GlobalsReferenceResponse(
+                key=w.key,
+                template=w.template,
+                line=w.line,
+                snippet=w.snippet,
+            )
+            for w in usage.writes
+        ],
+        reads=[
+            GlobalsReferenceResponse(
+                key=r.key,
+                template=r.template,
+                line=r.line,
+                snippet=r.snippet,
+            )
+            for r in usage.reads
+        ],
+        warnings=[
+            GlobalsWarningResponse(
+                type=w.type,
+                template=w.template,
+                line=w.line,
+                snippet=w.snippet,
+            )
+            for w in usage.warnings
+        ],
+    )
