@@ -11,6 +11,7 @@ import {
   Tooltip,
   UnstyledButton,
 } from '@mantine/core';
+import { modals } from '@mantine/modals';
 import { notifications } from '@mantine/notifications';
 import {
   IconChevronDown,
@@ -19,8 +20,9 @@ import {
   IconArrowLeft,
   IconDotsVertical,
   IconExternalLink,
-  IconEye,
   IconFile,
+  IconGauge,
+  IconLogs,
   IconPlayerPlay,
   IconPlayerStop,
   IconTrash,
@@ -34,6 +36,9 @@ import {
   useStartGeneratorMutation,
   useStopGeneratorMutation,
 } from '@/api/hooks/useGenerators';
+import { streamGeneratorLogs } from '@/api/routes/generators';
+import { LogsModal } from '@/components/modals/LogsModal';
+import { MetricsModal } from '@/pages/InstancesPage/InstancesTable/MetricsModal';
 import { GeneratorStatus } from '@/api/routes/generators/schemas';
 import { GlobalsUsage } from '@/api/routes/scenarios/schemas';
 import { ShowErrorDetailsAnchor } from '@/components/ui/ShowErrorDetailsAnchor';
@@ -152,6 +157,26 @@ export const GeneratorCard: FC<GeneratorCardProps> = ({
     );
   }
 
+  function handleShowMetrics() {
+    modals.open({
+      title: 'Instance metrics',
+      children: <MetricsModal instanceId={generatorId} />,
+      size: 'xl',
+    });
+  }
+
+  function handleShowLogs() {
+    modals.open({
+      title: 'Instance logs',
+      children: (
+        <LogsModal
+          getWebSocket={() => streamGeneratorLogs(generatorId, 10_048_576)}
+        />
+      ),
+      size: '80vw',
+    });
+  }
+
   return (
     <Paper
       withBorder
@@ -219,10 +244,24 @@ export const GeneratorCard: FC<GeneratorCardProps> = ({
             )}
             <Menu.Divider />
             <Menu.Item
-              leftSection={<IconEye size={14} />}
+              leftSection={<IconGauge size={14} />}
+              onClick={handleShowMetrics}
+              disabled={!isActive}
+            >
+              Show metrics
+            </Menu.Item>
+            <Menu.Item
+              leftSection={<IconLogs size={14} />}
+              onClick={handleShowLogs}
+            >
+              Show logs
+            </Menu.Item>
+            <Menu.Divider />
+            <Menu.Item
+              leftSection={<IconExternalLink size={14} />}
               onClick={() => void navigate(`${ROUTE_PATHS.INSTANCES}/${generatorId}`)}
             >
-              View instance
+              Edit instance
             </Menu.Item>
             <Menu.Item
               leftSection={<IconExternalLink size={14} />}
