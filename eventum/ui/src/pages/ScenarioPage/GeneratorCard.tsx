@@ -201,22 +201,22 @@ export const GeneratorCard: FC<GeneratorCardProps> = ({
             <Tooltip label="Stop" withArrow>
               <ActionIcon
                 variant="subtle"
-                size="md"
+                size="sm"
                 onClick={handleStop}
                 disabled={stopMutation.isPending}
               >
-                <IconPlayerStop size={20} />
+                <IconPlayerStop size={16} />
               </ActionIcon>
             </Tooltip>
           ) : (
             <Tooltip label="Start" withArrow>
               <ActionIcon
                 variant="subtle"
-                size="md"
+                size="sm"
                 onClick={handleStart}
                 disabled={startMutation.isPending}
               >
-                <IconPlayerPlay size={20} />
+                <IconPlayerPlay size={16} />
               </ActionIcon>
             </Tooltip>
           )}
@@ -225,31 +225,31 @@ export const GeneratorCard: FC<GeneratorCardProps> = ({
             <Tooltip label="View instance" withArrow>
               <ActionIcon
                 variant="subtle"
-                size="md"
+                size="sm"
                 onClick={() =>
                   void navigate(`${ROUTE_PATHS.INSTANCES}/${generatorId}`)
                 }
               >
-                <IconEye size={20} />
+                <IconEye size={16} />
               </ActionIcon>
             </Tooltip>
           )}
           <Tooltip label="Go to project" withArrow>
             <ActionIcon
               variant="subtle"
-              size="md"
+              size="sm"
               onClick={() => void navigate(`/projects/${projectName}`)}
             >
-              <IconExternalLink size={20} />
+              <IconExternalLink size={16} />
             </ActionIcon>
           </Tooltip>
           <Tooltip label="Remove from scenario" withArrow>
             <ActionIcon
               variant="subtle"
-              size="md"
+              size="sm"
               onClick={onRemove}
             >
-              <IconTrash size={20} />
+              <IconTrash size={16} />
             </ActionIcon>
           </Tooltip>
         </Group>
