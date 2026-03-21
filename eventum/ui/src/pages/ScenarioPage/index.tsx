@@ -399,8 +399,7 @@ export default function ScenarioPage() {
                 </Group>
                 <Button
                   variant="default"
-                  size="xs"
-                  leftSection={<IconPlus size={14} />}
+                  leftSection={<IconPlus size={16} />}
                   onClick={handleOpenAddModal}
                 >
                   Add
@@ -446,16 +445,14 @@ export default function ScenarioPage() {
                       <Group gap="xs">
                         <Button
                           variant="default"
-                          size="xs"
-                          leftSection={<IconPlus size={14} />}
+                          leftSection={<IconPlus size={16} />}
                           onClick={handleOpenAddModal}
                         >
                           Add
                         </Button>
                         <Button
                           variant="default"
-                          size="xs"
-                          leftSection={<IconPlayerStop size={14} />}
+                          leftSection={<IconPlayerStop size={16} />}
                           onClick={handleStopAll}
                           loading={bulkStop.isPending}
                           disabled={scenarioGeneratorIds.length === 0}
@@ -464,8 +461,7 @@ export default function ScenarioPage() {
                         </Button>
                         <Button
                           variant="default"
-                          size="xs"
-                          leftSection={<IconPlayerPlay size={14} />}
+                          leftSection={<IconPlayerPlay size={16} />}
                           onClick={handleStartAll}
                           loading={bulkStart.isPending}
                           disabled={scenarioGeneratorIds.length === 0}
