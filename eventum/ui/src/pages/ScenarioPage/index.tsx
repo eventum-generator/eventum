@@ -17,6 +17,7 @@ import { modals } from '@mantine/modals';
 import { notifications } from '@mantine/notifications';
 import {
   IconAlertSquareRounded,
+  IconArrowLeft,
   IconLayersSubtract,
   IconPlayerPlay,
   IconPlayerStop,
@@ -28,7 +29,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 
 import { AddGeneratorModal } from './AddGeneratorModal';
 import { DataFlowDiagram } from './DataFlowDiagram';
-import { GeneratorCard, InstanceFlowInfo } from './GeneratorCard';
+import { GeneratorCard } from './GeneratorCard';
 import { GlobalStatePanel } from './GlobalStatePanel';
 import { useGenerators } from '@/api/hooks/useGenerators';
 import { useMultiGlobalsUsage } from '@/api/hooks/useScenarios';
@@ -42,6 +43,7 @@ import { updateGeneratorInStartup } from '@/api/routes/startup';
 import { StartupGeneratorParameters } from '@/api/routes/startup/schemas';
 import { PageTitle } from '@/components/ui/PageTitle';
 import { ShowErrorDetailsAnchor } from '@/components/ui/ShowErrorDetailsAnchor';
+import { ROUTE_PATHS } from '@/routing/paths';
 
 export default function ScenarioPage() {
   const { scenarioName: rawScenarioName } = useParams<{
@@ -53,6 +55,7 @@ export default function ScenarioPage() {
 
   const [isEditing, setIsEditing] = useState(false);
   const [editName, setEditName] = useState(scenarioName);
+  const [selectedGlobalKey, setSelectedGlobalKey] = useState<string | null>(null);
   const isRenaming = useRef(false);
 
   const {
@@ -116,95 +119,6 @@ export default function ScenarioPage() {
     }
     return keys;
   }, [globalsUsageMap]);
-
-  // Compute flow info for each instance
-  const flowInfoMap = useMemo(() => {
-    const map = new Map<string, InstanceFlowInfo>();
-
-    // First, build a global index of who writes and reads each key
-    const keyWriters = new Map<string, Set<string>>();
-    const keyReaders = new Map<string, Set<string>>();
-
-    for (const [generatorId, usage] of globalsUsageMap.entries()) {
-      if (!usage) continue;
-
-      for (const ref of usage.writes) {
-        if (!keyWriters.has(ref.key)) keyWriters.set(ref.key, new Set());
-        keyWriters.get(ref.key)!.add(generatorId);
-      }
-
-      for (const ref of usage.reads) {
-        if (!keyReaders.has(ref.key)) keyReaders.set(ref.key, new Set());
-        keyReaders.get(ref.key)!.add(generatorId);
-      }
-    }
-
-    // Now compute provides/consumes for each instance
-    for (const [generatorId, usage] of globalsUsageMap.entries()) {
-      if (!usage) {
-        map.set(generatorId, { provides: [], consumes: [], warnings: [] });
-        continue;
-      }
-
-      const writtenKeys = new Set(usage.writes.map((w) => w.key));
-      const readKeys = new Set(usage.reads.map((r) => r.key));
-      const warnings: string[] = [];
-
-      // Provides: keys this instance writes, with targets being OTHER instances that read them
-      const provides = [...writtenKeys].map((key) => {
-        const allReaders = keyReaders.get(key) ?? new Set();
-        const targets = [...allReaders].filter((id) => id !== generatorId);
-
-        if (targets.length === 0 && !readKeys.has(key)) {
-          warnings.push(`${key} has no consumers`);
-        }
-
-        return { keyName: key, targets };
-      });
-
-      // Consumes: keys this instance reads, with sources being OTHER instances that write them
-      const consumes = [...readKeys].map((key) => {
-        const allWriters = keyWriters.get(key) ?? new Set();
-        const sources = [...allWriters].filter((id) => id !== generatorId);
-
-        if (sources.length === 0 && !writtenKeys.has(key)) {
-          warnings.push(`${key} has no provider`);
-        }
-
-        return { keyName: key, sources };
-      });
-
-      // Filter out self-only loops (key is both written and read by only this instance)
-      const filteredProvides = provides.filter((p) => {
-        if (p.targets.length > 0) return true;
-        // Keep if someone else reads it, or nobody reads it (warning case)
-        const allReaders = keyReaders.get(p.keyName) ?? new Set();
-        return allReaders.size === 0 || [...allReaders].some((id) => id !== generatorId);
-      });
-
-      const filteredConsumes = consumes.filter((c) => {
-        if (c.sources.length > 0) return true;
-        // Keep if someone else writes it, or nobody writes it (warning case)
-        const allWriters = keyWriters.get(c.keyName) ?? new Set();
-        return allWriters.size === 0 || [...allWriters].some((id) => id !== generatorId);
-      });
-
-      map.set(generatorId, {
-        provides: filteredProvides,
-        consumes: filteredConsumes,
-        warnings,
-      });
-    }
-
-    // For generators without usage data yet, set empty flow info
-    for (const generatorId of scenarioGeneratorIds) {
-      if (!map.has(generatorId)) {
-        map.set(generatorId, { provides: [], consumes: [], warnings: [] });
-      }
-    }
-
-    return map;
-  }, [globalsUsageMap, scenarioGeneratorIds]);
 
   const handleStartEdit = useCallback(() => {
     setIsEditing(true);
@@ -376,6 +290,14 @@ export default function ScenarioPage() {
     });
   }
 
+  function handleDiagramInstanceClick(instanceId: string) {
+    document.getElementById(`instance-card-${instanceId}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  }
+
+  function handleDiagramKeyClick(keyName: string) {
+    setSelectedGlobalKey(keyName);
+  }
+
   const isLoading = isStartupLoading || isGeneratorsLoading;
   const isError = isStartupError || isGeneratorsError;
   const error = startupError ?? generatorsError;
@@ -407,33 +329,42 @@ export default function ScenarioPage() {
   return (
     <Container size="100%">
       <Stack>
-        {isEditing ? (
-          <TextInput
-            value={editName}
-            onChange={(e) => setEditName(e.currentTarget.value)}
-            onBlur={() => void handleRename()}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter') void handleRename();
-              if (e.key === 'Escape') handleCancelEdit();
-            }}
-            // eslint-disable-next-line jsx-a11y/no-autofocus -- intentional for inline rename UX
-            autoFocus
-            size="lg"
-            styles={{
-              input: { fontSize: 'var(--mantine-h2-font-size)', fontWeight: 400 },
-            }}
-            style={{ maxWidth: 400 }}
-          />
-        ) : (
-          <Title
-            order={2}
-            fw="normal"
-            style={{ cursor: 'pointer' }}
-            onClick={handleStartEdit}
+        <Group justify="space-between" align="center">
+          {isEditing ? (
+            <TextInput
+              value={editName}
+              onChange={(e) => setEditName(e.currentTarget.value)}
+              onBlur={() => void handleRename()}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') void handleRename();
+                if (e.key === 'Escape') handleCancelEdit();
+              }}
+              // eslint-disable-next-line jsx-a11y/no-autofocus -- intentional for inline rename UX
+              autoFocus
+              size="lg"
+              styles={{
+                input: { fontSize: 'var(--mantine-h2-font-size)', fontWeight: 400 },
+              }}
+              style={{ maxWidth: 400 }}
+            />
+          ) : (
+            <Title
+              order={2}
+              fw="normal"
+              style={{ cursor: 'pointer' }}
+              onClick={handleStartEdit}
+            >
+              {scenarioName}
+            </Title>
+          )}
+          <Button
+            variant="default"
+            leftSection={<IconArrowLeft size={16} />}
+            onClick={() => void navigate(ROUTE_PATHS.SCENARIOS)}
           >
-            {scenarioName}
-          </Title>
-        )}
+            Back
+          </Button>
+        </Group>
 
         <Paper withBorder p="sm">
           <Group justify="space-between" align="center">
@@ -470,6 +401,8 @@ export default function ScenarioPage() {
             scenarioEntries={scenarioEntries}
             generatorStatusMap={generatorStatusMap}
             globalsUsageMap={globalsUsageMap}
+            onInstanceClick={handleDiagramInstanceClick}
+            onKeyClick={handleDiagramKeyClick}
           />
         )}
 
@@ -503,20 +436,14 @@ export default function ScenarioPage() {
                 ) : (
                   <Stack gap="sm">
                     {scenarioEntries.map((entry) => (
-                      <GeneratorCard
-                        key={entry.id}
-                        generatorId={entry.id}
-                        generatorPath={entry.path}
-                        status={generatorStatusMap.get(entry.id)}
-                        flowInfo={
-                          flowInfoMap.get(entry.id) ?? {
-                            provides: [],
-                            consumes: [],
-                            warnings: [],
-                          }
-                        }
-                        onRemove={() => handleRemoveGenerator(entry)}
-                      />
+                      <div key={entry.id} id={`instance-card-${entry.id}`}>
+                        <GeneratorCard
+                          generatorId={entry.id}
+                          generatorPath={entry.path}
+                          status={generatorStatusMap.get(entry.id)}
+                          onRemove={() => handleRemoveGenerator(entry)}
+                        />
+                      </div>
                     ))}
                   </Stack>
                 )}
@@ -529,6 +456,7 @@ export default function ScenarioPage() {
               generatorNames={scenarioGeneratorIds}
               generatorPaths={generatorPathMap}
               globalsUsageResults={globalsUsageQueries}
+              selectedKey={selectedGlobalKey}
             />
           </Grid.Col>
         </Grid>

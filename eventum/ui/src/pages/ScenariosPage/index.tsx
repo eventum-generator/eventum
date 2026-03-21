@@ -158,7 +158,6 @@ export default function ScenariosPage() {
                 modals.open({
                   title: 'Create scenario',
                   children: <CreateScenarioModal />,
-                  size: 'lg',
                 })
               }
             >

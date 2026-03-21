@@ -16,7 +16,7 @@ import {
   IconDatabase,
 } from '@tabler/icons-react';
 import { dirname } from 'pathe';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 
 import { GlobalStateInspector } from './GlobalStateInspector';
 import { GlobalsUsage } from '@/api/routes/scenarios/schemas';
@@ -80,14 +80,22 @@ export interface GlobalStatePanelProps {
     data?: GlobalsUsage;
     isLoading: boolean;
   }[];
+  selectedKey?: string | null;
 }
 
 export const GlobalStatePanel = ({
   generatorNames,
   generatorPaths,
   globalsUsageResults,
+  selectedKey,
 }: GlobalStatePanelProps) => {
   const [expandedKey, setExpandedKey] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (selectedKey) {
+      setExpandedKey(selectedKey);
+    }
+  }, [selectedKey]);
 
   const isLoading = globalsUsageResults.some((r) => r.isLoading);
 

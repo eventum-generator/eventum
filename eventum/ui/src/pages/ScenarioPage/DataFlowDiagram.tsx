@@ -9,6 +9,7 @@ import {
   type Node,
   type NodeProps,
 } from '@xyflow/react';
+import { IconDatabase, IconPlayerPlay } from '@tabler/icons-react';
 import { memo, useMemo } from 'react';
 
 import { GeneratorStatus } from '@/api/routes/generators/schemas';
@@ -23,6 +24,8 @@ interface DataFlowDiagramProps {
     string,
     { writes: { key: string }[]; reads: { key: string }[] } | undefined
   >;
+  onInstanceClick?: (instanceId: string) => void;
+  onKeyClick?: (keyName: string) => void;
 }
 
 type InstanceNodeData = {
@@ -39,7 +42,11 @@ type InstanceNodeType = Node<InstanceNodeData, 'instance'>;
 type KeyNodeType = Node<KeyNodeData, 'key'>;
 
 const InstanceNode = memo(({ data }: NodeProps<InstanceNodeType>) => (
-  <Paper withBorder p="xs" style={{ minWidth: 140 }}>
+  <Paper
+    withBorder
+    p="xs"
+    style={{ minWidth: 140, cursor: 'pointer', borderStyle: 'solid' }}
+  >
     <Handle
       type="source"
       position={Position.Right}
@@ -57,6 +64,7 @@ const InstanceNode = memo(({ data }: NodeProps<InstanceNodeType>) => (
         position="middle-center"
         processing={data.processing}
       />
+      <IconPlayerPlay size={12} />
       <Text size="xs" fw={500}>
         {data.label}
       </Text>
@@ -66,7 +74,11 @@ const InstanceNode = memo(({ data }: NodeProps<InstanceNodeType>) => (
 InstanceNode.displayName = 'InstanceNode';
 
 const KeyNode = memo(({ data }: NodeProps<KeyNodeType>) => (
-  <Paper withBorder p="xs" style={{ minWidth: 100 }}>
+  <Paper
+    withBorder
+    p="xs"
+    style={{ minWidth: 100, cursor: 'pointer', borderStyle: 'dashed' }}
+  >
     <Handle
       type="target"
       position={Position.Left}
@@ -77,9 +89,12 @@ const KeyNode = memo(({ data }: NodeProps<KeyNodeType>) => (
       position={Position.Left}
       style={{ background: 'var(--mantine-color-dimmed)' }}
     />
-    <Text size="xs" ff="monospace">
-      {data.label}
-    </Text>
+    <Group gap="xs" wrap="nowrap">
+      <IconDatabase size={12} />
+      <Text size="xs" ff="monospace">
+        {data.label}
+      </Text>
+    </Group>
   </Paper>
 ));
 KeyNode.displayName = 'KeyNode';
@@ -92,17 +107,26 @@ const defaultInactiveStatus: GeneratorStatus = {
   is_stopping: false,
 };
 
+const edgeStyle = {
+  strokeDasharray: '5,5',
+  stroke: 'var(--mantine-color-text)',
+  strokeWidth: 1.5,
+  opacity: 0.4,
+};
+
 export function DataFlowDiagram({
   scenarioEntries,
   generatorStatusMap,
   globalsUsageMap,
+  onInstanceClick,
+  onKeyClick,
 }: DataFlowDiagramProps) {
   const nodeTypes = useMemo(
     () => ({ instance: InstanceNode, key: KeyNode }),
     []
   );
 
-  const { nodes, edges } = useMemo(() => {
+  const { nodes, edges, containerHeight } = useMemo(() => {
     const instanceNodes: (InstanceNodeType | KeyNodeType)[] = [];
     const flowEdges: Edge[] = [];
     const edgeIds = new Set<string>();
@@ -157,11 +181,11 @@ export function DataFlowDiagram({
       });
     }
 
-    // Create edges
+    // Create edges — all animated dashed, no labels
     for (const [generatorId, usage] of globalsUsageMap.entries()) {
       if (!usage) continue;
 
-      // Write edges: instance → key (solid)
+      // Write edges: instance → key
       for (const ref of usage.writes) {
         const edgeId = `write-${generatorId}-${ref.key}`;
         if (edgeIds.has(edgeId)) continue;
@@ -174,19 +198,12 @@ export function DataFlowDiagram({
           sourceHandle: null,
           targetHandle: null,
           type: 'default',
-          label: 'writes',
-          animated: false,
-          style: {
-            stroke: 'var(--mantine-color-dimmed)',
-          },
-          labelStyle: {
-            fontSize: 10,
-            fill: 'var(--mantine-color-text)',
-          },
+          animated: true,
+          style: edgeStyle,
         });
       }
 
-      // Read edges: key → instance (dashed)
+      // Read edges: key → instance
       for (const ref of usage.reads) {
         const edgeId = `read-${generatorId}-${ref.key}`;
         if (edgeIds.has(edgeId)) continue;
@@ -199,29 +216,34 @@ export function DataFlowDiagram({
           sourceHandle: null,
           targetHandle: null,
           type: 'default',
-          label: 'reads',
           animated: true,
-          style: {
-            stroke: 'var(--mantine-color-dimmed)',
-            strokeDasharray: '5,5',
-          },
-          labelStyle: {
-            fontSize: 10,
-            fill: 'var(--mantine-color-text)',
-          },
+          style: edgeStyle,
         });
       }
     }
 
-    return { nodes: instanceNodes, edges: flowEdges };
+    const nodeCount = Math.max(instanceCount, keyCount);
+    const height = Math.max(180, nodeCount * 80 + 40);
+
+    return { nodes: instanceNodes, edges: flowEdges, containerHeight: height };
   }, [scenarioEntries, generatorStatusMap, globalsUsageMap]);
+
+  function handleNodeClick(_: React.MouseEvent, node: InstanceNodeType | KeyNodeType) {
+    if (node.type === 'instance') {
+      const instanceId = node.id.replace('instance-', '');
+      onInstanceClick?.(instanceId);
+    } else if (node.type === 'key') {
+      const keyName = node.id.replace('key-', '');
+      onKeyClick?.(keyName);
+    }
+  }
 
   return (
     <Paper withBorder p="md">
       <Title order={5} fw="normal" mb="sm">
         Data Flow
       </Title>
-      <div style={{ height: 250 }}>
+      <div style={{ height: containerHeight }}>
         <ReactFlow
           nodes={nodes}
           edges={edges}
@@ -231,8 +253,9 @@ export function DataFlowDiagram({
           zoomOnScroll={false}
           zoomOnPinch={false}
           zoomOnDoubleClick={false}
+          onNodeClick={handleNodeClick}
           fitView
-          fitViewOptions={{ padding: 0.3 }}
+          fitViewOptions={{ padding: 0.5 }}
           proOptions={{ hideAttribution: true }}
         >
           <Background variant={BackgroundVariant.Dots} gap={16} size={1} />
