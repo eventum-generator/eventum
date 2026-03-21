@@ -278,18 +278,18 @@ export const GeneratorCard: FC<GeneratorCardProps> = ({
                 <Text size="xs" ff="monospace" fw={500}>
                   {template}
                 </Text>
-                <Text size="xs" c="dimmed" truncate>
-                  {[
-                    usage.writes.length > 0
-                      ? `writes: ${usage.writes.join(', ')}`
-                      : '',
-                    usage.reads.length > 0
-                      ? `reads: ${usage.reads.join(', ')}`
-                      : '',
-                  ]
-                    .filter(Boolean)
-                    .join(' | ')}
-                </Text>
+                <Group gap={4} wrap="nowrap">
+                  {usage.writes.map((key) => (
+                    <Text key={`w-${key}`} size="xs" c="dimmed" ff="monospace">
+                      W:{key}
+                    </Text>
+                  ))}
+                  {usage.reads.map((key) => (
+                    <Text key={`r-${key}`} size="xs" c="dimmed" ff="monospace">
+                      R:{key}
+                    </Text>
+                  ))}
+                </Group>
               </Group>
             </UnstyledButton>
           ))}

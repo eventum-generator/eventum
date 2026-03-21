@@ -198,19 +198,6 @@ export function DataFlowDiagram({
     const instanceCount = scenarioEntries.length;
     const keyCount = keyList.length;
 
-    // Build a set of bidirectional pairs (instance both writes AND reads same key)
-    const writePairs = new Set<string>();
-    const readPairs = new Set<string>();
-    for (const [generatorId, usage] of globalsUsageMap.entries()) {
-      if (!usage) continue;
-      for (const ref of usage.writes) writePairs.add(`${generatorId}::${ref.key}`);
-      for (const ref of usage.reads) readPairs.add(`${generatorId}::${ref.key}`);
-    }
-    const bidiPairs = new Set<string>();
-    for (const pair of writePairs) {
-      if (readPairs.has(pair)) bidiPairs.add(pair);
-    }
-
     // Create instance nodes on the left
     for (const [i, entry] of scenarioEntries.entries()) {
       const status =
@@ -253,9 +240,6 @@ export function DataFlowDiagram({
       if (!usage) continue;
 
       for (const ref of usage.writes) {
-        const pairKey = `${generatorId}::${ref.key}`;
-        const isBidi = bidiPairs.has(pairKey);
-
         const sourceNodeId = `instance-${generatorId}`;
         const targetNodeId = `key-${ref.key}`;
 
@@ -270,47 +254,25 @@ export function DataFlowDiagram({
             : edgeDimmedStyle
           : edgeStyle;
 
-        if (isBidi) {
-          // Bidirectional: solid line (not animated) with arrows on both ends
-          const bidiStyle = { ...style, strokeDasharray: undefined };
-          flowEdges.push({
-            id: `bidi-${generatorId}-${ref.key}`,
-            source: sourceNodeId,
-            target: targetNodeId,
-            sourceHandle: 'source',
-            targetHandle: 'target',
-            type: 'default',
-            animated: false,
-            style: bidiStyle,
-            markerEnd: {
-              type: MarkerType.ArrowClosed,
-              color: 'var(--mantine-color-text)',
-            },
-            markerStart: {
-              type: MarkerType.ArrowClosed,
-              color: 'var(--mantine-color-text)',
-            },
-          });
-        } else {
-          // Write only: instance → key
-          flowEdges.push({
-            id: `write-${generatorId}-${ref.key}`,
-            source: sourceNodeId,
-            target: targetNodeId,
-            sourceHandle: 'source',
-            targetHandle: 'target',
-            type: 'default',
-            animated: true,
-            style,
-          });
-        }
+        // Write edge: instance → key (always separate, animated dashed)
+        flowEdges.push({
+          id: `write-${generatorId}-${ref.key}`,
+          source: sourceNodeId,
+          target: targetNodeId,
+          sourceHandle: 'source',
+          targetHandle: 'target',
+          type: 'default',
+          animated: true,
+          style,
+          markerEnd: {
+            type: MarkerType.ArrowClosed,
+            color: 'var(--mantine-color-text)',
+          },
+        });
       }
 
-      // Read edges: key → instance (only if NOT bidirectional)
+      // Read edges: key → instance
       for (const ref of usage.reads) {
-        const pairKey = `${generatorId}::${ref.key}`;
-        if (bidiPairs.has(pairKey)) continue; // already handled as bidi
-
         const sourceNodeId = `key-${ref.key}`;
         const targetNodeId = `instance-${generatorId}`;
 
@@ -334,6 +296,10 @@ export function DataFlowDiagram({
           type: 'default',
           animated: true,
           style,
+          markerEnd: {
+            type: MarkerType.ArrowClosed,
+            color: 'var(--mantine-color-text)',
+          },
         });
       }
     }
