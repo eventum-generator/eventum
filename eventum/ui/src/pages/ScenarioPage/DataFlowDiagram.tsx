@@ -238,7 +238,8 @@ export function DataFlowDiagram({
     // Determine if any highlight is active
     const hasHighlight = (highlightedNodeId !== null && highlightedNodeId !== undefined) || (highlightedEdgeId !== null && highlightedEdgeId !== undefined);
 
-    // Create edges
+    // Create edges (deduplicate by edge ID)
+    const seenEdgeIds = new Set<string>();
     for (const [generatorId, usage] of globalsUsageMap.entries()) {
       if (!usage) continue;
 
@@ -246,6 +247,8 @@ export function DataFlowDiagram({
         const sourceNodeId = `instance-${generatorId}`;
         const targetNodeId = `key-${ref.key}`;
         const edgeId = `write-${generatorId}-${ref.key}`;
+        if (seenEdgeIds.has(edgeId)) continue;
+        seenEdgeIds.add(edgeId);
 
         const isThisEdge = highlightedEdgeId === edgeId;
         const isConnectedToNode =
@@ -278,6 +281,8 @@ export function DataFlowDiagram({
         const sourceNodeId = `key-${ref.key}`;
         const targetNodeId = `instance-${generatorId}`;
         const edgeId = `read-${generatorId}-${ref.key}`;
+        if (seenEdgeIds.has(edgeId)) continue;
+        seenEdgeIds.add(edgeId);
 
         const isThisEdge = highlightedEdgeId === edgeId;
         const isConnectedToNode =
