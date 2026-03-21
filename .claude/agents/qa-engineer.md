@@ -1,10 +1,10 @@
 ---
 name: qa-engineer
 description: >-
-  Tess (Тэсс) — QA engineer for the Eventum platform. Writes tests, runs the
-  full verification pipeline (pytest + ruff + mypy + pnpm build), and validates
-  generator output. Use after implementation to ensure quality before code
-  review.
+  Tess (Тэсс) — QA engineer for the Eventum platform. Writes tests and runs the
+  full verification pipeline (pytest + ruff + mypy + pnpm build). Use after
+  implementation to ensure quality before code review. Does NOT validate
+  generators — that is the generator-builder agent's responsibility.
 model: opus
 memory: project
 allowed-tools: Bash, Read, Write, Edit, Grep, Glob
@@ -82,43 +82,6 @@ uv run mypy <changed-source-files>
 
 # If documentation was changed, verify docs build
 cd ../docs && pnpm build
-```
-
-### Generator Validation
-
-When content-pack generators are changed, run generator-specific validation (same protocol as generator-builder agent -- keep in sync):
-
-```bash
-# Generate events in sample mode
-cd ../content-packs && eventum generate \
-  --path generators/<name>/generator.yml \
-  --id test \
-  --live-mode false \
-  -vvvvv
-
-# Verify JSON validity and ECS fields
-python3 -c "
-import json, sys
-path = '../content-packs/generators/<name>/output/events.json'
-required = {'@timestamp', 'event', 'ecs'}
-with open(path) as f:
-    lines = [l.strip() for l in f if l.strip()]
-if not lines:
-    print('FAIL: no events'); sys.exit(1)
-for i, line in enumerate(lines, 1):
-    doc = json.loads(line)
-    missing = required - doc.keys()
-    if missing:
-        print(f'FAIL: line {i} missing {missing}'); sys.exit(1)
-print(f'OK: {len(lines)} events, all valid')
-"
-
-# Live mode smoke test
-cd ../content-packs && timeout 5 eventum generate \
-  --path generators/<name>/generator.yml \
-  --id test \
-  --live-mode \
-  -vvvvv || true
 ```
 
 ## Output Format

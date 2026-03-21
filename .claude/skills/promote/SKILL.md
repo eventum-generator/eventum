@@ -3,7 +3,12 @@ name: promote
 description: Create promotional content for a feature, release, or topic -- blog post, social media drafts, community engagement materials.
 user-invokable: true
 argument-hint: "<topic> (e.g. 'v2.1.0 release', 'UDP output plugin', 'SIEM testing use case')"
+context: fork
 ---
+
+## Current state
+- Recent releases: !`gh release list --limit 3`
+- Recent blog posts: !`ls ../docs/content/blog/ | tail -5`
 
 ## Promote
 

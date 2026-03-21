@@ -3,7 +3,13 @@ name: growth-review
 description: Analyze Eventum's market position, competitive landscape, and growth opportunities. Produce actionable strategy recommendations and a content plan.
 user-invokable: true
 argument-hint: "[focus-area] (e.g. competitive, features, community, or omit for full review)"
+context: fork
 ---
+
+## Current state
+- GitHub stars: !`gh api repos/eventum-dev/eventum --jq '.stargazers_count'`
+- Open issues: !`gh issue list --limit 5 --json number,title`
+- Recent releases: !`gh release list --limit 3`
 
 ## Growth Review
 
