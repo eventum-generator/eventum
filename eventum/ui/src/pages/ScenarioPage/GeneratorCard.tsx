@@ -47,7 +47,7 @@ export interface GeneratorCardProps {
   onToggleExpand?: () => void;
   onRemove: () => void;
   onHover?: (nodeId: string | null) => void;
-  onHighlightEdge?: (generatorId: string, keyName: string) => void;
+  onHighlightEdge?: (generatorId: string, keyName: string, direction?: 'write' | 'read') => void;
 }
 
 export const GeneratorCard: FC<GeneratorCardProps> = ({
@@ -288,7 +288,7 @@ export const GeneratorCard: FC<GeneratorCardProps> = ({
                   pl={22}
                   wrap="nowrap"
                   style={{ cursor: 'default', borderRadius: 4, padding: '2px 4px 2px 22px' }}
-                  onMouseEnter={() => onHighlightEdge?.(generatorId, key)}
+                  onMouseEnter={() => onHighlightEdge?.(generatorId, key, 'write')}
                   onMouseLeave={() => onHighlightEdge?.('', '')}
                 >
                   <IconArrowRight size={12} style={{ flexShrink: 0 }} />
@@ -303,7 +303,7 @@ export const GeneratorCard: FC<GeneratorCardProps> = ({
                   pl={22}
                   wrap="nowrap"
                   style={{ cursor: 'default', borderRadius: 4, padding: '2px 4px 2px 22px' }}
-                  onMouseEnter={() => onHighlightEdge?.(generatorId, key)}
+                  onMouseEnter={() => onHighlightEdge?.(generatorId, key, 'read')}
                   onMouseLeave={() => onHighlightEdge?.('', '')}
                 >
                   <IconArrowLeft size={12} style={{ flexShrink: 0 }} />

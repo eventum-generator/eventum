@@ -27,6 +27,7 @@ interface DataFlowDiagramProps {
     { writes: { key: string }[]; reads: { key: string }[] } | undefined
   >;
   highlightedNodeId?: string | null;
+  highlightedEdgeId?: string | null;
   onInstanceClick?: (instanceId: string) => void;
   onKeyClick?: (keyName: string) => void;
 }
@@ -167,6 +168,7 @@ const edgeDimmedStyle = {
 const edgeHighlightedStyle = {
   ...edgeStyle,
   opacity: 1,
+  strokeWidth: 3,
 };
 
 export function DataFlowDiagram({
@@ -174,6 +176,7 @@ export function DataFlowDiagram({
   generatorStatusMap,
   globalsUsageMap,
   highlightedNodeId,
+  highlightedEdgeId,
   onInstanceClick,
   onKeyClick,
 }: DataFlowDiagramProps) {
@@ -232,8 +235,8 @@ export function DataFlowDiagram({
       });
     }
 
-    // Determine if any node is highlighted so we can dim unrelated edges
-    const hasHighlight = highlightedNodeId !== null && highlightedNodeId !== undefined;
+    // Determine if any highlight is active
+    const hasHighlight = (highlightedNodeId !== null && highlightedNodeId !== undefined) || (highlightedEdgeId !== null && highlightedEdgeId !== undefined);
 
     // Create edges
     for (const [generatorId, usage] of globalsUsageMap.entries()) {
@@ -242,21 +245,20 @@ export function DataFlowDiagram({
       for (const ref of usage.writes) {
         const sourceNodeId = `instance-${generatorId}`;
         const targetNodeId = `key-${ref.key}`;
+        const edgeId = `write-${generatorId}-${ref.key}`;
 
-        const isConnectedToHighlight =
-          hasHighlight &&
-          (sourceNodeId === highlightedNodeId ||
-            targetNodeId === highlightedNodeId);
+        const isThisEdge = highlightedEdgeId === edgeId;
+        const isConnectedToNode =
+          sourceNodeId === highlightedNodeId || targetNodeId === highlightedNodeId;
 
         const style = hasHighlight
-          ? isConnectedToHighlight
+          ? isThisEdge || isConnectedToNode
             ? edgeHighlightedStyle
             : edgeDimmedStyle
           : edgeStyle;
 
-        // Write edge: instance → key (always separate, animated dashed)
         flowEdges.push({
-          id: `write-${generatorId}-${ref.key}`,
+          id: edgeId,
           source: sourceNodeId,
           target: targetNodeId,
           sourceHandle: 'source',
@@ -275,20 +277,20 @@ export function DataFlowDiagram({
       for (const ref of usage.reads) {
         const sourceNodeId = `key-${ref.key}`;
         const targetNodeId = `instance-${generatorId}`;
+        const edgeId = `read-${generatorId}-${ref.key}`;
 
-        const isConnectedToHighlight =
-          hasHighlight &&
-          (sourceNodeId === highlightedNodeId ||
-            targetNodeId === highlightedNodeId);
+        const isThisEdge = highlightedEdgeId === edgeId;
+        const isConnectedToNode =
+          sourceNodeId === highlightedNodeId || targetNodeId === highlightedNodeId;
 
         const style = hasHighlight
-          ? isConnectedToHighlight
+          ? isThisEdge || isConnectedToNode
             ? edgeHighlightedStyle
             : edgeDimmedStyle
           : edgeStyle;
 
         flowEdges.push({
-          id: `read-${generatorId}-${ref.key}`,
+          id: edgeId,
           source: sourceNodeId,
           target: targetNodeId,
           sourceHandle: 'source',
@@ -308,7 +310,7 @@ export function DataFlowDiagram({
     const height = Math.max(220, maxNodeCount * 100 + 60);
 
     return { nodes: instanceNodes, edges: flowEdges, containerHeight: height };
-  }, [scenarioEntries, generatorStatusMap, globalsUsageMap, highlightedNodeId]);
+  }, [scenarioEntries, generatorStatusMap, globalsUsageMap, highlightedNodeId, highlightedEdgeId]);
 
   function handleNodeClick(_: React.MouseEvent, node: InstanceNodeType | KeyNodeType) {
     if (node.type === 'instance') {

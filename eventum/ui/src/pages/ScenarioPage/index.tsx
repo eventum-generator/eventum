@@ -58,6 +58,7 @@ export default function ScenarioPage() {
   const [editName, setEditName] = useState(scenarioName);
   const [selectedGlobalKey, setSelectedGlobalKey] = useState<string | null>(null);
   const [highlightedNodeId, setHighlightedNodeId] = useState<string | null>(null);
+  const [highlightedEdgeId, setHighlightedEdgeId] = useState<string | null>(null);
   const [expandedCardId, setExpandedCardId] = useState<string | null>(null);
   const isRenaming = useRef(false);
 
@@ -310,12 +311,14 @@ export default function ScenarioPage() {
     setHighlightedNodeId(keyName ? `key-${keyName}` : null);
   }
 
-  function handleHighlightEdge(generatorId: string, keyName: string) {
+  function handleHighlightEdge(generatorId: string, keyName: string, direction?: 'write' | 'read') {
     if (generatorId && keyName) {
-      // Highlight the key node when hovering a specific write/read entry
       setHighlightedNodeId(`key-${keyName}`);
+      const prefix = direction ?? 'write';
+      setHighlightedEdgeId(`${prefix}-${generatorId}-${keyName}`);
     } else {
       setHighlightedNodeId(null);
+      setHighlightedEdgeId(null);
     }
   }
 
@@ -424,6 +427,7 @@ export default function ScenarioPage() {
                     generatorStatusMap={generatorStatusMap}
                     globalsUsageMap={globalsUsageMap}
                     highlightedNodeId={highlightedNodeId}
+                    highlightedEdgeId={highlightedEdgeId}
                     onInstanceClick={handleDiagramInstanceClick}
                     onKeyClick={handleDiagramKeyClick}
                   />
