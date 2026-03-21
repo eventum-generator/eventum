@@ -4,6 +4,7 @@ import {
   Collapse,
   Group,
   Indicator,
+  Menu,
   Paper,
   Stack,
   Text,
@@ -16,6 +17,7 @@ import {
   IconChevronRight,
   IconArrowRight,
   IconArrowLeft,
+  IconDotsVertical,
   IconExternalLink,
   IconEye,
   IconFile,
@@ -76,7 +78,6 @@ export const GeneratorCard: FC<GeneratorCardProps> = ({
   const isActive = status?.is_running ?? false;
   const isTransitioning =
     (status?.is_initializing ?? false) || (status?.is_stopping ?? false);
-  const hasStatus = status !== undefined;
   const statusInfo = status
     ? describeInstanceStatus(status)
     : { text: 'Inactive', color: 'gray.6' as const, processing: false };
@@ -195,64 +196,53 @@ export const GeneratorCard: FC<GeneratorCardProps> = ({
           </Group>
         </UnstyledButton>
 
-        {/* Issue 5: size="md" and icon size 20 */}
-        <Group gap={4} wrap="nowrap">
-          {isActive || isTransitioning ? (
-            <Tooltip label="Stop" withArrow>
-              <ActionIcon
-                variant="subtle"
-                size="sm"
+        <Menu shadow="md" width={170} position="bottom-end">
+          <Menu.Target>
+            <ActionIcon variant="subtle" size="sm">
+              <IconDotsVertical size={16} />
+            </ActionIcon>
+          </Menu.Target>
+          <Menu.Dropdown>
+            {isActive || isTransitioning ? (
+              <Menu.Item
+                leftSection={<IconPlayerStop size={14} />}
                 onClick={handleStop}
                 disabled={stopMutation.isPending}
               >
-                <IconPlayerStop size={16} />
-              </ActionIcon>
-            </Tooltip>
-          ) : (
-            <Tooltip label="Start" withArrow>
-              <ActionIcon
-                variant="subtle"
-                size="sm"
+                Stop
+              </Menu.Item>
+            ) : (
+              <Menu.Item
+                leftSection={<IconPlayerPlay size={14} />}
                 onClick={handleStart}
                 disabled={startMutation.isPending}
               >
-                <IconPlayerPlay size={16} />
-              </ActionIcon>
-            </Tooltip>
-          )}
-          {/* Issue 7: View instance action */}
-          {hasStatus && (
-            <Tooltip label="View instance" withArrow>
-              <ActionIcon
-                variant="subtle"
-                size="sm"
-                onClick={() =>
-                  void navigate(`${ROUTE_PATHS.INSTANCES}/${generatorId}`)
-                }
-              >
-                <IconEye size={16} />
-              </ActionIcon>
-            </Tooltip>
-          )}
-          <Tooltip label="Go to project" withArrow>
-            <ActionIcon
-              variant="subtle"
-              size="sm"
+                Start
+              </Menu.Item>
+            )}
+            <Menu.Divider />
+            <Menu.Item
+              leftSection={<IconEye size={14} />}
+              onClick={() => void navigate(`${ROUTE_PATHS.INSTANCES}/${generatorId}`)}
+            >
+              View instance
+            </Menu.Item>
+            <Menu.Item
+              leftSection={<IconExternalLink size={14} />}
               onClick={() => void navigate(`/projects/${projectName}`)}
             >
-              <IconExternalLink size={16} />
-            </ActionIcon>
-          </Tooltip>
-          <Tooltip label="Remove from scenario" withArrow>
-            <ActionIcon
-              variant="subtle"
-              size="sm"
+              Go to project
+            </Menu.Item>
+            <Menu.Divider />
+            <Menu.Item
+              color="red"
+              leftSection={<IconTrash size={14} />}
               onClick={onRemove}
             >
-              <IconTrash size={16} />
-            </ActionIcon>
-          </Tooltip>
-        </Group>
+              Remove
+            </Menu.Item>
+          </Menu.Dropdown>
+        </Menu>
       </Group>
 
       {/* Issue 4: Show template names grouped by file, not code snippets */}
