@@ -2,7 +2,9 @@ import { Group, Indicator, Paper, Text, Title } from '@mantine/core';
 import {
   Background,
   BackgroundVariant,
+  Controls,
   Handle,
+  MarkerType,
   Position,
   ReactFlow,
   type Edge,
@@ -24,6 +26,7 @@ interface DataFlowDiagramProps {
     string,
     { writes: { key: string }[]; reads: { key: string }[] } | undefined
   >;
+  highlightedNodeId?: string | null;
   onInstanceClick?: (instanceId: string) => void;
   onKeyClick?: (keyName: string) => void;
 }
@@ -32,10 +35,12 @@ type InstanceNodeData = {
   label: string;
   statusColor: string;
   processing: boolean;
+  highlighted: boolean;
 };
 
 type KeyNodeData = {
   label: string;
+  highlighted: boolean;
 };
 
 type InstanceNodeType = Node<InstanceNodeData, 'instance'>;
@@ -44,18 +49,38 @@ type KeyNodeType = Node<KeyNodeData, 'key'>;
 const InstanceNode = memo(({ data }: NodeProps<InstanceNodeType>) => (
   <Paper
     withBorder
-    p="xs"
-    style={{ minWidth: 140, cursor: 'pointer', borderStyle: 'solid' }}
+    p="sm"
+    style={{
+      minWidth: 180,
+      cursor: 'pointer',
+      borderStyle: 'solid',
+      borderColor: data.highlighted
+        ? 'var(--mantine-primary-color-filled)'
+        : undefined,
+      boxShadow: data.highlighted
+        ? '0 0 8px var(--mantine-primary-color-filled)'
+        : undefined,
+    }}
   >
     <Handle
       type="source"
       position={Position.Right}
-      style={{ background: 'var(--mantine-color-dimmed)' }}
+      id="source"
+      style={{
+        background: 'var(--mantine-color-dimmed)',
+        top: '35%',
+      }}
+      isConnectable={false}
     />
     <Handle
       type="target"
       position={Position.Right}
-      style={{ background: 'var(--mantine-color-dimmed)' }}
+      id="target"
+      style={{
+        background: 'var(--mantine-color-dimmed)',
+        top: '65%',
+      }}
+      isConnectable={false}
     />
     <Group gap="xs" wrap="nowrap">
       <Indicator
@@ -64,8 +89,8 @@ const InstanceNode = memo(({ data }: NodeProps<InstanceNodeType>) => (
         position="middle-center"
         processing={data.processing}
       />
-      <IconPlayerPlay size={12} />
-      <Text size="xs" fw={500}>
+      <IconPlayerPlay size={14} />
+      <Text size="sm" fw={500}>
         {data.label}
       </Text>
     </Group>
@@ -76,22 +101,42 @@ InstanceNode.displayName = 'InstanceNode';
 const KeyNode = memo(({ data }: NodeProps<KeyNodeType>) => (
   <Paper
     withBorder
-    p="xs"
-    style={{ minWidth: 100, cursor: 'pointer', borderStyle: 'dashed' }}
+    p="sm"
+    style={{
+      minWidth: 140,
+      cursor: 'pointer',
+      borderStyle: 'dashed',
+      borderColor: data.highlighted
+        ? 'var(--mantine-primary-color-filled)'
+        : undefined,
+      boxShadow: data.highlighted
+        ? '0 0 8px var(--mantine-primary-color-filled)'
+        : undefined,
+    }}
   >
     <Handle
       type="target"
       position={Position.Left}
-      style={{ background: 'var(--mantine-color-dimmed)' }}
+      id="target"
+      style={{
+        background: 'var(--mantine-color-dimmed)',
+        top: '35%',
+      }}
+      isConnectable={false}
     />
     <Handle
       type="source"
       position={Position.Left}
-      style={{ background: 'var(--mantine-color-dimmed)' }}
+      id="source"
+      style={{
+        background: 'var(--mantine-color-dimmed)',
+        top: '65%',
+      }}
+      isConnectable={false}
     />
     <Group gap="xs" wrap="nowrap">
-      <IconDatabase size={12} />
-      <Text size="xs" ff="monospace">
+      <IconDatabase size={14} />
+      <Text size="sm" ff="monospace">
         {data.label}
       </Text>
     </Group>
@@ -110,14 +155,25 @@ const defaultInactiveStatus: GeneratorStatus = {
 const edgeStyle = {
   strokeDasharray: '5,5',
   stroke: 'var(--mantine-color-text)',
-  strokeWidth: 1.5,
-  opacity: 0.4,
+  strokeWidth: 2,
+  opacity: 0.6,
+};
+
+const edgeDimmedStyle = {
+  ...edgeStyle,
+  opacity: 0.15,
+};
+
+const edgeHighlightedStyle = {
+  ...edgeStyle,
+  opacity: 1,
 };
 
 export function DataFlowDiagram({
   scenarioEntries,
   generatorStatusMap,
   globalsUsageMap,
+  highlightedNodeId,
   onInstanceClick,
   onKeyClick,
 }: DataFlowDiagramProps) {
@@ -129,7 +185,6 @@ export function DataFlowDiagram({
   const { nodes, edges, containerHeight } = useMemo(() => {
     const instanceNodes: (InstanceNodeType | KeyNodeType)[] = [];
     const flowEdges: Edge[] = [];
-    const edgeIds = new Set<string>();
 
     // Collect all unique global keys
     const allKeys = new Set<string>();
@@ -143,13 +198,18 @@ export function DataFlowDiagram({
     const instanceCount = scenarioEntries.length;
     const keyCount = keyList.length;
 
-    // Vertical spacing
-    const instanceSpacing =
-      instanceCount > 1 ? 200 / (instanceCount - 1) : 0;
-    const keySpacing = keyCount > 1 ? 200 / (keyCount - 1) : 0;
-    const instanceStartY =
-      instanceCount > 1 ? 25 : 100;
-    const keyStartY = keyCount > 1 ? 25 : 100;
+    // Build a set of bidirectional pairs (instance both writes AND reads same key)
+    const writePairs = new Set<string>();
+    const readPairs = new Set<string>();
+    for (const [generatorId, usage] of globalsUsageMap.entries()) {
+      if (!usage) continue;
+      for (const ref of usage.writes) writePairs.add(`${generatorId}::${ref.key}`);
+      for (const ref of usage.reads) readPairs.add(`${generatorId}::${ref.key}`);
+    }
+    const bidiPairs = new Set<string>();
+    for (const pair of writePairs) {
+      if (readPairs.has(pair)) bidiPairs.add(pair);
+    }
 
     // Create instance nodes on the left
     for (const [i, entry] of scenarioEntries.entries()) {
@@ -160,11 +220,12 @@ export function DataFlowDiagram({
       instanceNodes.push({
         id: `instance-${entry.id}`,
         type: 'instance',
-        position: { x: 50, y: instanceStartY + i * instanceSpacing },
+        position: { x: 30, y: i * 100 + 30 },
         data: {
           label: entry.id,
           statusColor: color,
           processing,
+          highlighted: highlightedNodeId === `instance-${entry.id}`,
         },
         draggable: false,
       });
@@ -175,58 +236,112 @@ export function DataFlowDiagram({
       instanceNodes.push({
         id: `key-${key}`,
         type: 'key',
-        position: { x: 450, y: keyStartY + i * keySpacing },
-        data: { label: key },
+        position: { x: 500, y: i * 100 + 30 },
+        data: {
+          label: key,
+          highlighted: highlightedNodeId === `key-${key}`,
+        },
         draggable: false,
       });
     }
 
-    // Create edges — all animated dashed, no labels
+    // Determine if any node is highlighted so we can dim unrelated edges
+    const hasHighlight = highlightedNodeId !== null && highlightedNodeId !== undefined;
+
+    // Create edges
     for (const [generatorId, usage] of globalsUsageMap.entries()) {
       if (!usage) continue;
 
-      // Write edges: instance → key
       for (const ref of usage.writes) {
-        const edgeId = `write-${generatorId}-${ref.key}`;
-        if (edgeIds.has(edgeId)) continue;
-        edgeIds.add(edgeId);
+        const pairKey = `${generatorId}::${ref.key}`;
+        const isBidi = bidiPairs.has(pairKey);
 
-        flowEdges.push({
-          id: edgeId,
-          source: `instance-${generatorId}`,
-          target: `key-${ref.key}`,
-          sourceHandle: null,
-          targetHandle: null,
-          type: 'default',
-          animated: true,
-          style: edgeStyle,
-        });
+        const sourceNodeId = `instance-${generatorId}`;
+        const targetNodeId = `key-${ref.key}`;
+
+        const isConnectedToHighlight =
+          hasHighlight &&
+          (sourceNodeId === highlightedNodeId ||
+            targetNodeId === highlightedNodeId);
+
+        const style = hasHighlight
+          ? isConnectedToHighlight
+            ? edgeHighlightedStyle
+            : edgeDimmedStyle
+          : edgeStyle;
+
+        if (isBidi) {
+          // Bidirectional: single edge with arrows on both ends
+          flowEdges.push({
+            id: `bidi-${generatorId}-${ref.key}`,
+            source: sourceNodeId,
+            target: targetNodeId,
+            sourceHandle: 'source',
+            targetHandle: 'target',
+            type: 'default',
+            animated: true,
+            style,
+            markerEnd: {
+              type: MarkerType.ArrowClosed,
+              color: 'var(--mantine-color-text)',
+            },
+            markerStart: {
+              type: MarkerType.ArrowClosed,
+              color: 'var(--mantine-color-text)',
+            },
+          });
+        } else {
+          // Write only: instance → key
+          flowEdges.push({
+            id: `write-${generatorId}-${ref.key}`,
+            source: sourceNodeId,
+            target: targetNodeId,
+            sourceHandle: 'source',
+            targetHandle: 'target',
+            type: 'default',
+            animated: true,
+            style,
+          });
+        }
       }
 
-      // Read edges: key → instance
+      // Read edges: key → instance (only if NOT bidirectional)
       for (const ref of usage.reads) {
-        const edgeId = `read-${generatorId}-${ref.key}`;
-        if (edgeIds.has(edgeId)) continue;
-        edgeIds.add(edgeId);
+        const pairKey = `${generatorId}::${ref.key}`;
+        if (bidiPairs.has(pairKey)) continue; // already handled as bidi
+
+        const sourceNodeId = `key-${ref.key}`;
+        const targetNodeId = `instance-${generatorId}`;
+
+        const isConnectedToHighlight =
+          hasHighlight &&
+          (sourceNodeId === highlightedNodeId ||
+            targetNodeId === highlightedNodeId);
+
+        const style = hasHighlight
+          ? isConnectedToHighlight
+            ? edgeHighlightedStyle
+            : edgeDimmedStyle
+          : edgeStyle;
 
         flowEdges.push({
-          id: edgeId,
-          source: `key-${ref.key}`,
-          target: `instance-${generatorId}`,
-          sourceHandle: null,
-          targetHandle: null,
+          id: `read-${generatorId}-${ref.key}`,
+          source: sourceNodeId,
+          target: targetNodeId,
+          sourceHandle: 'source',
+          targetHandle: 'target',
           type: 'default',
           animated: true,
-          style: edgeStyle,
+          style,
         });
       }
     }
 
-    const nodeCount = Math.max(instanceCount, keyCount);
-    const height = Math.max(180, nodeCount * 80 + 40);
+    const maxNodeCount = Math.max(instanceCount, keyCount);
+    const height = Math.max(220, maxNodeCount * 100 + 60);
 
     return { nodes: instanceNodes, edges: flowEdges, containerHeight: height };
-  }, [scenarioEntries, generatorStatusMap, globalsUsageMap]);
+  }, [scenarioEntries, generatorStatusMap, globalsUsageMap, highlightedNodeId]);
 
   function handleNodeClick(_: React.MouseEvent, node: InstanceNodeType | KeyNodeType) {
     if (node.type === 'instance') {
@@ -249,16 +364,15 @@ export function DataFlowDiagram({
           edges={edges}
           nodeTypes={nodeTypes}
           nodesDraggable={false}
-          panOnDrag={false}
-          zoomOnScroll={false}
-          zoomOnPinch={false}
-          zoomOnDoubleClick={false}
+          nodesConnectable={false}
+          elementsSelectable={false}
           onNodeClick={handleNodeClick}
           fitView
           fitViewOptions={{ padding: 0.5 }}
           proOptions={{ hideAttribution: true }}
         >
           <Background variant={BackgroundVariant.Dots} gap={16} size={1} />
+          <Controls showInteractive={false} />
         </ReactFlow>
       </div>
     </Paper>

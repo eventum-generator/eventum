@@ -1,21 +1,27 @@
 import {
   ActionIcon,
   Box,
+  Code,
+  Collapse,
   Group,
   Indicator,
   Paper,
+  Stack,
   Text,
   Tooltip,
+  UnstyledButton,
 } from '@mantine/core';
 import { notifications } from '@mantine/notifications';
 import {
+  IconChevronDown,
+  IconChevronRight,
   IconExternalLink,
   IconPlayerPlay,
   IconPlayerStop,
   IconTrash,
 } from '@tabler/icons-react';
 import { dirname } from 'pathe';
-import { FC } from 'react';
+import { FC, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 
 import {
@@ -23,6 +29,7 @@ import {
   useStopGeneratorMutation,
 } from '@/api/hooks/useGenerators';
 import { GeneratorStatus } from '@/api/routes/generators/schemas';
+import { GlobalsUsage } from '@/api/routes/scenarios/schemas';
 import { ShowErrorDetailsAnchor } from '@/components/ui/ShowErrorDetailsAnchor';
 import { describeInstanceStatus } from '@/pages/InstancesPage/InstancesTable/common/instance-status';
 
@@ -30,16 +37,23 @@ export interface GeneratorCardProps {
   generatorId: string;
   generatorPath: string;
   status?: GeneratorStatus;
+  globalsUsage?: GlobalsUsage;
   onRemove: () => void;
+  onHover?: (nodeId: string | null) => void;
+  onHighlightEdge?: (generatorId: string, keyName: string) => void;
 }
 
 export const GeneratorCard: FC<GeneratorCardProps> = ({
   generatorId,
   generatorPath,
   status,
+  globalsUsage,
   onRemove,
+  onHover,
+  onHighlightEdge,
 }) => {
   const navigate = useNavigate();
+  const [expanded, setExpanded] = useState(false);
 
   const startMutation = useStartGeneratorMutation();
   const stopMutation = useStopGeneratorMutation();
@@ -51,6 +65,10 @@ export const GeneratorCard: FC<GeneratorCardProps> = ({
   const statusInfo = status
     ? describeInstanceStatus(status)
     : { text: 'Inactive', color: 'gray.6' as const, processing: false };
+
+  const hasGlobalsDetails =
+    (globalsUsage?.writes.length ?? 0) > 0 ||
+    (globalsUsage?.reads.length ?? 0) > 0;
 
   function handleStart() {
     startMutation.mutate(
@@ -103,9 +121,28 @@ export const GeneratorCard: FC<GeneratorCardProps> = ({
   }
 
   return (
-    <Paper withBorder p="xs">
+    <Paper
+      withBorder
+      p="sm"
+      onMouseEnter={() => onHover?.(`instance-${generatorId}`)}
+      onMouseLeave={() => onHover?.(null)}
+    >
       <Group justify="space-between" align="center" wrap="nowrap">
         <Group gap="sm" align="center" wrap="nowrap" style={{ minWidth: 0 }}>
+          {hasGlobalsDetails ? (
+            <UnstyledButton
+              onClick={() => setExpanded((prev) => !prev)}
+              style={{ lineHeight: 0 }}
+            >
+              {expanded ? (
+                <IconChevronDown size={14} />
+              ) : (
+                <IconChevronRight size={14} />
+              )}
+            </UnstyledButton>
+          ) : (
+            <Box w={14} />
+          )}
           <Tooltip label={statusInfo.text} withArrow>
             <Box style={{ lineHeight: 0 }}>
               <Indicator
@@ -129,45 +166,84 @@ export const GeneratorCard: FC<GeneratorCardProps> = ({
             <Tooltip label="Stop" withArrow>
               <ActionIcon
                 variant="subtle"
-                size="sm"
                 onClick={handleStop}
                 disabled={stopMutation.isPending}
               >
-                <IconPlayerStop size={16} />
+                <IconPlayerStop size={18} />
               </ActionIcon>
             </Tooltip>
           ) : (
             <Tooltip label="Start" withArrow>
               <ActionIcon
                 variant="subtle"
-                size="sm"
                 onClick={handleStart}
                 disabled={startMutation.isPending}
               >
-                <IconPlayerPlay size={16} />
+                <IconPlayerPlay size={18} />
               </ActionIcon>
             </Tooltip>
           )}
           <Tooltip label="Go to project" withArrow>
             <ActionIcon
               variant="subtle"
-              size="sm"
               onClick={() => void navigate(`/projects/${projectName}`)}
             >
-              <IconExternalLink size={16} />
+              <IconExternalLink size={18} />
             </ActionIcon>
           </Tooltip>
           <Tooltip label="Remove from scenario" withArrow>
             <ActionIcon
               variant="subtle"
-              size="sm"
               onClick={onRemove}
             >
-              <IconTrash size={16} />
+              <IconTrash size={18} />
             </ActionIcon>
           </Tooltip>
         </Group>
       </Group>
+
+      <Collapse in={expanded}>
+        <Stack gap="xs" mt="xs" pl="md">
+          {globalsUsage?.writes.map((w, i) => (
+            <Stack
+              key={`w-${i}`}
+              gap={2}
+              onMouseEnter={() => onHighlightEdge?.(generatorId, w.key)}
+              onMouseLeave={() => onHighlightEdge?.('', '')}
+            >
+              <Text size="xs" c="dimmed">
+                Writes{' '}
+                <Text span ff="monospace" fw={500}>
+                  {w.key}
+                </Text>{' '}
+                in {w.template}:{w.line}
+              </Text>
+              <Code block style={{ fontSize: 11 }}>
+                {w.snippet}
+              </Code>
+            </Stack>
+          ))}
+          {globalsUsage?.reads.map((r, i) => (
+            <Stack
+              key={`r-${i}`}
+              gap={2}
+              onMouseEnter={() => onHighlightEdge?.(generatorId, r.key)}
+              onMouseLeave={() => onHighlightEdge?.('', '')}
+            >
+              <Text size="xs" c="dimmed">
+                Reads{' '}
+                <Text span ff="monospace" fw={500}>
+                  {r.key}
+                </Text>{' '}
+                in {r.template}:{r.line}
+              </Text>
+              <Code block style={{ fontSize: 11 }}>
+                {r.snippet}
+              </Code>
+            </Stack>
+          ))}
+        </Stack>
+      </Collapse>
     </Paper>
   );
 };

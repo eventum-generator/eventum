@@ -32,7 +32,7 @@ export const GlobalStateInspector: FC<GlobalStateInspectorProps> = ({
 
   return (
     <>
-      <Stack gap="sm" p="sm" pt={0}>
+      <Stack gap="md" p="sm" pt={0}>
         {writers.length > 0 && (
           <>
             <Divider
@@ -43,7 +43,7 @@ export const GlobalStateInspector: FC<GlobalStateInspectorProps> = ({
               }
               labelPosition="left"
             />
-            <Stack gap="xs">
+            <Stack gap="sm">
               {writers.map((w, i) => (
                 <Stack key={`w-${i}`} gap={2}>
                   <Group gap="xs" justify="space-between" wrap="nowrap">
@@ -83,7 +83,7 @@ export const GlobalStateInspector: FC<GlobalStateInspectorProps> = ({
               }
               labelPosition="left"
             />
-            <Stack gap="xs">
+            <Stack gap="sm">
               {readers.map((r, i) => (
                 <Stack key={`r-${i}`} gap={2}>
                   <Group gap="xs" justify="space-between" wrap="nowrap">

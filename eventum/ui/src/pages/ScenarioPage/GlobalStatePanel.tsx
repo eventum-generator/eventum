@@ -81,6 +81,7 @@ export interface GlobalStatePanelProps {
     isLoading: boolean;
   }[];
   selectedKey?: string | null;
+  onKeyHover?: (keyName: string | null) => void;
 }
 
 export const GlobalStatePanel = ({
@@ -88,6 +89,7 @@ export const GlobalStatePanel = ({
   generatorPaths,
   globalsUsageResults,
   selectedKey,
+  onKeyHover,
 }: GlobalStatePanelProps) => {
   const [expandedKey, setExpandedKey] = useState<string | null>(null);
 
@@ -96,6 +98,10 @@ export const GlobalStatePanel = ({
       setExpandedKey(selectedKey);
     }
   }, [selectedKey]);
+
+  function handleKeyHover(keyName: string | null) {
+    onKeyHover?.(keyName);
+  }
 
   const isLoading = globalsUsageResults.some((r) => r.isLoading);
 
@@ -185,7 +191,7 @@ export const GlobalStatePanel = ({
             No global state keys detected.
           </Text>
         ) : (
-          <Stack gap={4}>
+          <Stack gap="sm">
             {sortedKeys.map((key) => {
               const info = keyMap.get(key)!;
               const isExpanded = expandedKey === key;
@@ -198,6 +204,9 @@ export const GlobalStatePanel = ({
                   withBorder
                   p={0}
                   radius="sm"
+                  bg="var(--mantine-color-default)"
+                  onMouseEnter={() => handleKeyHover(key)}
+                  onMouseLeave={() => handleKeyHover(null)}
                 >
                   <UnstyledButton
                     w="100%"

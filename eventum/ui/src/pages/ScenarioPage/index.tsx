@@ -56,6 +56,7 @@ export default function ScenarioPage() {
   const [isEditing, setIsEditing] = useState(false);
   const [editName, setEditName] = useState(scenarioName);
   const [selectedGlobalKey, setSelectedGlobalKey] = useState<string | null>(null);
+  const [highlightedNodeId, setHighlightedNodeId] = useState<string | null>(null);
   const isRenaming = useRef(false);
 
   const {
@@ -298,6 +299,23 @@ export default function ScenarioPage() {
     setSelectedGlobalKey(keyName);
   }
 
+  function handleCardHover(nodeId: string | null) {
+    setHighlightedNodeId(nodeId);
+  }
+
+  function handleKeyHover(keyName: string | null) {
+    setHighlightedNodeId(keyName ? `key-${keyName}` : null);
+  }
+
+  function handleHighlightEdge(generatorId: string, keyName: string) {
+    if (generatorId && keyName) {
+      // Highlight the key node when hovering a specific write/read entry
+      setHighlightedNodeId(`key-${keyName}`);
+    } else {
+      setHighlightedNodeId(null);
+    }
+  }
+
   const isLoading = isStartupLoading || isGeneratorsLoading;
   const isError = isStartupError || isGeneratorsError;
   const error = startupError ?? generatorsError;
@@ -399,6 +417,7 @@ export default function ScenarioPage() {
                     scenarioEntries={scenarioEntries}
                     generatorStatusMap={generatorStatusMap}
                     globalsUsageMap={globalsUsageMap}
+                    highlightedNodeId={highlightedNodeId}
                     onInstanceClick={handleDiagramInstanceClick}
                     onKeyClick={handleDiagramKeyClick}
                   />
@@ -449,7 +468,10 @@ export default function ScenarioPage() {
                             generatorId={entry.id}
                             generatorPath={entry.path}
                             status={generatorStatusMap.get(entry.id)}
+                            globalsUsage={globalsUsageMap.get(entry.id)}
                             onRemove={() => handleRemoveGenerator(entry)}
+                            onHover={handleCardHover}
+                            onHighlightEdge={handleHighlightEdge}
                           />
                         </div>
                       ))}
@@ -464,6 +486,7 @@ export default function ScenarioPage() {
                 generatorPaths={generatorPathMap}
                 globalsUsageResults={globalsUsageQueries}
                 selectedKey={selectedGlobalKey}
+                onKeyHover={handleKeyHover}
               />
             </Grid.Col>
           </Grid>
