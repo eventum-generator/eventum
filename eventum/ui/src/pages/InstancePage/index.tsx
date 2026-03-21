@@ -88,6 +88,7 @@ export default function InstancePage() {
       form.initialize({
         ...generatorParams,
         autostart: startupGeneratorParams.autostart,
+        scenarios: startupGeneratorParams.scenarios ?? [],
       });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
