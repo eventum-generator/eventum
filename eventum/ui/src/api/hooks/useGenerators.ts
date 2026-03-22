@@ -5,15 +5,18 @@ import {
   bulkRemoveGenerators as bulkDeleteGenerators,
   bulkStartGenerators,
   bulkStopGenerators,
+  clearGlobalState,
   deleteGenerator,
   getGenerator,
   getGeneratorStats,
   getGeneratorStatus,
+  getGlobalState,
   getRunningGeneratorsStats,
   listGenerators,
   startGenerator,
   stopGenerator,
   updateGenerator,
+  updateGlobalState,
 } from '../routes/generators';
 import {
   GeneratorParameters,
@@ -197,6 +200,41 @@ export function useUpdateGeneratorStatus() {
         (oldValue: GeneratorsInfo) =>
           oldValue.map((item) => (item.id === id ? { ...item, status } : item))
       );
+    },
+  });
+}
+
+const GLOBAL_STATE_QUERY_KEY = [...GENERATORS_QUERY_KEY, 'global-state'];
+
+export function useGlobalState() {
+  return useQuery({
+    queryKey: GLOBAL_STATE_QUERY_KEY,
+    queryFn: getGlobalState,
+  });
+}
+
+export function useUpdateGlobalStateMutation() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (state: Record<string, unknown>) => updateGlobalState(state),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({
+        queryKey: GLOBAL_STATE_QUERY_KEY,
+      });
+    },
+  });
+}
+
+export function useClearGlobalStateMutation() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: () => clearGlobalState(),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({
+        queryKey: GLOBAL_STATE_QUERY_KEY,
+      });
     },
   });
 }

@@ -1,23 +1,22 @@
 import { Group, Indicator, Paper, Text, Title } from '@mantine/core';
+import { IconDatabase, IconPlayerPlay, IconRoute } from '@tabler/icons-react';
 import {
   Background,
   BackgroundVariant,
   Controls,
+  type Edge,
   Handle,
   MarkerType,
-  Position,
-  ReactFlow,
-  type Edge,
   type Node,
   type NodeProps,
+  Position,
+  ReactFlow,
 } from '@xyflow/react';
-import { IconDatabase, IconPlayerPlay, IconRoute } from '@tabler/icons-react';
+import '@xyflow/react/dist/style.css';
 import { memo, useMemo } from 'react';
 
 import { GeneratorStatus } from '@/api/routes/generators/schemas';
 import { describeInstanceStatus } from '@/pages/InstancesPage/InstancesTable/common/instance-status';
-
-import '@xyflow/react/dist/style.css';
 
 interface DataFlowDiagramProps {
   scenarioEntries: { id: string; path: string }[];
@@ -29,7 +28,6 @@ interface DataFlowDiagramProps {
   highlightedNodeId?: string | null;
   highlightedEdgeId?: string | null;
   onInstanceClick?: (instanceId: string) => void;
-  onKeyClick?: (keyName: string) => void;
 }
 
 type InstanceNodeData = {
@@ -68,7 +66,10 @@ const InstanceNode = memo(({ data }: NodeProps<InstanceNodeType>) => (
       position={Position.Right}
       id="source"
       style={{
-        background: 'transparent', border: 'none', width: 6, height: 6,
+        background: 'transparent',
+        border: 'none',
+        width: 6,
+        height: 6,
         top: '25%',
       }}
       isConnectable={false}
@@ -78,22 +79,27 @@ const InstanceNode = memo(({ data }: NodeProps<InstanceNodeType>) => (
       position={Position.Right}
       id="target"
       style={{
-        background: 'transparent', border: 'none', width: 6, height: 6,
+        background: 'transparent',
+        border: 'none',
+        width: 6,
+        height: 6,
         top: '75%',
       }}
       isConnectable={false}
     />
-    <Group gap="sm" wrap="nowrap" px={4}>
+    <Group gap={8} wrap="nowrap" pr={6} justify="space-between">
+      <Group gap={8} wrap="nowrap">
+        <IconPlayerPlay size={14} />
+        <Text size="sm" fw={500}>
+          {data.label}
+        </Text>
+      </Group>
       <Indicator
         color={data.statusColor}
         size={8}
         position="middle-center"
         processing={data.processing}
       />
-      <IconPlayerPlay size={14} />
-      <Text size="sm" fw={500}>
-        {data.label}
-      </Text>
     </Group>
   </Paper>
 ));
@@ -120,7 +126,10 @@ const KeyNode = memo(({ data }: NodeProps<KeyNodeType>) => (
       position={Position.Left}
       id="target"
       style={{
-        background: 'transparent', border: 'none', width: 6, height: 6,
+        background: 'transparent',
+        border: 'none',
+        width: 6,
+        height: 6,
         top: '25%',
       }}
       isConnectable={false}
@@ -130,7 +139,10 @@ const KeyNode = memo(({ data }: NodeProps<KeyNodeType>) => (
       position={Position.Left}
       id="source"
       style={{
-        background: 'transparent', border: 'none', width: 6, height: 6,
+        background: 'transparent',
+        border: 'none',
+        width: 6,
+        height: 6,
         top: '75%',
       }}
       isConnectable={false}
@@ -179,7 +191,6 @@ export function DataFlowDiagram({
   highlightedNodeId,
   highlightedEdgeId,
   onInstanceClick,
-  onKeyClick,
 }: DataFlowDiagramProps) {
   const nodeTypes = useMemo(
     () => ({ instance: InstanceNode, key: KeyNode }),
@@ -204,8 +215,7 @@ export function DataFlowDiagram({
 
     // Create instance nodes on the left
     for (const [i, entry] of scenarioEntries.entries()) {
-      const status =
-        generatorStatusMap.get(entry.id) ?? defaultInactiveStatus;
+      const status = generatorStatusMap.get(entry.id) ?? defaultInactiveStatus;
       const { color, processing } = describeInstanceStatus(status);
 
       instanceNodes.push({
@@ -237,7 +247,9 @@ export function DataFlowDiagram({
     }
 
     // Determine if any highlight is active
-    const hasHighlight = (highlightedNodeId !== null && highlightedNodeId !== undefined) || (highlightedEdgeId !== null && highlightedEdgeId !== undefined);
+    const hasHighlight =
+      (highlightedNodeId !== null && highlightedNodeId !== undefined) ||
+      (highlightedEdgeId !== null && highlightedEdgeId !== undefined);
 
     // Create edges (deduplicate by edge ID)
     const seenEdgeIds = new Set<string>();
@@ -253,15 +265,19 @@ export function DataFlowDiagram({
 
         const isThisEdge = highlightedEdgeId === edgeId;
         const isConnectedToNode =
-          sourceNodeId === highlightedNodeId || targetNodeId === highlightedNodeId;
+          sourceNodeId === highlightedNodeId ||
+          targetNodeId === highlightedNodeId;
 
         const isHighlighted = isThisEdge || isConnectedToNode;
         const style = hasHighlight
-          ? isHighlighted ? edgeHighlightedStyle : edgeDimmedStyle
+          ? isHighlighted
+            ? edgeHighlightedStyle
+            : edgeDimmedStyle
           : edgeStyle;
-        const markerColor = hasHighlight && isHighlighted
-          ? 'var(--mantine-primary-color-filled)'
-          : 'var(--mantine-color-text)';
+        const markerColor =
+          hasHighlight && isHighlighted
+            ? 'var(--mantine-primary-color-filled)'
+            : 'var(--mantine-color-text)';
 
         flowEdges.push({
           id: edgeId,
@@ -286,15 +302,19 @@ export function DataFlowDiagram({
 
         const isThisEdge = highlightedEdgeId === edgeId;
         const isConnectedToNode =
-          sourceNodeId === highlightedNodeId || targetNodeId === highlightedNodeId;
+          sourceNodeId === highlightedNodeId ||
+          targetNodeId === highlightedNodeId;
 
         const isHighlighted = isThisEdge || isConnectedToNode;
         const style = hasHighlight
-          ? isHighlighted ? edgeHighlightedStyle : edgeDimmedStyle
+          ? isHighlighted
+            ? edgeHighlightedStyle
+            : edgeDimmedStyle
           : edgeStyle;
-        const markerColor = hasHighlight && isHighlighted
-          ? 'var(--mantine-primary-color-filled)'
-          : 'var(--mantine-color-text)';
+        const markerColor =
+          hasHighlight && isHighlighted
+            ? 'var(--mantine-primary-color-filled)'
+            : 'var(--mantine-color-text)';
 
         flowEdges.push({
           id: edgeId,
@@ -314,15 +334,21 @@ export function DataFlowDiagram({
     const height = Math.max(220, maxNodeCount * 100 + 60);
 
     return { nodes: instanceNodes, edges: flowEdges, containerHeight: height };
-  }, [scenarioEntries, generatorStatusMap, globalsUsageMap, highlightedNodeId, highlightedEdgeId]);
+  }, [
+    scenarioEntries,
+    generatorStatusMap,
+    globalsUsageMap,
+    highlightedNodeId,
+    highlightedEdgeId,
+  ]);
 
-  function handleNodeClick(_: React.MouseEvent, node: InstanceNodeType | KeyNodeType) {
+  function handleNodeClick(
+    _: React.MouseEvent,
+    node: InstanceNodeType | KeyNodeType
+  ) {
     if (node.type === 'instance') {
       const instanceId = node.id.replace('instance-', '');
       onInstanceClick?.(instanceId);
-    } else if (node.type === 'key') {
-      const keyName = node.id.replace('key-', '');
-      onKeyClick?.(keyName);
     }
   }
 

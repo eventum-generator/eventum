@@ -1,292 +1,739 @@
 import {
+  ActionIcon,
   Alert,
-  Collapse,
+  Badge,
+  Box,
+  Button,
   Group,
-  Loader,
+  JsonInput,
+  Menu,
+  Modal,
+  Pagination,
   Paper,
+  Skeleton,
   Stack,
+  Table,
   Text,
+  TextInput,
   Title,
-  UnstyledButton,
+  Tooltip,
 } from '@mantine/core';
+import { useDisclosure } from '@mantine/hooks';
+import { modals } from '@mantine/modals';
+import { notifications } from '@mantine/notifications';
 import {
+  IconAlertSquareRounded,
   IconAlertTriangle,
-  IconChevronDown,
-  IconChevronRight,
   IconDatabase,
+  IconDotsVertical,
+  IconEraser,
+  IconEdit,
+  IconPencil,
+  IconPlus,
+  IconRefresh,
+  IconSearch,
+  IconTrash,
 } from '@tabler/icons-react';
-import { dirname } from 'pathe';
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 
-import { GlobalStateInspector } from './GlobalStateInspector';
-import { GlobalsUsage } from '@/api/routes/scenarios/schemas';
+import {
+  useClearGlobalStateMutation,
+  useGlobalState,
+  useUpdateGlobalStateMutation,
+} from '@/api/hooks/useGenerators';
+import { ShowErrorDetailsAnchor } from '@/components/ui/ShowErrorDetailsAnchor';
 
-interface WriterEntry {
-  generatorId: string;
-  generatorName: string;
-  template: string;
-  line: number;
-  snippet: string;
+const PAGE_SIZE = 20;
+
+function getValueType(value: unknown): string {
+  if (value === null) return 'null';
+  if (Array.isArray(value)) return 'array';
+  return typeof value;
 }
 
-interface ReaderEntry {
-  generatorId: string;
-  generatorName: string;
-  template: string;
-  line: number;
-  snippet: string;
-}
+function formatValuePreview(value: unknown): string {
+  if (value === null) return 'null';
+  if (value === undefined) return 'undefined';
 
-interface KeyInfo {
-  writers: WriterEntry[];
-  readers: ReaderEntry[];
-}
+  const type = typeof value;
+  if (type === 'string') return `"${value}"`;
+  if (type === 'number' || type === 'boolean') return String(value);
 
-function uniqueTemplateCount(info: KeyInfo): number {
-  const templates = new Set<string>();
-  for (const w of info.writers) templates.add(`${w.generatorId}:${w.template}`);
-  for (const r of info.readers) templates.add(`${r.generatorId}:${r.template}`);
-  return templates.size;
-}
-
-function uniqueWriterNames(info: KeyInfo): string[] {
-  return [...new Set(info.writers.map((w) => w.generatorId))];
-}
-
-function uniqueReaderNames(info: KeyInfo): string[] {
-  return [...new Set(info.readers.map((r) => r.generatorId))];
-}
-
-function flowSummary(info: KeyInfo): string {
-  const writers = uniqueWriterNames(info);
-  const readers = uniqueReaderNames(info);
-
-  if (writers.length > 0 && readers.length > 0) {
-    return `${writers.join(', ')} → ${readers.join(', ')}`;
+  if (Array.isArray(value)) {
+    return `[${value.length} items]`;
   }
-  if (writers.length > 0) {
-    return `${writers.join(', ')} → (no readers)`;
+
+  if (type === 'object') {
+    const keys = Object.keys(value as object);
+    return `{${keys.length} keys}`;
   }
-  if (readers.length > 0) {
-    return `(no writers) → ${readers.join(', ')}`;
-  }
-  return '';
+
+  return String(value);
 }
 
-export interface GlobalStatePanelProps {
-  generatorNames: string[];
-  generatorPaths: Map<string, string>;
-  globalsUsageResults: {
-    data?: GlobalsUsage;
-    isLoading: boolean;
-  }[];
-  selectedKey?: string | null;
-  onKeyHover?: (keyName: string | null) => void;
+function isSimpleValue(value: unknown): boolean {
+  if (value === null || value === undefined) return true;
+  const type = typeof value;
+  return type === 'string' || type === 'number' || type === 'boolean';
 }
 
-export const GlobalStatePanel = ({
-  generatorNames,
-  generatorPaths,
-  globalsUsageResults,
-  selectedKey,
-  onKeyHover,
-}: GlobalStatePanelProps) => {
-  const [expandedKey, setExpandedKey] = useState<string | null>(null);
+function typeBadgeColor(type: string): string {
+  switch (type) {
+    case 'string':
+      return 'green';
+    case 'number':
+      return 'blue';
+    case 'boolean':
+      return 'orange';
+    case 'object':
+      return 'violet';
+    case 'array':
+      return 'cyan';
+    case 'null':
+      return 'gray';
+    default:
+      return 'gray';
+  }
+}
+
+interface ValueEditorModalProps {
+  opened: boolean;
+  onClose: () => void;
+  keyName: string;
+  value: unknown;
+  onSave: (key: string, value: unknown) => void;
+}
+
+function ValueEditorModal({
+  opened,
+  onClose,
+  keyName,
+  value,
+  onSave,
+}: ValueEditorModalProps) {
+  const [jsonValue, setJsonValue] = useState('');
+  const [jsonError, setJsonError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (selectedKey) {
-      setExpandedKey(selectedKey);
+    if (opened) {
+      setJsonValue(JSON.stringify(value, undefined, 2));
+      setJsonError(null);
     }
-  }, [selectedKey]);
+  }, [opened, value]);
 
-  function handleKeyHover(keyName: string | null) {
-    onKeyHover?.(keyName);
+  function handleChange(val: string) {
+    setJsonValue(val);
+    try {
+      JSON.parse(val);
+      setJsonError(null);
+    } catch {
+      setJsonError('Invalid JSON');
+    }
   }
 
-  const isLoading = globalsUsageResults.some((r) => r.isLoading);
+  function handleSave() {
+    try {
+      const parsed = JSON.parse(jsonValue) as unknown;
+      onSave(keyName, parsed);
+      onClose();
+    } catch {
+      setJsonError('Invalid JSON');
+    }
+  }
 
-  const keyMap = useMemo(() => {
-    const map = new Map<string, KeyInfo>();
-
-    for (const [i, generatorId] of generatorNames.entries()) {
-      const usage = globalsUsageResults[i]?.data;
-      if (!usage) continue;
-
-      const path = generatorPaths.get(generatorId) ?? '';
-      const generatorName = dirname(path);
-
-      for (const ref of usage.writes) {
-        if (!map.has(ref.key)) {
-          map.set(ref.key, { writers: [], readers: [] });
-        }
-        map.get(ref.key)!.writers.push({
-          generatorId,
-          generatorName,
-          template: ref.template,
-          line: ref.line,
-          snippet: ref.snippet,
-        });
+  return (
+    <Modal
+      opened={opened}
+      onClose={onClose}
+      title={
+        <Group gap="xs">
+          <IconEdit size={16} />
+          <Text fw={600} ff="monospace">
+            {keyName}
+          </Text>
+        </Group>
       }
+      size="lg"
+    >
+      <Stack gap="sm">
+        <JsonInput
+          value={jsonValue}
+          onChange={handleChange}
+          error={jsonError}
+          placeholder="Enter JSON value..."
+          minRows={8}
+          autosize
+          maxRows={20}
+          ff="monospace"
+        />
+        <Group justify="flex-end" gap="xs">
+          <Button variant="default" onClick={onClose}>
+            Cancel
+          </Button>
+          <Button onClick={handleSave} disabled={jsonError !== null}>
+            Save
+          </Button>
+        </Group>
+      </Stack>
+    </Modal>
+  );
+}
 
-      for (const ref of usage.reads) {
-        if (!map.has(ref.key)) {
-          map.set(ref.key, { writers: [], readers: [] });
-        }
-        map.get(ref.key)!.readers.push({
-          generatorId,
-          generatorName,
-          template: ref.template,
-          line: ref.line,
-          snippet: ref.snippet,
+interface AddKeyModalProps {
+  opened: boolean;
+  onClose: () => void;
+  existingKeys: string[];
+  onAdd: (key: string, value: unknown) => void;
+}
+
+function AddKeyModal({ opened, onClose, existingKeys, onAdd }: AddKeyModalProps) {
+  const [newKey, setNewKey] = useState('');
+  const [jsonValue, setJsonValue] = useState('""');
+  const [jsonError, setJsonError] = useState<string | null>(null);
+  const [keyError, setKeyError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (opened) {
+      setNewKey('');
+      setJsonValue('""');
+      setJsonError(null);
+      setKeyError(null);
+    }
+  }, [opened]);
+
+  function handleKeyChange(val: string) {
+    setNewKey(val);
+    if (!val.trim()) {
+      setKeyError('Key is required');
+    } else if (existingKeys.includes(val.trim())) {
+      setKeyError('Key already exists');
+    } else {
+      setKeyError(null);
+    }
+  }
+
+  function handleValueChange(val: string) {
+    setJsonValue(val);
+    try {
+      JSON.parse(val);
+      setJsonError(null);
+    } catch {
+      setJsonError('Invalid JSON');
+    }
+  }
+
+  function handleAdd() {
+    const key = newKey.trim();
+    if (!key || existingKeys.includes(key)) return;
+
+    try {
+      const parsed = JSON.parse(jsonValue) as unknown;
+      onAdd(key, parsed);
+      onClose();
+    } catch {
+      setJsonError('Invalid JSON');
+    }
+  }
+
+  return (
+    <Modal
+      opened={opened}
+      onClose={onClose}
+      title="Add key"
+      size="md"
+    >
+      <Stack gap="sm">
+        <TextInput
+          label="Key"
+          placeholder="Enter key name..."
+          value={newKey}
+          onChange={(e) => handleKeyChange(e.currentTarget.value)}
+          error={keyError}
+          ff="monospace"
+        />
+        <JsonInput
+          label="Value"
+          value={jsonValue}
+          onChange={handleValueChange}
+          error={jsonError}
+          placeholder="Enter JSON value..."
+          minRows={3}
+          autosize
+          ff="monospace"
+        />
+        <Group justify="flex-end" gap="xs">
+          <Button variant="default" onClick={onClose}>
+            Cancel
+          </Button>
+          <Button
+            onClick={handleAdd}
+            disabled={
+              !newKey.trim() ||
+              keyError !== null ||
+              jsonError !== null
+            }
+          >
+            Add
+          </Button>
+        </Group>
+      </Stack>
+    </Modal>
+  );
+}
+
+export const GlobalStatePanel = () => {
+  const { data, isLoading, isError, error, isSuccess, refetch } =
+    useGlobalState();
+  const updateState = useUpdateGlobalStateMutation();
+  const clearState = useClearGlobalStateMutation();
+
+  const [search, setSearch] = useState('');
+  const [page, setPage] = useState(1);
+  const [editingKey, setEditingKey] = useState<string | null>(null);
+  const [editingValue, setEditingValue] = useState<unknown>(null);
+  const [editorOpened, editorHandlers] = useDisclosure(false);
+  const [addOpened, addHandlers] = useDisclosure(false);
+
+  // Inline edit state for simple values
+  const [inlineEditKey, setInlineEditKey] = useState<string | null>(null);
+  const [inlineEditValue, setInlineEditValue] = useState('');
+
+  const entries = useMemo(() => {
+    if (!data) return [];
+    return Object.entries(data).sort(([a], [b]) => a.localeCompare(b));
+  }, [data]);
+
+  const filteredEntries = useMemo(() => {
+    if (!search.trim()) return entries;
+    const q = search.toLowerCase();
+    return entries.filter(
+      ([key, value]) =>
+        key.toLowerCase().includes(q) ||
+        formatValuePreview(value).toLowerCase().includes(q),
+    );
+  }, [entries, search]);
+
+  const totalPages = Math.max(1, Math.ceil(filteredEntries.length / PAGE_SIZE));
+  const currentPage = Math.min(page, totalPages);
+
+  const pageEntries = useMemo(
+    () =>
+      filteredEntries.slice(
+        (currentPage - 1) * PAGE_SIZE,
+        currentPage * PAGE_SIZE,
+      ),
+    [filteredEntries, currentPage],
+  );
+
+  const existingKeys = useMemo(
+    () => entries.map(([key]) => key),
+    [entries],
+  );
+
+  const handleUpdateKey = useCallback(
+    (key: string, value: unknown) => {
+      if (!data) return;
+      const newState = { ...data, [key]: value };
+      updateState.mutate(newState, {
+        onSuccess: () => {
+          notifications.show({
+            title: 'Updated',
+            message: `Key "${key}" updated`,
+            color: 'green',
+          });
+        },
+        onError: (updateError) => {
+          notifications.show({
+            title: 'Error',
+            message: (
+              <>
+                Failed to update key
+                <ShowErrorDetailsAnchor error={updateError} prependDot />
+              </>
+            ),
+            color: 'red',
+          });
+        },
+      });
+    },
+    [data, updateState],
+  );
+
+  const handleDeleteKey = useCallback(
+    (key: string) => {
+      modals.openConfirmModal({
+        title: 'Delete key',
+        children: (
+          <Text size="sm">
+            Delete key <b>{key}</b> from global state?
+          </Text>
+        ),
+        labels: { cancel: 'Cancel', confirm: 'Delete' },
+        confirmProps: { color: 'red' },
+        onConfirm: () => {
+          if (!data) return;
+          const newState = { ...data };
+          delete newState[key];
+          updateState.mutate(newState, {
+            onSuccess: () => {
+              notifications.show({
+                title: 'Deleted',
+                message: `Key "${key}" removed`,
+                color: 'green',
+              });
+            },
+            onError: (deleteError) => {
+              notifications.show({
+                title: 'Error',
+                message: (
+                  <>
+                    Failed to delete key
+                    <ShowErrorDetailsAnchor error={deleteError} prependDot />
+                  </>
+                ),
+                color: 'red',
+              });
+            },
+          });
+        },
+      });
+    },
+    [data, updateState],
+  );
+
+  const handleAddKey = useCallback(
+    (key: string, value: unknown) => {
+      if (!data) return;
+      const newState = { ...data, [key]: value };
+      updateState.mutate(newState, {
+        onSuccess: () => {
+          notifications.show({
+            title: 'Added',
+            message: `Key "${key}" added`,
+            color: 'green',
+          });
+        },
+        onError: (addError) => {
+          notifications.show({
+            title: 'Error',
+            message: (
+              <>
+                Failed to add key
+                <ShowErrorDetailsAnchor error={addError} prependDot />
+              </>
+            ),
+            color: 'red',
+          });
+        },
+      });
+    },
+    [data, updateState],
+  );
+
+  function handleClear() {
+    modals.openConfirmModal({
+      title: 'Clear global state',
+      children: (
+        <Text size="sm">
+          This will remove all {entries.length} keys from global state. This
+          action cannot be undone.
+        </Text>
+      ),
+      labels: { cancel: 'Cancel', confirm: 'Clear all' },
+      confirmProps: { color: 'red' },
+      onConfirm: () => {
+        clearState.mutate(undefined, {
+          onSuccess: () => {
+            notifications.show({
+              title: 'Cleared',
+              message: 'Global state cleared',
+              color: 'green',
+            });
+          },
+          onError: (clearError) => {
+            notifications.show({
+              title: 'Error',
+              message: (
+                <>
+                  Failed to clear global state
+                  <ShowErrorDetailsAnchor error={clearError} prependDot />
+                </>
+              ),
+              color: 'red',
+            });
+          },
         });
+      },
+    });
+  }
+
+  function openEditor(key: string, value: unknown) {
+    setEditingKey(key);
+    setEditingValue(value);
+    editorHandlers.open();
+  }
+
+  function startInlineEdit(key: string, value: unknown) {
+    setInlineEditKey(key);
+    setInlineEditValue(String(value));
+  }
+
+  function commitInlineEdit(key: string, originalValue: unknown) {
+    const type = typeof originalValue;
+    let parsed: unknown;
+
+    if (type === 'number') {
+      parsed = Number(inlineEditValue);
+      if (Number.isNaN(parsed as number)) {
+        setInlineEditKey(null);
+        return;
       }
+    } else if (type === 'boolean') {
+      parsed = inlineEditValue === 'true';
+    } else {
+      parsed = inlineEditValue;
     }
 
-    return map;
-  }, [generatorNames, generatorPaths, globalsUsageResults]);
+    if (parsed !== originalValue) {
+      handleUpdateKey(key, parsed);
+    }
+    setInlineEditKey(null);
+  }
 
-  const sortedKeys = useMemo(
-    () => [...keyMap.keys()].sort((a, b) => a.localeCompare(b)),
-    [keyMap],
-  );
-
-  const orphanedReads = useMemo(
-    () =>
-      sortedKeys.filter((key) => {
-        const info = keyMap.get(key)!;
-        return info.readers.length > 0 && info.writers.length === 0;
-      }),
-    [sortedKeys, keyMap],
-  );
-
-  const unusedWrites = useMemo(
-    () =>
-      sortedKeys.filter((key) => {
-        const info = keyMap.get(key)!;
-        return info.writers.length > 0 && info.readers.length === 0;
-      }),
-    [sortedKeys, keyMap],
-  );
-
-  function toggleKey(key: string) {
-    setExpandedKey((prev) => (prev === key ? null : key));
+  function handleEditClick(key: string, value: unknown) {
+    if (isSimpleValue(value) && value !== null) {
+      startInlineEdit(key, value);
+    } else {
+      openEditor(key, value);
+    }
   }
 
   return (
     <Paper withBorder p="md" h="100%">
       <Stack gap="sm">
-        <Group gap="xs">
-          <IconDatabase size={16} />
-          <Title order={5} fw="normal">
-            Global State
-          </Title>
+        <Group justify="space-between" align="center">
+          <Group gap="xs">
+            <IconDatabase size={16} />
+            <Title order={5} fw="normal">
+              Global State
+            </Title>
+            {isSuccess && (
+              <Badge variant="light" size="sm">
+                {entries.length} key{entries.length !== 1 ? 's' : ''}
+              </Badge>
+            )}
+          </Group>
+          <Group gap="xs">
+            <Tooltip label="Refresh">
+              <ActionIcon
+                variant="default"
+                onClick={() => void refetch()}
+                loading={isLoading}
+              >
+                <IconRefresh size={16} />
+              </ActionIcon>
+            </Tooltip>
+            <Tooltip label="Add key">
+              <ActionIcon
+                variant="default"
+                onClick={addHandlers.open}
+                disabled={!isSuccess}
+              >
+                <IconPlus size={16} />
+              </ActionIcon>
+            </Tooltip>
+            <Tooltip label="Clear all">
+              <ActionIcon
+                variant="default"
+                onClick={handleClear}
+                disabled={!isSuccess || entries.length === 0}
+                loading={clearState.isPending}
+              >
+                <IconEraser size={16} />
+              </ActionIcon>
+            </Tooltip>
+          </Group>
         </Group>
 
-        {isLoading ? (
-          <Group justify="center" py="md">
-            <Loader size="sm" />
-          </Group>
-        ) : sortedKeys.length === 0 ? (
-          <Text size="sm" c="dimmed">
-            No global state keys detected.
+        {isLoading && <Skeleton h="200px" />}
+
+        {isError && (
+          <Alert
+            variant="default"
+            icon={<Box c="red" component={IconAlertSquareRounded} />}
+            title="Failed to load global state"
+          >
+            {error.message}
+            <ShowErrorDetailsAnchor error={error} prependDot />
+          </Alert>
+        )}
+
+        {isSuccess && entries.length === 0 && (
+          <Text size="sm" c="dimmed" ta="center" py="md">
+            Global state is empty
           </Text>
-        ) : (
-          <Stack gap="sm">
-            {sortedKeys.map((key) => {
-              const info = keyMap.get(key)!;
-              const isExpanded = expandedKey === key;
-              const templateCount = uniqueTemplateCount(info);
-              const summary = flowSummary(info);
-
-              return (
-                <Paper
-                  key={key}
-                  withBorder
-                  p={0}
-                  radius="sm"
-                  bg="var(--mantine-color-default)"
-                  onMouseEnter={() => handleKeyHover(key)}
-                  onMouseLeave={() => handleKeyHover(null)}
-                >
-                  <UnstyledButton
-                    w="100%"
-                    p="xs"
-                    onClick={() => toggleKey(key)}
-                  >
-                    <Stack gap={2}>
-                      <Group gap="xs" wrap="nowrap">
-                        {isExpanded ? (
-                          <IconChevronDown size={14} />
-                        ) : (
-                          <IconChevronRight size={14} />
-                        )}
-                        <Text size="sm" fw={600} ff="monospace">
-                          {key}
-                        </Text>
-                      </Group>
-
-                      <Text size="xs" c="dimmed" pl={22} truncate>
-                        {summary}
-                      </Text>
-
-                      <Text size="xs" c="dimmed" pl={22}>
-                        Used in {templateCount} template
-                        {templateCount !== 1 ? 's' : ''}
-                      </Text>
-                    </Stack>
-                  </UnstyledButton>
-
-                  <Collapse in={isExpanded}>
-                    <GlobalStateInspector
-                      keyName={key}
-                      writers={info.writers}
-                      readers={info.readers}
-                    />
-                  </Collapse>
-                </Paper>
-              );
-            })}
-          </Stack>
         )}
 
-        {(orphanedReads.length > 0 || unusedWrites.length > 0) && (
-          <Stack gap="xs" mt="sm">
-            {orphanedReads.map((key) => (
-              <Alert
-                key={`orphan-${key}`}
-                variant="light"
-                color="yellow"
-                icon={<IconAlertTriangle size={16} />}
-                p="xs"
-              >
-                <Text size="xs">
-                  <Text span fw={600} ff="monospace">
-                    {key}
-                  </Text>{' '}
-                  is read but never written in this scenario.
-                </Text>
-              </Alert>
-            ))}
+        {isSuccess && entries.length > 0 && (
+          <>
+            <TextInput
+              placeholder="Search keys or values..."
+              leftSection={<IconSearch size={14} />}
+              value={search}
+              onChange={(e) => {
+                setSearch(e.currentTarget.value);
+                setPage(1);
+              }}
+              size="xs"
+            />
 
-            {unusedWrites.map((key) => (
-              <Alert
-                key={`unused-${key}`}
-                variant="light"
-                color="yellow"
-                icon={<IconAlertTriangle size={16} />}
-                p="xs"
-              >
-                <Text size="xs">
-                  <Text span fw={600} ff="monospace">
-                    {key}
-                  </Text>{' '}
-                  is written but never read in this scenario.
+            <Table.ScrollContainer minWidth={0}>
+              <Table striped highlightOnHover verticalSpacing={4} fz="sm">
+                <Table.Thead>
+                  <Table.Tr>
+                    <Table.Th>Key</Table.Th>
+                    <Table.Th>Value</Table.Th>
+                    <Table.Th w={40} />
+                  </Table.Tr>
+                </Table.Thead>
+                <Table.Tbody>
+                  {pageEntries.map(([key, value]) => {
+                    const valueType = getValueType(value);
+
+                    return (
+                      <Table.Tr key={key}>
+                        <Table.Td style={{ maxWidth: 160 }}>
+                          <Text size="sm" ff="monospace" truncate>
+                            {key}
+                          </Text>
+                        </Table.Td>
+                        <Table.Td style={{ maxWidth: 200 }}>
+                          {inlineEditKey === key ? (
+                            <TextInput
+                              size="xs"
+                              ff="monospace"
+                              value={inlineEditValue}
+                              onChange={(e) =>
+                                setInlineEditValue(e.currentTarget.value)
+                              }
+                              onBlur={() => commitInlineEdit(key, value)}
+                              onKeyDown={(e) => {
+                                if (e.key === 'Enter')
+                                  commitInlineEdit(key, value);
+                                if (e.key === 'Escape') setInlineEditKey(null);
+                              }}
+                              // eslint-disable-next-line jsx-a11y/no-autofocus -- intentional for inline edit UX
+                              autoFocus
+                            />
+                          ) : (
+                            <Group gap={6} wrap="nowrap">
+                              <Badge
+                                size="xs"
+                                variant="light"
+                                color={typeBadgeColor(valueType)}
+                                style={{ flexShrink: 0 }}
+                              >
+                                {valueType}
+                              </Badge>
+                              <Text
+                                size="sm"
+                                ff="monospace"
+                                truncate
+                                c="dimmed"
+                                style={{ cursor: 'pointer' }}
+                                onClick={() => handleEditClick(key, value)}
+                              >
+                                {formatValuePreview(value)}
+                              </Text>
+                            </Group>
+                          )}
+                        </Table.Td>
+                        <Table.Td>
+                          <Menu position="bottom-end" withinPortal>
+                            <Menu.Target>
+                              <ActionIcon variant="subtle" size="sm">
+                                <IconDotsVertical size={14} />
+                              </ActionIcon>
+                            </Menu.Target>
+                            <Menu.Dropdown>
+                              <Menu.Item
+                                leftSection={<IconPencil size={14} />}
+                                onClick={() => handleEditClick(key, value)}
+                              >
+                                Edit
+                              </Menu.Item>
+                              <Menu.Item
+                                leftSection={<IconEdit size={14} />}
+                                onClick={() => openEditor(key, value)}
+                              >
+                                Edit as JSON
+                              </Menu.Item>
+                              <Menu.Divider />
+                              <Menu.Item
+                                leftSection={<IconTrash size={14} />}
+                                color="red"
+                                onClick={() => handleDeleteKey(key)}
+                              >
+                                Delete
+                              </Menu.Item>
+                            </Menu.Dropdown>
+                          </Menu>
+                        </Table.Td>
+                      </Table.Tr>
+                    );
+                  })}
+                </Table.Tbody>
+              </Table>
+            </Table.ScrollContainer>
+
+            {totalPages > 1 && (
+              <Group justify="space-between" align="center">
+                <Text size="xs" c="dimmed">
+                  {filteredEntries.length} of {entries.length} keys
                 </Text>
-              </Alert>
-            ))}
-          </Stack>
+                <Pagination
+                  size="xs"
+                  total={totalPages}
+                  value={currentPage}
+                  onChange={setPage}
+                />
+              </Group>
+            )}
+          </>
         )}
+
+        <Alert
+          variant="default"
+          icon={<Box c="orange" component={IconAlertTriangle} />}
+          title="Global state"
+          p="xs"
+        >
+          <Text size="xs">
+            Updating global state will affect all currently running generator
+            instances.
+          </Text>
+        </Alert>
       </Stack>
+
+      {editingKey && (
+        <ValueEditorModal
+          opened={editorOpened}
+          onClose={() => {
+            editorHandlers.close();
+            setEditingKey(null);
+          }}
+          keyName={editingKey}
+          value={editingValue}
+          onSave={handleUpdateKey}
+        />
+      )}
+
+      <AddKeyModal
+        opened={addOpened}
+        onClose={addHandlers.close}
+        existingKeys={existingKeys}
+        onAdd={handleAddKey}
+      />
     </Paper>
   );
 };

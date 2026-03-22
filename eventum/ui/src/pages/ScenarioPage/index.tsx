@@ -56,7 +56,6 @@ export default function ScenarioPage() {
 
   const [isEditing, setIsEditing] = useState(false);
   const [editName, setEditName] = useState(scenarioName);
-  const [selectedGlobalKey, setSelectedGlobalKey] = useState<string | null>(null);
   const [highlightedNodeId, setHighlightedNodeId] = useState<string | null>(null);
   const [highlightedEdgeId, setHighlightedEdgeId] = useState<string | null>(null);
   const [expandedCardId, setExpandedCardId] = useState<string | null>(null);
@@ -87,14 +86,6 @@ export default function ScenarioPage() {
     () => scenarioEntries.map((entry) => entry.id),
     [scenarioEntries]
   );
-
-  const generatorPathMap = useMemo(() => {
-    const map = new Map<string, string>();
-    for (const entry of scenarioEntries) {
-      map.set(entry.id, entry.path);
-    }
-    return map;
-  }, [scenarioEntries]);
 
   const globalsUsageQueries = useMultiGlobalsUsage(scenarioGeneratorIds);
 
@@ -299,16 +290,8 @@ export default function ScenarioPage() {
     document.getElementById(`instance-card-${instanceId}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' });
   }
 
-  function handleDiagramKeyClick(keyName: string) {
-    setSelectedGlobalKey(keyName);
-  }
-
   function handleCardHover(nodeId: string | null) {
     setHighlightedNodeId(nodeId);
-  }
-
-  function handleKeyHover(keyName: string | null) {
-    setHighlightedNodeId(keyName ? `key-${keyName}` : null);
   }
 
   function handleHighlightEdge(generatorId: string, keyName: string, direction?: 'write' | 'read') {
@@ -427,7 +410,6 @@ export default function ScenarioPage() {
                     highlightedNodeId={highlightedNodeId}
                     highlightedEdgeId={highlightedEdgeId}
                     onInstanceClick={handleDiagramInstanceClick}
-                    onKeyClick={handleDiagramKeyClick}
                   />
                 )}
                 <Paper withBorder p="md">
@@ -496,13 +478,7 @@ export default function ScenarioPage() {
               </Stack>
             </Grid.Col>
             <Grid.Col span={5}>
-              <GlobalStatePanel
-                generatorNames={scenarioGeneratorIds}
-                generatorPaths={generatorPathMap}
-                globalsUsageResults={globalsUsageQueries}
-                selectedKey={selectedGlobalKey}
-                onKeyHover={handleKeyHover}
-              />
+              <GlobalStatePanel />
             </Grid.Col>
           </Grid>
         )}
