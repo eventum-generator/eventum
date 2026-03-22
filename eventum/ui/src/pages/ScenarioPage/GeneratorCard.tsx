@@ -184,12 +184,11 @@ export const GeneratorCard: FC<GeneratorCardProps> = ({
       onMouseEnter={() => onHover?.(`instance-${generatorId}`)}
       onMouseLeave={() => onHover?.(null)}
     >
-      <Group justify="space-between" align="center" wrap="nowrap">
-        {/* Issue 8: Entire left area is clickable to toggle expand */}
-        <UnstyledButton
-          onClick={toggleExpand}
-          style={{ minWidth: 0, cursor: 'pointer' }}
-        >
+      <UnstyledButton
+        onClick={toggleExpand}
+        style={{ width: '100%', cursor: 'pointer' }}
+      >
+        <Group justify="space-between" align="center" wrap="nowrap">
           <Group gap="sm" align="center" wrap="nowrap" style={{ minWidth: 0 }}>
             {hasGlobalsDetails ? (
               <Box style={{ lineHeight: 0 }}>
@@ -216,14 +215,17 @@ export const GeneratorCard: FC<GeneratorCardProps> = ({
               {generatorId}
             </Text>
           </Group>
-        </UnstyledButton>
 
-        <Menu shadow="md" width={170} position="bottom-end">
-          <Menu.Target>
-            <ActionIcon variant="subtle" size="sm">
-              <IconDotsVertical size={16} />
-            </ActionIcon>
-          </Menu.Target>
+          <Menu shadow="md" width={170} position="bottom-end">
+            <Menu.Target>
+              <ActionIcon
+                variant="subtle"
+                size="sm"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <IconDotsVertical size={16} />
+              </ActionIcon>
+            </Menu.Target>
           <Menu.Dropdown>
             {isActive || isTransitioning ? (
               <Menu.Item
@@ -278,8 +280,9 @@ export const GeneratorCard: FC<GeneratorCardProps> = ({
               Remove
             </Menu.Item>
           </Menu.Dropdown>
-        </Menu>
-      </Group>
+          </Menu>
+        </Group>
+      </UnstyledButton>
 
       {/* Issue 4: Show template names grouped by file, not code snippets */}
       <Collapse in={expanded}>
