@@ -89,7 +89,7 @@ export async function bulkRemoveGenerators(ids: string[]) {
 
 export async function getGlobalState(): Promise<Record<string, unknown>> {
   return await validateResponse(
-    z.record(z.string(), z.any()),
+    z.record(z.string(), z.unknown()),
     apiClient.get('/generators/global-state')
   );
 }
@@ -100,6 +100,12 @@ export async function updateGlobalState(state: Record<string, unknown>) {
 
 export async function clearGlobalState() {
   await apiClient.delete('/generators/global-state');
+}
+
+export async function deleteGlobalStateKey(key: string) {
+  await apiClient.delete(
+    `/generators/global-state/${encodeURIComponent(key)}`
+  );
 }
 
 export function streamGeneratorLogs(id: string, endOffset: number): WebSocket {

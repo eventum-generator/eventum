@@ -38,7 +38,7 @@ export function createColumns(
         return (
           <RowActions
             target={
-              <ActionIcon variant="transparent">
+              <ActionIcon variant="transparent" aria-label="Scenario actions">
                 <IconDotsVertical size={20} />
               </ActionIcon>
             }

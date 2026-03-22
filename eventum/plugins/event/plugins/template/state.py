@@ -60,6 +60,28 @@ class State(ABC):
         """
 
     @abstractmethod
+    def pop(self, key: str, default: Any = None) -> Any:
+        """Remove and return value from state.
+
+        Parameters
+        ----------
+        key : str
+            Key of the value to remove.
+
+        default : Any, default=None
+            Default value to return if there is no value in state with
+            specified key.
+
+        Returns
+        -------
+        Any
+            Removed value, or default value if there is no value in state
+            with specified key.
+
+        """
+        ...
+
+    @abstractmethod
     def clear(self) -> None:
         """Clear state."""
         ...
@@ -98,6 +120,10 @@ class SingleThreadState(State):
     @override
     def update(self, m: dict[str, Any], /) -> None:
         self._state.update(m)
+
+    @override
+    def pop(self, key: str, default: Any = None) -> Any:
+        return self._state.pop(key, default)
 
     @override
     def clear(self) -> None:
@@ -150,6 +176,28 @@ class MultiThreadState(State):
     def update(self, m: dict[str, Any], /) -> None:
         with self._lock:
             self._state.update(m)
+
+    def pop(self, key: str, default: Any = None) -> Any:
+        """Remove and return value from state.
+
+        Parameters
+        ----------
+        key : str
+            Key of the value to remove.
+
+        default : Any, default=None
+            Default value to return if there is no value in state with
+            specified key.
+
+        Returns
+        -------
+        Any
+            Removed value, or default value if there is no value in state
+            with specified key.
+
+        """
+        with self._lock:
+            return self._state.pop(key, default)
 
     @override
     def clear(self) -> None:

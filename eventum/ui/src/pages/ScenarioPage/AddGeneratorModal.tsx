@@ -10,7 +10,6 @@ import {
   Stack,
 } from '@mantine/core';
 import { modals } from '@mantine/modals';
-import { notifications } from '@mantine/notifications';
 import { IconAlertSquareRounded } from '@tabler/icons-react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { FC, useMemo, useState } from 'react';
@@ -19,18 +18,24 @@ import { useStartupGenerators } from '@/api/hooks/useStartup';
 import { updateGeneratorInStartup } from '@/api/routes/startup';
 import { StartupGeneratorParameters } from '@/api/routes/startup/schemas';
 import { ShowErrorDetailsAnchor } from '@/components/ui/ShowErrorDetailsAnchor';
+import {
+  showErrorNotification,
+  showSuccessNotification,
+} from '@/utils/notifications';
+
+interface AddInstanceFormProps {
+  availableEntries: StartupGeneratorParameters[];
+  entryMap: Map<string, StartupGeneratorParameters>;
+  isPending: boolean;
+  onAdd: (entry: StartupGeneratorParameters) => void;
+}
 
 function AddInstanceForm({
   availableEntries,
   entryMap,
   isPending,
   onAdd,
-}: {
-  availableEntries: StartupGeneratorParameters[];
-  entryMap: Map<string, StartupGeneratorParameters>;
-  isPending: boolean;
-  onAdd: (entry: StartupGeneratorParameters) => void;
-}) {
+}: Readonly<AddInstanceFormProps>) {
   const [selected, setSelected] = useState<string | null>(null);
 
   return (
@@ -104,24 +109,11 @@ export const AddGeneratorModal: FC<AddGeneratorModalProps> = ({
     },
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ['startup'] });
-      notifications.show({
-        title: 'Success',
-        message: 'Instance added to scenario',
-        color: 'green',
-      });
+      showSuccessNotification('Success', 'Instance added to scenario');
       modals.closeAll();
     },
     onError: (addError) => {
-      notifications.show({
-        title: 'Error',
-        message: (
-          <>
-            Failed to add instance
-            <ShowErrorDetailsAnchor error={addError} prependDot />
-          </>
-        ),
-        color: 'red',
-      });
+      showErrorNotification('Failed to add instance', addError);
     },
   });
 

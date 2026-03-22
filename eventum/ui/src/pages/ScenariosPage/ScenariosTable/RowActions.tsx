@@ -1,13 +1,16 @@
 import { Menu, Text } from '@mantine/core';
 import { modals } from '@mantine/modals';
-import { notifications } from '@mantine/notifications';
 import { IconEdit, IconTrash } from '@tabler/icons-react';
 import { FC, ReactNode } from 'react';
 import { useNavigate } from 'react-router-dom';
 
 import { useDeleteScenario } from '../useDeleteScenario';
 import { StartupGeneratorParametersList } from '@/api/routes/startup/schemas';
-import { ShowErrorDetailsAnchor } from '@/components/ui/ShowErrorDetailsAnchor';
+import { ROUTE_PATHS } from '@/routing/paths';
+import {
+  showErrorNotification,
+  showSuccessNotification,
+} from '@/utils/notifications';
 
 interface RowActionsProps {
   target: ReactNode;
@@ -24,7 +27,9 @@ export const RowActions: FC<RowActionsProps> = ({
   const deleteScenario = useDeleteScenario();
 
   function handleEdit() {
-    void navigate(`/scenarios/${encodeURIComponent(scenarioName)}`);
+    void navigate(
+      `${ROUTE_PATHS.SCENARIOS}/${encodeURIComponent(scenarioName)}`,
+    );
   }
 
   function handleDelete() {
@@ -41,26 +46,14 @@ export const RowActions: FC<RowActionsProps> = ({
         deleteScenario.mutate(
           { scenarioName, startupEntries },
           {
-            onSuccess: () => {
-              notifications.show({
-                title: 'Success',
-                message: `Scenario "${scenarioName}" deleted`,
-                color: 'green',
-              });
-            },
-            onError: (deleteError) => {
-              notifications.show({
-                title: 'Error',
-                message: (
-                  <>
-                    Failed to delete scenario
-                    <ShowErrorDetailsAnchor error={deleteError} prependDot />
-                  </>
-                ),
-                color: 'red',
-              });
-            },
-          }
+            onSuccess: () =>
+              showSuccessNotification(
+                'Deleted',
+                `Scenario "${scenarioName}" deleted`,
+              ),
+            onError: (deleteError) =>
+              showErrorNotification('Failed to delete scenario', deleteError),
+          },
         );
       },
     });

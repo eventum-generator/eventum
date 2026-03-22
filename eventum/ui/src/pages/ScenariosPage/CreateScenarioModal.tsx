@@ -1,24 +1,27 @@
 import { Button, Group, Stack, TextInput } from '@mantine/core';
 import { useForm } from '@mantine/form';
 import { modals } from '@mantine/modals';
-import { notifications } from '@mantine/notifications';
-import { useQueryClient } from '@tanstack/react-query';
+import { useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 
 import { useStartupGenerators } from '@/api/hooks/useStartup';
+import { ROUTE_PATHS } from '@/routing/paths';
 
 interface FormValues {
   name: string;
 }
 
 export const CreateScenarioModal = () => {
-  const queryClient = useQueryClient();
   const navigate = useNavigate();
 
   const { data: startupEntries } = useStartupGenerators();
 
-  const existingScenarios = new Set(
-    (startupEntries ?? []).flatMap((entry) => entry.scenarios ?? [])
+  const existingScenarios = useMemo(
+    () =>
+      new Set(
+        (startupEntries ?? []).flatMap((entry) => entry.scenarios ?? []),
+      ),
+    [startupEntries],
   );
 
   const form = useForm<FormValues>({
@@ -42,16 +45,8 @@ export const CreateScenarioModal = () => {
 
   function handleSubmit(values: FormValues) {
     const trimmed = values.name.trim();
-
-    // No generators to update — just navigate to the new scenario page
-    void queryClient.invalidateQueries({ queryKey: ['startup'] });
-    notifications.show({
-      title: 'Success',
-      message: 'Scenario created',
-      color: 'green',
-    });
     modals.closeAll();
-    void navigate(`/scenarios/${encodeURIComponent(trimmed)}`);
+    void navigate(`${ROUTE_PATHS.SCENARIOS}/${encodeURIComponent(trimmed)}`);
   }
 
   return (

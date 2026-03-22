@@ -14,7 +14,6 @@ import {
   Title,
 } from '@mantine/core';
 import { modals } from '@mantine/modals';
-import { notifications } from '@mantine/notifications';
 import {
   IconAlertSquareRounded,
   IconArrowLeft,
@@ -22,7 +21,6 @@ import {
   IconPlayerPlay,
   IconPlayerStop,
   IconPlus,
-  IconPlayerPlay as IconPlayerPlayNav,
 } from '@tabler/icons-react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useCallback, useMemo, useRef, useState } from 'react';
@@ -30,21 +28,26 @@ import { useNavigate, useParams } from 'react-router-dom';
 
 import { AddGeneratorModal } from './AddGeneratorModal';
 import { DataFlowDiagram } from './DataFlowDiagram';
+import { collectGlobalKeys } from './globals-usage';
 import { GeneratorCard } from './GeneratorCard';
 import { GlobalStatePanel } from './GlobalStatePanel';
-import { useGenerators } from '@/api/hooks/useGenerators';
+import {
+  useBulkStartGeneratorMutation,
+  useBulkStopGeneratorMutation,
+  useGenerators,
+} from '@/api/hooks/useGenerators';
 import { useMultiGlobalsUsage } from '@/api/hooks/useScenarios';
 import { useStartupGenerators } from '@/api/hooks/useStartup';
-import {
-  bulkStartGenerators,
-  bulkStopGenerators,
-} from '@/api/routes/generators';
 import { GeneratorStatus } from '@/api/routes/generators/schemas';
 import { updateGeneratorInStartup } from '@/api/routes/startup';
 import { StartupGeneratorParameters } from '@/api/routes/startup/schemas';
 import { PageTitle } from '@/components/ui/PageTitle';
 import { ShowErrorDetailsAnchor } from '@/components/ui/ShowErrorDetailsAnchor';
 import { ROUTE_PATHS } from '@/routing/paths';
+import {
+  showErrorNotification,
+  showSuccessNotification,
+} from '@/utils/notifications';
 
 export default function ScenarioPage() {
   const { scenarioName: rawScenarioName } = useParams<{
@@ -105,15 +108,10 @@ export default function ScenarioPage() {
     return new Map(generators.map((g) => [g.id, g.status]));
   }, [generators]);
 
-  const allGlobalKeys = useMemo(() => {
-    const keys = new Set<string>();
-    for (const usage of globalsUsageMap.values()) {
-      if (!usage) continue;
-      for (const ref of usage.writes) keys.add(ref.key);
-      for (const ref of usage.reads) keys.add(ref.key);
-    }
-    return keys;
-  }, [globalsUsageMap]);
+  const hasGlobalKeys = useMemo(
+    () => collectGlobalKeys(globalsUsageMap).length > 0,
+    [globalsUsageMap],
+  );
 
   const handleStartEdit = useCallback(() => {
     setIsEditing(true);
@@ -131,37 +129,26 @@ export default function ScenarioPage() {
 
     isRenaming.current = true;
     try {
-      for (const entry of scenarioEntries) {
-        const newScenarios = (entry.scenarios ?? []).map((s) =>
-          s === scenarioName ? trimmed : s
-        );
-        await updateGeneratorInStartup(entry.id, {
-          ...entry,
-          scenarios: newScenarios,
-        });
-      }
+      await Promise.all(
+        scenarioEntries.map((entry) => {
+          const newScenarios = (entry.scenarios ?? []).map((s) =>
+            s === scenarioName ? trimmed : s
+          );
+          return updateGeneratorInStartup(entry.id, {
+            ...entry,
+            scenarios: newScenarios,
+          });
+        })
+      );
       await queryClient.invalidateQueries({ queryKey: ['startup'] });
-      notifications.show({
-        title: 'Renamed',
-        message: `Scenario renamed to "${trimmed}"`,
-        color: 'green',
-      });
-      void navigate(`/scenarios/${encodeURIComponent(trimmed)}`, {
+      showSuccessNotification('Renamed', `Scenario renamed to "${trimmed}"`);
+      void navigate(`${ROUTE_PATHS.SCENARIOS}/${encodeURIComponent(trimmed)}`, {
         replace: true,
       });
     } catch (error) {
-      notifications.show({
-        title: 'Error',
-        message: (
-          <>
-            Failed to rename scenario
-            {error instanceof Error && (
-              <ShowErrorDetailsAnchor error={error} prependDot />
-            )}
-          </>
-        ),
-        color: 'red',
-      });
+      if (error instanceof Error) {
+        showErrorNotification('Failed to rename scenario', error);
+      }
     } finally {
       isRenaming.current = false;
       setIsEditing(false);
@@ -173,53 +160,8 @@ export default function ScenarioPage() {
     setEditName(scenarioName);
   }, [scenarioName]);
 
-  const bulkStart = useMutation({
-    mutationFn: ({ ids }: { ids: string[] }) => bulkStartGenerators(ids),
-    onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: ['generators'] });
-      notifications.show({
-        title: 'Success',
-        message: 'All scenario instances started',
-        color: 'green',
-      });
-    },
-    onError: (error) => {
-      notifications.show({
-        title: 'Error',
-        message: (
-          <>
-            Failed to start instances
-            <ShowErrorDetailsAnchor error={error} prependDot />
-          </>
-        ),
-        color: 'red',
-      });
-    },
-  });
-
-  const bulkStop = useMutation({
-    mutationFn: ({ ids }: { ids: string[] }) => bulkStopGenerators(ids),
-    onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: ['generators'] });
-      notifications.show({
-        title: 'Success',
-        message: 'All scenario instances stopped',
-        color: 'green',
-      });
-    },
-    onError: (error) => {
-      notifications.show({
-        title: 'Error',
-        message: (
-          <>
-            Failed to stop instances
-            <ShowErrorDetailsAnchor error={error} prependDot />
-          </>
-        ),
-        color: 'red',
-      });
-    },
-  });
+  const bulkStart = useBulkStartGeneratorMutation();
+  const bulkStop = useBulkStopGeneratorMutation();
 
   const removeFromScenario = useMutation({
     mutationFn: async ({ entry }: { entry: StartupGeneratorParameters }) => {
@@ -233,23 +175,10 @@ export default function ScenarioPage() {
     },
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ['startup'] });
-      notifications.show({
-        title: 'Success',
-        message: 'Instance removed from scenario',
-        color: 'green',
-      });
+      showSuccessNotification('Success', 'Instance removed from scenario');
     },
     onError: (error) => {
-      notifications.show({
-        title: 'Error',
-        message: (
-          <>
-            Failed to remove instance
-            <ShowErrorDetailsAnchor error={error} prependDot />
-          </>
-        ),
-        color: 'red',
-      });
+      showErrorNotification('Failed to remove instance', error);
     },
   });
 
@@ -270,11 +199,23 @@ export default function ScenarioPage() {
   }
 
   function handleStartAll() {
-    bulkStart.mutate({ ids: scenarioGeneratorIds });
+    bulkStart.mutate(
+      { ids: scenarioGeneratorIds },
+      {
+        onSuccess: () => showSuccessNotification('Success', 'All scenario instances started'),
+        onError: (e) => showErrorNotification('Failed to start instances', e),
+      },
+    );
   }
 
   function handleStopAll() {
-    bulkStop.mutate({ ids: scenarioGeneratorIds });
+    bulkStop.mutate(
+      { ids: scenarioGeneratorIds },
+      {
+        onSuccess: () => showSuccessNotification('Success', 'All scenario instances stopped'),
+        onError: (e) => showErrorNotification('Failed to stop instances', e),
+      },
+    );
   }
 
   function handleOpenAddModal() {
@@ -287,7 +228,7 @@ export default function ScenarioPage() {
 
   function handleDiagramInstanceClick(instanceId: string) {
     setExpandedCardId(instanceId);
-    document.getElementById(`instance-card-${instanceId}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    document.querySelector(`#instance-card-${CSS.escape(instanceId)}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' });
   }
 
   function handleCardHover(nodeId: string | null) {
@@ -377,7 +318,7 @@ export default function ScenarioPage() {
             <Stack gap="sm">
               <Group justify="space-between" align="center">
                 <Group gap="xs">
-                  <IconPlayerPlayNav size={18} />
+                  <IconPlayerPlay size={18} />
                   <Title order={5} fw="normal">Instances</Title>
                 </Group>
                 <Button
@@ -402,7 +343,7 @@ export default function ScenarioPage() {
           <Grid>
             <Grid.Col span={7}>
               <Stack>
-                {allGlobalKeys.size > 0 && (
+                {hasGlobalKeys && (
                   <DataFlowDiagram
                     scenarioEntries={scenarioEntries}
                     generatorStatusMap={generatorStatusMap}
@@ -417,7 +358,7 @@ export default function ScenarioPage() {
                     <Group justify="space-between" align="center">
                       <Group gap="sm" align="center">
                         <Group gap="xs">
-                          <IconPlayerPlayNav size={18} />
+                          <IconPlayerPlay size={18} />
                           <Title order={5} fw="normal">Instances</Title>
                         </Group>
                         <Text size="xs" c="dimmed">

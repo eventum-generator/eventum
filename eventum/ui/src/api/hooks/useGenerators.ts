@@ -7,6 +7,7 @@ import {
   bulkStopGenerators,
   clearGlobalState,
   deleteGenerator,
+  deleteGlobalStateKey,
   getGenerator,
   getGeneratorStats,
   getGeneratorStatus,
@@ -210,6 +211,7 @@ export function useGlobalState() {
   return useQuery({
     queryKey: GLOBAL_STATE_QUERY_KEY,
     queryFn: getGlobalState,
+    refetchInterval: 5000,
   });
 }
 
@@ -231,6 +233,19 @@ export function useClearGlobalStateMutation() {
 
   return useMutation({
     mutationFn: () => clearGlobalState(),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({
+        queryKey: GLOBAL_STATE_QUERY_KEY,
+      });
+    },
+  });
+}
+
+export function useDeleteGlobalStateKeyMutation() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (key: string) => deleteGlobalStateKey(key),
     onSuccess: async () => {
       await queryClient.invalidateQueries({
         queryKey: GLOBAL_STATE_QUERY_KEY,

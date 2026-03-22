@@ -114,7 +114,7 @@ async def update_global_state(
         Body(description='Content to patch in global state'),
     ],
 ) -> None:
-    TemplateEventPlugin._GLOBAL_STATE.update(content)
+    await asyncio.to_thread(TemplateEventPlugin._GLOBAL_STATE.update, content)
 
 
 @router.delete(
@@ -122,7 +122,17 @@ async def update_global_state(
     description='Clear global state shared across all template event plugins',
 )
 async def clear_global_state() -> None:
-    TemplateEventPlugin._GLOBAL_STATE.clear()
+    await asyncio.to_thread(TemplateEventPlugin._GLOBAL_STATE.clear)
+
+
+@router.delete(
+    '/global-state/{key}',
+    description='Delete a key from global state shared across all template event plugins',
+)
+async def delete_global_state_key(
+    key: Annotated[str, Path(description='Key to delete from global state', min_length=1)],
+) -> None:
+    await asyncio.to_thread(TemplateEventPlugin._GLOBAL_STATE.pop, key)
 
 
 @router.get(

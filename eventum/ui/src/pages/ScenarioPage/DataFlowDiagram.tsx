@@ -15,21 +15,29 @@ import {
 import '@xyflow/react/dist/style.css';
 import { memo, useMemo } from 'react';
 
+import { collectGlobalKeys } from './globals-usage';
 import { GeneratorStatus } from '@/api/routes/generators/schemas';
 import { describeInstanceStatus } from '@/pages/InstancesPage/InstancesTable/common/instance-status';
 
+// ---------------------------------------------------------------------------
+// Types
+// ---------------------------------------------------------------------------
+
 interface DataFlowDiagramProps {
-  scenarioEntries: { id: string; path: string }[];
-  generatorStatusMap: Map<string, GeneratorStatus>;
-  globalsUsageMap: Map<
+  readonly scenarioEntries: { id: string; path: string }[];
+  readonly generatorStatusMap: Map<string, GeneratorStatus>;
+  readonly globalsUsageMap: Map<
     string,
     { writes: { key: string }[]; reads: { key: string }[] } | undefined
   >;
-  highlightedNodeId?: string | null;
-  highlightedEdgeId?: string | null;
-  onInstanceClick?: (instanceId: string) => void;
+  readonly highlightedNodeId?: string | null;
+  readonly highlightedEdgeId?: string | null;
+  readonly onInstanceClick?: (instanceId: string) => void;
 }
 
+// React Flow's Node<T> requires T extends Record<string, unknown>,
+// which interfaces don't satisfy — use type aliases here.
+// eslint-disable-next-line @typescript-eslint/consistent-type-definitions
 type InstanceNodeData = {
   label: string;
   statusColor: string;
@@ -37,6 +45,7 @@ type InstanceNodeData = {
   highlighted: boolean;
 };
 
+// eslint-disable-next-line @typescript-eslint/consistent-type-definitions
 type KeyNodeData = {
   label: string;
   highlighted: boolean;
@@ -44,6 +53,92 @@ type KeyNodeData = {
 
 type InstanceNodeType = Node<InstanceNodeData, 'instance'>;
 type KeyNodeType = Node<KeyNodeData, 'key'>;
+type DiagramNode = InstanceNodeType | KeyNodeType;
+
+// ---------------------------------------------------------------------------
+// Layout constants
+// ---------------------------------------------------------------------------
+
+const INSTANCE_X = 30;
+const KEY_X = 500;
+const NODE_SPACING_Y = 100;
+const PADDING_TOP = 30;
+const MIN_DIAGRAM_HEIGHT = 220;
+const DIAGRAM_BOTTOM_PADDING = 60;
+
+// ---------------------------------------------------------------------------
+// Edge styles
+// ---------------------------------------------------------------------------
+
+const BASE_EDGE_STYLE = {
+  strokeDasharray: '5,5',
+  stroke: 'var(--mantine-color-text)',
+  strokeWidth: 2,
+  opacity: 0.6,
+} as const;
+
+const DIMMED_EDGE_STYLE = {
+  ...BASE_EDGE_STYLE,
+  opacity: 0.15,
+} as const;
+
+const HIGHLIGHTED_EDGE_STYLE = {
+  ...BASE_EDGE_STYLE,
+  opacity: 1,
+  strokeWidth: 3,
+  stroke: 'var(--mantine-primary-color-filled)',
+} as const;
+
+const PRIMARY_COLOR = 'var(--mantine-primary-color-filled)';
+const TEXT_COLOR = 'var(--mantine-color-text)';
+
+// ---------------------------------------------------------------------------
+// Handle styles (shared between node types, positions differ)
+// ---------------------------------------------------------------------------
+
+const HIDDEN_HANDLE_STYLE = {
+  background: 'transparent',
+  border: 'none',
+  width: 6,
+  height: 6,
+} as const;
+
+const SOURCE_HANDLE_STYLE = { ...HIDDEN_HANDLE_STYLE, top: '25%' } as const;
+const TARGET_HANDLE_STYLE = { ...HIDDEN_HANDLE_STYLE, top: '75%' } as const;
+
+// ---------------------------------------------------------------------------
+// CSS for React Flow controls (Mantine theme integration)
+// ---------------------------------------------------------------------------
+
+const REACT_FLOW_CONTROLS_CSS = `
+  .react-flow__controls button {
+    background-color: var(--mantine-color-body);
+    color: ${TEXT_COLOR};
+    border-color: var(--mantine-color-default-border);
+  }
+  .react-flow__controls button:hover {
+    background-color: var(--mantine-color-default-hover);
+  }
+  .react-flow__controls button svg {
+    fill: ${TEXT_COLOR};
+  }
+`;
+
+// ---------------------------------------------------------------------------
+// Highlight style for nodes
+// ---------------------------------------------------------------------------
+
+function highlightBorderStyle(isHighlighted: boolean) {
+  if (!isHighlighted) return {};
+  return {
+    borderColor: PRIMARY_COLOR,
+    boxShadow: `0 0 8px ${PRIMARY_COLOR}`,
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Custom nodes
+// ---------------------------------------------------------------------------
 
 const InstanceNode = memo(({ data }: NodeProps<InstanceNodeType>) => (
   <Paper
@@ -53,53 +148,17 @@ const InstanceNode = memo(({ data }: NodeProps<InstanceNodeType>) => (
       minWidth: 180,
       cursor: 'pointer',
       borderStyle: 'solid',
-      borderColor: data.highlighted
-        ? 'var(--mantine-primary-color-filled)'
-        : undefined,
-      boxShadow: data.highlighted
-        ? '0 0 8px var(--mantine-primary-color-filled)'
-        : undefined,
+      ...highlightBorderStyle(data.highlighted),
     }}
   >
-    <Handle
-      type="source"
-      position={Position.Right}
-      id="source"
-      style={{
-        background: 'transparent',
-        border: 'none',
-        width: 6,
-        height: 6,
-        top: '25%',
-      }}
-      isConnectable={false}
-    />
-    <Handle
-      type="target"
-      position={Position.Right}
-      id="target"
-      style={{
-        background: 'transparent',
-        border: 'none',
-        width: 6,
-        height: 6,
-        top: '75%',
-      }}
-      isConnectable={false}
-    />
+    <Handle type="source" position={Position.Right} id="source" style={SOURCE_HANDLE_STYLE} isConnectable={false} />
+    <Handle type="target" position={Position.Right} id="target" style={TARGET_HANDLE_STYLE} isConnectable={false} />
     <Group gap={8} wrap="nowrap" pr={6} justify="space-between">
       <Group gap={8} wrap="nowrap">
         <IconPlayerPlay size={14} />
-        <Text size="sm" fw={500}>
-          {data.label}
-        </Text>
+        <Text size="sm" fw={500}>{data.label}</Text>
       </Group>
-      <Indicator
-        color={data.statusColor}
-        size={8}
-        position="middle-center"
-        processing={data.processing}
-      />
+      <Indicator color={data.statusColor} size={8} position="middle-center" processing={data.processing} />
     </Group>
   </Paper>
 ));
@@ -113,51 +172,24 @@ const KeyNode = memo(({ data }: NodeProps<KeyNodeType>) => (
       minWidth: 140,
       cursor: 'pointer',
       borderStyle: 'dashed',
-      borderColor: data.highlighted
-        ? 'var(--mantine-primary-color-filled)'
-        : undefined,
-      boxShadow: data.highlighted
-        ? '0 0 8px var(--mantine-primary-color-filled)'
-        : undefined,
+      ...highlightBorderStyle(data.highlighted),
     }}
   >
-    <Handle
-      type="target"
-      position={Position.Left}
-      id="target"
-      style={{
-        background: 'transparent',
-        border: 'none',
-        width: 6,
-        height: 6,
-        top: '25%',
-      }}
-      isConnectable={false}
-    />
-    <Handle
-      type="source"
-      position={Position.Left}
-      id="source"
-      style={{
-        background: 'transparent',
-        border: 'none',
-        width: 6,
-        height: 6,
-        top: '75%',
-      }}
-      isConnectable={false}
-    />
+    <Handle type="target" position={Position.Left} id="target" style={SOURCE_HANDLE_STYLE} isConnectable={false} />
+    <Handle type="source" position={Position.Left} id="source" style={TARGET_HANDLE_STYLE} isConnectable={false} />
     <Group gap="xs" wrap="nowrap">
       <IconDatabase size={14} />
-      <Text size="sm" ff="monospace">
-        {data.label}
-      </Text>
+      <Text size="sm" ff="monospace">{data.label}</Text>
     </Group>
   </Paper>
 ));
 KeyNode.displayName = 'KeyNode';
 
-const defaultInactiveStatus: GeneratorStatus = {
+// ---------------------------------------------------------------------------
+// Default status for inactive generators
+// ---------------------------------------------------------------------------
+
+const INACTIVE_STATUS: GeneratorStatus = {
   is_initializing: false,
   is_running: false,
   is_ended_up: false,
@@ -165,24 +197,148 @@ const defaultInactiveStatus: GeneratorStatus = {
   is_stopping: false,
 };
 
-const edgeStyle = {
-  strokeDasharray: '5,5',
-  stroke: 'var(--mantine-color-text)',
-  strokeWidth: 2,
-  opacity: 0.6,
-};
+// ---------------------------------------------------------------------------
+// Graph building helpers (extracted to reduce cognitive complexity)
+// ---------------------------------------------------------------------------
 
-const edgeDimmedStyle = {
-  ...edgeStyle,
-  opacity: 0.15,
-};
+function buildInstanceNodes(
+  entries: DataFlowDiagramProps['scenarioEntries'],
+  statusMap: DataFlowDiagramProps['generatorStatusMap'],
+  highlightedNodeId: string | null | undefined,
+): DiagramNode[] {
+  return entries.map((entry, i) => {
+    const status = statusMap.get(entry.id) ?? INACTIVE_STATUS;
+    const { color, processing } = describeInstanceStatus(status);
+    const nodeId = `instance-${entry.id}`;
 
-const edgeHighlightedStyle = {
-  ...edgeStyle,
-  opacity: 1,
-  strokeWidth: 3,
-  stroke: 'var(--mantine-primary-color-filled)',
-};
+    return {
+      id: nodeId,
+      type: 'instance' as const,
+      position: { x: INSTANCE_X, y: i * NODE_SPACING_Y + PADDING_TOP },
+      data: {
+        label: entry.id,
+        statusColor: color,
+        processing,
+        highlighted: highlightedNodeId === nodeId,
+      },
+      draggable: false,
+    };
+  });
+}
+
+function buildKeyNodes(
+  keys: string[],
+  highlightedNodeId: string | null | undefined,
+): DiagramNode[] {
+  return keys.map((key, i) => {
+    const nodeId = `key-${key}`;
+    return {
+      id: nodeId,
+      type: 'key' as const,
+      position: { x: KEY_X, y: i * NODE_SPACING_Y + PADDING_TOP },
+      data: {
+        label: key,
+        highlighted: highlightedNodeId === nodeId,
+      },
+      draggable: false,
+    };
+  });
+}
+
+interface EdgeContext {
+  highlightedNodeId: string | null | undefined;
+  highlightedEdgeId: string | null | undefined;
+  hasHighlight: boolean;
+}
+
+function resolveEdgeStyle(
+  edgeId: string,
+  sourceNodeId: string,
+  targetNodeId: string,
+  ctx: EdgeContext,
+) {
+  const isHighlighted =
+    ctx.highlightedEdgeId === edgeId ||
+    sourceNodeId === ctx.highlightedNodeId ||
+    targetNodeId === ctx.highlightedNodeId;
+
+  const style = ctx.hasHighlight
+    ? isHighlighted ? HIGHLIGHTED_EDGE_STYLE : DIMMED_EDGE_STYLE
+    : BASE_EDGE_STYLE;
+
+  const markerColor = ctx.hasHighlight && isHighlighted ? PRIMARY_COLOR : TEXT_COLOR;
+
+  return { style, markerColor, animated: !ctx.hasHighlight || isHighlighted };
+}
+
+function buildEdges(
+  globalsUsageMap: DataFlowDiagramProps['globalsUsageMap'],
+  ctx: EdgeContext,
+): Edge[] {
+  const edges: Edge[] = [];
+  const seen = new Set<string>();
+
+  for (const [generatorId, usage] of globalsUsageMap.entries()) {
+    if (!usage) continue;
+
+    // Write edges: instance → key
+    for (const ref of usage.writes) {
+      const edgeId = `write-${generatorId}-${ref.key}`;
+      if (seen.has(edgeId)) continue;
+      seen.add(edgeId);
+
+      const source = `instance-${generatorId}`;
+      const target = `key-${ref.key}`;
+      const { style, markerColor, animated } = resolveEdgeStyle(edgeId, source, target, ctx);
+
+      edges.push({
+        id: edgeId,
+        source,
+        target,
+        sourceHandle: 'source',
+        targetHandle: 'target',
+        type: 'default',
+        animated,
+        style,
+        markerEnd: { type: MarkerType.ArrowClosed, color: markerColor },
+      });
+    }
+
+    // Read edges: key → instance
+    for (const ref of usage.reads) {
+      const edgeId = `read-${generatorId}-${ref.key}`;
+      if (seen.has(edgeId)) continue;
+      seen.add(edgeId);
+
+      const source = `key-${ref.key}`;
+      const target = `instance-${generatorId}`;
+      const { style, markerColor, animated } = resolveEdgeStyle(edgeId, source, target, ctx);
+
+      edges.push({
+        id: edgeId,
+        source,
+        target,
+        sourceHandle: 'source',
+        targetHandle: 'target',
+        type: 'default',
+        animated,
+        style,
+        markerEnd: { type: MarkerType.ArrowClosed, color: markerColor },
+      });
+    }
+  }
+
+  return edges;
+}
+
+function computeDiagramHeight(instanceCount: number, keyCount: number): number {
+  const maxCount = Math.max(instanceCount, keyCount);
+  return Math.max(MIN_DIAGRAM_HEIGHT, maxCount * NODE_SPACING_Y + DIAGRAM_BOTTOM_PADDING);
+}
+
+// ---------------------------------------------------------------------------
+// Component
+// ---------------------------------------------------------------------------
 
 export function DataFlowDiagram({
   scenarioEntries,
@@ -191,164 +347,34 @@ export function DataFlowDiagram({
   highlightedNodeId,
   highlightedEdgeId,
   onInstanceClick,
-}: DataFlowDiagramProps) {
+}: Readonly<DataFlowDiagramProps>) {
   const nodeTypes = useMemo(
     () => ({ instance: InstanceNode, key: KeyNode }),
-    []
+    [],
   );
 
   const { nodes, edges, containerHeight } = useMemo(() => {
-    const instanceNodes: (InstanceNodeType | KeyNodeType)[] = [];
-    const flowEdges: Edge[] = [];
+    const keyList = collectGlobalKeys(globalsUsageMap);
 
-    // Collect all unique global keys
-    const allKeys = new Set<string>();
-    for (const usage of globalsUsageMap.values()) {
-      if (!usage) continue;
-      for (const ref of usage.writes) allKeys.add(ref.key);
-      for (const ref of usage.reads) allKeys.add(ref.key);
-    }
+    const instanceNodes = buildInstanceNodes(scenarioEntries, generatorStatusMap, highlightedNodeId);
+    const keyNodes = buildKeyNodes(keyList, highlightedNodeId);
 
-    const keyList = [...allKeys].sort();
-    const instanceCount = scenarioEntries.length;
-    const keyCount = keyList.length;
-
-    // Create instance nodes on the left
-    for (const [i, entry] of scenarioEntries.entries()) {
-      const status = generatorStatusMap.get(entry.id) ?? defaultInactiveStatus;
-      const { color, processing } = describeInstanceStatus(status);
-
-      instanceNodes.push({
-        id: `instance-${entry.id}`,
-        type: 'instance',
-        position: { x: 30, y: i * 100 + 30 },
-        data: {
-          label: entry.id,
-          statusColor: color,
-          processing,
-          highlighted: highlightedNodeId === `instance-${entry.id}`,
-        },
-        draggable: false,
-      });
-    }
-
-    // Create key nodes on the right
-    for (const [i, key] of keyList.entries()) {
-      instanceNodes.push({
-        id: `key-${key}`,
-        type: 'key',
-        position: { x: 500, y: i * 100 + 30 },
-        data: {
-          label: key,
-          highlighted: highlightedNodeId === `key-${key}`,
-        },
-        draggable: false,
-      });
-    }
-
-    // Determine if any highlight is active
     const hasHighlight =
-      (highlightedNodeId !== null && highlightedNodeId !== undefined) ||
-      (highlightedEdgeId !== null && highlightedEdgeId !== undefined);
+      (highlightedNodeId != null) || (highlightedEdgeId != null);
 
-    // Create edges (deduplicate by edge ID)
-    const seenEdgeIds = new Set<string>();
-    for (const [generatorId, usage] of globalsUsageMap.entries()) {
-      if (!usage) continue;
+    const ctx: EdgeContext = { highlightedNodeId, highlightedEdgeId, hasHighlight };
+    const flowEdges = buildEdges(globalsUsageMap, ctx);
 
-      for (const ref of usage.writes) {
-        const sourceNodeId = `instance-${generatorId}`;
-        const targetNodeId = `key-${ref.key}`;
-        const edgeId = `write-${generatorId}-${ref.key}`;
-        if (seenEdgeIds.has(edgeId)) continue;
-        seenEdgeIds.add(edgeId);
+    return {
+      nodes: [...instanceNodes, ...keyNodes],
+      edges: flowEdges,
+      containerHeight: computeDiagramHeight(scenarioEntries.length, keyList.length),
+    };
+  }, [scenarioEntries, generatorStatusMap, globalsUsageMap, highlightedNodeId, highlightedEdgeId]);
 
-        const isThisEdge = highlightedEdgeId === edgeId;
-        const isConnectedToNode =
-          sourceNodeId === highlightedNodeId ||
-          targetNodeId === highlightedNodeId;
-
-        const isHighlighted = isThisEdge || isConnectedToNode;
-        const style = hasHighlight
-          ? isHighlighted
-            ? edgeHighlightedStyle
-            : edgeDimmedStyle
-          : edgeStyle;
-        const markerColor =
-          hasHighlight && isHighlighted
-            ? 'var(--mantine-primary-color-filled)'
-            : 'var(--mantine-color-text)';
-
-        flowEdges.push({
-          id: edgeId,
-          source: sourceNodeId,
-          target: targetNodeId,
-          sourceHandle: 'source',
-          targetHandle: 'target',
-          type: 'default',
-          animated: !hasHighlight || isHighlighted,
-          style,
-          markerEnd: { type: MarkerType.ArrowClosed, color: markerColor },
-        });
-      }
-
-      // Read edges: key → instance
-      for (const ref of usage.reads) {
-        const sourceNodeId = `key-${ref.key}`;
-        const targetNodeId = `instance-${generatorId}`;
-        const edgeId = `read-${generatorId}-${ref.key}`;
-        if (seenEdgeIds.has(edgeId)) continue;
-        seenEdgeIds.add(edgeId);
-
-        const isThisEdge = highlightedEdgeId === edgeId;
-        const isConnectedToNode =
-          sourceNodeId === highlightedNodeId ||
-          targetNodeId === highlightedNodeId;
-
-        const isHighlighted = isThisEdge || isConnectedToNode;
-        const style = hasHighlight
-          ? isHighlighted
-            ? edgeHighlightedStyle
-            : edgeDimmedStyle
-          : edgeStyle;
-        const markerColor =
-          hasHighlight && isHighlighted
-            ? 'var(--mantine-primary-color-filled)'
-            : 'var(--mantine-color-text)';
-
-        flowEdges.push({
-          id: edgeId,
-          source: sourceNodeId,
-          target: targetNodeId,
-          sourceHandle: 'source',
-          targetHandle: 'target',
-          type: 'default',
-          animated: !hasHighlight || isHighlighted,
-          style,
-          markerEnd: { type: MarkerType.ArrowClosed, color: markerColor },
-        });
-      }
-    }
-
-    const maxNodeCount = Math.max(instanceCount, keyCount);
-    const height = Math.max(220, maxNodeCount * 100 + 60);
-
-    return { nodes: instanceNodes, edges: flowEdges, containerHeight: height };
-  }, [
-    scenarioEntries,
-    generatorStatusMap,
-    globalsUsageMap,
-    highlightedNodeId,
-    highlightedEdgeId,
-  ]);
-
-  function handleNodeClick(
-    _: React.MouseEvent,
-    node: InstanceNodeType | KeyNodeType
-  ) {
+  function handleNodeClick(_: React.MouseEvent, node: Node) {
     if (node.type === 'instance') {
-      const instanceId = node.id.replace('instance-', '');
-      onInstanceClick?.(instanceId);
+      onInstanceClick?.((node.data as InstanceNodeData).label);
     }
   }
 
@@ -356,23 +382,9 @@ export function DataFlowDiagram({
     <Paper withBorder p="md">
       <Group gap="xs" mb="sm">
         <IconRoute size={18} />
-        <Title order={5} fw="normal">
-          Data Flow
-        </Title>
+        <Title order={5} fw="normal">Data Flow</Title>
       </Group>
-      <style>{`
-        .react-flow__controls button {
-          background-color: var(--mantine-color-body);
-          color: var(--mantine-color-text);
-          border-color: var(--mantine-color-default-border);
-        }
-        .react-flow__controls button:hover {
-          background-color: var(--mantine-color-default-hover);
-        }
-        .react-flow__controls button svg {
-          fill: var(--mantine-color-text);
-        }
-      `}</style>
+      <style>{REACT_FLOW_CONTROLS_CSS}</style>
       <div style={{ height: containerHeight }}>
         <ReactFlow
           nodes={nodes}

@@ -12,7 +12,6 @@ import {
   UnstyledButton,
 } from '@mantine/core';
 import { modals } from '@mantine/modals';
-import { notifications } from '@mantine/notifications';
 import {
   IconChevronDown,
   IconChevronRight,
@@ -41,9 +40,12 @@ import { LogsModal } from '@/components/modals/LogsModal';
 import { MetricsModal } from '@/pages/InstancesPage/InstancesTable/MetricsModal';
 import { GeneratorStatus } from '@/api/routes/generators/schemas';
 import { GlobalsUsage } from '@/api/routes/scenarios/schemas';
-import { ShowErrorDetailsAnchor } from '@/components/ui/ShowErrorDetailsAnchor';
 import { describeInstanceStatus } from '@/pages/InstancesPage/InstancesTable/common/instance-status';
 import { ROUTE_PATHS } from '@/routing/paths';
+import {
+  showErrorNotification,
+  showSuccessNotification,
+} from '@/utils/notifications';
 
 export interface GeneratorCardProps {
   generatorId: string;
@@ -79,6 +81,8 @@ export const GeneratorCard: FC<GeneratorCardProps> = ({
   const startMutation = useStartGeneratorMutation();
   const stopMutation = useStopGeneratorMutation();
 
+  const GLOBALS_ROW_STYLE = { cursor: 'default', borderRadius: 4, padding: '2px 4px 2px 22px' } as const;
+
   const projectName = dirname(generatorPath);
   const isActive = status?.is_running ?? false;
   const isTransitioning =
@@ -112,22 +116,9 @@ export const GeneratorCard: FC<GeneratorCardProps> = ({
       { id: generatorId },
       {
         onSuccess: () =>
-          notifications.show({
-            title: 'Success',
-            message: `Instance "${generatorId}" started`,
-            color: 'green',
-          }),
+          showSuccessNotification('Success', `Instance "${generatorId}" started`),
         onError: (error) =>
-          notifications.show({
-            title: 'Error',
-            message: (
-              <>
-                Failed to start instance
-                <ShowErrorDetailsAnchor error={error} prependDot />
-              </>
-            ),
-            color: 'red',
-          }),
+          showErrorNotification('Failed to start instance', error),
       }
     );
   }
@@ -137,22 +128,9 @@ export const GeneratorCard: FC<GeneratorCardProps> = ({
       { id: generatorId },
       {
         onSuccess: () =>
-          notifications.show({
-            title: 'Success',
-            message: `Instance "${generatorId}" stopped`,
-            color: 'green',
-          }),
+          showSuccessNotification('Success', `Instance "${generatorId}" stopped`),
         onError: (error) =>
-          notifications.show({
-            title: 'Error',
-            message: (
-              <>
-                Failed to stop instance
-                <ShowErrorDetailsAnchor error={error} prependDot />
-              </>
-            ),
-            color: 'red',
-          }),
+          showErrorNotification('Failed to stop instance', error),
       }
     );
   }
@@ -221,6 +199,7 @@ export const GeneratorCard: FC<GeneratorCardProps> = ({
               <ActionIcon
                 variant="subtle"
                 size="sm"
+                aria-label="Instance actions"
                 onClick={(e) => e.stopPropagation()}
               >
                 <IconDotsVertical size={16} />
@@ -267,7 +246,7 @@ export const GeneratorCard: FC<GeneratorCardProps> = ({
             </Menu.Item>
             <Menu.Item
               leftSection={<IconExternalLink size={14} />}
-              onClick={() => void navigate(`/projects/${projectName}`)}
+              onClick={() => void navigate(`${ROUTE_PATHS.PROJECTS}/${projectName}`)}
             >
               Go to project
             </Menu.Item>
@@ -316,7 +295,7 @@ export const GeneratorCard: FC<GeneratorCardProps> = ({
                   gap={4}
                   pl={22}
                   wrap="nowrap"
-                  style={{ cursor: 'default', borderRadius: 4, padding: '2px 4px 2px 22px' }}
+                  style={GLOBALS_ROW_STYLE}
                   onMouseEnter={() => onHighlightEdge?.(generatorId, key, 'write')}
                   onMouseLeave={() => onHighlightEdge?.('', '')}
                 >
@@ -331,7 +310,7 @@ export const GeneratorCard: FC<GeneratorCardProps> = ({
                   gap={4}
                   pl={22}
                   wrap="nowrap"
-                  style={{ cursor: 'default', borderRadius: 4, padding: '2px 4px 2px 22px' }}
+                  style={GLOBALS_ROW_STYLE}
                   onMouseEnter={() => onHighlightEdge?.(generatorId, key, 'read')}
                   onMouseLeave={() => onHighlightEdge?.('', '')}
                 >
