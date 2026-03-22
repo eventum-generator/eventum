@@ -100,7 +100,7 @@ export const StateTab: FC = () => {
         icon={<Box c="orange" component={IconAlertTriangle} />}
         title="Global state"
       >
-        Updating global state will also affect to currently running generator
+        Updating global state will affect all currently running generator
         instances.
       </Alert>
     </Stack>
