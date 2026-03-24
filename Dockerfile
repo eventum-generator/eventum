@@ -6,10 +6,10 @@ RUN apt-get update && apt-get install -y --no-install-recommends gcc libc6-dev z
 RUN pip install uv
 
 COPY pyproject.toml uv.lock .python-version README.md LICENSE ./
-COPY eventum/__init__.py eventum/
-RUN uv sync
+RUN uv sync --no-install-project
 
 COPY eventum/ eventum/
+RUN uv sync
 
 
 # Stage 2: Build React UI
@@ -29,6 +29,7 @@ FROM python:3.14-slim
 WORKDIR /app/
 COPY --from=app-build /app/eventum/ /app/eventum/
 COPY --from=app-build /app/.venv/ /app/.venv/
+COPY --from=app-build /root/.local/share/uv/python/ /root/.local/share/uv/python/
 COPY --from=ui-build /app/eventum/www/ /app/eventum/www/
 
 COPY config/ /app/config/
