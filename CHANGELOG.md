@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## 2.3.1 (2026-03-24)
+
+### 🐛 Bug Fixes
+
+- Fix Docker image failing to start with `exec /app/.venv/bin/eventum: no such file or directory` — split `uv sync` into two steps so the CLI entry point is created after full source is available
+
 ## 2.3.0 (2026-03-03)
 
 ### 🚀 New Features
