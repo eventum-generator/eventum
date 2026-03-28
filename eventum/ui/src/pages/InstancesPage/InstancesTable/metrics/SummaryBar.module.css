@@ -19,8 +19,8 @@
 }
 
 .value {
-  font-size: 16px;
-  font-weight: 600;
+  font-size: 13px;
+  font-weight: 500;
   color: var(--mantine-color-text);
-  margin-top: 4px;
+  margin-top: 2px;
 }

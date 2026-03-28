@@ -58,11 +58,6 @@ export const PipelineGraph: FC<PipelineGraphProps> = ({ stats }) => {
           nodesDraggable={false}
           nodesConnectable={false}
           elementsSelectable={false}
-          panOnDrag={false}
-          zoomOnScroll={false}
-          zoomOnPinch={false}
-          zoomOnDoubleClick={false}
-          preventScrolling={false}
           proOptions={{ hideAttribution: true }}
         >
           <Background variant={BackgroundVariant.Dots} gap={16} size={1} />

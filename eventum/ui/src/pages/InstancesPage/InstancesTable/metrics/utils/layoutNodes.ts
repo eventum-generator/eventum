@@ -58,7 +58,7 @@ export function buildPipelineGraph(stats: GeneratorStats): {
       type: 'default',
       style: EDGE_STYLE,
       markerEnd: EDGE_MARKER,
-      label: stats.input.length > 0 ? `${(stats.input_eps / stats.input.length).toFixed(2)} eps` : '',
+      animated: true,
     });
   }
 
@@ -131,7 +131,7 @@ export function buildPipelineGraph(stats: GeneratorStats): {
       type: 'default',
       style: EDGE_STYLE,
       markerEnd: EDGE_MARKER,
-      label: stats.output.length > 0 ? `${(stats.output_eps / stats.output.length).toFixed(2)} eps` : '',
+      animated: true,
     });
   }
 
