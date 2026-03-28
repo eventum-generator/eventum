@@ -9,6 +9,7 @@ import {
   Loader,
   Paper,
   Stack,
+  Text,
   TextInput,
   Tooltip,
 } from '@mantine/core';
@@ -17,7 +18,9 @@ import {
   IconAlertSquareRounded,
   IconPlayerPlay,
   IconPlayerStop,
+  IconRefresh,
   IconSearch,
+  IconTrash,
   IconX,
 } from '@tabler/icons-react';
 import { RowSelectionState } from '@tanstack/react-table';
@@ -32,6 +35,7 @@ import {
   useGenerators,
   useUpdateGeneratorStatus,
 } from '@/api/hooks/useGenerators';
+import { useDeleteScenarioMutation } from '@/api/hooks/useScenarios';
 import { useStartupGenerators } from '@/api/hooks/useStartup';
 import {
   GeneratorStatus,
@@ -115,6 +119,7 @@ export default function ScenariosPage() {
     isLoading: isGeneratorsLoading,
     isError: isGeneratorsError,
     error: generatorsError,
+    refetch: refetchGenerators,
   } = useGenerators();
 
   const isLoading = isStartupLoading || isGeneratorsLoading;
@@ -124,6 +129,7 @@ export default function ScenariosPage() {
   const bulkStart = useBulkStartGeneratorMutation();
   const bulkStop = useBulkStopGeneratorMutation();
   const updateStatus = useUpdateGeneratorStatus();
+  const deleteScenario = useDeleteScenarioMutation();
 
   const scenarios = useMemo(() => {
     if (!startupEntries || !generators) {
@@ -132,14 +138,40 @@ export default function ScenariosPage() {
     return deriveScenarios(startupEntries, generators);
   }, [startupEntries, generators]);
 
-  const selectedGeneratorIds = useMemo(() => {
-    const ids: string[] = [];
-    for (const rowId of Object.keys(rowSelection)) {
-      const row = scenarios[Number(rowId)];
-      if (row) ids.push(...row.generatorIds);
-    }
-    return ids;
+  const selectedScenarios = useMemo(() => {
+    return Object.keys(rowSelection)
+      .map((rowId) => scenarios[Number(rowId)])
+      .filter((row) => row !== undefined);
   }, [rowSelection, scenarios]);
+
+  const selectedGeneratorIds = useMemo(() => {
+    return selectedScenarios.flatMap((row) => row.generatorIds);
+  }, [selectedScenarios]);
+
+  function handleBulkDelete() {
+    const names = selectedScenarios.map((s) => s.name);
+    modals.openConfirmModal({
+      title: 'Delete scenarios',
+      children: (
+        <Text size="sm">
+          Delete {names.length} scenario(s): <b>{names.join(', ')}</b>?
+          Instances will not be deleted.
+        </Text>
+      ),
+      labels: { cancel: 'Cancel', confirm: 'Delete' },
+      confirmProps: { color: 'red' },
+      onConfirm: () => {
+        for (const name of names) {
+          deleteScenario.mutate(name, {
+            onError: (e) =>
+              showErrorNotification(`Failed to delete "${name}"`, e),
+          });
+        }
+        setRowSelection({});
+        showSuccessNotification('Deleted', `${names.length} scenario(s) deleted`);
+      },
+    });
+  }
 
   function handleBulkStart() {
     for (const id of selectedGeneratorIds) {
@@ -239,11 +271,37 @@ export default function ScenariosPage() {
             </Group>
             <Group gap="xs">
               <Group gap={0}>
+                <Tooltip label="Delete selected">
+                  <ActionIcon
+                    size="lg"
+                    variant="default"
+                    bdrs={0}
+                    disabled={selectedScenarios.length === 0}
+                    onClick={handleBulkDelete}
+                  >
+                    <Box
+                      component={IconTrash}
+                      size={20}
+                      c={selectedScenarios.length === 0 ? undefined : 'red'}
+                    />
+                  </ActionIcon>
+                </Tooltip>
+                <Tooltip label="Refresh">
+                  <ActionIcon
+                    size="lg"
+                    variant="default"
+                    bdrs={0}
+                    onClick={() => void refetchGenerators()}
+                    loading={isGeneratorsLoading}
+                  >
+                    <IconRefresh size={20} />
+                  </ActionIcon>
+                </Tooltip>
                 <Tooltip label="Stop selected">
                   <ActionIcon
                     size="lg"
                     variant="default"
-                    style={{ borderTopRightRadius: 0, borderBottomRightRadius: 0 }}
+                    bdrs={0}
                     disabled={selectedGeneratorIds.length === 0}
                     loading={bulkStop.isPending}
                     onClick={handleBulkStop}
