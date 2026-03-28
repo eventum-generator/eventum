@@ -1,4 +1,4 @@
-import { Group, Paper, SimpleGrid, Text } from '@mantine/core';
+import { Paper, SimpleGrid, Text } from '@mantine/core';
 import { FC } from 'react';
 
 import type { GeneratorStats } from '@/api/routes/generators/schemas';
@@ -14,14 +14,10 @@ function formatUptime(seconds: number): string {
 
 function Stat({ label, value }: { label: string; value: string | number }) {
   return (
-    <Group gap={6} wrap="nowrap">
-      <Text size="sm" c="dimmed">
-        {label}
-      </Text>
-      <Text size="sm" fw={500}>
-        {value}
-      </Text>
-    </Group>
+    <Text size="sm" style={{ whiteSpace: 'nowrap' }}>
+      <Text span c="dimmed">{label}</Text>{' '}
+      <Text span fw={500}>{value}</Text>
+    </Text>
   );
 }
 
