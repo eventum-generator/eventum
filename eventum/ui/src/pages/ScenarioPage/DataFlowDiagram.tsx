@@ -353,24 +353,54 @@ export function DataFlowDiagram({
     [],
   );
 
-  const { nodes, edges, containerHeight } = useMemo(() => {
+  const { structuralNodes, structuralEdges, containerHeight } = useMemo(() => {
     const keyList = collectGlobalKeys(globalsUsageMap);
 
-    const instanceNodes = buildInstanceNodes(scenarioEntries, generatorStatusMap, highlightedNodeId);
-    const keyNodes = buildKeyNodes(keyList, highlightedNodeId);
+    const instanceNodes = buildInstanceNodes(scenarioEntries, generatorStatusMap, null);
+    const keyNodes = buildKeyNodes(keyList, null);
 
-    const hasHighlight =
-      (highlightedNodeId != null) || (highlightedEdgeId != null);
-
-    const ctx: EdgeContext = { highlightedNodeId, highlightedEdgeId, hasHighlight };
+    const ctx: EdgeContext = { highlightedNodeId: null, highlightedEdgeId: null, hasHighlight: false };
     const flowEdges = buildEdges(globalsUsageMap, ctx);
 
     return {
-      nodes: [...instanceNodes, ...keyNodes],
-      edges: flowEdges,
+      structuralNodes: [...instanceNodes, ...keyNodes],
+      structuralEdges: flowEdges,
       containerHeight: computeDiagramHeight(scenarioEntries.length, keyList.length),
     };
-  }, [scenarioEntries, generatorStatusMap, globalsUsageMap, highlightedNodeId, highlightedEdgeId]);
+  }, [scenarioEntries, generatorStatusMap, globalsUsageMap]);
+
+  const nodes = useMemo(
+    () =>
+      structuralNodes.map((node) => ({
+        ...node,
+        data: {
+          ...node.data,
+          highlighted: highlightedNodeId === node.id,
+        },
+        style: {
+          ...node.style,
+          opacity: highlightedNodeId && node.id !== highlightedNodeId ? 0.3 : 1,
+        },
+      })),
+    [structuralNodes, highlightedNodeId],
+  );
+
+  const edges = useMemo(
+    () =>
+      structuralEdges.map((edge) => ({
+        ...edge,
+        style: {
+          ...edge.style,
+          opacity: highlightedEdgeId && edge.id !== highlightedEdgeId ? 0.15 : 1,
+          stroke:
+            edge.id === highlightedEdgeId
+              ? 'var(--mantine-primary-color-filled)'
+              : edge.style?.stroke,
+        },
+        animated: highlightedEdgeId ? edge.id === highlightedEdgeId : edge.animated,
+      })),
+    [structuralEdges, highlightedEdgeId],
+  );
 
   function handleNodeClick(_: React.MouseEvent, node: Node) {
     if (node.type === 'instance') {

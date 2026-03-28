@@ -293,7 +293,6 @@ export const GeneratorCard: FC<GeneratorCardProps> = ({
                 <Group
                   key={`w-${key}`}
                   gap={4}
-                  pl={22}
                   wrap="nowrap"
                   style={GLOBALS_ROW_STYLE}
                   onMouseEnter={() => onHighlightEdge?.(generatorId, key, 'write')}
@@ -308,7 +307,6 @@ export const GeneratorCard: FC<GeneratorCardProps> = ({
                 <Group
                   key={`r-${key}`}
                   gap={4}
-                  pl={22}
                   wrap="nowrap"
                   style={GLOBALS_ROW_STYLE}
                   onMouseEnter={() => onHighlightEdge?.(generatorId, key, 'read')}
@@ -324,12 +322,14 @@ export const GeneratorCard: FC<GeneratorCardProps> = ({
         </Stack>
       </Collapse>
 
-      <TemplatePreviewModal
-        opened={previewTemplate !== null}
-        onClose={() => setPreviewTemplate(null)}
-        generatorName={generatorId}
-        templatePath={previewTemplate ?? ''}
-      />
+      {previewTemplate !== null && (
+        <TemplatePreviewModal
+          opened
+          onClose={() => setPreviewTemplate(null)}
+          generatorName={generatorId}
+          templatePath={previewTemplate}
+        />
+      )}
     </Paper>
   );
 };
