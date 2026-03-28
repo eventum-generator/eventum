@@ -163,4 +163,6 @@ www/
 .claude/logs/
 
 # claude
+.superpowers/
 superpowers/
+.playwright-mcp/

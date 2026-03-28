@@ -52,7 +52,7 @@ export const RowActions: FC<RowActionsProps> = ({
     modals.open({
       title: `Instance metrics`,
       children: <MetricsModal instanceId={instanceId} />,
-      size: 'xl',
+      size: '70vw',
     });
   }
 

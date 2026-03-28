@@ -3,70 +3,17 @@ import {
   Box,
   Center,
   Container,
-  Divider,
-  Grid,
-  Group,
   Loader,
   Stack,
-  Text,
-  Title,
 } from '@mantine/core';
-import {
-  Icon,
-  IconAlertSquareRounded,
-  IconArrowsSplit2,
-  IconClockPlay,
-  IconCube,
-  IconInfoCircle,
-  IconProps,
-} from '@tabler/icons-react';
-import { FC, ReactNode, useEffect } from 'react';
+import { IconAlertSquareRounded } from '@tabler/icons-react';
+import { ReactFlowProvider } from '@xyflow/react';
+import { FC, useEffect } from 'react';
 
+import { PipelineGraph } from './metrics/PipelineGraph';
+import { SummaryBar } from './metrics/SummaryBar';
 import { useGeneratorStats } from '@/api/hooks/useGenerators';
 import { ShowErrorDetailsAnchor } from '@/components/ui/ShowErrorDetailsAnchor';
-
-interface MetricsSectionProps {
-  sectionName: string;
-  SectionIcon?: React.ForwardRefExoticComponent<
-    IconProps & React.RefAttributes<Icon>
-  >;
-  sectionGroups: { label: string; value: ReactNode }[][];
-}
-
-const MetricsSection: FC<MetricsSectionProps> = ({
-  sectionName,
-  SectionIcon,
-  sectionGroups,
-}) => {
-  return (
-    <Stack gap="4px">
-      <Group gap="xs">
-        {SectionIcon && <SectionIcon size="19px" />}
-        <Title order={6} fw={600}>
-          {sectionName}
-        </Title>
-      </Group>
-
-      <Divider my="4px" />
-
-      <Grid columns={sectionGroups.length}>
-        {sectionGroups.map((sectionGroup, index) => (
-          <Grid.Col key={index} span={1}>
-            {sectionGroup.map((sectionItem) => (
-              <Group key={sectionItem.label}>
-                <Text size="sm">
-                  {sectionItem.label}: {sectionItem.value}
-                </Text>
-              </Group>
-            ))}
-          </Grid.Col>
-        ))}
-      </Grid>
-
-      <Stack gap="4px"></Stack>
-    </Stack>
-  );
-};
 
 interface MetricsModalProps {
   instanceId: string;
@@ -118,122 +65,11 @@ export const MetricsModal: FC<MetricsModalProps> = ({ instanceId }) => {
 
   if (isStatsSuccess) {
     return (
-      <Stack gap="4px">
-        <Stack>
-          <MetricsSection
-            sectionName="Common"
-            SectionIcon={IconInfoCircle}
-            sectionGroups={[
-              [
-                { label: 'Instance', value: instanceId },
-                {
-                  label: 'Start time',
-                  value: new Date(stats.start_time).toLocaleString(),
-                },
-                { label: 'Uptime', value: `${Math.round(stats.uptime)} s.` },
-              ],
-              [
-                { label: 'Generated', value: stats.total_generated },
-                { label: 'Written', value: stats.total_written },
-              ],
-              [
-                { label: 'Input EPS', value: stats.input_eps },
-                { label: 'Output EPS', value: stats.output_eps },
-              ],
-            ]}
-          />
-
-          <Stack gap="4px">
-            <Grid columns={3}>
-              <Grid.Col span={1}>
-                <Group gap="xs">
-                  <IconClockPlay size="19px" />
-                  <Title order={6} fw={600}>
-                    Input plugins
-                  </Title>
-                </Group>
-              </Grid.Col>
-
-              <Grid.Col span={1}>
-                <Group gap="xs">
-                  <IconCube size="19px" />
-                  <Title order={6} fw={600}>
-                    Event plugin
-                  </Title>
-                </Group>
-              </Grid.Col>
-
-              <Grid.Col span={1}>
-                <Group gap="xs">
-                  <IconArrowsSplit2 size="19px" />
-                  <Title order={6} fw={600}>
-                    Output plugins
-                  </Title>
-                </Group>
-              </Grid.Col>
-            </Grid>
-
-            <Divider />
-          </Stack>
-
-          <Group wrap="nowrap" align="start" grow>
-            <Stack gap="xs">
-              {...stats.input.map((inputPlugin) => {
-                return (
-                  <MetricsSection
-                    key={`${inputPlugin.plugin_name} #${inputPlugin.plugin_id}`}
-                    sectionName={`${inputPlugin.plugin_name} #${inputPlugin.plugin_id}`}
-                    sectionGroups={[
-                      [{ label: 'Generated', value: inputPlugin.generated }],
-                    ]}
-                  />
-                );
-              })}
-            </Stack>
-
-            <MetricsSection
-              sectionName={`${stats.event.plugin_name} #${stats.event.plugin_id}`}
-              sectionGroups={[
-                [
-                  {
-                    label: 'Produced',
-                    value: stats.event.produced,
-                  },
-                ],
-                [
-                  {
-                    label: 'Produce failed',
-                    value: stats.event.produce_failed,
-                  },
-                ],
-              ]}
-            />
-
-            <Stack gap="xs">
-              {...stats.output.map((outputPlugin) => {
-                return (
-                  <MetricsSection
-                    key={`${outputPlugin.plugin_name} #${outputPlugin.plugin_id}`}
-                    sectionName={`${outputPlugin.plugin_name} #${outputPlugin.plugin_id}`}
-                    sectionGroups={[
-                      [{ label: 'Written', value: outputPlugin.written }],
-                      [
-                        {
-                          label: 'Format failed',
-                          value: outputPlugin.format_failed,
-                        },
-                        {
-                          label: 'Write failed',
-                          value: outputPlugin.write_failed,
-                        },
-                      ],
-                    ]}
-                  />
-                );
-              })}
-            </Stack>
-          </Group>
-        </Stack>
+      <Stack gap="md">
+        <SummaryBar stats={stats} />
+        <ReactFlowProvider>
+          <PipelineGraph stats={stats} />
+        </ReactFlowProvider>
       </Stack>
     );
   }
