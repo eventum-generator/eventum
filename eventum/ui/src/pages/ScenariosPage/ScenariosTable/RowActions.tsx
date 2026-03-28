@@ -4,8 +4,7 @@ import { IconEdit, IconTrash } from '@tabler/icons-react';
 import { FC, ReactNode } from 'react';
 import { useNavigate } from 'react-router-dom';
 
-import { useDeleteScenario } from '../useDeleteScenario';
-import { StartupGeneratorParametersList } from '@/api/routes/startup/schemas';
+import { useDeleteScenarioMutation } from '@/api/hooks/useScenarios';
 import { ROUTE_PATHS } from '@/routing/paths';
 import {
   showErrorNotification,
@@ -15,16 +14,14 @@ import {
 interface RowActionsProps {
   target: ReactNode;
   scenarioName: string;
-  startupEntries: StartupGeneratorParametersList;
 }
 
 export const RowActions: FC<RowActionsProps> = ({
   target,
   scenarioName,
-  startupEntries,
 }) => {
   const navigate = useNavigate();
-  const deleteScenario = useDeleteScenario();
+  const deleteScenario = useDeleteScenarioMutation();
 
   function handleEdit() {
     void navigate(
@@ -44,7 +41,7 @@ export const RowActions: FC<RowActionsProps> = ({
       labels: { cancel: 'Cancel', confirm: 'Delete' },
       onConfirm: () => {
         deleteScenario.mutate(
-          { scenarioName, startupEntries },
+          scenarioName,
           {
             onSuccess: () =>
               showSuccessNotification(

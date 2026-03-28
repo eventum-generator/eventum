@@ -29,22 +29,19 @@ import { FC, useEffect, useMemo, useState } from 'react';
 
 import { createColumns } from './columns';
 import { ScenarioRow } from './types';
-import { StartupGeneratorParametersList } from '@/api/routes/startup/schemas';
 
 interface ScenariosTableProps {
   data: ScenarioRow[];
   nameFilter?: string;
-  startupEntries: StartupGeneratorParametersList;
 }
 
 export const ScenariosTable: FC<ScenariosTableProps> = ({
   data,
   nameFilter = '',
-  startupEntries,
 }) => {
   const columns = useMemo(
-    () => createColumns(startupEntries),
-    [startupEntries]
+    () => createColumns(),
+    []
   );
 
   const [sorting, setSorting] = useState<SortingState>([
@@ -104,7 +101,7 @@ export const ScenariosTable: FC<ScenariosTableProps> = ({
                                   size="sm"
                                   onClick={header.column.getToggleSortingHandler()}
                                 >
-                                  <IconSortDescending size={16} />
+                                  <IconSortAscending size={16} />
                                 </ActionIcon>
                               )}
                               {header.column.getIsSorted() === 'desc' && (
@@ -113,7 +110,7 @@ export const ScenariosTable: FC<ScenariosTableProps> = ({
                                   size="sm"
                                   onClick={header.column.getToggleSortingHandler()}
                                 >
-                                  <IconSortAscending size={16} />
+                                  <IconSortDescending size={16} />
                                 </ActionIcon>
                               )}
                               {header.column.getIsSorted() === false && (

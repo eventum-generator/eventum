@@ -5,13 +5,10 @@ import { createColumnHelper } from '@tanstack/react-table';
 import { RowActions } from './RowActions';
 import { StatusBadges } from './StatusBadges';
 import { ScenarioRow } from './types';
-import { StartupGeneratorParametersList } from '@/api/routes/startup/schemas';
 
 const columnHelper = createColumnHelper<ScenarioRow>();
 
-export function createColumns(
-  startupEntries: StartupGeneratorParametersList
-) {
+export function createColumns() {
   return [
     columnHelper.accessor('name', {
       header: 'Name',
@@ -43,7 +40,6 @@ export function createColumns(
               </ActionIcon>
             }
             scenarioName={original.name}
-            startupEntries={startupEntries}
           />
         );
       },

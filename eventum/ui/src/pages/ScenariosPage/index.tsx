@@ -169,7 +169,6 @@ export default function ScenariosPage() {
         <ScenariosTable
           data={scenarios}
           nameFilter={nameFilter}
-          startupEntries={startupEntries ?? []}
         />
       </Stack>
     </Container>
