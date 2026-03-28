@@ -197,12 +197,11 @@ export const GeneratorCard: FC<GeneratorCardProps> = ({
           <Menu shadow="md" width={170} position="bottom-end">
             <Menu.Target>
               <ActionIcon
-                variant="subtle"
-                size="sm"
+                variant="transparent"
                 aria-label="Instance actions"
                 onClick={(e) => e.stopPropagation()}
               >
-                <IconDotsVertical size={16} />
+                <IconDotsVertical size={20} />
               </ActionIcon>
             </Menu.Target>
           <Menu.Dropdown>
