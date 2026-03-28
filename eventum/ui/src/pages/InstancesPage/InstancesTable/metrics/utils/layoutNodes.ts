@@ -18,6 +18,14 @@ export interface PipelineNodeData extends Record<string, unknown> {
   colorType: 'input' | 'event' | 'output';
 }
 
+// Estimate node height: header (~36px) + metrics * 22px + padding (16px)
+const NODE_BASE_HEIGHT = 52;
+const METRIC_ROW_HEIGHT = 22;
+
+function estimateNodeHeight(metricCount: number): number {
+  return NODE_BASE_HEIGHT + metricCount * METRIC_ROW_HEIGHT;
+}
+
 function computeColumnY(count: number, maxCount: number, index: number): number {
   const offset = ((maxCount - count) * NODE_SPACING_Y) / 2;
   return PADDING_TOP + offset + index * NODE_SPACING_Y;
@@ -77,7 +85,6 @@ export function buildPipelineGraph(stats: GeneratorStats): {
     { label: 'Produced', value: stats.event.produced },
     { label: 'Produce failed', value: stats.event.produce_failed, isError: stats.event.produce_failed > 0 },
   ];
-
   nodes.push({
     id: 'event-0',
     type: 'pipelineNode',
@@ -105,7 +112,6 @@ export function buildPipelineGraph(stats: GeneratorStats): {
       { label: 'Format failed', value: plugin.format_failed, isError: plugin.format_failed > 0 },
       { label: 'Write failed', value: plugin.write_failed, isError: plugin.write_failed > 0 },
     ];
-
     nodes.push({
       id,
       type: 'pipelineNode',

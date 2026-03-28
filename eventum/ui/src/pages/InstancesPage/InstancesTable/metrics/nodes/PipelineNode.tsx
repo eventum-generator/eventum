@@ -7,11 +7,21 @@ import { PLUGINS_INFO } from '@/api/routes/generator-configs/modules/plugins/reg
 
 type PipelineNodeType = Node<PipelineNodeData, 'pipelineNode'>;
 
-const HIDDEN_HANDLE_STYLE = {
+// Position handles at the header line (~20px from top) so all nodes connect at the same height
+const LEFT_HANDLE_STYLE = {
   background: 'transparent',
   border: 'none',
   width: 6,
   height: 6,
+  top: 20,
+} as const;
+
+const RIGHT_HANDLE_STYLE = {
+  background: 'transparent',
+  border: 'none',
+  width: 6,
+  height: 6,
+  top: 20,
 } as const;
 
 function getPluginIcon(colorType: PipelineNodeData['colorType'], pluginName: string) {
@@ -53,12 +63,12 @@ export const PipelineNode = memo(function PipelineNode({
     <Paper
       withBorder
       p="xs"
-      style={{ width: 250, minHeight: 100, borderStyle: 'solid' }}
+      style={{ width: 250, borderStyle: 'solid' }}
     >
       <Handle
         type="target"
         position={Position.Left}
-        style={HIDDEN_HANDLE_STYLE}
+        style={LEFT_HANDLE_STYLE}
         isConnectable={false}
       />
 
@@ -90,7 +100,7 @@ export const PipelineNode = memo(function PipelineNode({
       <Handle
         type="source"
         position={Position.Right}
-        style={HIDDEN_HANDLE_STYLE}
+        style={RIGHT_HANDLE_STYLE}
         isConnectable={false}
       />
     </Paper>
