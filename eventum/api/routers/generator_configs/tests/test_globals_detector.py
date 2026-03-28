@@ -1,9 +1,6 @@
 """Tests for Jinja2 AST-based globals detector."""
 
-import pytest
-
 from eventum.api.routers.generator_configs.globals_detector import (
-    GlobalsUsage,
     detect_globals_usage,
 )
 
@@ -63,17 +60,6 @@ def test_detect_no_globals():
     assert len(result.reads) == 0
     assert len(result.warnings) == 0
 
-
-def test_detect_line_numbers():
-    template = (
-        'line1\n'
-        '{%- do globals.set("key1", val) -%}\n'
-        'line3\n'
-        '{%- set x = globals.get("key2") -%}\n'
-    )
-    result = detect_globals_usage(template, 'lines.j2')
-    assert result.writes[0].line == 2
-    assert result.reads[0].line == 4
 
 
 def test_detect_invalid_template():

@@ -16,8 +16,6 @@ class GlobalsReference:
 
     key: str
     template: str
-    line: int
-    snippet: str
 
 
 @dataclass(frozen=True)
@@ -26,8 +24,6 @@ class GlobalsWarning:
 
     type: WarningType
     template: str
-    line: int
-    snippet: str
 
 
 @dataclass
@@ -70,16 +66,8 @@ def detect_globals_usage(source: str, template_name: str) -> GlobalsUsage:
     except Exception:
         return usage
 
-    _walk_node(ast, source, template_name, usage)
+    _walk_node(ast, template_name, usage)
     return usage
-
-
-def _get_source_line(source: str, lineno: int) -> str:
-    """Extract a source line by line number."""
-    lines = source.splitlines()
-    if 1 <= lineno <= len(lines):
-        return lines[lineno - 1].strip()
-    return ''
 
 
 def _is_globals_name(node: nodes.Node) -> bool:
@@ -89,7 +77,6 @@ def _is_globals_name(node: nodes.Node) -> bool:
 
 def _walk_node(
     node: nodes.Node,
-    source: str,
     template_name: str,
     usage: GlobalsUsage,
 ) -> None:
@@ -100,8 +87,6 @@ def _walk_node(
             node.node.node
         ):
             method = node.node.attr
-            lineno = node.lineno
-            snippet = _get_source_line(source, lineno)
 
             if method == 'set':
                 if node.args and isinstance(node.args[0], nodes.Const):
@@ -109,8 +94,6 @@ def _walk_node(
                         GlobalsReference(
                             key=node.args[0].value,
                             template=template_name,
-                            line=lineno,
-                            snippet=snippet,
                         )
                     )
                 elif node.args:
@@ -118,8 +101,6 @@ def _walk_node(
                         GlobalsWarning(
                             type='dynamic_key',
                             template=template_name,
-                            line=lineno,
-                            snippet=snippet,
                         )
                     )
 
@@ -129,8 +110,6 @@ def _walk_node(
                         GlobalsReference(
                             key=node.args[0].value,
                             template=template_name,
-                            line=lineno,
-                            snippet=snippet,
                         )
                     )
                 elif node.args:
@@ -138,8 +117,6 @@ def _walk_node(
                         GlobalsWarning(
                             type='dynamic_key',
                             template=template_name,
-                            line=lineno,
-                            snippet=snippet,
                         )
                     )
 
@@ -148,8 +125,6 @@ def _walk_node(
                     GlobalsWarning(
                         type='update_call',
                         template=template_name,
-                        line=lineno,
-                        snippet=snippet,
                     )
                 )
 
@@ -161,11 +136,9 @@ def _walk_node(
                     GlobalsReference(
                         key=node.arg.value,
                         template=template_name,
-                        line=node.lineno,
-                        snippet=_get_source_line(source, node.lineno),
                     )
                 )
 
     # Recurse into child nodes
     for child in node.iter_child_nodes():
-        _walk_node(child, source, template_name, usage)
+        _walk_node(child, template_name, usage)
