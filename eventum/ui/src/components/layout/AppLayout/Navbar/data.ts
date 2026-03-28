@@ -1,4 +1,5 @@
 import {
+  IconActivity,
   IconBook,
   IconBug,
   IconFolder,
@@ -12,6 +13,14 @@ import {
 
 import { LINKS } from '@/routing/links';
 import { ROUTE_PATHS } from '@/routing/paths';
+
+export const TOP_NAVIGATION_DATA = [
+  {
+    label: 'Monitoring',
+    icon: IconActivity,
+    pathname: ROUTE_PATHS.MONITORING,
+  },
+];
 
 export const NAVIGATION_DATA = [
   {
