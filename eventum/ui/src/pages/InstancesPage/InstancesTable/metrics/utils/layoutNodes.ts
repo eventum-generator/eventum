@@ -2,7 +2,9 @@ import { MarkerType, type Edge, type Node } from '@xyflow/react';
 
 import type { GeneratorStats } from '@/api/routes/generators/schemas';
 
-const COLUMN_X = [0, 350, 700] as const;
+const NODE_WIDTH = 200;
+const COLUMN_GAP = 150;
+const COLUMN_X = [0, NODE_WIDTH + COLUMN_GAP, (NODE_WIDTH + COLUMN_GAP) * 2] as const;
 const NODE_SPACING_Y = 100;
 const PADDING_TOP = 0;
 const DIAGRAM_BOTTOM_PADDING = 60;
@@ -56,6 +58,7 @@ export function buildPipelineGraph(stats: GeneratorStats): {
         eps: perPluginEps,
         colorType: 'input',
       },
+      width: NODE_WIDTH,
     });
 
     edges.push({
@@ -89,6 +92,7 @@ export function buildPipelineGraph(stats: GeneratorStats): {
       eps: stats.input_eps,
       colorType: 'event',
     },
+    width: NODE_WIDTH,
   });
 
   // Output nodes
@@ -116,6 +120,7 @@ export function buildPipelineGraph(stats: GeneratorStats): {
         eps: perPluginEps,
         colorType: 'output',
       },
+      width: NODE_WIDTH,
     });
 
     edges.push({
