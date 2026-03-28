@@ -48,7 +48,7 @@ export const PipelineGraph: FC<PipelineGraphProps> = ({ stats }) => {
         </Title>
       </Group>
       <style>{REACT_FLOW_CONTROLS_CSS}</style>
-      <div style={{ height: graphHeight }}>
+      <div style={{ height: graphHeight, maxHeight: '80vh' }}>
         <ReactFlow
           nodes={nodes}
           edges={edges}
