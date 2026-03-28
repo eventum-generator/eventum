@@ -11,7 +11,6 @@ import {
   Stack,
   Text,
   TextInput,
-  Tooltip,
 } from '@mantine/core';
 import { modals } from '@mantine/modals';
 import {
@@ -168,7 +167,10 @@ export default function ScenariosPage() {
           });
         }
         setRowSelection({});
-        showSuccessNotification('Deleted', `${names.length} scenario(s) deleted`);
+        showSuccessNotification(
+          'Deleted',
+          `${names.length} scenario(s) deleted`
+        );
       },
     });
   }
@@ -191,9 +193,8 @@ export default function ScenariosPage() {
       {
         onSuccess: () =>
           showSuccessNotification('Success', 'Selected scenarios started'),
-        onError: (e) =>
-          showErrorNotification('Failed to start scenarios', e),
-      },
+        onError: (e) => showErrorNotification('Failed to start scenarios', e),
+      }
     );
   }
 
@@ -215,9 +216,8 @@ export default function ScenariosPage() {
       {
         onSuccess: () =>
           showSuccessNotification('Success', 'Selected scenarios stopped'),
-        onError: (e) =>
-          showErrorNotification('Failed to stop scenarios', e),
-      },
+        onError: (e) => showErrorNotification('Failed to stop scenarios', e),
+      }
     );
   }
 
@@ -271,56 +271,56 @@ export default function ScenariosPage() {
             </Group>
             <Group gap="xs">
               <Group gap={0}>
-                <Tooltip label="Delete selected">
-                  <ActionIcon
-                    size="lg"
-                    variant="default"
-                    bdrs={0}
-                    disabled={selectedScenarios.length === 0}
-                    onClick={handleBulkDelete}
-                  >
-                    <Box
-                      component={IconTrash}
-                      size={20}
-                      c={selectedScenarios.length === 0 ? undefined : 'red'}
-                    />
-                  </ActionIcon>
-                </Tooltip>
-                <Tooltip label="Refresh">
-                  <ActionIcon
-                    size="lg"
-                    variant="default"
-                    bdrs={0}
-                    onClick={() => void refetchGenerators()}
-                    loading={isGeneratorsLoading}
-                  >
-                    <IconRefresh size={20} />
-                  </ActionIcon>
-                </Tooltip>
-                <Tooltip label="Stop selected">
-                  <ActionIcon
-                    size="lg"
-                    variant="default"
-                    bdrs={0}
-                    disabled={selectedGeneratorIds.length === 0}
-                    loading={bulkStop.isPending}
-                    onClick={handleBulkStop}
-                  >
-                    <IconPlayerStop size={20} />
-                  </ActionIcon>
-                </Tooltip>
-                <Tooltip label="Start selected">
-                  <ActionIcon
-                    size="lg"
-                    variant="default"
-                    style={{ borderTopLeftRadius: 0, borderBottomLeftRadius: 0 }}
-                    disabled={selectedGeneratorIds.length === 0}
-                    loading={bulkStart.isPending}
-                    onClick={handleBulkStart}
-                  >
-                    <IconPlayerPlay size={20} />
-                  </ActionIcon>
-                </Tooltip>
+                <ActionIcon
+                  size="lg"
+                  variant="default"
+                  title="Delete"
+                  style={{
+                    borderTopRightRadius: 0,
+                    borderBottomRightRadius: 0,
+                  }}
+                  disabled={selectedScenarios.length === 0}
+                  onClick={handleBulkDelete}
+                >
+                  <Box c={selectedScenarios.length === 0 ? undefined : 'red'}>
+                    <IconTrash size={20} />
+                  </Box>
+                </ActionIcon>
+                <ActionIcon
+                  size="lg"
+                  variant="default"
+                  title="Refresh"
+                  bdrs={0}
+                  onClick={() => void refetchGenerators()}
+                  loading={isGeneratorsLoading}
+                >
+                  <IconRefresh size={20} />
+                </ActionIcon>
+                <ActionIcon
+                  size="lg"
+                  variant="default"
+                  title="Stop"
+                  bdrs={0}
+                  disabled={selectedGeneratorIds.length === 0}
+                  loading={bulkStop.isPending}
+                  onClick={handleBulkStop}
+                >
+                  <IconPlayerStop size={20} />
+                </ActionIcon>
+                <ActionIcon
+                  size="lg"
+                  variant="default"
+                  title="Start"
+                  style={{
+                    borderTopLeftRadius: 0,
+                    borderBottomLeftRadius: 0,
+                  }}
+                  disabled={selectedGeneratorIds.length === 0}
+                  loading={bulkStart.isPending}
+                  onClick={handleBulkStart}
+                >
+                  <IconPlayerPlay size={20} />
+                </ActionIcon>
               </Group>
               <Button
                 onClick={() =>

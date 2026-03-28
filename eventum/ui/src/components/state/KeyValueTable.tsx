@@ -30,8 +30,6 @@ import {
 } from '@tabler/icons-react';
 import { ReactNode, useCallback, useMemo, useState } from 'react';
 
-import { ShowErrorDetailsAnchor } from '@/components/ui/ShowErrorDetailsAnchor';
-
 import { AddKeyModal } from './AddKeyModal';
 import { ValueEditorModal } from './ValueEditorModal';
 import {
@@ -40,6 +38,7 @@ import {
   isSimpleValue,
   typeBadgeColor,
 } from './value-helpers';
+import { ShowErrorDetailsAnchor } from '@/components/ui/ShowErrorDetailsAnchor';
 
 const PAGE_SIZE = 20;
 
@@ -113,7 +112,7 @@ export function KeyValueTable({
     return entries.filter(
       ([key, value]) =>
         key.toLowerCase().includes(q) ||
-        formatValuePreview(value).toLowerCase().includes(q),
+        formatValuePreview(value).toLowerCase().includes(q)
     );
   }, [entries, search]);
 
@@ -124,9 +123,9 @@ export function KeyValueTable({
     () =>
       filteredEntries.slice(
         (currentPage - 1) * PAGE_SIZE,
-        currentPage * PAGE_SIZE,
+        currentPage * PAGE_SIZE
       ),
-    [filteredEntries, currentPage],
+    [filteredEntries, currentPage]
   );
 
   const existingKeys = useMemo(() => entries.map(([key]) => key), [entries]);
@@ -147,7 +146,7 @@ export function KeyValueTable({
         },
       });
     },
-    [onDeleteKey, title],
+    [onDeleteKey, title]
   );
 
   const handleClear = useCallback(() => {
@@ -155,8 +154,8 @@ export function KeyValueTable({
       title: `Clear ${title.toLowerCase()}`,
       children: (
         <Text size="sm">
-          This will remove all {entries.length} keys from{' '}
-          {title.toLowerCase()}. This action cannot be undone.
+          This will remove all {entries.length} keys from {title.toLowerCase()}.
+          This action cannot be undone.
         </Text>
       ),
       labels: { cancel: 'Cancel', confirm: 'Clear all' },
@@ -323,8 +322,7 @@ export function KeyValueTable({
                               onKeyDown={(e) => {
                                 if (e.key === 'Enter')
                                   commitInlineEdit(key, value);
-                                if (e.key === 'Escape')
-                                  setInlineEditKey(null);
+                                if (e.key === 'Escape') setInlineEditKey(null);
                               }}
                               // eslint-disable-next-line jsx-a11y/no-autofocus -- intentional for inline edit UX
                               autoFocus
@@ -345,7 +343,10 @@ export function KeyValueTable({
                                 truncate
                                 c="dimmed"
                                 td="underline"
-                                style={{ cursor: 'pointer', textDecorationStyle: 'dotted' }}
+                                style={{
+                                  cursor: 'pointer',
+                                  textDecorationStyle: 'dotted',
+                                }}
                                 onClick={() => handleEditClick(key, value)}
                               >
                                 {formatValuePreview(value)}
@@ -356,7 +357,11 @@ export function KeyValueTable({
                         <Table.Td>
                           <Menu position="bottom-end" withinPortal>
                             <Menu.Target>
-                              <ActionIcon variant="transparent" size="sm" aria-label="Key actions">
+                              <ActionIcon
+                                variant="transparent"
+                                size="sm"
+                                aria-label="Key actions"
+                              >
                                 <IconDotsVertical size={14} />
                               </ActionIcon>
                             </Menu.Target>
