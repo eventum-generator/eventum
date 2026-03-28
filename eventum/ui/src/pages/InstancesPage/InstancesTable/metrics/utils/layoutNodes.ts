@@ -2,17 +2,11 @@ import type { Edge, Node } from '@xyflow/react';
 
 import type { GeneratorStats } from '@/api/routes/generators/schemas';
 
-export function computeAnimationDuration(eps: number): string {
-  if (eps <= 0) return '0s';
-  const duration = Math.min(4, Math.max(0.8, 2 / eps));
-  return `${duration}s`;
-}
-
-const COLUMN_X = [0, 350, 700] as const;
-const NODE_WIDTH = 180;
-const NODE_HEIGHT = 80;
-const NODE_SPACING_Y = 100;
-const PADDING_TOP = 30;
+const COLUMN_X = [0, 300, 600] as const;
+const NODE_SPACING_Y = 90;
+const PADDING_TOP = 20;
+const DIAGRAM_BOTTOM_PADDING = 40;
+const MIN_GRAPH_HEIGHT = 180;
 
 export interface PipelineNodeData extends Record<string, unknown> {
   pluginName: string;
@@ -20,6 +14,7 @@ export interface PipelineNodeData extends Record<string, unknown> {
   metrics: { label: string; value: number; isError?: boolean }[];
   eps: number;
   colorType: 'input' | 'event' | 'output';
+  totalCount: number;
 }
 
 function computeColumnY(count: number, maxCount: number, index: number): number {
@@ -52,17 +47,18 @@ export function buildPipelineGraph(stats: GeneratorStats): {
         metrics: [{ label: 'Generated', value: plugin.generated }],
         eps: stats.input.length > 0 ? stats.input_eps / stats.input.length : 0,
         colorType: 'input',
+        totalCount: plugin.generated,
       },
-      width: NODE_WIDTH,
-      height: NODE_HEIGHT,
     });
 
     edges.push({
       id: `edge-${id}-event`,
       source: id,
       target: 'event-0',
-      type: 'animatedEdge',
-      data: { eps: stats.input.length > 0 ? stats.input_eps / stats.input.length : 0 },
+      type: 'default',
+      style: EDGE_STYLE,
+      markerEnd: EDGE_MARKER,
+      label: stats.input.length > 0 ? `${(stats.input_eps / stats.input.length).toFixed(2)} eps` : '',
     });
   }
 
@@ -91,9 +87,8 @@ export function buildPipelineGraph(stats: GeneratorStats): {
       metrics: eventMetrics,
       eps: stats.input_eps,
       colorType: 'event',
+      totalCount: stats.event.produced,
     },
-    width: NODE_WIDTH,
-    height: NODE_HEIGHT,
   });
 
   // Output nodes
@@ -125,17 +120,18 @@ export function buildPipelineGraph(stats: GeneratorStats): {
         metrics: outputMetrics,
         eps: stats.output.length > 0 ? stats.output_eps / stats.output.length : 0,
         colorType: 'output',
+        totalCount: plugin.written,
       },
-      width: NODE_WIDTH,
-      height: NODE_HEIGHT,
     });
 
     edges.push({
       id: `edge-event-${id}`,
       source: 'event-0',
       target: id,
-      type: 'animatedEdge',
-      data: { eps: stats.output.length > 0 ? stats.output_eps / stats.output.length : 0 },
+      type: 'default',
+      style: EDGE_STYLE,
+      markerEnd: EDGE_MARKER,
+      label: stats.output.length > 0 ? `${(stats.output_eps / stats.output.length).toFixed(2)} eps` : '',
     });
   }
 
@@ -144,6 +140,18 @@ export function buildPipelineGraph(stats: GeneratorStats): {
 
 export function computeGraphHeight(stats: GeneratorStats): number {
   const maxCount = Math.max(stats.input.length, 1, stats.output.length);
-  const contentHeight = PADDING_TOP * 2 + (maxCount - 1) * NODE_SPACING_Y + NODE_HEIGHT;
-  return Math.max(250, contentHeight);
+  return Math.max(MIN_GRAPH_HEIGHT, maxCount * NODE_SPACING_Y + DIAGRAM_BOTTOM_PADDING);
 }
+
+// Edge styling — dashed, matching DataFlowDiagram pattern
+const EDGE_STYLE = {
+  strokeDasharray: '5,5',
+  stroke: 'var(--mantine-color-text)',
+  strokeWidth: 2,
+  opacity: 0.6,
+} as const;
+
+const EDGE_MARKER = {
+  type: 'arrowclosed' as const,
+  color: 'var(--mantine-color-text)',
+};
