@@ -53,6 +53,7 @@ export const RowActions: FC<RowActionsProps> = ({
       title: `Instance metrics`,
       children: <MetricsModal instanceId={instanceId} />,
       size: '80vw',
+      styles: { content: { maxWidth: 1400 } },
     });
   }
 

@@ -6,6 +6,8 @@ import {
 } from '@xyflow/react';
 import { memo } from 'react';
 
+import { computeAnimationDuration } from '../utils/layoutNodes';
+
 import classes from './AnimatedEdge.module.css';
 
 interface AnimatedEdgeData extends Record<string, unknown> {
@@ -13,12 +15,6 @@ interface AnimatedEdgeData extends Record<string, unknown> {
 }
 
 type AnimatedEdgeType = Edge<AnimatedEdgeData, 'animatedEdge'>;
-
-function computeFlowDuration(eps: number): string {
-  if (eps <= 0) return '0s';
-  const duration = Math.min(4, Math.max(0.8, 2 / eps));
-  return `${duration}s`;
-}
 
 export const AnimatedEdge = memo(function AnimatedEdge({
   id,
@@ -41,7 +37,7 @@ export const AnimatedEdge = memo(function AnimatedEdge({
 
   const eps = data?.eps ?? 0;
   const isAnimated = eps > 0;
-  const flowDuration = computeFlowDuration(eps);
+  const flowDuration = computeAnimationDuration(eps);
 
   return (
     <>
@@ -58,7 +54,6 @@ export const AnimatedEdge = memo(function AnimatedEdge({
       {isAnimated && (
         <circle
           className={classes.dot}
-          data-animated
           style={{
             '--flow-duration': flowDuration,
             offsetPath: `path("${edgePath}")`,

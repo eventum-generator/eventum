@@ -20,6 +20,7 @@ interface SummaryBarProps {
 export const SummaryBar: FC<SummaryBarProps> = ({ stats }) => {
   const items = [
     { label: 'Instance', value: stats.id },
+    { label: 'Start time', value: new Date(stats.start_time).toLocaleString() },
     { label: 'Uptime', value: formatUptime(stats.uptime) },
     { label: 'Generated', value: stats.total_generated },
     { label: 'Written', value: stats.total_written },

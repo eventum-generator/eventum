@@ -2,6 +2,12 @@ import type { Edge, Node } from '@xyflow/react';
 
 import type { GeneratorStats } from '@/api/routes/generators/schemas';
 
+export function computeAnimationDuration(eps: number): string {
+  if (eps <= 0) return '0s';
+  const duration = Math.min(4, Math.max(0.8, 2 / eps));
+  return `${duration}s`;
+}
+
 const COLUMN_X = [0, 350, 700] as const;
 const NODE_WIDTH = 180;
 const NODE_HEIGHT = 80;
@@ -56,7 +62,7 @@ export function buildPipelineGraph(stats: GeneratorStats): {
       source: id,
       target: 'event-0',
       type: 'animatedEdge',
-      data: { eps: stats.input_eps },
+      data: { eps: stats.input.length > 0 ? stats.input_eps / stats.input.length : 0 },
     });
   }
 
@@ -129,7 +135,7 @@ export function buildPipelineGraph(stats: GeneratorStats): {
       source: 'event-0',
       target: id,
       type: 'animatedEdge',
-      data: { eps: stats.output_eps },
+      data: { eps: stats.output.length > 0 ? stats.output_eps / stats.output.length : 0 },
     });
   }
 

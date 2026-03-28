@@ -1,7 +1,7 @@
 import { Handle, type Node, type NodeProps, Position } from '@xyflow/react';
 import { memo } from 'react';
 
-import type { PipelineNodeData } from '../utils/layoutNodes';
+import { computeAnimationDuration, type PipelineNodeData } from '../utils/layoutNodes';
 
 import classes from './PipelineNode.module.css';
 
@@ -20,16 +20,10 @@ const NODE_COLORS = {
   output: { bg: '#0c4a4a', border: '#0ea5a5' },
 } as const;
 
-function computePulseDuration(eps: number): string {
-  if (eps <= 0) return '0s';
-  const duration = Math.min(4, Math.max(0.8, 2 / eps));
-  return `${duration}s`;
-}
-
 export const PipelineNode = memo(function PipelineNode({
   data,
 }: NodeProps<PipelineNodeType>) {
-  const pulseDuration = computePulseDuration(data.eps);
+  const pulseDuration = computeAnimationDuration(data.eps);
   const isAnimated = data.eps > 0;
   const colors = NODE_COLORS[data.colorType];
 

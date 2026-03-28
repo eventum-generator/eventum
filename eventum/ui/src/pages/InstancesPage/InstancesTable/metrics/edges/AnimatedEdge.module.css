@@ -7,10 +7,6 @@
 .dot {
   r: 3;
   fill: var(--mantine-color-primary-light-color);
-  opacity: 0;
-}
-
-.dot[data-animated='true'] {
   opacity: 0.8;
   offset-distance: 0%;
   animation: flowDot var(--flow-duration, 2s) linear infinite;
