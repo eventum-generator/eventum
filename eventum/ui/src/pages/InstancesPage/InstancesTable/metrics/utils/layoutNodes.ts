@@ -21,10 +21,6 @@ function computeColumnY(count: number, maxCount: number, index: number): number 
   return PADDING_TOP + offset + index * NODE_SPACING_Y;
 }
 
-function formatEps(eps: number): string {
-  return `${eps.toFixed(2)} eps`;
-}
-
 const EDGE_STYLE = {
   strokeDasharray: '5,5',
   stroke: 'var(--mantine-color-text)',
@@ -70,23 +66,14 @@ export function buildPipelineGraph(stats: GeneratorStats): {
       style: EDGE_STYLE,
       markerEnd: { type: MarkerType.ArrowClosed, color: 'var(--mantine-color-text)' },
       animated: true,
-      label: formatEps(perPluginEps),
-      labelStyle: { fill: 'var(--mantine-color-dimmed)', fontSize: 11 },
-      labelBgStyle: { fill: 'transparent' },
     });
   }
 
   // Event node
   const eventMetrics: PipelineNodeData['metrics'] = [
     { label: 'Produced', value: stats.event.produced },
+    { label: 'Produce failed', value: stats.event.produce_failed, isError: stats.event.produce_failed > 0 },
   ];
-  if (stats.event.produce_failed > 0) {
-    eventMetrics.push({
-      label: 'Failed',
-      value: stats.event.produce_failed,
-      isError: true,
-    });
-  }
 
   nodes.push({
     id: 'event-0',
@@ -111,15 +98,9 @@ export function buildPipelineGraph(stats: GeneratorStats): {
 
     const outputMetrics: PipelineNodeData['metrics'] = [
       { label: 'Written', value: plugin.written },
+      { label: 'Format failed', value: plugin.format_failed, isError: plugin.format_failed > 0 },
+      { label: 'Write failed', value: plugin.write_failed, isError: plugin.write_failed > 0 },
     ];
-    const totalFailed = plugin.format_failed + plugin.write_failed;
-    if (totalFailed > 0) {
-      outputMetrics.push({
-        label: 'Failed',
-        value: totalFailed,
-        isError: true,
-      });
-    }
 
     nodes.push({
       id,
@@ -145,9 +126,6 @@ export function buildPipelineGraph(stats: GeneratorStats): {
       style: EDGE_STYLE,
       markerEnd: { type: MarkerType.ArrowClosed, color: 'var(--mantine-color-text)' },
       animated: true,
-      label: formatEps(perPluginEps),
-      labelStyle: { fill: 'var(--mantine-color-dimmed)', fontSize: 11 },
-      labelBgStyle: { fill: 'transparent' },
     });
   }
 

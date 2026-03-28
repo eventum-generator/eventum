@@ -13,29 +13,38 @@ function formatUptime(seconds: number): string {
   return `${s}s`;
 }
 
+interface SummaryItemProps {
+  label: string;
+  value: string | number;
+}
+
+function SummaryItem({ label, value }: SummaryItemProps) {
+  return (
+    <div className={classes.item}>
+      <div className={classes.label}>{label}</div>
+      <div className={classes.value}>{value}</div>
+    </div>
+  );
+}
+
 interface SummaryBarProps {
   stats: GeneratorStats;
 }
 
 export const SummaryBar: FC<SummaryBarProps> = ({ stats }) => {
-  const items = [
-    { label: 'Instance', value: stats.id },
-    { label: 'Start time', value: new Date(stats.start_time).toLocaleString() },
-    { label: 'Uptime', value: formatUptime(stats.uptime) },
-    { label: 'Generated', value: stats.total_generated },
-    { label: 'Written', value: stats.total_written },
-    { label: 'Input EPS', value: stats.input_eps.toFixed(2) },
-    { label: 'Output EPS', value: stats.output_eps.toFixed(2) },
-  ];
-
   return (
     <div className={classes.bar}>
-      {items.map((item) => (
-        <div key={item.label} className={classes.item}>
-          <div className={classes.label}>{item.label}</div>
-          <div className={classes.value}>{item.value}</div>
-        </div>
-      ))}
+      <div className={classes.row}>
+        <SummaryItem label="Instance" value={stats.id} />
+        <SummaryItem label="Start time" value={new Date(stats.start_time).toLocaleString()} />
+        <SummaryItem label="Uptime" value={formatUptime(stats.uptime)} />
+      </div>
+      <div className={classes.row}>
+        <SummaryItem label="Generated" value={stats.total_generated} />
+        <SummaryItem label="Written" value={stats.total_written} />
+        <SummaryItem label="Input EPS" value={stats.input_eps.toFixed(2)} />
+        <SummaryItem label="Output EPS" value={stats.output_eps.toFixed(2)} />
+      </div>
     </div>
   );
 };
