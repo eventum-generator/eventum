@@ -67,7 +67,7 @@ export function ValueEditorModal({
           </Text>
         </Group>
       }
-      size="lg"
+      size="80%"
     >
       <Stack gap="sm">
         <CodeMirror
@@ -75,8 +75,7 @@ export function ValueEditorModal({
           onChange={handleChange}
           extensions={extensions}
           theme={colorScheme === 'dark' ? vscodeDark : vscodeLight}
-          height="300px"
-          maxHeight="500px"
+          height="75vh"
           basicSetup={{
             lineNumbers: true,
             foldGutter: true,

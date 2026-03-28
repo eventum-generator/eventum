@@ -371,14 +371,14 @@ export function KeyValueTable({
                                   leftSection={<IconPencil size={14} />}
                                   onClick={() => startInlineEdit(key, value)}
                                 >
-                                  Edit
+                                  Quick edit
                                 </Menu.Item>
                               )}
                               <Menu.Item
                                 leftSection={<IconEdit size={14} />}
                                 onClick={() => openEditor(key, value)}
                               >
-                                Edit as JSON
+                                Edit
                               </Menu.Item>
                               <Menu.Divider />
                               <Menu.Item
