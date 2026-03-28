@@ -5,8 +5,8 @@ import type { GeneratorStats } from '@/api/routes/generators/schemas';
 const COLUMN_X = [0, 350, 700] as const;
 const NODE_SPACING_Y = 100;
 const PADDING_TOP = 20;
-const DIAGRAM_BOTTOM_PADDING = 60;
-const MIN_GRAPH_HEIGHT = 200;
+const DIAGRAM_BOTTOM_PADDING = 80;
+const MIN_GRAPH_HEIGHT = 350;
 
 export interface PipelineNodeData extends Record<string, unknown> {
   pluginName: string;
@@ -20,6 +20,15 @@ function computeColumnY(count: number, maxCount: number, index: number): number 
   const offset = ((maxCount - count) * NODE_SPACING_Y) / 2;
   return PADDING_TOP + offset + index * NODE_SPACING_Y;
 }
+
+const EDGE_LABEL_STYLE = {
+  fill: 'var(--mantine-color-dimmed)',
+  fontSize: 11,
+} as const;
+
+const EDGE_LABEL_BG_STYLE = {
+  fill: 'var(--mantine-color-body)',
+} as const;
 
 const EDGE_STYLE = {
   strokeDasharray: '5,5',
@@ -66,6 +75,10 @@ export function buildPipelineGraph(stats: GeneratorStats): {
       style: EDGE_STYLE,
       markerEnd: { type: MarkerType.ArrowClosed, color: 'var(--mantine-color-text)' },
       animated: true,
+      label: `${perPluginEps.toFixed(2)} eps`,
+      labelStyle: EDGE_LABEL_STYLE,
+      labelBgStyle: EDGE_LABEL_BG_STYLE,
+      labelBgPadding: [6, 3] as [number, number],
     });
   }
 
@@ -126,6 +139,10 @@ export function buildPipelineGraph(stats: GeneratorStats): {
       style: EDGE_STYLE,
       markerEnd: { type: MarkerType.ArrowClosed, color: 'var(--mantine-color-text)' },
       animated: true,
+      label: `${perPluginEps.toFixed(2)} eps`,
+      labelStyle: EDGE_LABEL_STYLE,
+      labelBgStyle: EDGE_LABEL_BG_STYLE,
+      labelBgPadding: [6, 3] as [number, number],
     });
   }
 
