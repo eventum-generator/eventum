@@ -47,20 +47,21 @@ const REACT_FLOW_CONTROLS_CSS = `
  */
 function NodeDataUpdater({ stats, topoKey }: { stats: GeneratorStats; topoKey: string }) {
   const { setNodes, setEdges, fitView } = useReactFlow();
-  const prevTopoRef = useRef('');
+  const prevTopoRef = useRef(topoKey);
 
   useEffect(() => {
+    let timeoutId: ReturnType<typeof setTimeout> | undefined;
+
     if (topoKey !== prevTopoRef.current) {
-      // Topology changed — rebuild positions + edges
       prevTopoRef.current = topoKey;
       setNodes(buildNodes(stats));
       setEdges(buildEdges(stats));
-      setTimeout(() => fitView({ padding: FIT_PADDING }), 50);
-      return;
+      timeoutId = setTimeout(() => fitView({ padding: FIT_PADDING }), 50);
+    } else {
+      setNodes((nodes) => updateNodesData(nodes as Node<PipelineNodeData>[], stats));
     }
 
-    // Data-only update — just swap metrics, keep positions stable
-    setNodes((nodes) => updateNodesData(nodes as Node<PipelineNodeData>[], stats));
+    return () => { if (timeoutId) clearTimeout(timeoutId); };
   }, [stats, topoKey, setNodes, setEdges, fitView]);
 
   return null;
@@ -72,12 +73,19 @@ interface PipelineGraphProps {
 
 export const PipelineGraph: FC<PipelineGraphProps> = ({ stats }) => {
   const topoKey = structureKey(stats);
+  const fitIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   // Used once on mount — subsequent updates go through NodeDataUpdater
   const [initialNodes] = useState(() => buildNodes(stats));
   const [initialEdges] = useState(() => buildEdges(stats));
 
   const graphHeight = useMemo(() => computeGraphHeight(stats), [stats]);
+
+  useEffect(() => {
+    return () => {
+      if (fitIntervalRef.current) clearInterval(fitIntervalRef.current);
+    };
+  }, []);
 
   return (
     <Paper withBorder p="md">
@@ -96,11 +104,13 @@ export const PipelineGraph: FC<PipelineGraphProps> = ({ stats }) => {
           fitView
           fitViewOptions={{ padding: FIT_PADDING }}
           onInit={(instance) => {
-            // Retry fitView — modal animation delays real container dimensions
             let attempts = 0;
-            const interval = setInterval(() => {
+            fitIntervalRef.current = setInterval(() => {
               instance.fitView({ padding: FIT_PADDING });
-              if (++attempts >= 5) clearInterval(interval);
+              if (++attempts >= 5 && fitIntervalRef.current) {
+                clearInterval(fitIntervalRef.current);
+                fitIntervalRef.current = null;
+              }
             }, 200);
           }}
           nodesDraggable={false}

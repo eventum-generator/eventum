@@ -2,7 +2,7 @@ import { Group, Paper, Text } from '@mantine/core';
 import { Handle, type Node, type NodeProps, Position } from '@xyflow/react';
 import { memo } from 'react';
 
-import { type PipelineNodeData } from '../utils/layoutNodes';
+import { HANDLE_Y, NODE_WIDTH, type PipelineNodeData } from '../utils/layoutNodes';
 import { PLUGINS_INFO } from '@/api/routes/generator-configs/modules/plugins/registry';
 
 type PipelineNodeType = Node<PipelineNodeData, 'pipelineNode'>;
@@ -12,7 +12,7 @@ const HANDLE_STYLE = {
   border: 'none',
   width: 6,
   height: 6,
-  top: 20,
+  top: HANDLE_Y,
 } as const;
 
 function getPluginIcon(colorType: PipelineNodeData['colorType'], pluginName: string) {
@@ -30,7 +30,7 @@ export const PipelineNode = memo(function PipelineNode({
     <Paper
       withBorder
       p="xs"
-      style={{ width: 250, borderStyle: 'solid' }}
+      style={{ width: NODE_WIDTH, borderStyle: 'solid' }}
     >
       <Handle
         type="target"

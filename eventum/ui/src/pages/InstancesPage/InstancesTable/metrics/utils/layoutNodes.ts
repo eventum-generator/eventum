@@ -2,7 +2,7 @@ import { MarkerType, type Edge, type Node } from '@xyflow/react';
 
 import type { GeneratorStats } from '@/api/routes/generators/schemas';
 
-const NODE_WIDTH = 250;
+export const NODE_WIDTH = 250;
 const COLUMN_GAP = 120;
 const COLUMN_X = [0, NODE_WIDTH + COLUMN_GAP, (NODE_WIDTH + COLUMN_GAP) * 2] as const;
 
@@ -18,7 +18,6 @@ export interface PipelineNodeData extends Record<string, unknown> {
   pluginName: string;
   pluginId: number;
   metrics: { label: string; value: number; isError?: boolean }[];
-  eps: number;
   colorType: 'input' | 'event' | 'output';
 }
 
@@ -70,7 +69,6 @@ export function buildNodes(stats: GeneratorStats): Node<PipelineNodeData>[] {
         pluginName: plugin.plugin_name,
         pluginId: plugin.plugin_id,
         metrics: [{ label: 'Generated', value: plugin.generated }],
-        eps: stats.input.length > 0 ? stats.input_eps / stats.input.length : 0,
         colorType: 'input',
       },
       width: NODE_WIDTH,
@@ -88,7 +86,6 @@ export function buildNodes(stats: GeneratorStats): Node<PipelineNodeData>[] {
         { label: 'Produced', value: stats.event.produced },
         { label: 'Produce failed', value: stats.event.produce_failed, isError: stats.event.produce_failed > 0 },
       ],
-      eps: stats.input_eps,
       colorType: 'event',
     },
     width: NODE_WIDTH,
@@ -107,7 +104,6 @@ export function buildNodes(stats: GeneratorStats): Node<PipelineNodeData>[] {
           { label: 'Format failed', value: plugin.format_failed, isError: plugin.format_failed > 0 },
           { label: 'Write failed', value: plugin.write_failed, isError: plugin.write_failed > 0 },
         ],
-        eps: stats.output.length > 0 ? stats.output_eps / stats.output.length : 0,
         colorType: 'output',
       },
       width: NODE_WIDTH,
@@ -149,7 +145,7 @@ export function buildEdges(stats: GeneratorStats): Edge[] {
   return edges;
 }
 
-/** Update only metrics / eps inside existing nodes — positions untouched. */
+/** Update only metrics inside existing nodes — positions untouched. */
 export function updateNodesData(
   nodes: Node<PipelineNodeData>[],
   stats: GeneratorStats,
@@ -166,7 +162,6 @@ export function updateNodesData(
           data: {
             ...data,
             metrics: [{ label: 'Generated', value: plugin.generated }],
-            eps: stats.input.length > 0 ? stats.input_eps / stats.input.length : 0,
           },
         };
       }
@@ -179,7 +174,6 @@ export function updateNodesData(
               { label: 'Produced', value: stats.event.produced },
               { label: 'Produce failed', value: stats.event.produce_failed, isError: stats.event.produce_failed > 0 },
             ],
-            eps: stats.input_eps,
           },
         };
       case 'output': {
@@ -194,7 +188,6 @@ export function updateNodesData(
               { label: 'Format failed', value: plugin.format_failed, isError: plugin.format_failed > 0 },
               { label: 'Write failed', value: plugin.write_failed, isError: plugin.write_failed > 0 },
             ],
-            eps: stats.output.length > 0 ? stats.output_eps / stats.output.length : 0,
           },
         };
       }

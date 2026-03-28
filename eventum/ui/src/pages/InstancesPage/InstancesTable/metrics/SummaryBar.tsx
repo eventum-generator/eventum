@@ -1,16 +1,19 @@
 import { Group, Paper, SimpleGrid, Text } from '@mantine/core';
 import { IconClock, IconPointFilled } from '@tabler/icons-react';
+import { intervalToDuration } from 'date-fns';
 import { FC } from 'react';
 
 import type { GeneratorStats } from '@/api/routes/generators/schemas';
 
 function formatUptime(seconds: number): string {
-  const h = Math.floor(seconds / 3600);
-  const m = Math.floor((seconds % 3600) / 60);
-  const s = Math.round(seconds % 60);
-  if (h > 0) return `${h}h ${m}m ${s}s`;
-  if (m > 0) return `${m}m ${String(s).padStart(2, '0')}s`;
-  return `${s}s`;
+  const { days = 0, hours = 0, minutes = 0, seconds: secs = 0 } = intervalToDuration({
+    start: 0,
+    end: seconds * 1000,
+  });
+  if (days > 0) return `${days}d ${hours}h ${minutes}m`;
+  if (hours > 0) return `${hours}h ${minutes}m ${secs}s`;
+  if (minutes > 0) return `${minutes}m ${String(secs).padStart(2, '0')}s`;
+  return `${secs}s`;
 }
 
 function StatCard({ value, label }: { value: string | number; label: string }) {
