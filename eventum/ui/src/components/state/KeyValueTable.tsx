@@ -411,9 +411,9 @@ export function KeyValueTable({
             variant="default"
             icon={<Box c="orange" component={IconAlertTriangle} />}
             title={warningTitle}
-            p={compact ? undefined : 'xs'}
+            p={compact ? 'xs' : undefined}
           >
-            <Text size="xs">{warningMessage}</Text>
+            <Text size={compact ? 'xs' : 'sm'}>{warningMessage}</Text>
           </Alert>
         )}
       </Stack>
