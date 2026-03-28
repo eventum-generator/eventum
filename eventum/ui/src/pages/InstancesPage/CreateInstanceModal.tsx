@@ -82,7 +82,7 @@ export const CreateInstanceModal: FC<CreateInstanceModalProps> = ({
                 addGeneratorToStartup.mutate(
                   {
                     id: values.id,
-                    params: { ...values, path: resolvedPath, autostart: false },
+                    params: { ...values, path: resolvedPath, autostart: false, scenarios: [] },
                   },
                   {
                     onSuccess: () => {

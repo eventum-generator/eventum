@@ -104,3 +104,59 @@ def test_build_over_generation_parameters_multiple_generators():
     assert result.root[0].live_mode is True
     assert result.root[1].id == 'gen2'
     assert result.root[1].live_mode is False
+
+
+# --- StartupGeneratorParameters.scenarios ---
+
+
+def test_startup_generator_parameters_scenarios_default():
+    params = StartupGeneratorParameters(
+        id='gen1',
+        path=Path('config.yml'),
+    )
+    assert params.scenarios == []
+
+
+def test_startup_generator_parameters_scenarios_set():
+    params = StartupGeneratorParameters(
+        id='gen1',
+        path=Path('config.yml'),
+        scenarios=['scenario-a', 'scenario-b'],
+    )
+    assert params.scenarios == ['scenario-a', 'scenario-b']
+
+
+def test_build_over_generation_parameters_with_scenarios():
+    base = GenerationParameters(timezone='UTC')
+    result = StartupGeneratorParametersList.build_over_generation_parameters(
+        object=[
+            {
+                'id': 'gen1',
+                'path': 'config.yml',
+                'scenarios': ['corporate-attack', 'lab'],
+            }
+        ],
+        generation_parameters=base,
+    )
+    assert result.root[0].scenarios == ['corporate-attack', 'lab']
+
+
+def test_build_over_generation_parameters_scenarios_not_in_base():
+    """Scenarios field should survive flatten/unflatten round-trip."""
+    base = GenerationParameters(timezone='UTC')
+    result = StartupGeneratorParametersList.build_over_generation_parameters(
+        object=[
+            {
+                'id': 'gen1',
+                'path': 'config.yml',
+                'scenarios': ['s1', 's2', 's3'],
+            },
+            {
+                'id': 'gen2',
+                'path': 'config2.yml',
+            },
+        ],
+        generation_parameters=base,
+    )
+    assert result.root[0].scenarios == ['s1', 's2', 's3']
+    assert result.root[1].scenarios == []

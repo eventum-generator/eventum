@@ -17,9 +17,12 @@ class StartupGeneratorParameters(
 
     autostart : bool, default=True
         Whether to automatically start the generator.
+    scenarios : list[str], default=[]
+        Scenario names this generator belongs to.
     """
 
     autostart: bool = Field(default=True)
+    scenarios: list[str] = Field(default_factory=list)
 
 
 class StartupGeneratorParametersList(RootModel, frozen=True):

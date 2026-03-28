@@ -6,6 +6,9 @@ import {
   clearTemplateEventPluginGlobalState,
   clearTemplateEventPluginLocalState,
   clearTemplateEventPluginSharedState,
+  deleteTemplateEventPluginGlobalStateKey,
+  deleteTemplateEventPluginLocalStateKey,
+  deleteTemplateEventPluginSharedStateKey,
   formatEvents,
   generateTimestamps,
   getTemplateEventPluginGlobalState,
@@ -155,6 +158,33 @@ export function useClearTemplateEventPluginLocalStateMutation() {
   });
 }
 
+export function useDeleteTemplateEventPluginLocalStateKeyMutation() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({
+      name,
+      templateAlias,
+      key,
+    }: {
+      name: string;
+      templateAlias: string;
+      key: string;
+    }) => deleteTemplateEventPluginLocalStateKey(name, templateAlias, key),
+    onSuccess: async (_, { name, templateAlias }) => {
+      await queryClient.invalidateQueries({
+        queryKey: [
+          ...TEMPLATE_EVENT_PLUGIN_STATE_QUERY_KEY,
+          name,
+          'local',
+          templateAlias,
+        ],
+        exact: true,
+      });
+    },
+  });
+}
+
 export function useTemplateEventPluginSharedState(name: string) {
   return useQuery({
     queryKey: [...TEMPLATE_EVENT_PLUGIN_STATE_QUERY_KEY, name, 'shared'],
@@ -197,6 +227,21 @@ export function useClearTemplateEventPluginSharedStateMutation() {
   });
 }
 
+export function useDeleteTemplateEventPluginSharedStateKeyMutation() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({ name, key }: { name: string; key: string }) =>
+      deleteTemplateEventPluginSharedStateKey(name, key),
+    onSuccess: async (_, { name }) => {
+      await queryClient.invalidateQueries({
+        queryKey: [...TEMPLATE_EVENT_PLUGIN_STATE_QUERY_KEY, name, 'shared'],
+        exact: true,
+      });
+    },
+  });
+}
+
 export function useTemplateEventPluginGlobalState(name: string) {
   return useQuery({
     queryKey: [...TEMPLATE_EVENT_PLUGIN_STATE_QUERY_KEY, name, 'global'],
@@ -230,6 +275,21 @@ export function useClearTemplateEventPluginGlobalStateMutation() {
   return useMutation({
     mutationFn: ({ name }: { name: string }) =>
       clearTemplateEventPluginGlobalState(name),
+    onSuccess: async (_, { name }) => {
+      await queryClient.invalidateQueries({
+        queryKey: [...TEMPLATE_EVENT_PLUGIN_STATE_QUERY_KEY, name, 'global'],
+        exact: true,
+      });
+    },
+  });
+}
+
+export function useDeleteTemplateEventPluginGlobalStateKeyMutation() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({ name, key }: { name: string; key: string }) =>
+      deleteTemplateEventPluginGlobalStateKey(name, key),
     onSuccess: async (_, { name }) => {
       await queryClient.invalidateQueries({
         queryKey: [...TEMPLATE_EVENT_PLUGIN_STATE_QUERY_KEY, name, 'global'],
