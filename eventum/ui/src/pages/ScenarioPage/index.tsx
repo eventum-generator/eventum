@@ -29,11 +29,9 @@ import { DataFlowDiagram } from './DataFlowDiagram';
 import { collectGlobalKeys } from './globals-usage';
 import { GeneratorCard } from './GeneratorCard';
 import { GlobalStatePanel } from './GlobalStatePanel';
-import {
-  useBulkStartGeneratorMutation,
-  useBulkStopGeneratorMutation,
-  useGenerators,
-} from '@/api/hooks/useGenerators';
+import { useHighlightState } from './useHighlightState';
+import { useScenarioBulkActions } from './useScenarioBulkActions';
+import { useGenerators } from '@/api/hooks/useGenerators';
 import {
   useMultiGlobalsUsage,
   useRemoveGeneratorFromScenarioMutation,
@@ -56,8 +54,7 @@ export default function ScenarioPage() {
   const scenarioName = decodeURIComponent(rawScenarioName ?? '');
   const navigate = useNavigate();
 
-  const [highlightedNodeId, setHighlightedNodeId] = useState<string | null>(null);
-  const [highlightedEdgeId, setHighlightedEdgeId] = useState<string | null>(null);
+  const { highlightedNodeId, highlightedEdgeId, highlightNode, highlightEdge } = useHighlightState();
   const [expandedCardId, setExpandedCardId] = useState<string | null>(null);
 
   const {
@@ -109,8 +106,7 @@ export default function ScenarioPage() {
     [globalsUsageMap],
   );
 
-  const bulkStart = useBulkStartGeneratorMutation();
-  const bulkStop = useBulkStopGeneratorMutation();
+  const { bulkStart, bulkStop } = useScenarioBulkActions(scenarioGeneratorIds);
   const removeFromScenario = useRemoveGeneratorFromScenarioMutation();
 
   const handleRemoveGenerator = useCallback((entry: StartupGeneratorParameters) => {
@@ -170,17 +166,12 @@ export default function ScenarioPage() {
     document.querySelector(`#instance-card-${CSS.escape(instanceId)}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' });
   }
 
-  function handleCardHover(nodeId: string | null) {
-    setHighlightedNodeId(nodeId);
-  }
-
   function handleHighlightEdge(generatorId: string, keyName: string, direction?: 'write' | 'read') {
     if (generatorId && keyName) {
-      setHighlightedNodeId(null);
       const prefix = direction ?? 'write';
-      setHighlightedEdgeId(`${prefix}-${generatorId}-${keyName}`);
+      highlightEdge(`${prefix}-${generatorId}-${keyName}`);
     } else {
-      setHighlightedEdgeId(null);
+      highlightEdge(null);
     }
   }
 
@@ -323,7 +314,7 @@ export default function ScenarioPage() {
                               )
                             }
                             onRemove={() => handleRemoveGenerator(entry)}
-                            onHover={handleCardHover}
+                            onHover={highlightNode}
                             onHighlightEdge={handleHighlightEdge}
                           />
                         </div>
