@@ -53,7 +53,7 @@ export const PipelineNode = memo(function PipelineNode({
     <Paper
       withBorder
       p="xs"
-      style={{ width: 250, borderStyle: 'solid' }}
+      style={{ width: 250, minHeight: 100, borderStyle: 'solid' }}
     >
       <Handle
         type="target"

@@ -33,16 +33,26 @@ const REACT_FLOW_CONTROLS_CSS = `
   }
 `;
 
-/** Calls fitView once after all nodes have been measured by the browser. */
-function FitViewOnReady() {
+/** Calls fitView after nodes are measured, and re-centers on node changes. */
+function FitViewOnReady({ nodeCount }: { nodeCount: number }) {
   const { fitView } = useReactFlow();
   const nodesInitialized = useNodesInitialized();
+  const hasFitted = useRef(false);
 
   useEffect(() => {
-    if (nodesInitialized) {
+    if (nodesInitialized && !hasFitted.current) {
+      hasFitted.current = true;
       fitView({ padding: 0.3 });
     }
   }, [nodesInitialized, fitView]);
+
+  // Re-fit if topology changes
+  useEffect(() => {
+    if (hasFitted.current) {
+      fitView({ padding: 0.3 });
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [nodeCount]);
 
   return null;
 }
@@ -99,7 +109,7 @@ export const PipelineGraph: FC<PipelineGraphProps> = ({ stats }) => {
           elementsSelectable={false}
           proOptions={{ hideAttribution: true }}
         >
-          <FitViewOnReady />
+          <FitViewOnReady nodeCount={nodes.length} />
           <Background variant={BackgroundVariant.Dots} gap={16} size={1} />
           <Controls showInteractive={false} position="bottom-right" />
         </ReactFlow>
