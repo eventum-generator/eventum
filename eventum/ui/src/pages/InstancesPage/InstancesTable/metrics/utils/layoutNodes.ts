@@ -31,7 +31,7 @@ export function buildPipelineGraph(stats: GeneratorStats): {
   const maxCount = Math.max(stats.input.length, 1, stats.output.length);
 
   // Input nodes
-  stats.input.forEach((plugin, i) => {
+  for (const [i, plugin] of stats.input.entries()) {
     const id = `input-${plugin.plugin_id}`;
     nodes.push({
       id,
@@ -58,7 +58,7 @@ export function buildPipelineGraph(stats: GeneratorStats): {
       type: 'animatedEdge',
       data: { eps: stats.input_eps },
     });
-  });
+  }
 
   // Event node
   const eventMetrics: PipelineNodeData['metrics'] = [
@@ -91,7 +91,7 @@ export function buildPipelineGraph(stats: GeneratorStats): {
   });
 
   // Output nodes
-  stats.output.forEach((plugin, i) => {
+  for (const [i, plugin] of stats.output.entries()) {
     const id = `output-${plugin.plugin_id}`;
 
     const outputMetrics: PipelineNodeData['metrics'] = [
@@ -131,7 +131,7 @@ export function buildPipelineGraph(stats: GeneratorStats): {
       type: 'animatedEdge',
       data: { eps: stats.output_eps },
     });
-  });
+  }
 
   return { nodes, edges };
 }
