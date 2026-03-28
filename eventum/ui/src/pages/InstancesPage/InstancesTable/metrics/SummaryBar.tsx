@@ -32,7 +32,7 @@ interface SummaryBarProps {
 export const SummaryBar: FC<SummaryBarProps> = ({ stats }) => {
   return (
     <Paper withBorder p="sm">
-      <SimpleGrid cols={4} spacing="xs" verticalSpacing={6}>
+      <SimpleGrid cols={3} spacing="xs" verticalSpacing={6}>
         <Stat label="Instance:" value={stats.id} />
         <Stat label="Start:" value={new Date(stats.start_time).toLocaleString()} />
         <Stat label="Uptime:" value={formatUptime(stats.uptime)} />
