@@ -1,25 +1,29 @@
 import { Paper } from '@mantine/core';
 import { IconDatabase } from '@tabler/icons-react';
-import { useCallback } from 'react';
+import { FC, useCallback } from 'react';
 
 import {
-  useClearGlobalStateMutation,
-  useDeleteGlobalStateKeyMutation,
-  useGlobalState,
-  useUpdateGlobalStateMutation,
-} from '@/api/hooks/useGenerators';
+  useClearScenarioGlobalStateMutation,
+  useDeleteScenarioGlobalStateKeyMutation,
+  useScenarioGlobalState,
+  useUpdateScenarioGlobalStateMutation,
+} from '@/api/hooks/useScenarios';
 import { KeyValueTable } from '@/components/state';
 import {
   showErrorNotification,
   showSuccessNotification,
 } from '@/utils/notifications';
 
-export const GlobalStatePanel = () => {
+interface GlobalStatePanelProps {
+  scenarioName: string;
+}
+
+export const GlobalStatePanel: FC<GlobalStatePanelProps> = ({ scenarioName }) => {
   const { data, isLoading, isError, error, isSuccess, refetch } =
-    useGlobalState();
-  const updateState = useUpdateGlobalStateMutation();
-  const deleteKey = useDeleteGlobalStateKeyMutation();
-  const clearState = useClearGlobalStateMutation();
+    useScenarioGlobalState(scenarioName, { refetchInterval: 5000 });
+  const updateState = useUpdateScenarioGlobalStateMutation(scenarioName);
+  const deleteKey = useDeleteScenarioGlobalStateKeyMutation(scenarioName);
+  const clearState = useClearScenarioGlobalStateMutation(scenarioName);
 
   const handleUpdateKey = useCallback(
     (key: string, value: unknown) => {

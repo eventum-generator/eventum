@@ -11,11 +11,10 @@ import {
 } from '@mantine/core';
 import { modals } from '@mantine/modals';
 import { IconAlertSquareRounded } from '@tabler/icons-react';
-import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { FC, useMemo, useState } from 'react';
 
+import { useAddGeneratorToScenarioMutation } from '@/api/hooks/useScenarios';
 import { useStartupGenerators } from '@/api/hooks/useStartup';
-import { updateGeneratorInStartup } from '@/api/routes/startup';
 import { StartupGeneratorParameters } from '@/api/routes/startup/schemas';
 import { ShowErrorDetailsAnchor } from '@/components/ui/ShowErrorDetailsAnchor';
 import {
@@ -74,8 +73,6 @@ interface AddGeneratorModalProps {
 export const AddGeneratorModal: FC<AddGeneratorModalProps> = ({
   scenarioName,
 }) => {
-  const queryClient = useQueryClient();
-
   const {
     data: startupEntries,
     isLoading,
@@ -99,23 +96,22 @@ export const AddGeneratorModal: FC<AddGeneratorModalProps> = ({
     return map;
   }, [availableEntries]);
 
-  const addToScenario = useMutation({
-    mutationFn: async ({ entry }: { entry: StartupGeneratorParameters }) => {
-      const updatedScenarios = [...(entry.scenarios ?? []), scenarioName];
-      await updateGeneratorInStartup(entry.id, {
-        ...entry,
-        scenarios: updatedScenarios,
-      });
-    },
-    onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: ['startup'] });
-      showSuccessNotification('Success', 'Instance added to scenario');
-      modals.closeAll();
-    },
-    onError: (addError) => {
-      showErrorNotification('Failed to add instance', addError);
-    },
-  });
+  const addToScenario = useAddGeneratorToScenarioMutation();
+
+  function handleAdd(entry: StartupGeneratorParameters) {
+    addToScenario.mutate(
+      { name: scenarioName, generatorId: entry.id },
+      {
+        onSuccess: () => {
+          showSuccessNotification('Success', 'Instance added to scenario');
+          modals.closeAll();
+        },
+        onError: (addError) => {
+          showErrorNotification('Failed to add instance', addError);
+        },
+      },
+    );
+  }
 
   if (isLoading) {
     return (
@@ -146,7 +142,7 @@ export const AddGeneratorModal: FC<AddGeneratorModalProps> = ({
         availableEntries={availableEntries}
         entryMap={entryMap}
         isPending={addToScenario.isPending}
-        onAdd={(entry) => addToScenario.mutate({ entry })}
+        onAdd={handleAdd}
       />
     );
   }

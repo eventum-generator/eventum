@@ -10,7 +10,6 @@ import {
   Paper,
   Stack,
   Text,
-  TextInput,
   Title,
 } from '@mantine/core';
 import { modals } from '@mantine/modals';
@@ -22,8 +21,7 @@ import {
   IconPlayerStop,
   IconPlus,
 } from '@tabler/icons-react';
-import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { useCallback, useMemo, useRef, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 
 import { AddGeneratorModal } from './AddGeneratorModal';
@@ -36,10 +34,12 @@ import {
   useBulkStopGeneratorMutation,
   useGenerators,
 } from '@/api/hooks/useGenerators';
-import { useMultiGlobalsUsage } from '@/api/hooks/useScenarios';
+import {
+  useMultiGlobalsUsage,
+  useRemoveGeneratorFromScenarioMutation,
+} from '@/api/hooks/useScenarios';
 import { useStartupGenerators } from '@/api/hooks/useStartup';
 import { GeneratorStatus } from '@/api/routes/generators/schemas';
-import { updateGeneratorInStartup } from '@/api/routes/startup';
 import { StartupGeneratorParameters } from '@/api/routes/startup/schemas';
 import { PageTitle } from '@/components/ui/PageTitle';
 import { ShowErrorDetailsAnchor } from '@/components/ui/ShowErrorDetailsAnchor';
@@ -54,15 +54,11 @@ export default function ScenarioPage() {
     scenarioName: string;
   }>();
   const scenarioName = decodeURIComponent(rawScenarioName ?? '');
-  const queryClient = useQueryClient();
   const navigate = useNavigate();
 
-  const [isEditing, setIsEditing] = useState(false);
-  const [editName, setEditName] = useState(scenarioName);
   const [highlightedNodeId, setHighlightedNodeId] = useState<string | null>(null);
   const [highlightedEdgeId, setHighlightedEdgeId] = useState<string | null>(null);
   const [expandedCardId, setExpandedCardId] = useState<string | null>(null);
-  const isRenaming = useRef(false);
 
   const {
     data: startupEntries,
@@ -90,7 +86,7 @@ export default function ScenarioPage() {
     [scenarioEntries]
   );
 
-  const globalsUsageQueries = useMultiGlobalsUsage(scenarioGeneratorIds);
+  const globalsUsageQueries = useMultiGlobalsUsage(scenarioName, scenarioGeneratorIds);
 
   const globalsUsageMap = useMemo(() => {
     const map = new Map<string, (typeof globalsUsageQueries)[number]['data']>();
@@ -113,76 +109,11 @@ export default function ScenarioPage() {
     [globalsUsageMap],
   );
 
-  const handleStartEdit = useCallback(() => {
-    setIsEditing(true);
-    setEditName(scenarioName);
-  }, [scenarioName]);
-
-  const handleRename = useCallback(async () => {
-    if (isRenaming.current) return;
-
-    const trimmed = editName.trim();
-    if (trimmed === scenarioName || !trimmed) {
-      setIsEditing(false);
-      return;
-    }
-
-    isRenaming.current = true;
-    try {
-      await Promise.all(
-        scenarioEntries.map((entry) => {
-          const newScenarios = (entry.scenarios ?? []).map((s) =>
-            s === scenarioName ? trimmed : s
-          );
-          return updateGeneratorInStartup(entry.id, {
-            ...entry,
-            scenarios: newScenarios,
-          });
-        })
-      );
-      await queryClient.invalidateQueries({ queryKey: ['startup'] });
-      showSuccessNotification('Renamed', `Scenario renamed to "${trimmed}"`);
-      void navigate(`${ROUTE_PATHS.SCENARIOS}/${encodeURIComponent(trimmed)}`, {
-        replace: true,
-      });
-    } catch (error) {
-      if (error instanceof Error) {
-        showErrorNotification('Failed to rename scenario', error);
-      }
-    } finally {
-      isRenaming.current = false;
-      setIsEditing(false);
-    }
-  }, [editName, scenarioName, scenarioEntries, queryClient, navigate]);
-
-  const handleCancelEdit = useCallback(() => {
-    setIsEditing(false);
-    setEditName(scenarioName);
-  }, [scenarioName]);
-
   const bulkStart = useBulkStartGeneratorMutation();
   const bulkStop = useBulkStopGeneratorMutation();
+  const removeFromScenario = useRemoveGeneratorFromScenarioMutation();
 
-  const removeFromScenario = useMutation({
-    mutationFn: async ({ entry }: { entry: StartupGeneratorParameters }) => {
-      const updatedScenarios = (entry.scenarios ?? []).filter(
-        (s) => s !== scenarioName
-      );
-      await updateGeneratorInStartup(entry.id, {
-        ...entry,
-        scenarios: updatedScenarios,
-      });
-    },
-    onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: ['startup'] });
-      showSuccessNotification('Success', 'Instance removed from scenario');
-    },
-    onError: (error) => {
-      showErrorNotification('Failed to remove instance', error);
-    },
-  });
-
-  function handleRemoveGenerator(entry: StartupGeneratorParameters) {
+  const handleRemoveGenerator = useCallback((entry: StartupGeneratorParameters) => {
     modals.openConfirmModal({
       title: 'Remove from scenario',
       children: (
@@ -193,10 +124,18 @@ export default function ScenarioPage() {
       ),
       labels: { cancel: 'Cancel', confirm: 'Remove' },
       onConfirm: () => {
-        removeFromScenario.mutate({ entry });
+        removeFromScenario.mutate(
+          { name: scenarioName, generatorId: entry.id },
+          {
+            onSuccess: () =>
+              showSuccessNotification('Success', 'Instance removed from scenario'),
+            onError: (error) =>
+              showErrorNotification('Failed to remove instance', error),
+          },
+        );
       },
     });
-  }
+  }, [scenarioName, removeFromScenario]);
 
   function handleStartAll() {
     bulkStart.mutate(
@@ -277,33 +216,9 @@ export default function ScenarioPage() {
     <Container size="100%">
       <Stack>
         <Group justify="space-between" align="center">
-          {isEditing ? (
-            <TextInput
-              value={editName}
-              onChange={(e) => setEditName(e.currentTarget.value)}
-              onBlur={() => void handleRename()}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter') void handleRename();
-                if (e.key === 'Escape') handleCancelEdit();
-              }}
-              // eslint-disable-next-line jsx-a11y/no-autofocus -- intentional for inline rename UX
-              autoFocus
-              size="md"
-              styles={{
-                input: { fontSize: 'var(--mantine-h3-font-size)', fontWeight: 700 },
-              }}
-              style={{ maxWidth: 400 }}
-            />
-          ) : (
-            <Title
-              order={3}
-              fw="bold"
-              style={{ cursor: 'pointer' }}
-              onClick={handleStartEdit}
-            >
-              {scenarioName}
-            </Title>
-          )}
+          <Title order={3} fw="bold">
+            {scenarioName}
+          </Title>
           <Button
             variant="default"
             leftSection={<IconArrowLeft size={16} />}
@@ -419,7 +334,7 @@ export default function ScenarioPage() {
               </Stack>
             </Grid.Col>
             <Grid.Col span={5}>
-              <GlobalStatePanel />
+              <GlobalStatePanel scenarioName={scenarioName} />
             </Grid.Col>
           </Grid>
         )}
