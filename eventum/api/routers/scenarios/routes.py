@@ -12,12 +12,6 @@ from fastapi import Path as FastApiPath
 from jinja2 import TemplateSyntaxError
 
 from eventum.api.dependencies.app import SettingsDep
-from eventum.api.routers.generator_configs.dependencies import (
-    CheckConfigurationExistsDep,
-    CheckDirectoryIsAllowedDep,
-    check_configuration_exists,
-    check_directory_is_allowed,
-)
 from eventum.api.routers.generator_configs.globals_detector import (
     GlobalsUsage,
     detect_globals_usage,
@@ -245,20 +239,33 @@ async def remove_generator_from_scenario(
     description='Detect globals.set/get usage in Jinja2 templates via AST analysis.',
     responses=merge_responses(
         check_scenario_exists.responses,
-        check_directory_is_allowed.responses,
-        check_configuration_exists.responses,
+        {
+            403: {'description': 'Accessing directories outside generators_dir is not allowed'},
+            404: {'description': 'Generator configuration not found'},
+        },
     ),
 )
 async def get_generator_globals_usage(
     name: CheckScenarioExistsDep,  # noqa: ARG001
     generator_name: Annotated[
         str,
-        CheckDirectoryIsAllowedDep,
-        CheckConfigurationExistsDep,
+        FastApiPath(description='Generator config name', min_length=1),
     ],
     settings: SettingsDep,
 ) -> GlobalsUsageResponse:
-    generator_dir = settings.path.generators_dir / generator_name
+    generator_dir = (settings.path.generators_dir / generator_name).resolve()
+
+    if not generator_dir.is_relative_to(settings.path.generators_dir):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail='Accessing directories outside generators_dir is not allowed',
+        )
+
+    if not generator_dir.is_dir():
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f'Generator configuration not found: {generator_name}',
+        )
     usage = GlobalsUsage()
 
     template_files: list[tuple[Path, str]] = []
