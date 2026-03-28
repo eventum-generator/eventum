@@ -4,20 +4,28 @@ import {
   Background,
   BackgroundVariant,
   Controls,
+  type Node,
   ReactFlow,
-  useNodesInitialized,
   useReactFlow,
 } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
-import { FC, useEffect, useMemo, useRef } from 'react';
+import { FC, useEffect, useMemo, useRef, useState } from 'react';
 
 import { PipelineNode } from './nodes/PipelineNode';
-import { buildPipelineGraph, computeGraphHeight } from './utils/layoutNodes';
+import {
+  type PipelineNodeData,
+  buildEdges,
+  buildNodes,
+  computeGraphHeight,
+  structureKey,
+  updateNodesData,
+} from './utils/layoutNodes';
 import type { GeneratorStats } from '@/api/routes/generators/schemas';
 
 const nodeTypes = { pipelineNode: PipelineNode } as const;
 
 const TEXT_COLOR = 'var(--mantine-color-text)';
+const FIT_PADDING = 0.2;
 
 const REACT_FLOW_CONTROLS_CSS = `
   .react-flow__controls button {
@@ -33,36 +41,29 @@ const REACT_FLOW_CONTROLS_CSS = `
   }
 `;
 
-/** Calls fitView after nodes are measured, and re-centers on node changes. */
-function FitViewOnReady({ nodeCount }: { nodeCount: number }) {
-  const { fitView } = useReactFlow();
-  const nodesInitialized = useNodesInitialized();
-  const hasFitted = useRef(false);
+/**
+ * Updates only node DATA via setNodes callback — positions stay untouched,
+ * so ReactFlow does not recalculate edge paths and CSS animations keep running.
+ */
+function NodeDataUpdater({ stats, topoKey }: { stats: GeneratorStats; topoKey: string }) {
+  const { setNodes, setEdges, fitView } = useReactFlow();
+  const prevTopoRef = useRef('');
 
   useEffect(() => {
-    if (nodesInitialized && !hasFitted.current) {
-      hasFitted.current = true;
-      fitView({ padding: 0.3 });
+    if (topoKey !== prevTopoRef.current) {
+      // Topology changed — rebuild positions + edges
+      prevTopoRef.current = topoKey;
+      setNodes(buildNodes(stats));
+      setEdges(buildEdges(stats));
+      setTimeout(() => fitView({ padding: FIT_PADDING }), 50);
+      return;
     }
-  }, [nodesInitialized, fitView]);
 
-  // Re-fit if topology changes
-  useEffect(() => {
-    if (hasFitted.current) {
-      fitView({ padding: 0.3 });
-    }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [nodeCount]);
+    // Data-only update — just swap metrics, keep positions stable
+    setNodes((nodes) => updateNodesData(nodes as Node<PipelineNodeData>[], stats));
+  }, [stats, topoKey, setNodes, setEdges, fitView]);
 
   return null;
-}
-
-/** Build a structural key from plugin IDs to detect topology changes. */
-function structureKey(stats: GeneratorStats): string {
-  const inputIds = stats.input.map((p) => p.plugin_id).join(',');
-  const eventId = stats.event.plugin_id;
-  const outputIds = stats.output.map((p) => p.plugin_id).join(',');
-  return `${inputIds}|${eventId}|${outputIds}`;
 }
 
 interface PipelineGraphProps {
@@ -70,23 +71,11 @@ interface PipelineGraphProps {
 }
 
 export const PipelineGraph: FC<PipelineGraphProps> = ({ stats }) => {
-  const prevKeyRef = useRef('');
+  const topoKey = structureKey(stats);
 
-  // Nodes update on every refetch (metrics change)
-  // Edges only recreate when topology changes (plugins added/removed)
-  const { nodes, edges } = useMemo(() => buildPipelineGraph(stats), [stats]);
-  const stableEdges = useMemo(() => {
-    const key = structureKey(stats);
-    if (key === prevKeyRef.current) return undefined; // keep previous
-    prevKeyRef.current = key;
-    return edges;
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [stats]);
-
-  const edgesRef = useRef(edges);
-  if (stableEdges !== undefined) {
-    edgesRef.current = stableEdges;
-  }
+  // Used once on mount — subsequent updates go through NodeDataUpdater
+  const [initialNodes] = useState(() => buildNodes(stats));
+  const [initialEdges] = useState(() => buildEdges(stats));
 
   const graphHeight = useMemo(() => computeGraphHeight(stats), [stats]);
 
@@ -101,15 +90,25 @@ export const PipelineGraph: FC<PipelineGraphProps> = ({ stats }) => {
       <style>{REACT_FLOW_CONTROLS_CSS}</style>
       <div style={{ height: graphHeight, maxHeight: '80vh' }}>
         <ReactFlow
-          nodes={nodes}
-          edges={edgesRef.current}
+          defaultNodes={initialNodes}
+          defaultEdges={initialEdges}
           nodeTypes={nodeTypes}
+          fitView
+          fitViewOptions={{ padding: FIT_PADDING }}
+          onInit={(instance) => {
+            // Retry fitView — modal animation delays real container dimensions
+            let attempts = 0;
+            const interval = setInterval(() => {
+              instance.fitView({ padding: FIT_PADDING });
+              if (++attempts >= 5) clearInterval(interval);
+            }, 200);
+          }}
           nodesDraggable={false}
           nodesConnectable={false}
           elementsSelectable={false}
           proOptions={{ hideAttribution: true }}
         >
-          <FitViewOnReady nodeCount={nodes.length} />
+          <NodeDataUpdater stats={stats} topoKey={topoKey} />
           <Background variant={BackgroundVariant.Dots} gap={16} size={1} />
           <Controls showInteractive={false} position="bottom-right" />
         </ReactFlow>
