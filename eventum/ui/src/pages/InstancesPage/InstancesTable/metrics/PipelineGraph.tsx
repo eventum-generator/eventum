@@ -7,7 +7,7 @@ import {
   ReactFlow,
 } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
-import { FC, useMemo } from 'react';
+import { FC, useMemo, useRef } from 'react';
 
 import { PipelineNode } from './nodes/PipelineNode';
 import { buildPipelineGraph, computeGraphHeight } from './utils/layoutNodes';
@@ -31,12 +31,37 @@ const REACT_FLOW_CONTROLS_CSS = `
   }
 `;
 
+/** Build a structural key from plugin IDs to detect topology changes. */
+function structureKey(stats: GeneratorStats): string {
+  const inputIds = stats.input.map((p) => p.plugin_id).join(',');
+  const eventId = stats.event.plugin_id;
+  const outputIds = stats.output.map((p) => p.plugin_id).join(',');
+  return `${inputIds}|${eventId}|${outputIds}`;
+}
+
 interface PipelineGraphProps {
   stats: GeneratorStats;
 }
 
 export const PipelineGraph: FC<PipelineGraphProps> = ({ stats }) => {
+  const prevKeyRef = useRef('');
+
+  // Nodes update on every refetch (metrics change)
+  // Edges only recreate when topology changes (plugins added/removed)
   const { nodes, edges } = useMemo(() => buildPipelineGraph(stats), [stats]);
+  const stableEdges = useMemo(() => {
+    const key = structureKey(stats);
+    if (key === prevKeyRef.current) return undefined; // keep previous
+    prevKeyRef.current = key;
+    return edges;
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [stats]);
+
+  const edgesRef = useRef(edges);
+  if (stableEdges !== undefined) {
+    edgesRef.current = stableEdges;
+  }
+
   const graphHeight = useMemo(() => computeGraphHeight(stats), [stats]);
 
   return (
@@ -51,7 +76,7 @@ export const PipelineGraph: FC<PipelineGraphProps> = ({ stats }) => {
       <div style={{ height: graphHeight, maxHeight: '80vh' }}>
         <ReactFlow
           nodes={nodes}
-          edges={edges}
+          edges={edgesRef.current}
           nodeTypes={nodeTypes}
           fitView
           fitViewOptions={{ padding: 0.3 }}
