@@ -87,27 +87,6 @@ export async function bulkRemoveGenerators(ids: string[]) {
   await apiClient.post('/generators/group-actions/bulk-delete', ids);
 }
 
-export async function getGlobalState(): Promise<Record<string, unknown>> {
-  return await validateResponse(
-    z.record(z.string(), z.unknown()),
-    apiClient.get('/generators/global-state')
-  );
-}
-
-export async function updateGlobalState(state: Record<string, unknown>) {
-  await apiClient.patch('/generators/global-state', state);
-}
-
-export async function clearGlobalState() {
-  await apiClient.delete('/generators/global-state');
-}
-
-export async function deleteGlobalStateKey(key: string) {
-  await apiClient.delete(
-    `/generators/global-state/${encodeURIComponent(key)}`
-  );
-}
-
 export function streamGeneratorLogs(id: string, endOffset: number): WebSocket {
   const protocol = globalThis.location.protocol === 'https:' ? 'wss' : 'ws';
   const host = globalThis.location.host;
