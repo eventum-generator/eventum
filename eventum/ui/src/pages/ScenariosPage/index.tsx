@@ -237,42 +237,45 @@ export default function ScenariosPage() {
                 onChange={(event) => setNameFilter(event.target.value)}
               />
             </Group>
-            <Group gap={0}>
-              <Tooltip label="Stop selected">
-                <ActionIcon
-                  size="lg"
-                  variant="default"
-                  style={{ borderTopRightRadius: 0, borderBottomRightRadius: 0 }}
-                  disabled={selectedGeneratorIds.length === 0}
-                  loading={bulkStop.isPending}
-                  onClick={handleBulkStop}
-                >
-                  <IconPlayerStop size={20} />
-                </ActionIcon>
-              </Tooltip>
-              <Tooltip label="Start selected">
-                <ActionIcon
-                  size="lg"
-                  variant="default"
-                  style={{ borderTopLeftRadius: 0, borderBottomLeftRadius: 0 }}
-                  disabled={selectedGeneratorIds.length === 0}
-                  loading={bulkStart.isPending}
-                  onClick={handleBulkStart}
-                >
-                  <IconPlayerPlay size={20} />
-                </ActionIcon>
-              </Tooltip>
+            <Group gap="xs">
+              <Group gap={0}>
+                <Tooltip label="Stop selected">
+                  <ActionIcon
+                    size="lg"
+                    variant="default"
+                    style={{ borderTopRightRadius: 0, borderBottomRightRadius: 0 }}
+                    disabled={selectedGeneratorIds.length === 0}
+                    loading={bulkStop.isPending}
+                    onClick={handleBulkStop}
+                  >
+                    <IconPlayerStop size={20} />
+                  </ActionIcon>
+                </Tooltip>
+                <Tooltip label="Start selected">
+                  <ActionIcon
+                    size="lg"
+                    variant="default"
+                    style={{ borderTopLeftRadius: 0, borderBottomLeftRadius: 0 }}
+                    disabled={selectedGeneratorIds.length === 0}
+                    loading={bulkStart.isPending}
+                    onClick={handleBulkStart}
+                  >
+                    <IconPlayerPlay size={20} />
+                  </ActionIcon>
+                </Tooltip>
+              </Group>
+              <Button
+                onClick={() =>
+                  modals.open({
+                    title: 'Create scenario',
+                    children: <CreateScenarioModal />,
+                    size: 'lg',
+                  })
+                }
+              >
+                Create new
+              </Button>
             </Group>
-            <Button
-              onClick={() =>
-                modals.open({
-                  title: 'Create scenario',
-                  children: <CreateScenarioModal />,
-                })
-              }
-            >
-              Create new
-            </Button>
           </Group>
         </Paper>
 
