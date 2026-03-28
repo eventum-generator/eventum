@@ -6,6 +6,7 @@ import {
   Center,
   Container,
   Group,
+  List,
   Loader,
   Paper,
   Stack,
@@ -23,7 +24,7 @@ import {
   IconX,
 } from '@tabler/icons-react';
 import { RowSelectionState } from '@tanstack/react-table';
-import { useMemo, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 
 import { CreateScenarioModal } from './CreateScenarioModal';
 import { ScenariosTable } from './ScenariosTable';
@@ -138,6 +139,20 @@ export default function ScenariosPage() {
     return deriveScenarios(startupEntries, generators);
   }, [startupEntries, generators]);
 
+  const getAffectedScenarios = useCallback(
+    (scenarioName: string, generatorIds: string[]) => {
+      const affected: string[] = [];
+      for (const row of scenarios) {
+        if (row.name === scenarioName) continue;
+        if (row.generatorIds.some((id) => generatorIds.includes(id))) {
+          affected.push(row.name);
+        }
+      }
+      return affected;
+    },
+    [scenarios],
+  );
+
   const selectedScenarios = useMemo(() => {
     return Object.keys(rowSelection)
       .map((rowId) => scenarios[Number(rowId)])
@@ -199,7 +214,7 @@ export default function ScenariosPage() {
     );
   }
 
-  function handleBulkStop() {
+  function executeBulkStop() {
     for (const id of selectedGeneratorIds) {
       updateStatus.mutate({
         id,
@@ -220,6 +235,41 @@ export default function ScenariosPage() {
         onError: (e) => showErrorNotification('Failed to stop scenarios', e),
       }
     );
+  }
+
+  function handleBulkStop() {
+    const selectedNames = new Set(selectedScenarios.map((s) => s.name));
+    const affected = new Set<string>();
+    for (const name of selectedNames) {
+      const row = scenarios.find((s) => s.name === name);
+      if (!row) continue;
+      for (const other of getAffectedScenarios(name, row.generatorIds)) {
+        if (!selectedNames.has(other)) affected.add(other);
+      }
+    }
+
+    if (affected.size > 0) {
+      modals.openConfirmModal({
+        title: 'Shared instances detected',
+        children: (
+          <Text size="sm">
+            Some instances are also used in other scenarios. Stopping them will
+            affect:
+            <List size="sm" mt="xs">
+              {[...affected].map((name) => (
+                <List.Item key={name}>
+                  <b>{name}</b>
+                </List.Item>
+              ))}
+            </List>
+          </Text>
+        ),
+        labels: { cancel: 'Cancel', confirm: 'Stop anyway' },
+        onConfirm: executeBulkStop,
+      });
+    } else {
+      executeBulkStop();
+    }
   }
 
   if (isLoading) {
@@ -343,6 +393,7 @@ export default function ScenariosPage() {
           nameFilter={nameFilter}
           rowSelection={rowSelection}
           onRowSelectionChange={setRowSelection}
+          getAffectedScenarios={getAffectedScenarios}
         />
       </Stack>
     </Container>

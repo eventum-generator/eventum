@@ -1,4 +1,4 @@
-import { Menu, Text } from '@mantine/core';
+import { List, Menu, Text } from '@mantine/core';
 import { modals } from '@mantine/modals';
 import {
   IconEdit,
@@ -27,6 +27,7 @@ interface RowActionsProps {
   generatorIds: string[];
   hasRunning: boolean;
   hasInactive: boolean;
+  getAffectedScenarios: (scenarioName: string, generatorIds: string[]) => string[];
 }
 
 export const RowActions: FC<RowActionsProps> = ({
@@ -35,6 +36,7 @@ export const RowActions: FC<RowActionsProps> = ({
   generatorIds,
   hasRunning,
   hasInactive,
+  getAffectedScenarios,
 }) => {
   const navigate = useNavigate();
   const deleteScenario = useDeleteScenarioMutation();
@@ -72,7 +74,7 @@ export const RowActions: FC<RowActionsProps> = ({
     );
   }
 
-  function handleStop() {
+  function executeStop() {
     for (const id of generatorIds) {
       updateStatus.mutate({
         id,
@@ -94,6 +96,32 @@ export const RowActions: FC<RowActionsProps> = ({
           showErrorNotification('Failed to stop scenario', e),
       },
     );
+  }
+
+  function handleStop() {
+    const affected = getAffectedScenarios(scenarioName, generatorIds);
+    if (affected.length > 0) {
+      modals.openConfirmModal({
+        title: 'Shared instances detected',
+        children: (
+          <Text size="sm">
+            Some instances in <b>{scenarioName}</b> are also used in other
+            scenarios. Stopping them will affect:
+            <List size="sm" mt="xs">
+              {affected.map((name) => (
+                <List.Item key={name}>
+                  <b>{name}</b>
+                </List.Item>
+              ))}
+            </List>
+          </Text>
+        ),
+        labels: { cancel: 'Cancel', confirm: 'Stop anyway' },
+        onConfirm: executeStop,
+      });
+    } else {
+      executeStop();
+    }
   }
 
   function handleDelete() {

@@ -36,6 +36,7 @@ interface ScenariosTableProps {
   nameFilter?: string;
   rowSelection: RowSelectionState;
   onRowSelectionChange: React.Dispatch<React.SetStateAction<RowSelectionState>>;
+  getAffectedScenarios: (scenarioName: string, generatorIds: string[]) => string[];
 }
 
 export const ScenariosTable: FC<ScenariosTableProps> = ({
@@ -43,10 +44,11 @@ export const ScenariosTable: FC<ScenariosTableProps> = ({
   nameFilter = '',
   rowSelection,
   onRowSelectionChange,
+  getAffectedScenarios,
 }) => {
   const columns = useMemo(
-    () => createColumns(),
-    []
+    () => createColumns(getAffectedScenarios),
+    [getAffectedScenarios],
   );
 
   const [sorting, setSorting] = useState<SortingState>([

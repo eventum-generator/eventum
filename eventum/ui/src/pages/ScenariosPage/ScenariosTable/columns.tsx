@@ -8,7 +8,9 @@ import { ScenarioRow } from './types';
 
 const columnHelper = createColumnHelper<ScenarioRow>();
 
-export function createColumns() {
+export function createColumns(
+  getAffectedScenarios: (scenarioName: string, generatorIds: string[]) => string[],
+) {
   return [
     columnHelper.display({
       id: 'select',
@@ -67,6 +69,7 @@ export function createColumns() {
             generatorIds={original.generatorIds}
             hasRunning={original.runningCount > 0}
             hasInactive={original.stoppedCount > 0}
+            getAffectedScenarios={getAffectedScenarios}
           />
         );
       },
