@@ -24,11 +24,13 @@ const VALID_PROJECT_NAME_PATTERN = /^[A-Za-z0-9_-]+$/;
 export interface CreateProjectSubmitModalProps {
   existingProjectNames: string[];
   projectType: EventPluginName;
+  onCreated?: (projectName: string) => void;
 }
 
 export const CreateProjectSubmitModal: FC<CreateProjectSubmitModalProps> = ({
   existingProjectNames,
   projectType,
+  onCreated,
 }) => {
   const createGeneratorConfig = useCreateGeneratorConfigMutation();
   const uploadGeneratorFile = useUploadGeneratorFileMutation();
@@ -119,6 +121,8 @@ export const CreateProjectSubmitModal: FC<CreateProjectSubmitModalProps> = ({
             message: 'Project is created',
             color: 'green',
           });
+
+          onCreated?.(form.values.projectName);
         },
       }
     );

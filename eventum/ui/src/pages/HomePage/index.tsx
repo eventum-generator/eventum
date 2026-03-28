@@ -1,46 +1,32 @@
-import { Container, SimpleGrid, Stack } from '@mantine/core';
+import { Container, Stack } from '@mantine/core';
 
-import { BrowseSection } from './BrowseSection';
+import { ActionsGrid } from './ActionsGrid';
 import { HeroCard } from './HeroCard';
-import { LearnSection } from './LearnSection';
 import { RecentProjectsSection } from './RecentProjectsSection';
-import { StartSection } from './StartSection';
-import { useGenerators } from '@/api/hooks/useGenerators';
+import { useGeneratorDirs } from '@/api/hooks/useGeneratorConfigs';
 import { useInstanceInfo } from '@/api/hooks/useInstance';
-import { useScenarios } from '@/api/hooks/useScenarios';
 
 export default function HomePage() {
-  const {
-    data: instanceInfo,
-    isLoading: isInstanceInfoLoading,
-    isError: isInstanceInfoError,
-  } = useInstanceInfo();
+  const { data: instanceInfo, isLoading: isInstanceInfoLoading } =
+    useInstanceInfo();
 
-  const { data: generators } = useGenerators();
+  const { data: generatorDirs } = useGeneratorDirs(true);
 
-  const { data: scenarios } = useScenarios();
-
-  const existingProjectNames = generators?.map((g) => g.id) ?? [];
+  const existingProjectNames = generatorDirs?.map((d) => d.name) ?? [];
 
   return (
     <Container size="md" py="xl">
-      <Stack gap="xl">
+      <Stack gap="md">
         <HeroCard
           instanceInfo={instanceInfo}
           isLoading={isInstanceInfoLoading}
-          isError={isInstanceInfoError}
         />
 
-        <SimpleGrid cols={{ base: 1, sm: 3 }} spacing="xl">
-          <StartSection existingProjectNames={existingProjectNames} />
-          <BrowseSection
-            generators={generators}
-            scenarioCount={scenarios?.length}
-          />
-          <LearnSection />
-        </SimpleGrid>
+        <ActionsGrid existingProjectNames={existingProjectNames} />
 
-        {generators && <RecentProjectsSection generators={generators} />}
+        {generatorDirs && (
+          <RecentProjectsSection generatorDirs={generatorDirs} />
+        )}
       </Stack>
     </Container>
   );
