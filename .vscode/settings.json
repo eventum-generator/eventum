@@ -9,7 +9,13 @@
     "markdownlint.config": {
         "no-inline-html": false
     },
-    "python-envs.pythonProjects": [],
+    "python-envs.pythonProjects": [
+        {
+            "path": ".",
+            "envManager": "ms-python.python:venv",
+            "packageManager": "ms-python.python:pip"
+        }
+    ],
     "python.analysis.diagnosticMode": "openFilesOnly",
     "python.analysis.typeCheckingMode": "standard",
     "mypy-type-checker.importStrategy": "fromEnvironment",
