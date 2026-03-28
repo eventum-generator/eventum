@@ -2,11 +2,11 @@ import type { Edge, Node } from '@xyflow/react';
 
 import type { GeneratorStats } from '@/api/routes/generators/schemas';
 
-const COLUMN_X = [0, 300, 600] as const;
-const NODE_SPACING_Y = 90;
+const COLUMN_X = [0, 400, 800] as const;
+const NODE_SPACING_Y = 100;
 const PADDING_TOP = 20;
-const DIAGRAM_BOTTOM_PADDING = 40;
-const MIN_GRAPH_HEIGHT = 180;
+const DIAGRAM_BOTTOM_PADDING = 60;
+const MIN_GRAPH_HEIGHT = 220;
 
 export interface PipelineNodeData extends Record<string, unknown> {
   pluginName: string;
