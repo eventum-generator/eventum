@@ -2,8 +2,8 @@ import { MarkerType, type Edge, type Node } from '@xyflow/react';
 
 import type { GeneratorStats } from '@/api/routes/generators/schemas';
 
-const NODE_WIDTH = 200;
-const COLUMN_GAP = 150;
+const NODE_WIDTH = 250;
+const COLUMN_GAP = 120;
 const COLUMN_X = [0, NODE_WIDTH + COLUMN_GAP, (NODE_WIDTH + COLUMN_GAP) * 2] as const;
 const NODE_SPACING_Y = 100;
 const PADDING_TOP = 0;
