@@ -1,7 +1,7 @@
 """Routes."""
 
 import asyncio
-from typing import Annotated, Any
+from typing import Annotated
 
 from fastapi import (
     APIRouter,
@@ -44,8 +44,6 @@ from eventum.api.utils.websocket_annotations import (
 from eventum.app.manager import ManagingError
 from eventum.core.parameters import GeneratorParameters
 from eventum.logging.file_paths import construct_generator_logfile_path
-from eventum.plugins.event.plugins.template.plugin import TemplateEventPlugin
-from eventum.utils.json_utils import normalize_types
 
 router = APIRouter()
 ws_router = APIRouter()
@@ -85,54 +83,6 @@ async def list_generators(
 
     return generators_info
 
-
-@router.get(
-    '/global-state',
-    description='Get global state shared across all template event plugins',
-)
-async def get_global_state() -> dict[str, Any]:
-    try:
-        return await asyncio.to_thread(
-            lambda: normalize_types(
-                TemplateEventPlugin.GLOBAL_STATE.as_dict(),
-            ),
-        )
-    except RuntimeError as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f'Failed to serialize global state: {e}',
-        ) from None
-
-
-@router.patch(
-    '/global-state',
-    description='Update global state shared across all template event plugins',
-)
-async def update_global_state(
-    content: Annotated[
-        dict[str, Any],
-        Body(description='Content to patch in global state'),
-    ],
-) -> None:
-    await asyncio.to_thread(TemplateEventPlugin.GLOBAL_STATE.update, content)
-
-
-@router.delete(
-    '/global-state',
-    description='Clear global state shared across all template event plugins',
-)
-async def clear_global_state() -> None:
-    await asyncio.to_thread(TemplateEventPlugin.GLOBAL_STATE.clear)
-
-
-@router.delete(
-    '/global-state/{key}',
-    description='Delete a key from global state shared across all template event plugins',
-)
-async def delete_global_state_key(
-    key: Annotated[str, Path(description='Key to delete from global state', min_length=1)],
-) -> None:
-    await asyncio.to_thread(TemplateEventPlugin.GLOBAL_STATE.pop, key)
 
 
 @router.get(
