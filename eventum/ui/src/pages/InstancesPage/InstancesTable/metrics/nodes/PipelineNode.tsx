@@ -1,6 +1,6 @@
 import { Group, Indicator, Paper, Text } from '@mantine/core';
 import { Handle, type Node, type NodeProps, Position } from '@xyflow/react';
-import { memo, useEffect, useRef, useState } from 'react';
+import { memo, useCallback, useEffect, useRef, useState } from 'react';
 
 import { type PipelineNodeData } from '../utils/layoutNodes';
 import { PLUGINS_INFO } from '@/api/routes/generator-configs/modules/plugins/registry';
@@ -20,28 +20,40 @@ function getPluginIcon(colorType: PipelineNodeData['colorType'], pluginName: str
   return info?.icon;
 }
 
+/** Blink interval in ms from EPS, clamped to [200ms, 3000ms]. */
+function epsToInterval(eps: number): number {
+  if (eps <= 0) return 0;
+  return Math.min(3000, Math.max(200, 1000 / eps));
+}
+
 export const PipelineNode = memo(function PipelineNode({
   data,
 }: NodeProps<PipelineNodeType>) {
   const Icon = getPluginIcon(data.colorType, data.pluginName);
-  const prevCountRef = useRef(data.totalCount);
   const [blinking, setBlinking] = useState(false);
+  const intervalRef = useRef<ReturnType<typeof setInterval>>(undefined);
 
-  // Ethernet-style blink: flash green when totalCount changes, then back to gray
-  useEffect(() => {
-    if (data.totalCount === prevCountRef.current) return;
-
-    prevCountRef.current = data.totalCount;
+  const blink = useCallback(() => {
     setBlinking(true);
-    const timer = setTimeout(() => setBlinking(false), 150);
-    return () => clearTimeout(timer);
-  }, [data.totalCount]);
+    setTimeout(() => setBlinking(false), 100);
+  }, []);
+
+  // Blink in sync with EPS — interval = 1000/eps ms
+  useEffect(() => {
+    clearInterval(intervalRef.current);
+
+    const interval = epsToInterval(data.eps);
+    if (interval <= 0) return;
+
+    intervalRef.current = setInterval(blink, interval);
+    return () => clearInterval(intervalRef.current);
+  }, [data.eps, blink]);
 
   return (
     <Paper
       withBorder
       p="xs"
-      style={{ minWidth: 150, borderStyle: 'solid' }}
+      style={{ minWidth: 160, borderStyle: 'solid' }}
     >
       <Handle
         type="target"

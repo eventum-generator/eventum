@@ -1,12 +1,12 @@
-import type { Edge, Node } from '@xyflow/react';
+import { MarkerType, type Edge, type Node } from '@xyflow/react';
 
 import type { GeneratorStats } from '@/api/routes/generators/schemas';
 
-const COLUMN_X = [0, 400, 800] as const;
+const COLUMN_X = [0, 350, 700] as const;
 const NODE_SPACING_Y = 100;
 const PADDING_TOP = 20;
 const DIAGRAM_BOTTOM_PADDING = 60;
-const MIN_GRAPH_HEIGHT = 220;
+const MIN_GRAPH_HEIGHT = 200;
 
 export interface PipelineNodeData extends Record<string, unknown> {
   pluginName: string;
@@ -14,13 +14,23 @@ export interface PipelineNodeData extends Record<string, unknown> {
   metrics: { label: string; value: number; isError?: boolean }[];
   eps: number;
   colorType: 'input' | 'event' | 'output';
-  totalCount: number;
 }
 
 function computeColumnY(count: number, maxCount: number, index: number): number {
   const offset = ((maxCount - count) * NODE_SPACING_Y) / 2;
   return PADDING_TOP + offset + index * NODE_SPACING_Y;
 }
+
+function formatEps(eps: number): string {
+  return `${eps.toFixed(2)} eps`;
+}
+
+const EDGE_STYLE = {
+  strokeDasharray: '5,5',
+  stroke: 'var(--mantine-color-text)',
+  strokeWidth: 2,
+  opacity: 0.6,
+} as const;
 
 export function buildPipelineGraph(stats: GeneratorStats): {
   nodes: Node<PipelineNodeData>[];
@@ -34,6 +44,8 @@ export function buildPipelineGraph(stats: GeneratorStats): {
   // Input nodes
   for (const [i, plugin] of stats.input.entries()) {
     const id = `input-${plugin.plugin_id}`;
+    const perPluginEps = stats.input.length > 0 ? stats.input_eps / stats.input.length : 0;
+
     nodes.push({
       id,
       type: 'pipelineNode',
@@ -45,9 +57,8 @@ export function buildPipelineGraph(stats: GeneratorStats): {
         pluginName: plugin.plugin_name,
         pluginId: plugin.plugin_id,
         metrics: [{ label: 'Generated', value: plugin.generated }],
-        eps: stats.input.length > 0 ? stats.input_eps / stats.input.length : 0,
+        eps: perPluginEps,
         colorType: 'input',
-        totalCount: plugin.generated,
       },
     });
 
@@ -55,10 +66,13 @@ export function buildPipelineGraph(stats: GeneratorStats): {
       id: `edge-${id}-event`,
       source: id,
       target: 'event-0',
-      type: 'default',
+      type: 'smoothstep',
       style: EDGE_STYLE,
-      markerEnd: EDGE_MARKER,
+      markerEnd: { type: MarkerType.ArrowClosed, color: 'var(--mantine-color-text)' },
       animated: true,
+      label: formatEps(perPluginEps),
+      labelStyle: { fill: 'var(--mantine-color-dimmed)', fontSize: 11 },
+      labelBgStyle: { fill: 'transparent' },
     });
   }
 
@@ -87,13 +101,13 @@ export function buildPipelineGraph(stats: GeneratorStats): {
       metrics: eventMetrics,
       eps: stats.input_eps,
       colorType: 'event',
-      totalCount: stats.event.produced,
     },
   });
 
   // Output nodes
   for (const [i, plugin] of stats.output.entries()) {
     const id = `output-${plugin.plugin_id}`;
+    const perPluginEps = stats.output.length > 0 ? stats.output_eps / stats.output.length : 0;
 
     const outputMetrics: PipelineNodeData['metrics'] = [
       { label: 'Written', value: plugin.written },
@@ -118,9 +132,8 @@ export function buildPipelineGraph(stats: GeneratorStats): {
         pluginName: plugin.plugin_name,
         pluginId: plugin.plugin_id,
         metrics: outputMetrics,
-        eps: stats.output.length > 0 ? stats.output_eps / stats.output.length : 0,
+        eps: perPluginEps,
         colorType: 'output',
-        totalCount: plugin.written,
       },
     });
 
@@ -128,10 +141,13 @@ export function buildPipelineGraph(stats: GeneratorStats): {
       id: `edge-event-${id}`,
       source: 'event-0',
       target: id,
-      type: 'default',
+      type: 'smoothstep',
       style: EDGE_STYLE,
-      markerEnd: EDGE_MARKER,
+      markerEnd: { type: MarkerType.ArrowClosed, color: 'var(--mantine-color-text)' },
       animated: true,
+      label: formatEps(perPluginEps),
+      labelStyle: { fill: 'var(--mantine-color-dimmed)', fontSize: 11 },
+      labelBgStyle: { fill: 'transparent' },
     });
   }
 
@@ -142,16 +158,3 @@ export function computeGraphHeight(stats: GeneratorStats): number {
   const maxCount = Math.max(stats.input.length, 1, stats.output.length);
   return Math.max(MIN_GRAPH_HEIGHT, maxCount * NODE_SPACING_Y + DIAGRAM_BOTTOM_PADDING);
 }
-
-// Edge styling — dashed, matching DataFlowDiagram pattern
-const EDGE_STYLE = {
-  strokeDasharray: '5,5',
-  stroke: 'var(--mantine-color-text)',
-  strokeWidth: 2,
-  opacity: 0.6,
-} as const;
-
-const EDGE_MARKER = {
-  type: 'arrowclosed' as const,
-  color: 'var(--mantine-color-text)',
-};
