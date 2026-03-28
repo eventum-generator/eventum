@@ -95,8 +95,8 @@ export function KeyValueTable({
   const [inlineEditValue, setInlineEditValue] = useState('');
 
   const badgeSize = compact ? 'xs' : 'sm';
-  const actionIconSize = 'lg';
-  const actionIconInnerSize = compact ? 16 : 18;
+  const actionIconSize = 'md';
+  const actionIconInnerSize = 16;
   const skeletonHeight = compact ? '120px' : '200px';
   const keyMaxWidth = compact ? 140 : 160;
   const valueMaxWidth = compact ? 180 : 200;
