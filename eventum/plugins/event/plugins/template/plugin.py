@@ -70,7 +70,7 @@ class TemplateEventPlugin(
 
     _JINJA_EXTENSIONS = ('jinja2.ext.do', 'jinja2.ext.loopcontrols')
 
-    _GLOBAL_STATE = MultiThreadState(lock=RLock())
+    GLOBAL_STATE = MultiThreadState(lock=RLock())
 
     @override
     def __init__(
@@ -101,7 +101,7 @@ class TemplateEventPlugin(
         self._shared_state = SingleThreadState()
 
         self._logger.debug('Connecting to global state')
-        self._global_state = TemplateEventPlugin._GLOBAL_STATE
+        self._global_state = TemplateEventPlugin.GLOBAL_STATE
 
         loader = params.get('templates_loader', None)
         if loader is None:

@@ -94,7 +94,7 @@ async def get_global_state() -> dict[str, Any]:
     try:
         return await asyncio.to_thread(
             lambda: normalize_types(
-                TemplateEventPlugin._GLOBAL_STATE.as_dict(),
+                TemplateEventPlugin.GLOBAL_STATE.as_dict(),
             ),
         )
     except RuntimeError as e:
@@ -114,7 +114,7 @@ async def update_global_state(
         Body(description='Content to patch in global state'),
     ],
 ) -> None:
-    await asyncio.to_thread(TemplateEventPlugin._GLOBAL_STATE.update, content)
+    await asyncio.to_thread(TemplateEventPlugin.GLOBAL_STATE.update, content)
 
 
 @router.delete(
@@ -122,7 +122,7 @@ async def update_global_state(
     description='Clear global state shared across all template event plugins',
 )
 async def clear_global_state() -> None:
-    await asyncio.to_thread(TemplateEventPlugin._GLOBAL_STATE.clear)
+    await asyncio.to_thread(TemplateEventPlugin.GLOBAL_STATE.clear)
 
 
 @router.delete(
@@ -132,7 +132,7 @@ async def clear_global_state() -> None:
 async def delete_global_state_key(
     key: Annotated[str, Path(description='Key to delete from global state', min_length=1)],
 ) -> None:
-    await asyncio.to_thread(TemplateEventPlugin._GLOBAL_STATE.pop, key)
+    await asyncio.to_thread(TemplateEventPlugin.GLOBAL_STATE.pop, key)
 
 
 @router.get(
