@@ -5,8 +5,8 @@ import type { GeneratorStats } from '@/api/routes/generators/schemas';
 const COLUMN_X = [0, 350, 700] as const;
 const NODE_SPACING_Y = 100;
 const PADDING_TOP = 20;
-const DIAGRAM_BOTTOM_PADDING = 80;
-const MIN_GRAPH_HEIGHT = 350;
+const DIAGRAM_BOTTOM_PADDING = 60;
+const MIN_GRAPH_HEIGHT = 250;
 
 export interface PipelineNodeData extends Record<string, unknown> {
   pluginName: string;

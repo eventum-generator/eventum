@@ -1,5 +1,5 @@
-import { Divider, Group, Text } from '@mantine/core';
-import { FC, Fragment } from 'react';
+import { Group, Paper, SimpleGrid, Text } from '@mantine/core';
+import { FC } from 'react';
 
 import type { GeneratorStats } from '@/api/routes/generators/schemas';
 
@@ -12,36 +12,35 @@ function formatUptime(seconds: number): string {
   return `${s}s`;
 }
 
+function Stat({ label, value }: { label: string; value: string | number }) {
+  return (
+    <Group gap={6} wrap="nowrap">
+      <Text size="sm" c="dimmed">
+        {label}
+      </Text>
+      <Text size="sm" fw={500}>
+        {value}
+      </Text>
+    </Group>
+  );
+}
+
 interface SummaryBarProps {
   stats: GeneratorStats;
 }
 
 export const SummaryBar: FC<SummaryBarProps> = ({ stats }) => {
-  const items = [
-    { label: 'Instance', value: stats.id },
-    { label: 'Start', value: new Date(stats.start_time).toLocaleString() },
-    { label: 'Uptime', value: formatUptime(stats.uptime) },
-    { label: 'Generated', value: stats.total_generated },
-    { label: 'Written', value: stats.total_written },
-    { label: 'In EPS', value: stats.input_eps.toFixed(2) },
-    { label: 'Out EPS', value: stats.output_eps.toFixed(2) },
-  ];
-
   return (
-    <Group gap="sm" wrap="nowrap">
-      {items.map((item, i) => (
-        <Fragment key={item.label}>
-          {i > 0 && <Divider orientation="vertical" />}
-          <Group gap={4} wrap="nowrap">
-            <Text size="xs" c="dimmed">
-              {item.label}:
-            </Text>
-            <Text size="xs" fw={500}>
-              {item.value}
-            </Text>
-          </Group>
-        </Fragment>
-      ))}
-    </Group>
+    <Paper withBorder p="sm">
+      <SimpleGrid cols={4} spacing="xs" verticalSpacing={6}>
+        <Stat label="Instance:" value={stats.id} />
+        <Stat label="Start:" value={new Date(stats.start_time).toLocaleString()} />
+        <Stat label="Uptime:" value={formatUptime(stats.uptime)} />
+        <Stat label="Generated:" value={stats.total_generated} />
+        <Stat label="Written:" value={stats.total_written} />
+        <Stat label="Input EPS:" value={stats.input_eps.toFixed(2)} />
+        <Stat label="Output EPS:" value={stats.output_eps.toFixed(2)} />
+      </SimpleGrid>
+    </Paper>
   );
 };
