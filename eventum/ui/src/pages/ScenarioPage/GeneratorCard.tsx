@@ -34,6 +34,7 @@ import { TemplatePreviewModal } from './TemplatePreviewModal';
 import {
   useStartGeneratorMutation,
   useStopGeneratorMutation,
+  useUpdateGeneratorStatus,
 } from '@/api/hooks/useGenerators';
 import { streamGeneratorLogs } from '@/api/routes/generators';
 import { LogsModal } from '@/components/modals/LogsModal';
@@ -80,6 +81,7 @@ export const GeneratorCard: FC<GeneratorCardProps> = ({
 
   const startMutation = useStartGeneratorMutation();
   const stopMutation = useStopGeneratorMutation();
+  const updateStatus = useUpdateGeneratorStatus();
 
   const GLOBALS_ROW_STYLE = { cursor: 'default', borderRadius: 4, padding: '2px 4px 2px 22px' } as const;
 
@@ -112,6 +114,16 @@ export const GeneratorCard: FC<GeneratorCardProps> = ({
   }, [globalsUsage]);
 
   function handleStart() {
+    updateStatus.mutate({
+      id: generatorId,
+      status: {
+        is_initializing: true,
+        is_running: false,
+        is_stopping: false,
+        is_ended_up: false,
+        is_ended_up_successfully: false,
+      },
+    });
     startMutation.mutate(
       { id: generatorId },
       {
@@ -124,6 +136,16 @@ export const GeneratorCard: FC<GeneratorCardProps> = ({
   }
 
   function handleStop() {
+    updateStatus.mutate({
+      id: generatorId,
+      status: {
+        is_initializing: false,
+        is_running: false,
+        is_stopping: true,
+        is_ended_up: false,
+        is_ended_up_successfully: false,
+      },
+    });
     stopMutation.mutate(
       { id: generatorId },
       {

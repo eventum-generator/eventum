@@ -31,7 +31,10 @@ import { GeneratorCard } from './GeneratorCard';
 import { GlobalStatePanel } from './GlobalStatePanel';
 import { useHighlightState } from './useHighlightState';
 import { useScenarioBulkActions } from './useScenarioBulkActions';
-import { useGenerators } from '@/api/hooks/useGenerators';
+import {
+  useGenerators,
+  useUpdateGeneratorStatus,
+} from '@/api/hooks/useGenerators';
 import {
   useMultiGlobalsUsage,
   useRemoveGeneratorFromScenarioMutation,
@@ -107,6 +110,7 @@ export default function ScenarioPage() {
   );
 
   const { bulkStart, bulkStop } = useScenarioBulkActions(scenarioGeneratorIds);
+  const updateStatus = useUpdateGeneratorStatus();
   const removeFromScenario = useRemoveGeneratorFromScenarioMutation();
 
   const handleRemoveGenerator = useCallback((entry: StartupGeneratorParameters) => {
@@ -134,6 +138,21 @@ export default function ScenarioPage() {
   }, [scenarioName, removeFromScenario]);
 
   function handleStartAll() {
+    for (const id of scenarioGeneratorIds) {
+      const current = generatorStatusMap.get(id);
+      if (current && !current.is_running && !current.is_initializing) {
+        updateStatus.mutate({
+          id,
+          status: {
+            is_initializing: true,
+            is_running: false,
+            is_stopping: false,
+            is_ended_up: false,
+            is_ended_up_successfully: false,
+          },
+        });
+      }
+    }
     bulkStart.mutate(
       { ids: scenarioGeneratorIds },
       {
@@ -144,6 +163,21 @@ export default function ScenarioPage() {
   }
 
   function handleStopAll() {
+    for (const id of scenarioGeneratorIds) {
+      const current = generatorStatusMap.get(id);
+      if (current?.is_running) {
+        updateStatus.mutate({
+          id,
+          status: {
+            is_initializing: false,
+            is_running: false,
+            is_stopping: true,
+            is_ended_up: false,
+            is_ended_up_successfully: false,
+          },
+        });
+      }
+    }
     bulkStop.mutate(
       { ids: scenarioGeneratorIds },
       {
