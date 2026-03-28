@@ -22,7 +22,6 @@ import {
   IconDotsVertical,
   IconEdit,
   IconEraser,
-  IconPencil,
   IconPlus,
   IconRefresh,
   IconSearch,
@@ -365,14 +364,6 @@ export function KeyValueTable({
                               </ActionIcon>
                             </Menu.Target>
                             <Menu.Dropdown>
-                              {isSimpleValue(value) && value !== null && (
-                                <Menu.Item
-                                  leftSection={<IconPencil size={14} />}
-                                  onClick={() => startInlineEdit(key, value)}
-                                >
-                                  Quick edit
-                                </Menu.Item>
-                              )}
                               <Menu.Item
                                 leftSection={<IconEdit size={14} />}
                                 onClick={() => openEditor(key, value)}
