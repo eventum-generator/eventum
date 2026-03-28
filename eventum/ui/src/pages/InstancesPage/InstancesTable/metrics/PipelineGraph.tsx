@@ -79,7 +79,7 @@ export const PipelineGraph: FC<PipelineGraphProps> = ({ stats }) => {
           edges={edgesRef.current}
           nodeTypes={nodeTypes}
           fitView
-          fitViewOptions={{ padding: 0.3 }}
+          fitViewOptions={{ padding: 0.5 }}
           nodesDraggable={false}
           nodesConnectable={false}
           elementsSelectable={false}
