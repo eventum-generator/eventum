@@ -16,10 +16,9 @@ export interface PipelineNodeData extends Record<string, unknown> {
   colorType: 'input' | 'event' | 'output';
 }
 
-function computeColumnY(count: number, index: number): number {
-  const totalHeight = (count - 1) * NODE_SPACING_Y;
-  const startY = PADDING_TOP + (Math.max(totalHeight, 0) - totalHeight) / 2;
-  return startY + index * NODE_SPACING_Y;
+function computeColumnY(count: number, maxCount: number, index: number): number {
+  const offset = ((maxCount - count) * NODE_SPACING_Y) / 2;
+  return PADDING_TOP + offset + index * NODE_SPACING_Y;
 }
 
 export function buildPipelineGraph(stats: GeneratorStats): {
@@ -39,15 +38,13 @@ export function buildPipelineGraph(stats: GeneratorStats): {
       type: 'pipelineNode',
       position: {
         x: COLUMN_X[0],
-        y:
-          computeColumnY(stats.input.length, i) +
-          ((maxCount - stats.input.length) * NODE_SPACING_Y) / 2,
+        y: computeColumnY(stats.input.length, maxCount, i),
       },
       data: {
         pluginName: plugin.plugin_name,
         pluginId: plugin.plugin_id,
         metrics: [{ label: 'Generated', value: plugin.generated }],
-        eps: stats.input_eps / stats.input.length,
+        eps: stats.input.length > 0 ? stats.input_eps / stats.input.length : 0,
         colorType: 'input',
       },
       width: NODE_WIDTH,
@@ -80,8 +77,7 @@ export function buildPipelineGraph(stats: GeneratorStats): {
     type: 'pipelineNode',
     position: {
       x: COLUMN_X[1],
-      y:
-        computeColumnY(1, 0) + ((maxCount - 1) * NODE_SPACING_Y) / 2,
+      y: computeColumnY(1, maxCount, 0),
     },
     data: {
       pluginName: stats.event.plugin_name,
@@ -115,15 +111,13 @@ export function buildPipelineGraph(stats: GeneratorStats): {
       type: 'pipelineNode',
       position: {
         x: COLUMN_X[2],
-        y:
-          computeColumnY(stats.output.length, i) +
-          ((maxCount - stats.output.length) * NODE_SPACING_Y) / 2,
+        y: computeColumnY(stats.output.length, maxCount, i),
       },
       data: {
         pluginName: plugin.plugin_name,
         pluginId: plugin.plugin_id,
         metrics: outputMetrics,
-        eps: stats.output_eps / stats.output.length,
+        eps: stats.output.length > 0 ? stats.output_eps / stats.output.length : 0,
         colorType: 'output',
       },
       width: NODE_WIDTH,
