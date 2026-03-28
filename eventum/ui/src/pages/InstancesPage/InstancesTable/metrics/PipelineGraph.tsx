@@ -86,7 +86,7 @@ export const PipelineGraph: FC<PipelineGraphProps> = ({ stats }) => {
           proOptions={{ hideAttribution: true }}
         >
           <Background variant={BackgroundVariant.Dots} gap={16} size={1} />
-          <Controls showInteractive={false} />
+          <Controls showInteractive={false} position="bottom-right" />
         </ReactFlow>
       </div>
     </Paper>
