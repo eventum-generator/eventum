@@ -17,6 +17,7 @@ import {
 import {
   ColumnFiltersState,
   PaginationState,
+  RowSelectionState,
   SortingState,
   flexRender,
   getCoreRowModel,
@@ -33,11 +34,15 @@ import { ScenarioRow } from './types';
 interface ScenariosTableProps {
   data: ScenarioRow[];
   nameFilter?: string;
+  rowSelection: RowSelectionState;
+  onRowSelectionChange: React.Dispatch<React.SetStateAction<RowSelectionState>>;
 }
 
 export const ScenariosTable: FC<ScenariosTableProps> = ({
   data,
   nameFilter = '',
+  rowSelection,
+  onRowSelectionChange,
 }) => {
   const columns = useMemo(
     () => createColumns(),
@@ -56,7 +61,7 @@ export const ScenariosTable: FC<ScenariosTableProps> = ({
   const table = useReactTable({
     data,
     columns,
-    state: { sorting, columnFilters, pagination },
+    state: { sorting, columnFilters, pagination, rowSelection },
     onSortingChange: setSorting,
     onColumnFiltersChange: setColumnFilters,
     onPaginationChange: setPagination,
@@ -64,6 +69,8 @@ export const ScenariosTable: FC<ScenariosTableProps> = ({
     getSortedRowModel: getSortedRowModel(),
     getFilteredRowModel: getFilteredRowModel(),
     getPaginationRowModel: getPaginationRowModel(),
+    enableRowSelection: true,
+    onRowSelectionChange: onRowSelectionChange,
   });
 
   useEffect(() => {

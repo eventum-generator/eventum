@@ -10,15 +10,28 @@ import {
   Paper,
   Stack,
   TextInput,
+  Tooltip,
 } from '@mantine/core';
 import { modals } from '@mantine/modals';
-import { IconAlertSquareRounded, IconSearch, IconX } from '@tabler/icons-react';
+import {
+  IconAlertSquareRounded,
+  IconPlayerPlay,
+  IconPlayerStop,
+  IconSearch,
+  IconX,
+} from '@tabler/icons-react';
+import { RowSelectionState } from '@tanstack/react-table';
 import { useMemo, useState } from 'react';
 
 import { CreateScenarioModal } from './CreateScenarioModal';
 import { ScenariosTable } from './ScenariosTable';
 import { ScenarioRow } from './ScenariosTable/types';
-import { useGenerators } from '@/api/hooks/useGenerators';
+import {
+  useBulkStartGeneratorMutation,
+  useBulkStopGeneratorMutation,
+  useGenerators,
+  useUpdateGeneratorStatus,
+} from '@/api/hooks/useGenerators';
 import { useStartupGenerators } from '@/api/hooks/useStartup';
 import {
   GeneratorStatus,
@@ -27,6 +40,10 @@ import {
 import { StartupGeneratorParametersList } from '@/api/routes/startup/schemas';
 import { PageTitle } from '@/components/ui/PageTitle';
 import { ShowErrorDetailsAnchor } from '@/components/ui/ShowErrorDetailsAnchor';
+import {
+  showErrorNotification,
+  showSuccessNotification,
+} from '@/utils/notifications';
 
 function classifyStatus(status: GeneratorStatus | undefined) {
   if (!status) return 'stopped' as const;
@@ -84,6 +101,7 @@ function deriveScenarios(
 
 export default function ScenariosPage() {
   const [nameFilter, setNameFilter] = useState('');
+  const [rowSelection, setRowSelection] = useState<RowSelectionState>({});
 
   const {
     data: startupEntries,
@@ -103,12 +121,73 @@ export default function ScenariosPage() {
   const isError = isStartupError || isGeneratorsError;
   const error = startupError ?? generatorsError;
 
+  const bulkStart = useBulkStartGeneratorMutation();
+  const bulkStop = useBulkStopGeneratorMutation();
+  const updateStatus = useUpdateGeneratorStatus();
+
   const scenarios = useMemo(() => {
     if (!startupEntries || !generators) {
       return [];
     }
     return deriveScenarios(startupEntries, generators);
   }, [startupEntries, generators]);
+
+  const selectedGeneratorIds = useMemo(() => {
+    const ids: string[] = [];
+    for (const rowId of Object.keys(rowSelection)) {
+      const row = scenarios[Number(rowId)];
+      if (row) ids.push(...row.generatorIds);
+    }
+    return ids;
+  }, [rowSelection, scenarios]);
+
+  function handleBulkStart() {
+    for (const id of selectedGeneratorIds) {
+      updateStatus.mutate({
+        id,
+        status: {
+          is_initializing: true,
+          is_running: false,
+          is_stopping: false,
+          is_ended_up: false,
+          is_ended_up_successfully: false,
+        },
+      });
+    }
+    bulkStart.mutate(
+      { ids: selectedGeneratorIds },
+      {
+        onSuccess: () =>
+          showSuccessNotification('Success', 'Selected scenarios started'),
+        onError: (e) =>
+          showErrorNotification('Failed to start scenarios', e),
+      },
+    );
+  }
+
+  function handleBulkStop() {
+    for (const id of selectedGeneratorIds) {
+      updateStatus.mutate({
+        id,
+        status: {
+          is_initializing: false,
+          is_running: false,
+          is_stopping: true,
+          is_ended_up: false,
+          is_ended_up_successfully: false,
+        },
+      });
+    }
+    bulkStop.mutate(
+      { ids: selectedGeneratorIds },
+      {
+        onSuccess: () =>
+          showSuccessNotification('Success', 'Selected scenarios stopped'),
+        onError: (e) =>
+          showErrorNotification('Failed to stop scenarios', e),
+      },
+    );
+  }
 
   if (isLoading) {
     return (
@@ -158,6 +237,32 @@ export default function ScenariosPage() {
                 onChange={(event) => setNameFilter(event.target.value)}
               />
             </Group>
+            <Group gap={0}>
+              <Tooltip label="Stop selected">
+                <ActionIcon
+                  size="lg"
+                  variant="default"
+                  style={{ borderTopRightRadius: 0, borderBottomRightRadius: 0 }}
+                  disabled={selectedGeneratorIds.length === 0}
+                  loading={bulkStop.isPending}
+                  onClick={handleBulkStop}
+                >
+                  <IconPlayerStop size={20} />
+                </ActionIcon>
+              </Tooltip>
+              <Tooltip label="Start selected">
+                <ActionIcon
+                  size="lg"
+                  variant="default"
+                  style={{ borderTopLeftRadius: 0, borderBottomLeftRadius: 0 }}
+                  disabled={selectedGeneratorIds.length === 0}
+                  loading={bulkStart.isPending}
+                  onClick={handleBulkStart}
+                >
+                  <IconPlayerPlay size={20} />
+                </ActionIcon>
+              </Tooltip>
+            </Group>
             <Button
               onClick={() =>
                 modals.open({
@@ -174,6 +279,8 @@ export default function ScenariosPage() {
         <ScenariosTable
           data={scenarios}
           nameFilter={nameFilter}
+          rowSelection={rowSelection}
+          onRowSelectionChange={setRowSelection}
         />
       </Stack>
     </Container>
