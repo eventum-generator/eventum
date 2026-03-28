@@ -1,0 +1,26 @@
+.bar {
+  display: flex;
+  justify-content: space-between;
+  background: var(--mantine-color-body);
+  border: 1px solid var(--mantine-color-default-border);
+  border-radius: 10px;
+  padding: 14px 28px;
+}
+
+.item {
+  text-align: center;
+}
+
+.label {
+  font-size: 10px;
+  text-transform: uppercase;
+  color: var(--mantine-color-dimmed);
+  letter-spacing: 1px;
+}
+
+.value {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--mantine-color-text);
+  margin-top: 4px;
+}
