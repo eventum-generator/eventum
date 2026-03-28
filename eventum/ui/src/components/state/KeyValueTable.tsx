@@ -344,7 +344,8 @@ export function KeyValueTable({
                                 ff="monospace"
                                 truncate
                                 c="dimmed"
-                                style={{ cursor: 'pointer' }}
+                                td="underline"
+                                style={{ cursor: 'pointer', textDecorationStyle: 'dotted' }}
                                 onClick={() => handleEditClick(key, value)}
                               >
                                 {formatValuePreview(value)}
@@ -355,17 +356,19 @@ export function KeyValueTable({
                         <Table.Td>
                           <Menu position="bottom-end" withinPortal>
                             <Menu.Target>
-                              <ActionIcon variant="subtle" size="sm" aria-label="Key actions">
+                              <ActionIcon variant="transparent" size="sm" aria-label="Key actions">
                                 <IconDotsVertical size={14} />
                               </ActionIcon>
                             </Menu.Target>
                             <Menu.Dropdown>
-                              <Menu.Item
-                                leftSection={<IconPencil size={14} />}
-                                onClick={() => handleEditClick(key, value)}
-                              >
-                                Edit
-                              </Menu.Item>
+                              {isSimpleValue(value) && value !== null && (
+                                <Menu.Item
+                                  leftSection={<IconPencil size={14} />}
+                                  onClick={() => startInlineEdit(key, value)}
+                                >
+                                  Edit
+                                </Menu.Item>
+                              )}
                               <Menu.Item
                                 leftSection={<IconEdit size={14} />}
                                 onClick={() => openEditor(key, value)}
