@@ -30,8 +30,9 @@ import { ShowErrorDetailsAnchor } from '@/components/ui/ShowErrorDetailsAnchor';
 
 function classifyStatus(status: GeneratorStatus | undefined) {
   if (!status) return 'stopped' as const;
-  if (status.is_running) return 'running' as const;
   if (status.is_initializing) return 'initializing' as const;
+  if (status.is_stopping) return 'stopping' as const;
+  if (status.is_running) return 'running' as const;
   return 'stopped' as const;
 }
 
@@ -57,20 +58,24 @@ function deriveScenarios(
     let runningCount = 0;
     let stoppedCount = 0;
     let initializingCount = 0;
+    let stoppingCount = 0;
 
     for (const id of generatorIds) {
       const classification = classifyStatus(generatorStatusMap.get(id));
       if (classification === 'running') runningCount++;
       else if (classification === 'initializing') initializingCount++;
+      else if (classification === 'stopping') stoppingCount++;
       else stoppedCount++;
     }
 
     rows.push({
       name,
+      generatorIds,
       generatorCount: generatorIds.length,
       runningCount,
       stoppedCount,
       initializingCount,
+      stoppingCount,
     });
   }
 

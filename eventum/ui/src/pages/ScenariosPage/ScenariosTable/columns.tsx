@@ -40,6 +40,9 @@ export function createColumns() {
               </ActionIcon>
             }
             scenarioName={original.name}
+            generatorIds={original.generatorIds}
+            hasRunning={original.runningCount > 0}
+            hasInactive={original.stoppedCount > 0}
           />
         );
       },
