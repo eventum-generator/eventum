@@ -135,3 +135,9 @@ export function buildPipelineGraph(stats: GeneratorStats): {
 
   return { nodes, edges };
 }
+
+export function computeGraphHeight(stats: GeneratorStats): number {
+  const maxCount = Math.max(stats.input.length, 1, stats.output.length);
+  const contentHeight = PADDING_TOP * 2 + (maxCount - 1) * NODE_SPACING_Y + NODE_HEIGHT;
+  return Math.max(250, contentHeight);
+}

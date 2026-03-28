@@ -4,7 +4,7 @@ import { FC, useMemo } from 'react';
 
 import { AnimatedEdge } from './edges/AnimatedEdge';
 import { PipelineNode } from './nodes/PipelineNode';
-import { buildPipelineGraph } from './utils/layoutNodes';
+import { buildPipelineGraph, computeGraphHeight } from './utils/layoutNodes';
 import type { GeneratorStats } from '@/api/routes/generators/schemas';
 
 const nodeTypes = { pipelineNode: PipelineNode } as const;
@@ -16,9 +16,10 @@ interface PipelineGraphProps {
 
 export const PipelineGraph: FC<PipelineGraphProps> = ({ stats }) => {
   const { nodes, edges } = useMemo(() => buildPipelineGraph(stats), [stats]);
+  const graphHeight = useMemo(() => computeGraphHeight(stats), [stats]);
 
   return (
-    <div style={{ width: '100%', height: 400 }}>
+    <div style={{ width: '100%', height: graphHeight }}>
       <ReactFlow
         nodes={nodes}
         edges={edges}
