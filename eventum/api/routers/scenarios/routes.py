@@ -295,3 +295,94 @@ async def get_generator_globals_usage(
             for w in usage.warnings
         ],
     )
+
+
+@router.get(
+    '/{name}/globals/{key}',
+    description='Get a specific global state key value',
+    responses=merge_responses(
+        check_scenario_exists.responses,
+        {404: {'description': 'Key not found in global state'}},
+    ),
+)
+async def get_scenario_global_state_key(
+    name: CheckScenarioExistsDep,  # noqa: ARG001
+    key: Annotated[
+        str, FastApiPath(description='Key to get from global state', min_length=1)
+    ],
+) -> Any:
+    value = await asyncio.to_thread(TemplateEventPlugin.GLOBAL_STATE.get, key)
+    if value is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f'Key not found in global state: {key}',
+        )
+    try:
+        return await asyncio.to_thread(lambda: normalize_types(value))
+    except RuntimeError as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f'Failed to serialize global state value: {e}',
+        ) from None
+
+
+@router.get(
+    '/{name}/globals',
+    description='Get global state shared across all template event plugins',
+    responses=merge_responses(
+        check_scenario_exists.responses,
+        {500: {'description': 'Failed to serialize global state'}},
+    ),
+)
+async def get_scenario_global_state(
+    name: CheckScenarioExistsDep,  # noqa: ARG001
+) -> dict[str, Any]:
+    try:
+        return await asyncio.to_thread(
+            lambda: normalize_types(TemplateEventPlugin.GLOBAL_STATE.as_dict()),
+        )
+    except RuntimeError as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f'Failed to serialize global state: {e}',
+        ) from None
+
+
+@router.patch(
+    '/{name}/globals',
+    description='Update global state shared across all template event plugins',
+    responses=check_scenario_exists.responses,
+)
+async def update_scenario_global_state(
+    name: CheckScenarioExistsDep,  # noqa: ARG001
+    content: Annotated[
+        dict[str, Any],
+        Body(description='Content to patch in global state'),
+    ],
+) -> None:
+    await asyncio.to_thread(TemplateEventPlugin.GLOBAL_STATE.update, content)
+
+
+@router.delete(
+    '/{name}/globals/{key}',
+    description='Delete a key from global state',
+    responses=check_scenario_exists.responses,
+)
+async def delete_scenario_global_state_key(
+    name: CheckScenarioExistsDep,  # noqa: ARG001
+    key: Annotated[
+        str, FastApiPath(description='Key to delete from global state', min_length=1)
+    ],
+) -> None:
+    await asyncio.to_thread(TemplateEventPlugin.GLOBAL_STATE.pop, key)
+
+
+@router.delete(
+    '/{name}/globals',
+    description='Clear global state shared across all template event plugins',
+    responses=check_scenario_exists.responses,
+)
+async def clear_scenario_global_state(
+    name: CheckScenarioExistsDep,  # noqa: ARG001
+) -> None:
+    await asyncio.to_thread(TemplateEventPlugin.GLOBAL_STATE.clear)
