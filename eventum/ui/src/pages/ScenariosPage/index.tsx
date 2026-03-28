@@ -174,7 +174,6 @@ export default function ScenariosPage() {
         </Text>
       ),
       labels: { cancel: 'Cancel', confirm: 'Delete' },
-      confirmProps: { color: 'red' },
       onConfirm: () => {
         for (const name of names) {
           deleteScenario.mutate(name, {

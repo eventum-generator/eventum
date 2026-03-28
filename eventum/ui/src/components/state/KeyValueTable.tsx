@@ -140,7 +140,6 @@ export function KeyValueTable({
           </Text>
         ),
         labels: { cancel: 'Cancel', confirm: 'Delete' },
-        confirmProps: { color: 'red' },
         onConfirm: () => {
           onDeleteKey(key);
         },
@@ -159,7 +158,7 @@ export function KeyValueTable({
         </Text>
       ),
       labels: { cancel: 'Cancel', confirm: 'Clear all' },
-      confirmProps: { color: 'red' },
+
       onConfirm: () => {
         onClear();
       },
