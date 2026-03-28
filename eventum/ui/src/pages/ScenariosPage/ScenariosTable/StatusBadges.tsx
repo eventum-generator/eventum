@@ -17,8 +17,7 @@ export const StatusBadges: FC<StatusBadgesProps> = ({ row }) => {
           color="green.6"
           size={8}
           position="middle-center"
-          processing
-        />
+          />
         <Text size="sm">{row.runningCount} active</Text>
       </Group>
     );
@@ -31,8 +30,7 @@ export const StatusBadges: FC<StatusBadgesProps> = ({ row }) => {
           color="yellow.7"
           size={8}
           position="middle-center"
-          processing
-        />
+          />
         <Text size="sm">{row.initializingCount} starting</Text>
       </Group>
     );

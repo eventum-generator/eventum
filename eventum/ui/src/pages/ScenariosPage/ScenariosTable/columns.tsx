@@ -18,7 +18,7 @@ export function createColumns() {
       cell: (info) => info.getValue(),
     }),
     columnHelper.accessor('generatorCount', {
-      header: 'Generators',
+      header: 'Instances',
       id: 'generatorCount',
       enableSorting: true,
       cell: (info) => info.getValue(),
