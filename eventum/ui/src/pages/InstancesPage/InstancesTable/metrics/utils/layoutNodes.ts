@@ -31,7 +31,6 @@ const EDGE_LABEL_BG_STYLE = {
 } as const;
 
 const EDGE_STYLE = {
-  strokeDasharray: '5,5',
   stroke: 'var(--mantine-color-text)',
   strokeWidth: 2,
   opacity: 0.6,
