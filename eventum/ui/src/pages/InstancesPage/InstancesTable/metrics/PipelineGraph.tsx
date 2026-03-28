@@ -78,8 +78,10 @@ export const PipelineGraph: FC<PipelineGraphProps> = ({ stats }) => {
           nodes={nodes}
           edges={edgesRef.current}
           nodeTypes={nodeTypes}
-          fitView
-          fitViewOptions={{ padding: 0.5 }}
+          onInit={(instance) => {
+            // Delay fitView until nodes are measured by the browser
+            requestAnimationFrame(() => instance.fitView({ padding: 0.3 }));
+          }}
           nodesDraggable={false}
           nodesConnectable={false}
           elementsSelectable={false}
