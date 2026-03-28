@@ -1,23 +1,46 @@
 """Routes."""
 
 import asyncio
-from typing import Annotated
+from pathlib import Path
+from typing import Annotated, Any
 
 import aiofiles
+import structlog
 import yaml
-from fastapi import APIRouter, HTTPException, Path, status
+from fastapi import APIRouter, Body, HTTPException, status
+from fastapi import Path as FastApiPath
+from jinja2 import TemplateSyntaxError
 
 from eventum.api.dependencies.app import SettingsDep
+from eventum.api.routers.generator_configs.dependencies import (
+    CheckConfigurationExistsDep,
+    CheckDirectoryIsAllowedDep,
+    check_configuration_exists,
+    check_directory_is_allowed,
+)
+from eventum.api.routers.generator_configs.globals_detector import (
+    GlobalsUsage,
+    detect_globals_usage,
+)
 from eventum.api.routers.scenarios.dependencies import (
     CheckScenarioExistsDep,
     check_scenario_exists,
 )
-from eventum.api.routers.scenarios.models import ScenarioResponse
+from eventum.api.routers.scenarios.models import (
+    GlobalsReferenceResponse,
+    GlobalsUsageResponse,
+    GlobalsWarningResponse,
+    ScenarioResponse,
+)
 from eventum.api.routers.startup.dependencies import (
     StartupGeneratorsParametersListDep,
     get_startup_generator_parameters_list,
 )
 from eventum.api.utils.response_description import merge_responses
+from eventum.plugins.event.plugins.template.plugin import TemplateEventPlugin
+from eventum.utils.json_utils import normalize_types
+
+logger = structlog.stdlib.get_logger()
 
 router = APIRouter()
 
@@ -111,10 +134,10 @@ async def delete_scenario(
 )
 async def add_generator_to_scenario(
     name: Annotated[
-        str, Path(description='Scenario name', min_length=1)
+        str, FastApiPath(description='Scenario name', min_length=1)
     ],
     generator_id: Annotated[
-        str, Path(description='Generator ID', min_length=1)
+        str, FastApiPath(description='Generator ID', min_length=1)
     ],
     generators_parameters: StartupGeneratorsParametersListDep,
     settings: SettingsDep,
@@ -174,7 +197,7 @@ async def add_generator_to_scenario(
 async def remove_generator_from_scenario(
     name: CheckScenarioExistsDep,
     generator_id: Annotated[
-        str, Path(description='Generator ID', min_length=1)
+        str, FastApiPath(description='Generator ID', min_length=1)
     ],
     generators_parameters: StartupGeneratorsParametersListDep,
     settings: SettingsDep,
@@ -214,3 +237,61 @@ async def remove_generator_from_scenario(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f'Cannot modify startup file due to OS error: {e}',
         ) from None
+
+
+@router.get(
+    '/{name}/generators/{generator_name}/globals-usage',
+    summary='Get globals usage for a generator in a scenario',
+    description='Detect globals.set/get usage in Jinja2 templates via AST analysis.',
+    responses=merge_responses(
+        check_scenario_exists.responses,
+        check_directory_is_allowed.responses,
+        check_configuration_exists.responses,
+    ),
+)
+async def get_generator_globals_usage(
+    name: CheckScenarioExistsDep,  # noqa: ARG001
+    generator_name: Annotated[
+        str,
+        CheckDirectoryIsAllowedDep,
+        CheckConfigurationExistsDep,
+    ],
+    settings: SettingsDep,
+) -> GlobalsUsageResponse:
+    generator_dir = settings.path.generators_dir / generator_name
+    usage = GlobalsUsage()
+
+    template_files: list[tuple[Path, str]] = []
+    for pattern in ('**/*.j2', '**/*.jinja'):
+        for filepath in generator_dir.glob(pattern):
+            if filepath.is_file():
+                rel_path = str(filepath.relative_to(generator_dir))
+                template_files.append((filepath, rel_path))
+
+    for filepath, rel_path in template_files:
+        try:
+            async with aiofiles.open(filepath, 'r', encoding='utf-8') as f:
+                source = await f.read()
+            template_usage = await asyncio.to_thread(
+                detect_globals_usage, source, rel_path
+            )
+            usage.merge(template_usage)
+        except OSError:
+            logger.warning('Failed to read template file', path=str(filepath))
+        except TemplateSyntaxError:
+            logger.warning('Failed to parse template file', path=str(filepath))
+
+    return GlobalsUsageResponse(
+        writes=[
+            GlobalsReferenceResponse.model_validate(w, from_attributes=True)
+            for w in usage.writes
+        ],
+        reads=[
+            GlobalsReferenceResponse.model_validate(r, from_attributes=True)
+            for r in usage.reads
+        ],
+        warnings=[
+            GlobalsWarningResponse.model_validate(w, from_attributes=True)
+            for w in usage.warnings
+        ],
+    )

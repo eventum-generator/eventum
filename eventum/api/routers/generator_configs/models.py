@@ -1,7 +1,5 @@
 """Models."""
 
-from typing import Literal
-
 from pydantic import BaseModel, Field
 
 
@@ -24,29 +22,3 @@ class GeneratorDirExtendedInfo(BaseModel, frozen=True, extra='forbid'):
             'IDs of generators that use configuration from this directory'
         ),
     )
-
-
-class GlobalsReferenceResponse(BaseModel, frozen=True):
-    """A single reference to globals in a template."""
-
-    key: str
-    template: str
-    line: int
-    snippet: str
-
-
-class GlobalsWarningResponse(BaseModel, frozen=True):
-    """A warning about globals usage that cannot be fully detected."""
-
-    type: Literal['dynamic_key', 'update_call']
-    template: str
-    line: int
-    snippet: str
-
-
-class GlobalsUsageResponse(BaseModel, frozen=True):
-    """Detected globals usage across all templates in a generator."""
-
-    writes: list[GlobalsReferenceResponse]
-    reads: list[GlobalsReferenceResponse]
-    warnings: list[GlobalsWarningResponse]
