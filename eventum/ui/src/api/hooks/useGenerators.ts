@@ -5,19 +5,15 @@ import {
   bulkRemoveGenerators as bulkDeleteGenerators,
   bulkStartGenerators,
   bulkStopGenerators,
-  clearGlobalState,
   deleteGenerator,
-  deleteGlobalStateKey,
   getGenerator,
   getGeneratorStats,
   getGeneratorStatus,
-  getGlobalState,
   getRunningGeneratorsStats,
   listGenerators,
   startGenerator,
   stopGenerator,
   updateGenerator,
-  updateGlobalState,
 } from '../routes/generators';
 import {
   GeneratorParameters,
@@ -205,51 +201,3 @@ export function useUpdateGeneratorStatus() {
   });
 }
 
-const GLOBAL_STATE_QUERY_KEY = [...GENERATORS_QUERY_KEY, 'global-state'];
-
-export function useGlobalState() {
-  return useQuery({
-    queryKey: GLOBAL_STATE_QUERY_KEY,
-    queryFn: getGlobalState,
-    refetchInterval: 5000,
-  });
-}
-
-export function useUpdateGlobalStateMutation() {
-  const queryClient = useQueryClient();
-
-  return useMutation({
-    mutationFn: (state: Record<string, unknown>) => updateGlobalState(state),
-    onSuccess: async () => {
-      await queryClient.invalidateQueries({
-        queryKey: GLOBAL_STATE_QUERY_KEY,
-      });
-    },
-  });
-}
-
-export function useClearGlobalStateMutation() {
-  const queryClient = useQueryClient();
-
-  return useMutation({
-    mutationFn: () => clearGlobalState(),
-    onSuccess: async () => {
-      await queryClient.invalidateQueries({
-        queryKey: GLOBAL_STATE_QUERY_KEY,
-      });
-    },
-  });
-}
-
-export function useDeleteGlobalStateKeyMutation() {
-  const queryClient = useQueryClient();
-
-  return useMutation({
-    mutationFn: (key: string) => deleteGlobalStateKey(key),
-    onSuccess: async () => {
-      await queryClient.invalidateQueries({
-        queryKey: GLOBAL_STATE_QUERY_KEY,
-      });
-    },
-  });
-}
