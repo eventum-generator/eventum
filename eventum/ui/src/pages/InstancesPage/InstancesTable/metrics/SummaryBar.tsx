@@ -34,6 +34,7 @@ export const SummaryBar: FC<SummaryBarProps> = ({ stats }) => {
         <Stat label="Uptime:" value={formatUptime(stats.uptime)} />
         <Stat label="Generated:" value={stats.total_generated} />
         <Stat label="Written:" value={stats.total_written} />
+        <div />
         <Stat label="Input EPS:" value={stats.input_eps.toFixed(2)} />
         <Stat label="Output EPS:" value={stats.output_eps.toFixed(2)} />
       </SimpleGrid>
