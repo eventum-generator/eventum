@@ -5,9 +5,11 @@ import {
   BackgroundVariant,
   Controls,
   ReactFlow,
+  useNodesInitialized,
+  useReactFlow,
 } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
-import { FC, useMemo, useRef } from 'react';
+import { FC, useEffect, useMemo, useRef } from 'react';
 
 import { PipelineNode } from './nodes/PipelineNode';
 import { buildPipelineGraph, computeGraphHeight } from './utils/layoutNodes';
@@ -30,6 +32,20 @@ const REACT_FLOW_CONTROLS_CSS = `
     fill: ${TEXT_COLOR};
   }
 `;
+
+/** Calls fitView once after all nodes have been measured by the browser. */
+function FitViewOnReady() {
+  const { fitView } = useReactFlow();
+  const nodesInitialized = useNodesInitialized();
+
+  useEffect(() => {
+    if (nodesInitialized) {
+      fitView({ padding: 0.3 });
+    }
+  }, [nodesInitialized, fitView]);
+
+  return null;
+}
 
 /** Build a structural key from plugin IDs to detect topology changes. */
 function structureKey(stats: GeneratorStats): string {
@@ -78,15 +94,12 @@ export const PipelineGraph: FC<PipelineGraphProps> = ({ stats }) => {
           nodes={nodes}
           edges={edgesRef.current}
           nodeTypes={nodeTypes}
-          onInit={(instance) => {
-            // Delay fitView until nodes are measured by the browser
-            requestAnimationFrame(() => instance.fitView({ padding: 0.3 }));
-          }}
           nodesDraggable={false}
           nodesConnectable={false}
           elementsSelectable={false}
           proOptions={{ hideAttribution: true }}
         >
+          <FitViewOnReady />
           <Background variant={BackgroundVariant.Dots} gap={16} size={1} />
           <Controls showInteractive={false} position="bottom-right" />
         </ReactFlow>
