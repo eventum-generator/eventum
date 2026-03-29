@@ -62,12 +62,17 @@ async def list_generators(
     for generator_id in generator_manager.generator_ids:
         try:
             generator = generator_manager.get_generator(generator_id)
+            try:
+                params = generator.params.as_relative(
+                    base_dir=settings.path.generators_dir,
+                )
+            except ValueError:
+                params = generator.params
+
             generators_info.append(
                 GeneratorInfo(
                     id=generator_id,
-                    path=generator.params.as_relative(
-                        base_dir=settings.path.generators_dir,
-                    ).path,
+                    path=params.path,
                     status=GeneratorStatus(
                         is_initializing=generator.is_initializing,
                         is_running=generator.is_running,
