@@ -20,8 +20,7 @@ export default function AppRouter() {
       <ErrorBoundary
         FallbackComponent={({ error, resetErrorBoundary }) => (
           <ErrorPage
-            // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
-            error={error}
+            error={error instanceof Error ? error : undefined}
             resetError={() => {
               resetErrorBoundary();
               globalThis.location.reload();
