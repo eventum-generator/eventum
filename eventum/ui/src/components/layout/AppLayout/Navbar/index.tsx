@@ -3,7 +3,11 @@ import { IconHome } from '@tabler/icons-react';
 import { FC } from 'react';
 import { useNavigate } from 'react-router-dom';
 
-import { BOTTOM_NAVIGATION_DATA, NAVIGATION_DATA } from './data';
+import {
+  BOTTOM_NAVIGATION_DATA,
+  NAVIGATION_DATA,
+  TOP_NAVIGATION_DATA,
+} from './data';
 import { ROUTE_PATHS } from '@/routing/paths';
 
 export const Navbar: FC = () => {
@@ -13,11 +17,20 @@ export const Navbar: FC = () => {
     <Stack gap="0" h="100%" justify="space-between">
       <Box>
         <NavLink
-          label="Overview"
+          label="Home"
           leftSection={<IconHome size="19px" />}
           active={location.pathname === ROUTE_PATHS.ROOT}
           onClick={() => void navigate(ROUTE_PATHS.ROOT)}
         />
+        {TOP_NAVIGATION_DATA.map((item) => (
+          <NavLink
+            label={item.label}
+            key={item.label}
+            leftSection={<item.icon size="19px" />}
+            active={location.pathname.startsWith(item.pathname)}
+            onClick={() => void navigate(item.pathname)}
+          />
+        ))}
         {NAVIGATION_DATA.map((group) => (
           <Box key={group.groupName}>
             <Divider />

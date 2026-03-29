@@ -28,7 +28,7 @@ export const AppBreadcrumbs: FC = () => {
                 textTransform: index === 0 ? 'capitalize' : 'none',
               }}
             >
-              {item === '' ? 'Overview' : decodeURIComponent(item)}
+              {item === '' ? 'Home' : decodeURIComponent(item)}
             </Badge>
           </Box>
         ))}

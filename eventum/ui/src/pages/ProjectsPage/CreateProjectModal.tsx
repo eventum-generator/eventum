@@ -12,10 +12,12 @@ import { AreaButton } from '@/components/ui/AreaButton';
 
 interface CreateProjectModalProps {
   existingProjectNames: string[];
+  onCreated?: (projectName: string) => void;
 }
 
 export const CreateProjectModal: FC<CreateProjectModalProps> = ({
   existingProjectNames,
+  onCreated,
 }) => {
   function handleCreateProject(
     projectType: CreateProjectSubmitModalProps['projectType']
@@ -26,6 +28,7 @@ export const CreateProjectModal: FC<CreateProjectModalProps> = ({
         <CreateProjectSubmitModal
           existingProjectNames={existingProjectNames}
           projectType={projectType}
+          onCreated={onCreated}
         />
       ),
     });
