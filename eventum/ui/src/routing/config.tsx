@@ -106,7 +106,7 @@ export const routes: RouteObject[] = [
     ),
     children: [
       { index: true, element: <HomePage /> },
-      { path: 'monitoring', element: <MonitoringPage /> },
+      { path: ROUTE_PATHS.MONITORING, element: <MonitoringPage /> },
       { path: ROUTE_PATHS.INSTANCES, element: <InstancesPage /> },
       { path: ROUTE_PATHS.INSTANCE, element: <InstancePage /> },
       { path: ROUTE_PATHS.PROJECTS, element: <ProjectsPage /> },

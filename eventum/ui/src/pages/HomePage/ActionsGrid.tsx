@@ -21,6 +21,13 @@ interface ActionCardProps {
   href?: string;
 }
 
+const iconProps = {
+  size: 22,
+  color: 'var(--mantine-primary-color-filled)',
+  stroke: 1.5,
+  style: { flexShrink: 0 },
+} as const;
+
 const ActionCard: FC<ActionCardProps> = ({
   icon,
   title,
@@ -79,13 +86,6 @@ export const ActionsGrid: FC<ActionsGridProps> = ({
   existingProjectNames,
 }) => {
   const navigate = useNavigate();
-
-  const iconProps = {
-    size: 22,
-    color: 'var(--mantine-primary-color-filled)',
-    stroke: 1.5,
-    style: { flexShrink: 0 },
-  };
 
   return (
     <Stack gap="md">

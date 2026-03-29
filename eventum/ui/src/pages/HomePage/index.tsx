@@ -7,8 +7,11 @@ import { useGeneratorDirs } from '@/api/hooks/useGeneratorConfigs';
 import { useInstanceInfo } from '@/api/hooks/useInstance';
 
 export default function HomePage() {
-  const { data: instanceInfo, isLoading: isInstanceInfoLoading } =
-    useInstanceInfo();
+  const {
+    data: instanceInfo,
+    isLoading: isInstanceInfoLoading,
+    isError: isInstanceInfoError,
+  } = useInstanceInfo();
 
   const { data: generatorDirs } = useGeneratorDirs(true);
 
@@ -20,6 +23,7 @@ export default function HomePage() {
         <HeroCard
           instanceInfo={instanceInfo}
           isLoading={isInstanceInfoLoading}
+          isError={isInstanceInfoError}
         />
 
         <ActionsGrid existingProjectNames={existingProjectNames} />

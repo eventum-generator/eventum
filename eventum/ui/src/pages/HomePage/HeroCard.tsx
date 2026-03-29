@@ -6,9 +6,10 @@ import { InstanceInfo } from '@/api/routes/instance/schemas';
 interface HeroCardProps {
   instanceInfo: InstanceInfo | undefined;
   isLoading: boolean;
+  isError: boolean;
 }
 
-export const HeroCard: FC<HeroCardProps> = ({ instanceInfo, isLoading }) => {
+export const HeroCard: FC<HeroCardProps> = ({ instanceInfo, isLoading, isError }) => {
   return (
     <Paper
       withBorder
@@ -25,12 +26,21 @@ export const HeroCard: FC<HeroCardProps> = ({ instanceInfo, isLoading }) => {
 
         {isLoading && (
           <Grid gutter="lg">
-            {Array.from({ length: 3 }).map((_, i) => (
-              <Grid.Col key={i} span={4}>
-                <Skeleton h={36} />
-              </Grid.Col>
-            ))}
+            <Grid.Col span={{ base: 12, xs: 2 }}>
+              <Skeleton h={36} />
+            </Grid.Col>
+            <Grid.Col span={{ base: 12, xs: 2 }}>
+              <Skeleton h={36} />
+            </Grid.Col>
+            <Grid.Col span={{ base: 12, xs: 8 }}>
+              <Skeleton h={36} />
+            </Grid.Col>
           </Grid>
+        )}
+        {isError && (
+          <Text size="sm" c="dimmed">
+            Unable to load system info
+          </Text>
         )}
         {instanceInfo && (
           <Grid gutter="lg">

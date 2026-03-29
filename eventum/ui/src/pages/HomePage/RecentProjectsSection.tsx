@@ -34,7 +34,7 @@ export const RecentProjectsSection: FC<RecentProjectsSectionProps> = ({
   return (
     <Stack gap="xs">
       <Text size="xs" tt="uppercase" lts="1.5px" fw={600} c="dimmed">
-        Projects
+        Recent Projects
       </Text>
       <Paper withBorder radius="md" p="xs">
         <Stack gap={2}>
