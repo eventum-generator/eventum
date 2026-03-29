@@ -88,9 +88,9 @@ export const ActionsGrid: FC<ActionsGridProps> = ({
   const navigate = useNavigate();
 
   return (
-    <Stack gap="md">
+    <Stack gap="lg">
       {/* Row 1: 2 cards at 50% */}
-      <SimpleGrid cols={{ base: 1, sm: 2 }} spacing="sm">
+      <SimpleGrid cols={{ base: 1, sm: 2 }} spacing="md">
         <ActionCard
           icon={<IconPlus {...iconProps} />}
           title="New Project"
@@ -123,7 +123,7 @@ export const ActionsGrid: FC<ActionsGridProps> = ({
       </SimpleGrid>
 
       {/* Row 2: 3 cards at 33% */}
-      <SimpleGrid cols={{ base: 1, xs: 2, sm: 3 }} spacing="sm">
+      <SimpleGrid cols={{ base: 1, xs: 2, sm: 3 }} spacing="md">
         <ActionCard
           icon={<IconFolder {...iconProps} />}
           title="Projects"

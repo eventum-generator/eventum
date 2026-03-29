@@ -18,8 +18,8 @@ export default function HomePage() {
   const existingProjectNames = generatorDirs?.map((d) => d.name) ?? [];
 
   return (
-    <Container size="md" py="xl">
-      <Stack gap="md">
+    <Container size="100%">
+      <Stack gap="lg">
         <HeroCard
           instanceInfo={instanceInfo}
           isLoading={isInstanceInfoLoading}
