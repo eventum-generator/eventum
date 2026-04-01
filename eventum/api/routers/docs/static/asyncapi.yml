@@ -1,7 +1,7 @@
 asyncapi: 3.0.0
 info:
   title: Eventum API
-  version: 2.3.1
+  version: 2.4.0
   description: API for managing generators, plugins and its dependencies
   contact:
     name: Eventum
