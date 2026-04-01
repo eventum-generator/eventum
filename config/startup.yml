@@ -25,6 +25,14 @@
   # Optional, default is true
   # skip_past: true
 
+  # Scenario names this generator belongs to. Scenarios group generators
+  # for coordinated lifecycle control and shared global state visualization
+  # in Eventum Studio. A generator can belong to multiple scenarios.
+  # Optional, default is an empty list
+  # scenarios:
+  #   - corporate-network
+  #   - security-monitoring
+
   # Parameters that can be used in generator configuration file
   # Optional, default is an empty map
   # params: {"a": 1, "b": 2}

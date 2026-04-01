@@ -49,17 +49,6 @@
           }
         ]
       }
-    ],
-    "SubagentStop": [
-      {
-        "hooks": [
-          {
-            "type": "command",
-            "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/log-agent.sh",
-            "timeout": 10
-          }
-        ]
-      }
     ]
   }
 }

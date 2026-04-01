@@ -4,7 +4,7 @@ import asyncio  # noqa: I001
 from typing import TYPE_CHECKING, Annotated, Any
 from zoneinfo import ZoneInfo
 
-from fastapi import APIRouter, Body, HTTPException, Query, status
+from fastapi import APIRouter, Body, HTTPException, Path, Query, status
 
 from eventum.api.dependencies.app import SettingsDep
 from eventum.api.routers.generator_configs.dependencies import (
@@ -260,6 +260,21 @@ async def clear_template_event_plugin_local_state(
     state.clear()
 
 
+@router.delete(
+    '/{name}/event-plugin/template/state/local/{alias}/{key}',
+    description=(
+        'Delete a key from local state of template event plugin for the '
+        'specified template by its alias'
+    ),
+    responses=get_template_plugin_local_state.responses,
+)
+async def delete_template_event_plugin_local_state_key(
+    state: TemplateEventPluginLocalStateDep,
+    key: Annotated[str, Path(description='Key to delete from local state')],
+) -> None:
+    await asyncio.to_thread(state.pop, key)
+
+
 @router.get(
     '/{name}/event-plugin/template/state/shared',
     description='Get shared state of template event plugin',
@@ -308,6 +323,18 @@ async def clear_template_event_plugin_shared_state(
     state.clear()
 
 
+@router.delete(
+    '/{name}/event-plugin/template/state/shared/{key}',
+    description='Delete a key from shared state of template event plugin',
+    responses=get_template_plugin_shared_state.responses,
+)
+async def delete_template_event_plugin_shared_state_key(
+    state: TemplateEventPluginSharedStateDep,
+    key: Annotated[str, Path(description='Key to delete from shared state')],
+) -> None:
+    await asyncio.to_thread(state.pop, key)
+
+
 @router.get(
     '/{name}/event-plugin/template/state/global',
     description='Get global state of template event plugin',
@@ -354,6 +381,18 @@ async def clear_template_event_plugin_global_state(
     state: TemplateEventPluginGlobalStateDep,
 ) -> None:
     state.clear()
+
+
+@router.delete(
+    '/{name}/event-plugin/template/state/global/{key}',
+    description='Delete a key from global state of template event plugin',
+    responses=get_template_plugin_global_state.responses,
+)
+async def delete_template_event_plugin_global_state_key(
+    state: TemplateEventPluginGlobalStateDep,
+    key: Annotated[str, Path(description='Key to delete from global state')],
+) -> None:
+    await asyncio.to_thread(state.pop, key)
 
 
 @router.post(

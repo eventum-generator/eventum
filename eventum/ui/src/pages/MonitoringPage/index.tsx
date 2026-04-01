@@ -25,7 +25,7 @@ import {
 import { useInstanceInfo } from '@/api/hooks/useInstance';
 import { ShowErrorDetailsAnchor } from '@/components/ui/ShowErrorDetailsAnchor';
 
-export default function OverviewPage() {
+export default function MonitoringPage() {
   const {
     data: instanceInfo,
     isLoading: isInstanceInfoLoading,
@@ -83,7 +83,7 @@ export default function OverviewPage() {
       <Stack>
         <Group justify="space-between">
           <Title order={2} fw="500">
-            Overview
+            Monitoring
           </Title>
 
           <Group wrap="nowrap" gap="12px">

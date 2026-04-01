@@ -9,7 +9,6 @@ import {
   Title,
 } from '@mantine/core';
 import {
-  Icon,
   IconAlertTriangle,
   IconBox,
   IconPlayerPlay,
@@ -31,7 +30,7 @@ export const InstancesStatusesPanel: FC<InstancesStatusesPanelProps> = ({
     content: ReactNode;
     caption: ReactNode;
     icon: React.ForwardRefExoticComponent<
-      IconProps & React.RefAttributes<Icon>
+      IconProps & React.RefAttributes<SVGSVGElement>
     >;
     iconColor: StyleProp<DefaultMantineColor>;
   }[] = [

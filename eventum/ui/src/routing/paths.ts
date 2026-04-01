@@ -1,10 +1,13 @@
 export const ROUTE_PATHS = {
   SIGNIN: '/signin',
   ROOT: '/',
+  MONITORING: '/monitoring',
   INSTANCES: '/instances',
   INSTANCE: '/instances/:instanceId',
   PROJECTS: '/projects',
   PROJECT: '/projects/:projectName',
+  SCENARIOS: '/scenarios',
+  SCENARIO: '/scenarios/:scenarioName',
   SECRETS: '/secrets',
   SETTINGS: '/settings',
   MANAGEMENT: '/management',

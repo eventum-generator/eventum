@@ -83,7 +83,7 @@ class LinspaceInputPlugin(
                 timestamps=timestamps,
                 after=now64(self._timezone),
             )
-            if not timestamps:
+            if timestamps.size == 0:
                 self._logger.info(
                     'All timestamps are in past, nothing to generate',
                 )

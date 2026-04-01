@@ -1,8 +1,10 @@
 import {
+  IconActivity,
   IconBook,
   IconBug,
   IconFolder,
   IconLock,
+  IconTransform,
   IconPlayerPlay,
   IconServerCog,
   IconSettings,
@@ -12,19 +14,32 @@ import {
 import { LINKS } from '@/routing/links';
 import { ROUTE_PATHS } from '@/routing/paths';
 
+export const TOP_NAVIGATION_DATA = [
+  {
+    label: 'Monitoring',
+    icon: IconActivity,
+    pathname: ROUTE_PATHS.MONITORING,
+  },
+];
+
 export const NAVIGATION_DATA = [
   {
     groupName: 'Generators',
     items: [
+      {
+        label: 'Projects',
+        icon: IconFolder,
+        pathname: ROUTE_PATHS.PROJECTS,
+      },
       {
         label: 'Instances',
         icon: IconPlayerPlay,
         pathname: ROUTE_PATHS.INSTANCES,
       },
       {
-        label: 'Projects',
-        icon: IconFolder,
-        pathname: ROUTE_PATHS.PROJECTS,
+        label: 'Scenarios',
+        icon: IconTransform,
+        pathname: ROUTE_PATHS.SCENARIOS,
       },
     ],
   },

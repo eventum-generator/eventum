@@ -96,6 +96,16 @@ export async function clearTemplateEventPluginLocalState(
   );
 }
 
+export async function deleteTemplateEventPluginLocalStateKey(
+  name: string,
+  templateAlias: string,
+  key: string
+) {
+  await apiClient.delete(
+    `/preview/${name}/event-plugin/template/state/local/${templateAlias}/${encodeURIComponent(key)}`
+  );
+}
+
 export async function getTemplateEventPluginSharedState(
   name: string
 ): Promise<TemplateEventPluginState> {
@@ -119,6 +129,15 @@ export async function clearTemplateEventPluginSharedState(name: string) {
   await apiClient.delete(`/preview/${name}/event-plugin/template/state/shared`);
 }
 
+export async function deleteTemplateEventPluginSharedStateKey(
+  name: string,
+  key: string
+) {
+  await apiClient.delete(
+    `/preview/${name}/event-plugin/template/state/shared/${encodeURIComponent(key)}`
+  );
+}
+
 export async function getTemplateEventPluginGlobalState(
   name: string
 ): Promise<TemplateEventPluginState> {
@@ -140,6 +159,15 @@ export async function updateTemplateEventPluginGlobalState(
 
 export async function clearTemplateEventPluginGlobalState(name: string) {
   await apiClient.delete(`/preview/${name}/event-plugin/template/state/global`);
+}
+
+export async function deleteTemplateEventPluginGlobalStateKey(
+  name: string,
+  key: string
+) {
+  await apiClient.delete(
+    `/preview/${name}/event-plugin/template/state/global/${encodeURIComponent(key)}`
+  );
 }
 
 export async function normalizeVersatileDatetime(

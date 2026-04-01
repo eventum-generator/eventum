@@ -2,6 +2,21 @@
 
 All notable changes to this project will be documented in this file.
 
+## 2.4.0 (2026-04-02)
+
+### 🚀 New Features
+
+- **Scenarios** — compose multiple generator instances into named workflows with shared global state; new Scenarios page with bulk operations and Scenario page with interactive Data Flow diagram
+- **Scenarios API** — CRUD endpoints for scenarios, global-state, and globals-usage (existing endpoints preserved for backward compatibility)
+- **Instance metrics** — redesigned metrics modal as an interactive pipeline graph
+- **Home page** — new home page with action cards and recent projects; Monitoring dashboard moved to a dedicated page
+- **State management** — project State tab redesigned as editable key-value tables; CodeMirror JSON editor for value editing
+
+### 🐛 Bug Fixes
+
+- Fix `list_generators` raising `ValueError` when path is not relative to generators directory
+- Fix `globals-usage` path parameter conflict
+
 ## 2.3.1 (2026-03-24)
 
 ### 🐛 Bug Fixes
