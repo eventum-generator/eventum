@@ -12,9 +12,7 @@ from eventum.api.utils.response_description import set_responses
 
 @set_responses({404: {'description': 'Scenario not found'}})
 async def check_scenario_exists(
-    name: Annotated[
-        str, Path(description='Scenario name', min_length=1)
-    ],
+    name: Annotated[str, Path(description='Scenario name', min_length=1)],
     generators_parameters: StartupGeneratorsParametersListDep,
 ) -> str:
     """Validate that at least one generator has this scenario tag.

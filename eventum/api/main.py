@@ -24,8 +24,8 @@ from eventum.api.routers.generators import ws_router as ws_generators_router
 from eventum.api.routers.instance import router as instance_router
 from eventum.api.routers.instance import ws_router as ws_instance_router
 from eventum.api.routers.preview import router as preview_router
-from eventum.api.routers.secrets import router as secrets_router
 from eventum.api.routers.scenarios import router as scenarios_router
+from eventum.api.routers.secrets import router as secrets_router
 from eventum.api.routers.startup import router as startup_router
 from eventum.app.hooks import InstanceHooks
 from eventum.app.manager import GeneratorManager

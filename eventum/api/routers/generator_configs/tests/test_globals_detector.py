@@ -61,7 +61,6 @@ def test_detect_no_globals():
     assert len(result.warnings) == 0
 
 
-
 def test_detect_invalid_template():
     """Invalid Jinja2 syntax should return empty usage, not raise."""
     template = '{%- this is not valid jinja2 -%}'

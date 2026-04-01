@@ -3,9 +3,7 @@
 from dataclasses import dataclass, field
 from typing import Literal
 
-from jinja2 import Environment
-from jinja2 import nodes
-
+from jinja2 import Environment, nodes
 
 WarningType = Literal['dynamic_key', 'update_call']
 
@@ -58,12 +56,13 @@ def detect_globals_usage(source: str, template_name: str) -> GlobalsUsage:
     -------
     GlobalsUsage
         Detected writes, reads, and warnings.
+
     """
     usage = GlobalsUsage()
 
     try:
         ast = _ENV.parse(source)
-    except Exception:
+    except Exception:  # noqa: BLE001
         return usage
 
     _walk_node(ast, template_name, usage)
@@ -75,13 +74,13 @@ def _is_globals_name(node: nodes.Node) -> bool:
     return isinstance(node, nodes.Name) and node.name == 'globals'
 
 
-def _walk_node(
+def _walk_node(  # noqa: C901
     node: nodes.Node,
     template_name: str,
     usage: GlobalsUsage,
 ) -> None:
     """Recursively walk AST nodes to find globals references."""
-    # globals.set("key", value) or globals.get("key", default)
+    # Handle method calls: set, get, update
     if isinstance(node, nodes.Call):
         if isinstance(node.node, nodes.Getattr) and _is_globals_name(
             node.node.node
@@ -128,16 +127,17 @@ def _walk_node(
                     )
                 )
 
-    # globals["key"] (getitem read access)
-    elif isinstance(node, nodes.Getitem):
-        if _is_globals_name(node.node):
-            if isinstance(node.arg, nodes.Const):
-                usage.reads.append(
-                    GlobalsReference(
-                        key=node.arg.value,
-                        template=template_name,
-                    )
-                )
+    elif (
+        isinstance(node, nodes.Getitem)
+        and _is_globals_name(node.node)
+        and isinstance(node.arg, nodes.Const)
+    ):
+        usage.reads.append(
+            GlobalsReference(
+                key=node.arg.value,
+                template=template_name,
+            )
+        )
 
     # Recurse into child nodes
     for child in node.iter_child_nodes():

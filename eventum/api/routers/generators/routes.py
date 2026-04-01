@@ -89,7 +89,6 @@ async def list_generators(
     return generators_info
 
 
-
 @router.get(
     '/{id}',
     description='Get generator parameters',

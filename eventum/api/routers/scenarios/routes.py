@@ -95,7 +95,9 @@ async def delete_scenario(
     for i, params in enumerate(generators_parameters_model.root):
         if name in (params.scenarios or []):
             raw_entry = generators_parameters_raw_content[i]
-            scenarios = [s for s in raw_entry.get('scenarios', []) if s != name]
+            scenarios = [
+                s for s in raw_entry.get('scenarios', []) if s != name
+            ]
             if scenarios:
                 raw_entry['scenarios'] = scenarios
             else:
@@ -184,7 +186,11 @@ async def add_generator_to_scenario(
     responses=merge_responses(
         check_scenario_exists.responses,
         get_startup_generator_parameters_list.responses,
-        {404: {'description': 'Generator with this ID is not in this scenario'}},
+        {
+            404: {
+                'description': 'Generator with this ID is not in this scenario'
+            }
+        },
         {500: {'description': 'Cannot modify startup file due to OS error'}},
     ),
 )
@@ -236,11 +242,18 @@ async def remove_generator_from_scenario(
 @router.get(
     '/{name}/generators/{generator_name}/globals-usage',
     summary='Get globals usage for a generator in a scenario',
-    description='Detect globals.set/get usage in Jinja2 templates via AST analysis.',
+    description=(
+        'Detect globals.set/get usage in Jinja2 templates via AST analysis.'
+    ),
     responses=merge_responses(
         check_scenario_exists.responses,
         {
-            403: {'description': 'Accessing directories outside generators_dir is not allowed'},
+            403: {
+                'description': (
+                    'Accessing directories outside'
+                    ' generators_dir is not allowed'
+                )
+            },
             404: {'description': 'Generator configuration not found'},
         },
     ),
@@ -258,7 +271,9 @@ async def get_generator_globals_usage(
     if not generator_dir.is_relative_to(settings.path.generators_dir):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail='Accessing directories outside generators_dir is not allowed',
+            detail=(
+                'Accessing directories outside generators_dir is not allowed'
+            ),
         )
 
     if not generator_dir.is_dir():
@@ -277,7 +292,7 @@ async def get_generator_globals_usage(
 
     for filepath, rel_path in template_files:
         try:
-            async with aiofiles.open(filepath, 'r', encoding='utf-8') as f:
+            async with aiofiles.open(filepath, encoding='utf-8') as f:
                 source = await f.read()
             template_usage = await asyncio.to_thread(
                 detect_globals_usage, source, rel_path
@@ -315,7 +330,11 @@ async def get_generator_globals_usage(
 async def get_scenario_global_state_key(
     name: CheckScenarioExistsDep,  # noqa: ARG001
     key: Annotated[
-        str, FastApiPath(description='Key to get from global state', min_length=1)
+        str,
+        FastApiPath(
+            description='Key to get from global state',
+            min_length=1,
+        ),
     ],
 ) -> Any:
     value = await asyncio.to_thread(TemplateEventPlugin.GLOBAL_STATE.get, key)
@@ -346,7 +365,9 @@ async def get_scenario_global_state(
 ) -> dict[str, Any]:
     try:
         return await asyncio.to_thread(
-            lambda: normalize_types(TemplateEventPlugin.GLOBAL_STATE.as_dict()),
+            lambda: normalize_types(
+                TemplateEventPlugin.GLOBAL_STATE.as_dict()
+            ),
         )
     except RuntimeError as e:
         raise HTTPException(
@@ -378,7 +399,10 @@ async def update_scenario_global_state(
 async def delete_scenario_global_state_key(
     name: CheckScenarioExistsDep,  # noqa: ARG001
     key: Annotated[
-        str, FastApiPath(description='Key to delete from global state', min_length=1)
+        str,
+        FastApiPath(
+            description='Key to delete from global state', min_length=1
+        ),
     ],
 ) -> None:
     await asyncio.to_thread(TemplateEventPlugin.GLOBAL_STATE.pop, key)
