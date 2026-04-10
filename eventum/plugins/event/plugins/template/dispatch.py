@@ -6,7 +6,7 @@ from typing import Never
 class DispatchSignal(Exception):  # noqa: N818
     """Base signal for dispatch operations.
 
-    Not raised directly -- use subclasses.
+    Not raised directly - use subclasses.
     """
 
 

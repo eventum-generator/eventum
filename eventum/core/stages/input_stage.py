@@ -1,4 +1,4 @@
-"""Input stage of the pipeline -- configures and executes input plugins."""
+"""Input stage of the pipeline - configures and executes input plugins."""
 
 import queue as queue_mod
 from threading import Event, Thread
