@@ -9,7 +9,10 @@ from eventum.plugins.event.base.plugin import (
     EventPluginParams,
     ProduceParams,
 )
-from eventum.plugins.event.exceptions import PluginProduceError
+from eventum.plugins.event.exceptions import (
+    PluginProduceError,
+    PluginProduceSignal,
+)
 from eventum.plugins.event.plugins.script.config import ScriptEventPluginConfig
 from eventum.plugins.exceptions import PluginConfigurationError
 
@@ -118,6 +121,8 @@ class ScriptEventPlugin(
     def _produce(self, params: ProduceParams) -> list[str]:
         try:
             result = self._function(params)
+        except PluginProduceSignal:
+            raise
         except Exception as e:
             msg = 'Exception occurred during function execution'
             raise PluginProduceError(
