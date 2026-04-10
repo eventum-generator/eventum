@@ -1,6 +1,6 @@
 ---
 name: release
-description: Prepare and execute an Eventum release -- orchestrate agents through changelog, version bump, verification, PR, tag.
+description: Prepare and execute an Eventum release - orchestrate agents through changelog, version bump, verification, PR, tag.
 user-invokable: true
 argument-hint: "<version> (e.g. 2.0.3)"
 context: fork

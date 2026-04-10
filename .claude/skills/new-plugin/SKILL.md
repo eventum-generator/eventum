@@ -1,6 +1,6 @@
 ---
 name: new-plugin
-description: Add a new input, event, or output plugin to Eventum -- orchestrate agents through research, design, code, UI, review, docs.
+description: Add a new input, event, or output plugin to Eventum - orchestrate agents through research, design, code, UI, review, docs.
 user-invokable: true
 argument-hint: "<type>/<name> (e.g. input/kafka, output/s3, event/jsonl)"
 context: fork
@@ -41,10 +41,10 @@ Parse the argument as `<type>/<name>` where type is `input`, `event`, or `output
 **Delegate to developer agent**:
 
 - Create plugin directory: `eventum/plugins/<type>/plugins/<name>/`
-  - `config.py` -- Pydantic config model
-  - `plugin.py` -- Plugin class extending the base
-  - `__init__.py` -- Exports
-  - `tests/` -- Test directory structure
+  - `config.py` - Pydantic config model
+  - `plugin.py` - Plugin class extending the base
+  - `__init__.py` - Exports
+  - `tests/` - Test directory structure
 - If UI approved:
   - Zod schema mirroring the Pydantic config
   - UI form component
@@ -73,7 +73,7 @@ If QA reports failures: route findings to **developer** to fix, then re-run QA. 
 - If verdict is **FAIL**: route findings to **developer** and/or **qa-engineer** to fix, then re-review
 - Loop until **PASS**. If the loop does not converge after 3 cycles, stop and consult the user.
 
-This is a mandatory quality gate -- do NOT skip it.
+This is a mandatory quality gate - do NOT skip it.
 
 ### Phase 6: Documentation
 

@@ -1,6 +1,6 @@
 ---
 name: promote
-description: Create promotional content for a feature, release, or topic -- blog post, social media drafts, community engagement materials.
+description: Create promotional content for a feature, release, or topic - blog post, social media drafts, community engagement materials.
 user-invokable: true
 argument-hint: "<topic> (e.g. 'v2.1.0 release', 'UDP output plugin', 'SIEM testing use case')"
 context: fork
@@ -24,7 +24,7 @@ Parse the argument as the topic to promote. If not provided, ask the user.
   - If it's a feature/plugin: read the code, docs, changelog entry
   - If it's a release: read the changelog, compare with previous version
   - If it's a use case: read relevant docs, tutorials, examples
-- Identify the key value proposition -- what makes this worth talking about?
+- Identify the key value proposition - what makes this worth talking about?
 - Find comparable content from competitors (how do they promote similar features?)
 
 Present research findings to TL.
@@ -69,7 +69,7 @@ Present all drafts to TL.
   - Are code examples valid and runnable?
   - Are performance claims substantiated?
   - Are version numbers and links correct?
-- Do NOT review writing style or marketing effectiveness -- only factual accuracy
+- Do NOT review writing style or marketing effectiveness - only factual accuracy
 
 If verdict is **FAIL**: route findings to **content-growth** agent to fix, then re-review. Loop until **PASS**. If the loop does not converge after 3 cycles, stop and consult the user.
 
@@ -85,7 +85,7 @@ Present to the user:
 
 ### Important
 
-- All content is a **draft** -- the user reviews and publishes manually on external platforms.
+- All content is a **draft** - the user reviews and publishes manually on external platforms.
 - Blog posts written to `../docs/content/blog/` can be committed if the user approves.
 - Code reviewer checks technical accuracy, not writing quality. This is intentional.
 - Track progress with the todo list throughout.

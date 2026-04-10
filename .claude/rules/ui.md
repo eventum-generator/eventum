@@ -19,15 +19,15 @@ globs:
 - Located in `schemas/placeholder.ts`.
 - Wraps any Zod type to also accept `${params.*}` / `${secrets.*}` placeholder strings.
 - Use on non-string fields (booleans, numbers, enums) that may receive placeholder substitution.
-- String fields do NOT need `orPlaceholder` -- they already accept strings.
+- String fields do NOT need `orPlaceholder` - they already accept strings.
 
 ## Plugin Registry (`modules/plugins/registry.ts`)
 
 When adding a new plugin, update ALL of these in the registry file:
 
-1. **Info record** (`INPUT_PLUGINS_INFO` / `EVENT_PLUGINS_INFO` / `OUTPUT_PLUGINS_INFO`) -- label, icon, description.
-2. **Default config** (`INPUT_PLUGIN_DEFAULT_CONFIGS` / etc.) -- import and add the default config.
-3. **Default assets** (for event plugins in `EVENT_PLUGIN_DEFAULT_ASSETS`) -- template/script/data file path and content.
+1. **Info record** (`INPUT_PLUGINS_INFO` / `EVENT_PLUGINS_INFO` / `OUTPUT_PLUGINS_INFO`) - label, icon, description.
+2. **Default config** (`INPUT_PLUGIN_DEFAULT_CONFIGS` / etc.) - import and add the default config.
+3. **Default assets** (for event plugins in `EVENT_PLUGIN_DEFAULT_ASSETS`) - template/script/data file path and content.
 4. The `satisfies Record<PluginName, ...>` constraint will catch missing entries at compile time.
 
 ## Icons

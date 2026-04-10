@@ -33,26 +33,26 @@ Plugin[ConfigT, ParamsT] (base, register=False)
 
 - Plugin params are `TypedDict` subclasses (not Pydantic models).
 - Use `NotRequired` for optional fields, `Required` for mandatory ones.
-- Params carry runtime dependencies (loaders, paths) -- NOT config values.
+- Params carry runtime dependencies (loaders, paths) - NOT config values.
 
 ## Init Pre-computation
 
 - Override `__init__` with `@override` decorator.
 - Pre-compute everything possible at init time (compile templates, build lookup tables, load samples).
-- Use O(1) lookups at produce time -- never O(n) scans in hot paths.
+- Use O(1) lookups at produce time - never O(n) scans in hot paths.
 - Raise `PluginConfigurationError` for invalid config detected at init.
 
 ## Produce Method
 
-- `produce()` takes a typed params dict -- never separate keyword args.
+- `produce()` takes a typed params dict - never separate keyword args.
 - Raise `PluginProduceError` for runtime failures during event production.
 - Return `list[str]` from event plugins (one string per event).
 
 ## Error Handling
 
-- `PluginConfigurationError` -- raised at init for config problems.
-- `PluginProduceError` -- raised at produce time for runtime failures.
-- `PluginRegistrationError` -- raised for registration conflicts.
+- `PluginConfigurationError` - raised at init for config problems.
+- `PluginProduceError` - raised at produce time for runtime failures.
+- `PluginRegistrationError` - raised for registration conflicts.
 - Use `shorten_traceback()` from `eventum.utils.traceback_utils` for user-facing errors.
 
 ## Module Functions (Template Plugin)

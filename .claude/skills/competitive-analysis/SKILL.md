@@ -22,7 +22,7 @@ Parse the argument as either a specific competitor tool or a product category. I
 
 - Deep dive on the competitor or category:
   - **If specific tool**: GitHub repo (stars, contributors, commit frequency, issues), documentation, feature set, architecture, pricing/licensing, community (Discord, Slack, forums), recent releases and roadmap
-  - **If category**: Map the landscape -- list all relevant tools, categorize by approach, identify market leaders and emerging players
+  - **If category**: Map the landscape - list all relevant tools, categorize by approach, identify market leaders and emerging players
 - Gather quantitative data:
   ```bash
   # Example for GitHub-hosted competitors
@@ -71,7 +71,7 @@ Present to the user:
 
 ### Important
 
-- Be objective -- genuine competitive analysis requires honesty about both strengths and weaknesses.
+- Be objective - genuine competitive analysis requires honesty about both strengths and weaknesses.
 - This is an analytical task, not an implementation task. No code changes are made.
 - Feature proposals go into the backlog as GitHub issues (if user approves).
 - Track progress with the todo list throughout.

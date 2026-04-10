@@ -87,8 +87,8 @@ Present to the user:
 
 ### Important
 
-- Phase 1 and Phase 2 run in parallel -- they are independent.
+- Phase 1 and Phase 2 run in parallel - they are independent.
 - This is a strategic review, not an implementation task. No code changes are made.
-- All recommendations are advisory -- the user makes final decisions.
+- All recommendations are advisory - the user makes final decisions.
 - Track progress with the todo list throughout.
 - If market data is insufficient for confident recommendations, say so rather than guessing.
