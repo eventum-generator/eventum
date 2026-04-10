@@ -12,7 +12,7 @@
 
 set -euo pipefail
 
-# -- Args --------------------------------------------------------------------
+# - Args --------------------------------------------------------------------
 VERSION="${1:-}"
 MODE="${2:-}"
 
@@ -27,7 +27,7 @@ INIT_FILE="eventum/__init__.py"
 DEVELOP_BRANCH="develop"
 MASTER_BRANCH="master"
 
-# -- Helpers -----------------------------------------------------------------
+# - Helpers -----------------------------------------------------------------
 info()    { echo -e "\033[1;34m==> $1\033[0m"; }
 success() { echo -e "\033[1;32m==> $1\033[0m"; }
 error()   { echo -e "\033[1;31m==> $1\033[0m"; exit 1; }
@@ -36,7 +36,7 @@ confirm() {
   [[ "$answer" =~ ^[Yy]$ ]] || { echo "Aborted."; exit 1; }
 }
 
-# -- Preflight checks (common) ----------------------------------------------
+# - Preflight checks (common) ----------------------------------------------
 info "Releasing Eventum ${VERSION}"
 
 # Ensure we're in the repo root
@@ -98,7 +98,7 @@ if [[ "$CURRENT_BRANCH" != "$DEVELOP_BRANCH" ]]; then
   error "You must be on '${DEVELOP_BRANCH}' branch (currently on '${CURRENT_BRANCH}')"
 fi
 
-# -- Step 1: Bump version ---------------------------------------------------
+# - Step 1: Bump version ---------------------------------------------------
 CURRENT_VERSION=$(grep -oP "__version__\s*=\s*'\K[^']+" "$INIT_FILE")
 info "Current version: ${CURRENT_VERSION}"
 info "New version:     ${VERSION}"
@@ -111,7 +111,7 @@ else
   success "Version bumped in ${INIT_FILE}"
 fi
 
-# -- Step 2: Run checks -----------------------------------------------------
+# - Step 2: Run checks -----------------------------------------------------
 info "Running lint..."
 uv run ruff check .
 
@@ -126,7 +126,7 @@ uv run pytest
 
 success "All checks passed"
 
-# -- Step 3: Commit & push --------------------------------------------------
+# - Step 3: Commit & push --------------------------------------------------
 if [[ -n "$(git status --porcelain)" ]]; then
   confirm "Commit version bump and push to origin/${DEVELOP_BRANCH}?"
   git add .
@@ -137,7 +137,7 @@ fi
 git push origin "$DEVELOP_BRANCH"
 success "Pushed ${DEVELOP_BRANCH}"
 
-# -- Step 4: Create pull request ---------------------------------------------
+# - Step 4: Create pull request ---------------------------------------------
 confirm "Create release PR: ${DEVELOP_BRANCH} → ${MASTER_BRANCH}?"
 
 PR_URL=$(gh pr create \
