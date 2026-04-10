@@ -440,10 +440,9 @@ class TemplateEventPlugin(
             except DispatchExhaustSignal:
                 raise PluginExhaustedError from None
 
-            if picked_aliases:
-                self._event_context['locals'] = self._template_states[
-                    picked_aliases[-1]
-                ]
+            self._event_context['locals'] = self._template_states[
+                picked_aliases[-1]
+            ]
 
             return rendered
 

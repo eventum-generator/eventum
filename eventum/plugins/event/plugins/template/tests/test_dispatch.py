@@ -122,6 +122,16 @@ class TestDispatchNext:
         with pytest.raises(PluginProduceError):
             plugin.produce(params=PRODUCE_PARAMS)
 
+    def test_next_invalid_max_repicks(self):
+        plugin = _make_plugin(
+            templates={
+                't': '{% do dispatch.next(max_repicks=0) %}',
+            },
+            mode=TemplatePickingMode.SPIN,
+        )
+        with pytest.raises(PluginProduceError):
+            plugin.produce(params=PRODUCE_PARAMS)
+
     def test_next_updates_locals_for_picker(self):
         """Verify event_context['locals'] is updated before re-pick."""
         plugin = _make_plugin(

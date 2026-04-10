@@ -8,7 +8,10 @@ from pydantic import RootModel
 
 from eventum.plugins.base.plugin import Plugin, PluginParams
 from eventum.plugins.event.base.config import EventPluginConfig
-from eventum.plugins.event.exceptions import PluginEventDroppedError
+from eventum.plugins.event.exceptions import (
+    PluginEventDroppedError,
+    PluginProduceSignal,
+)
 
 
 class ProduceParams(TypedDict):
@@ -77,6 +80,8 @@ class EventPlugin(Plugin[ConfigT, ParamsT], register=False):
         except PluginEventDroppedError:
             self._dropped += 1
             return []
+        except PluginProduceSignal:
+            raise
         except:
             self._produce_failed += 1
             raise
