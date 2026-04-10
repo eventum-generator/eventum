@@ -39,6 +39,7 @@ git cliff -o CHANGELOG.md                  # Generate changelog via git-cliff
 - **Package manager**: uv
 - **Code quality**: Ruff (ALL rules, 79-char lines, single quotes) + strict mypy with Pydantic plugin
 - **ASCII only**: in code, comments, commits, CLI output. Unicode only in docs/MDX prose.
+- **Dashes**: single hyphen `-` in code/comments/markdown. Never use double dash `--` as a separator. Em dash `—` only in docs/MDX prose.
 - **Commits**: Conventional commits (`feat`, `fix`, `refactor`, `test`, `docs`, etc.) — git-cliff generates changelog. Scopes: app, api, cli, core, logging, plugins, security, ui, utils, server.
 - **Git**: Main branch `master`, development on `develop`
 - **Tests**: Co-located in `*/tests/`. Every feature/fix must have tests.
