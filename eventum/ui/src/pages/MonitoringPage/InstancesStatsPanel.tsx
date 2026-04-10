@@ -44,6 +44,7 @@ export const InstancesStatsPanel: FC<InstancesStatsPanelProps> = ({
       id: stats.id,
       generated: stats.total_generated,
       produced: stats.event.produced,
+      dropped: stats.event.dropped,
       written: stats.total_written,
       inputEPS: stats.input_eps,
       outputEPS: stats.output_eps,
@@ -56,6 +57,7 @@ export const InstancesStatsPanel: FC<InstancesStatsPanelProps> = ({
       id: '',
       generated: prev.generated + curr.generated,
       produced: prev.produced + curr.produced,
+      dropped: prev.dropped + curr.dropped,
       written: prev.written + curr.written,
       inputEPS: prev.inputEPS + curr.inputEPS,
       outputEPS: prev.outputEPS + curr.outputEPS,
@@ -64,6 +66,7 @@ export const InstancesStatsPanel: FC<InstancesStatsPanelProps> = ({
       id: '',
       generated: 0,
       produced: 0,
+      dropped: 0,
       written: 0,
       inputEPS: 0,
       outputEPS: 0,
@@ -86,6 +89,15 @@ export const InstancesStatsPanel: FC<InstancesStatsPanelProps> = ({
         <LabelWithTooltip
           label="Produced"
           tooltip="Number of events produced by event plugins of all active instances "
+        />
+      ),
+    },
+    {
+      content: totalAggregatedMetrics.dropped,
+      caption: (
+        <LabelWithTooltip
+          label="Dropped"
+          tooltip="Number of events intentionally dropped by event plugins of all active instances"
         />
       ),
     },
