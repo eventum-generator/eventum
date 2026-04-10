@@ -20,13 +20,24 @@ from eventum.plugins.event.base.plugin import (
     EventPluginParams,
     ProduceParams,
 )
-from eventum.plugins.event.exceptions import PluginProduceError
+from eventum.plugins.event.exceptions import (
+    PluginEventDroppedError,
+    PluginExhaustedError,
+    PluginProduceError,
+)
 from eventum.plugins.event.plugins.template import modules
 from eventum.plugins.event.plugins.template.config import (
     TemplateConfigForGeneralModes,
     TemplateEventPluginConfig,
 )
 from eventum.plugins.event.plugins.template.context import EventContext
+from eventum.plugins.event.plugins.template.dispatch import (
+    DispatchDropSignal,
+    Dispatcher,
+    DispatchExhaustSignal,
+    DispatchNextSignal,
+    DispatchSignal,
+)
 from eventum.plugins.event.plugins.template.module_provider import (
     ModuleProvider,
 )
@@ -200,6 +211,8 @@ class TemplateEventPlugin(
         env.globals['subprocess'] = self._subprocess_runner
         env.globals['shared'] = self._shared_state
         env.globals['globals'] = self._global_state
+        self._dispatcher = Dispatcher()
+        env.globals['dispatch'] = self._dispatcher
 
         return env
 
@@ -331,47 +344,108 @@ class TemplateEventPlugin(
                 context={'reason': str(e)},
             ) from None
 
+    def _render_template(
+        self,
+        alias: str,
+        params: ProduceParams,
+    ) -> str:
+        """Render a single template.
+
+        Dispatch signals propagate as-is. Other exceptions are
+        wrapped in :class:`PluginProduceError`.
+        """
+        try:
+            return self._templates[alias].render(
+                locals=self._template_states[alias],
+                vars=self._template_configs[alias].vars,
+                **params,
+            )
+        except DispatchSignal:
+            raise
+        except Exception as e:
+            msg = 'Failed to render template'
+            raise PluginProduceError(
+                msg,
+                context={
+                    'reason': str(e),
+                    'traceback': shorten_traceback(
+                        e,
+                        key_phrase=('rewrite_traceback_stack(source=source)'),
+                        start_position='after',
+                    ),
+                    'template_alias': alias,
+                },
+            ) from e
+
+    def _render_templates(
+        self,
+        aliases: tuple[str, ...],
+        params: ProduceParams,
+    ) -> list[str]:
+        """Render picked templates.
+
+        All :class:`DispatchSignal` subclasses propagate to the
+        caller. Before propagating, updates
+        ``event_context['locals']`` to the signaling template's
+        state.
+        """
+        rendered: list[str] = []
+
+        for alias in aliases:
+            try:
+                event = self._render_template(alias, params)
+            except DispatchSignal:
+                self._event_context['locals'] = self._template_states[alias]
+                raise
+
+            rendered.append(event)
+
+        return rendered
+
     @override
     def _produce(self, params: ProduceParams) -> list[str]:
         self._event_context['timestamp'] = params['timestamp']
         self._event_context['tags'] = params['tags']
 
-        picked_aliases = self._template_picker.pick(self._event_context)
+        repick_count = 0
 
-        if not picked_aliases:
-            return []
+        while True:
+            picked_aliases = self._template_picker.pick(
+                self._event_context,
+            )
 
-        rendered: list[str] = []
-        for alias in picked_aliases:
-            template = self._templates[alias]
+            if not picked_aliases:
+                return []
 
             try:
-                event = template.render(
-                    locals=self._template_states[alias],
-                    vars=self._template_configs[alias].vars,
-                    **params,
+                rendered = self._render_templates(
+                    picked_aliases,
+                    params,
                 )
-            except Exception as e:
-                msg = 'Failed to render template'
-                raise PluginProduceError(
-                    msg,
-                    context={
-                        'reason': str(e),
-                        'traceback': shorten_traceback(
-                            e,
-                            key_phrase='rewrite_traceback_stack(source=source)',
-                            start_position='after',
-                        ),
-                        'template_alias': alias,
-                    },
-                ) from e
-            rendered.append(event)
+            except DispatchDropSignal:
+                raise PluginEventDroppedError from None
+            except DispatchNextSignal as sig:
+                repick_count += 1
+                if repick_count > sig.max_repicks:
+                    msg = 'Max repicks limit exceeded'
+                    raise PluginProduceError(
+                        msg,
+                        context={
+                            'reason': (
+                                f'Repick limit exceeded ({sig.max_repicks})'
+                            ),
+                        },
+                    ) from None
+                continue
+            except DispatchExhaustSignal:
+                raise PluginExhaustedError from None
 
-        # use local state of last rendered template for next calls
-        locals = self._template_states[picked_aliases[-1]]
-        self._event_context['locals'] = locals
+            if picked_aliases:
+                self._event_context['locals'] = self._template_states[
+                    picked_aliases[-1]
+                ]
 
-        return rendered
+            return rendered
 
     @property
     def local_states(self) -> dict[str, SingleThreadState]:
