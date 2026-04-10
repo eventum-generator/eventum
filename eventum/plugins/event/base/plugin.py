@@ -74,6 +74,12 @@ class EventPlugin(Plugin[ConfigT, ParamsT], register=False):
         PluginExhaustedError
             If no more events can be produced by event plugin.
 
+        Notes
+        -----
+        If ``_produce()`` raises ``PluginEventDroppedError``, the
+        error is silently caught, the ``dropped`` counter is
+        incremented, and an empty list is returned.
+
         """
         try:
             result = self._produce(params=params)

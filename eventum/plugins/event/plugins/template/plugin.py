@@ -370,7 +370,7 @@ class TemplateEventPlugin(
                     'reason': str(e),
                     'traceback': shorten_traceback(
                         e,
-                        key_phrase=('rewrite_traceback_stack(source=source)'),
+                        key_phrase='rewrite_traceback_stack(source=source)',
                         start_position='after',
                     ),
                     'template_alias': alias,

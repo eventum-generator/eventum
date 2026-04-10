@@ -64,6 +64,14 @@ class Dispatcher:
             Maximum re-pick iterations. Raises
             ``PluginProduceError`` if exceeded. Default: 64.
 
+        Notes
+        -----
+        When ``next()`` is called multiple times within a single
+        produce cycle, the repick counter accumulates across all
+        calls, but the ``max_repicks`` limit is taken from the
+        most recent call. For example, if ``next(max_repicks=3)``
+        is called twice, the counter is 2 and the limit is 3.
+
         """
         if max_repicks < 1:
             msg = 'max_repicks must be >= 1'
