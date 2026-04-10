@@ -69,6 +69,7 @@ icon: LucideIconName  # Optional, from lucide-react
 ### Writing Style
 
 - **Approachable guide style** -- explain concepts, then show examples
+- **No developer jargon** -- write for Eventum users, not engine developers. Avoid internal terms, instead describe what the user sees.
 - **Input->output examples** -- show what goes in and what comes out
 - **Tables for parameters** -- columns: Name, Type, Default, Description
 - **Code blocks with language tags** -- always specify the language
