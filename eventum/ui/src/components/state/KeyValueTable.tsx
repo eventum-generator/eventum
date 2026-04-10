@@ -322,7 +322,7 @@ export function KeyValueTable({
                                   commitInlineEdit(key, value);
                                 if (e.key === 'Escape') setInlineEditKey(null);
                               }}
-                              // eslint-disable-next-line jsx-a11y/no-autofocus -- intentional for inline edit UX
+                              // eslint-disable-next-line jsx-a11y/no-autofocus - intentional for inline edit UX
                               autoFocus
                             />
                           ) : (

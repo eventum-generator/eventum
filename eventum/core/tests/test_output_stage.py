@@ -52,7 +52,7 @@ def _feed_and_close(input_q: PipelineQueue, batches: list) -> None:
     input_q.close()
 
 
-# -- open() ------------------------------------------------------------
+# - open() ------------------------------------------------------------
 
 
 @pytest.mark.asyncio
@@ -90,7 +90,7 @@ async def test_open_unexpected_error_raises_execution_error():
         await stage.open()
 
 
-# -- close() -----------------------------------------------------------
+# - close() -----------------------------------------------------------
 
 
 @pytest.mark.asyncio
@@ -115,7 +115,7 @@ async def test_close_swallows_exceptions():
     p2.close.assert_awaited_once()
 
 
-# -- execute() ---------------------------------------------------------
+# - execute() ---------------------------------------------------------
 
 
 @pytest.mark.asyncio
@@ -208,7 +208,7 @@ async def test_execute_drains_remaining_tasks():
     # If we get here without error, draining worked
 
 
-# -- _handle_write_result errors ---------------------------------------
+# - _handle_write_result errors ---------------------------------------
 
 
 @pytest.mark.asyncio
@@ -272,7 +272,7 @@ async def test_handle_write_result_unexpected_error():
     # Should complete without raising
 
 
-# -- Concurrency -------------------------------------------------------
+# - Concurrency -------------------------------------------------------
 
 
 @pytest.mark.asyncio
