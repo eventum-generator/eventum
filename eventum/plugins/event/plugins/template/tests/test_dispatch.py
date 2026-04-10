@@ -19,7 +19,7 @@ from eventum.plugins.event.plugins.template.plugin import (
 )
 
 PRODUCE_PARAMS = {
-    'tags': tuple(),
+    'tags': (),
     'timestamp': datetime.now().astimezone(),
 }
 
@@ -72,7 +72,9 @@ class TestDispatchDrop:
         assert plugin.dropped == 1
 
     def test_drop_in_all_mode_discards_all(self):
-        """In ALL mode, drop in second template discards first template's output too."""
+        """In ALL mode, drop in second template discards
+        first template's output too.
+        """
         plugin = _make_plugin(
             templates={
                 'a': 'rendered',
