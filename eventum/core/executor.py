@@ -120,7 +120,7 @@ class Executor:
         self._stop_event.set()
         self._input_stage.stop_interactive_plugins()
 
-    # -- Pipeline orchestration ----------------------------------------
+    # - Pipeline orchestration ----------------------------------------
 
     def _start_pipeline(self) -> tuple[Thread, Thread, Thread]:
         """Create and start all stage threads.
@@ -165,7 +165,7 @@ class Executor:
         event_thread.join()
         output_thread.join()
 
-    # -- Stage runners (one per thread) --------------------------------
+    # - Stage runners (one per thread) --------------------------------
 
     def _run_input_stage(self) -> None:
         self._input_stage.execute(

@@ -1,6 +1,6 @@
 ---
 name: implement-issue
-description: Implement a GitHub issue end-to-end -- orchestrate agents through plan, code, test, review, document, verify, close.
+description: Implement a GitHub issue end-to-end - orchestrate agents through plan, code, test, review, document, verify, close.
 user-invokable: true
 argument-hint: "#<issue-number>"
 context: fork
@@ -22,7 +22,7 @@ Orchestrate the implementation of GitHub issue **$ARGUMENTS** by delegating to y
 1. Fetch the issue details: `gh issue view <number> --json title,body,labels,assignees,milestone,projectItems`
 2. Read the issue comments to understand intentions of participants.
 
-**Delegate to researcher agent** (optional -- use for complex issues or unfamiliar areas):
+**Delegate to researcher agent** (optional - use for complex issues or unfamiliar areas):
 
 - Explore the relevant parts of the codebase
 - Identify existing patterns, conventions, and where changes are needed
@@ -67,7 +67,7 @@ If QA reports failures: route findings to **developer** to fix, then re-run QA. 
 - If verdict is **FAIL**: route findings to **developer** and/or **qa-engineer** to fix, then re-review
 - Loop until **PASS**. If the loop does not converge after 3 cycles, stop and consult the user.
 
-This is a mandatory quality gate -- do NOT skip it.
+This is a mandatory quality gate - do NOT skip it.
 
 ### Phase 6: Documentation
 

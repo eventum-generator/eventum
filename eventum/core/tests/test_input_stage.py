@@ -68,7 +68,7 @@ def _collect_output(output_q: PipelineQueue) -> list:
     return results
 
 
-# -- Properties --------------------------------------------------------
+# - Properties --------------------------------------------------------
 
 
 def test_input_tags_map():
@@ -86,7 +86,7 @@ def test_plugins_property():
     assert stage.plugins == [p1]
 
 
-# -- Configure ---------------------------------------------------------
+# - Configure ---------------------------------------------------------
 
 
 def test_configure_single_non_interactive():
@@ -110,7 +110,7 @@ def test_configure_zero_plugins():
     assert stage._configured_interactive is None
 
 
-# -- Execute: no sources -----------------------------------------------
+# - Execute: no sources -----------------------------------------------
 
 
 def test_execute_no_sources_closes_output():
@@ -135,7 +135,7 @@ def test_execute_no_sources_closes_output():
     assert result is None  # sentinel
 
 
-# -- Execute: single source --------------------------------------------
+# - Execute: single source --------------------------------------------
 
 
 def test_execute_single_source():
@@ -271,7 +271,7 @@ def test_execute_plugin_generation_error():
     assert result is None  # closed despite error
 
 
-# -- Execute: two sources (merged, uses sub-threads) -------------------
+# - Execute: two sources (merged, uses sub-threads) -------------------
 
 
 def test_execute_merged_sources():
@@ -305,7 +305,7 @@ def test_execute_merged_sources():
     assert total == 5  # 2 + 3
 
 
-# -- stop_interactive_plugins ------------------------------------------
+# - stop_interactive_plugins ------------------------------------------
 
 
 def test_stop_interactive_plugins():

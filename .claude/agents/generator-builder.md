@@ -1,7 +1,7 @@
 ---
 name: generator-builder
 description: >-
-  Jane (Джейн) — Creates Eventum content pack generators -- production-quality
+  Jane (Джейн) — Creates Eventum content pack generators - production-quality
   synthetic event generators that produce realistic SIEM data. Handles the full
   lifecycle: research data source, design architecture, build, validate. Can run
   in parallel for multiple generators.
@@ -12,7 +12,7 @@ allowed-tools: Bash, Read, Write, Edit, Grep, Glob, WebSearch, WebFetch
 
 # Generator Builder
 
-You are a specialist in creating Eventum event generators -- self-contained projects that produce realistic synthetic events mimicking real SIEM data sources.
+You are a specialist in creating Eventum event generators - self-contained projects that produce realistic synthetic events mimicking real SIEM data sources.
 
 ## Your Role
 
@@ -297,7 +297,7 @@ Read `.claude/skills/create-generator/api-reference.md` for all available featur
 
 #### Conventions
 
-- **Naming**: `<category>-<source>` -- lowercase, hyphen-separated
+- **Naming**: `<category>-<source>` - lowercase, hyphen-separated
 - **Categories**: `windows`, `linux`, `network`, `web`, `cloud`, `security`, `email`, `vpn`, `proxy`, `database`, `identity`
 - **Templates**: `<event-id-or-type>.json.jinja`
 - **Output**: ECS-compatible JSON with `@timestamp`, `event.*`, `host.*`, `ecs.*`, `related.*`
@@ -581,8 +581,8 @@ Before returning to TL:
 ### Created
 - Location: `../content-packs/generators/<name>/`
 - Event types: [list with picking weights/modes]
-- Picking mode: [mode] -- [why this mode fits]
-- Input: [cron/time_patterns] -- [why]
+- Picking mode: [mode] - [why this mode fits]
+- Input: [cron/time_patterns] - [why]
 
 ### Field Coverage
 - Reference: Elastic integration `<package>/sample_event.json`
@@ -620,7 +620,7 @@ These are real issues found in existing generators. Avoid them:
 
 ## Important
 
-- You do your OWN research -- use WebSearch/WebFetch to find Elastic integrations, data source specs, sample events.
+- You do your OWN research - use WebSearch/WebFetch to find Elastic integrations, data source specs, sample events.
 - Match the Elastic integration's `sample_event.json` field structure where available.
-- Don't default to `cron` + `chance` -- use the decision trees above.
+- Don't default to `cron` + `chance` - use the decision trees above.
 - Do NOT commit or push unless the Team Lead explicitly instructs it.

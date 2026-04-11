@@ -26,17 +26,17 @@ Templates receive an `EventContext` with these variables:
 
 Call via `module.<package>.<function>()` syntax in templates:
 
-- `module.rand.*` -- random data generation (integers, floats, choices, UUIDs)
-- `module.faker.*` -- Faker-based realistic data
-- `module.mimesis.*` -- Mimesis-based realistic data
+- `module.rand.*` - random data generation (integers, floats, choices, UUIDs)
+- `module.faker.*` - Faker-based realistic data
+- `module.mimesis.*` - Mimesis-based realistic data
 
-For external Python packages, use `module.<package>.<function>` -- this is very powerful and avoids the need for custom module implementations.
+For external Python packages, use `module.<package>.<function>` - this is very powerful and avoids the need for custom module implementations.
 
 ## Jinja2 Extensions
 
 Templates run with these extensions enabled:
-- `jinja2.ext.do` -- expression statements
-- `jinja2.ext.loopcontrols` -- `break` / `continue` in loops
+- `jinja2.ext.do` - expression statements
+- `jinja2.ext.loopcontrols` - `break` / `continue` in loops
 
 ## File Conventions
 
@@ -53,9 +53,9 @@ Templates run with these extensions enabled:
 
 ## State Usage
 
-- `locals` -- use for per-template counters, sequences, state machines
-- `shared` -- use for cross-template coordination within a generator
-- `globals` -- use sparingly, for inter-generator coordination only
+- `locals` - use for per-template counters, sequences, state machines
+- `shared` - use for cross-template coordination within a generator
+- `globals` - use sparingly, for inter-generator coordination only
 - State objects behave like dicts: `{% set _ = locals.update({'counter': locals.get('counter', 0) + 1}) %}`
 
 ## Macros

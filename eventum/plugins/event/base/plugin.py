@@ -8,6 +8,10 @@ from pydantic import RootModel
 
 from eventum.plugins.base.plugin import Plugin, PluginParams
 from eventum.plugins.event.base.config import EventPluginConfig
+from eventum.plugins.event.exceptions import (
+    PluginEventDroppedError,
+    PluginProduceSignal,
+)
 
 
 class ProduceParams(TypedDict):
@@ -47,6 +51,7 @@ class EventPlugin(Plugin[ConfigT, ParamsT], register=False):
 
         self._produced = 0
         self._produce_failed = 0
+        self._dropped = 0
 
     def produce(self, params: ProduceParams) -> list[str]:
         """Produce events with provided parameters.
@@ -69,9 +74,20 @@ class EventPlugin(Plugin[ConfigT, ParamsT], register=False):
         PluginExhaustedError
             If no more events can be produced by event plugin.
 
+        Notes
+        -----
+        If ``_produce()`` raises ``PluginEventDroppedError``, the
+        error is silently caught, the ``dropped`` counter is
+        incremented, and an empty list is returned.
+
         """
         try:
             result = self._produce(params=params)
+        except PluginEventDroppedError:
+            self._dropped += 1
+            return []
+        except PluginProduceSignal:
+            raise
         except:
             self._produce_failed += 1
             raise
@@ -99,3 +115,8 @@ class EventPlugin(Plugin[ConfigT, ParamsT], register=False):
     def produce_failed(self) -> int:
         """Number of unsuccessfully produced events."""
         return self._produce_failed
+
+    @property
+    def dropped(self) -> int:
+        """Number of dropped events."""
+        return self._dropped

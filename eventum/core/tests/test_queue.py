@@ -8,7 +8,7 @@ import pytest
 from eventum.core.queue import PipelineQueue
 
 
-# -- Basic operations --------------------------------------------------
+# - Basic operations --------------------------------------------------
 
 
 def test_put_and_get():
@@ -51,7 +51,7 @@ def test_is_full_after_get():
     assert q.is_full is False
 
 
-# -- Sentinel-based close ---------------------------------------------
+# - Sentinel-based close ---------------------------------------------
 
 
 def test_close_returns_none_on_get():
@@ -106,7 +106,7 @@ def test_items_before_close_are_preserved():
     assert not t.is_alive()
 
 
-# -- Shutdown ----------------------------------------------------------
+# - Shutdown ----------------------------------------------------------
 
 
 def test_shutdown_causes_shutdown_on_put():
@@ -141,7 +141,7 @@ def test_close_after_shutdown_is_safe():
     q.close()  # should not raise
 
 
-# -- Thread safety -----------------------------------------------------
+# - Thread safety -----------------------------------------------------
 
 
 def test_concurrent_put_and_get():

@@ -10,10 +10,10 @@ globs:
 
 - Routers live in `eventum/api/routers/<resource>/`.
 - Each resource directory contains:
-  - `routes.py` -- route handlers (async functions)
-  - `models.py` -- response/request Pydantic models
-  - `dependencies.py` -- FastAPI dependency injection functions
-  - `__init__.py` -- router exports
+  - `routes.py` - route handlers (async functions)
+  - `models.py` - response/request Pydantic models
+  - `dependencies.py` - FastAPI dependency injection functions
+  - `__init__.py` - router exports
 - Separate `ws_router` for WebSocket endpoints.
 
 ## Route Handler Conventions

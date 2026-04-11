@@ -254,7 +254,7 @@ class MetricsCollector:
         self._started: bool = False
         self._last_report: PerformanceReport | None = None
 
-    # -- public API ---------------------------------------------------------
+    # - public API ---------------------------------------------------------
 
     def start(self) -> None:
         """Begin collection.  Triggers a full GC and records baseline."""
@@ -324,7 +324,7 @@ class MetricsCollector:
             # If everything is warmup, use all snapshots anyway
             analysis_snapshots = all_snapshots
 
-        # -- EPS statistics -------------------------------------------------
+        # - EPS statistics -------------------------------------------------
         eps_values = sorted(s.events_per_second for s in analysis_snapshots)
         eps_mean = sum(eps_values) / len(eps_values) if eps_values else 0.0
         eps_variance = (
@@ -340,12 +340,12 @@ class MetricsCollector:
         eps_min = eps_values[0] if eps_values else 0.0
         eps_max = eps_values[-1] if eps_values else 0.0
 
-        # -- Resource statistics --------------------------------------------
+        # - Resource statistics --------------------------------------------
         rss_values = [s.rss_bytes for s in all_snapshots]
         fd_values = [s.fd_count for s in all_snapshots]
         thread_values = [s.thread_count for s in all_snapshots]
 
-        # -- GC delta -------------------------------------------------------
+        # - GC delta -------------------------------------------------------
         gc_now = _read_gc_collections()
         gc_collections = (
             gc_now[0] - self._gc_baseline[0],
@@ -353,7 +353,7 @@ class MetricsCollector:
             gc_now[2] - self._gc_baseline[2],
         )
 
-        # -- Linear regression (on analysis snapshots only) -----------------
+        # - Linear regression (on analysis snapshots only) -----------------
         timestamps = [s.timestamp for s in analysis_snapshots]
         eps_series = [s.events_per_second for s in analysis_snapshots]
         rss_series = [float(s.rss_bytes) for s in analysis_snapshots]
@@ -399,7 +399,7 @@ class MetricsCollector:
         self._last_report = report
         return report
 
-    # -- internals ----------------------------------------------------------
+    # - internals ----------------------------------------------------------
 
     def _take_snapshot(self, eps: float) -> None:
         """Record a ``PerformanceSnapshot`` at the current moment."""

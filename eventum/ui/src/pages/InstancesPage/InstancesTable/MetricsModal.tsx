@@ -6,12 +6,16 @@ import {
   Loader,
   Stack,
 } from '@mantine/core';
-import { IconAlertSquareRounded } from '@tabler/icons-react';
+import {
+  IconAlertSquareRounded,
+  IconInfoSquareRounded,
+} from '@tabler/icons-react';
 import { ReactFlowProvider } from '@xyflow/react';
-import { FC, useEffect } from 'react';
+import { FC, useEffect, useRef } from 'react';
 
 import { PipelineGraph } from './metrics/PipelineGraph';
 import { SummaryBar } from './metrics/SummaryBar';
+import { APIError } from '@/api/errors';
 import { useGeneratorStats } from '@/api/hooks/useGenerators';
 import { ShowErrorDetailsAnchor } from '@/components/ui/ShowErrorDetailsAnchor';
 
@@ -29,9 +33,13 @@ export const MetricsModal: FC<MetricsModalProps> = ({ instanceId }) => {
     refetch: refetchStats,
   } = useGeneratorStats(instanceId);
 
+  const stoppedRef = useRef(false);
+
   useEffect(() => {
     const timeout = setInterval(() => {
-      void refetchStats();
+      if (!stoppedRef.current) {
+        void refetchStats();
+      }
     }, 3000);
 
     return () => {
@@ -39,6 +47,16 @@ export const MetricsModal: FC<MetricsModalProps> = ({ instanceId }) => {
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  useEffect(() => {
+    if (
+      isStatsError &&
+      statsError instanceof APIError &&
+      statsError.response?.status === 400
+    ) {
+      stoppedRef.current = true;
+    }
+  }, [isStatsError, statsError]);
 
   if (isStatsLoading) {
     return (
@@ -49,11 +67,33 @@ export const MetricsModal: FC<MetricsModalProps> = ({ instanceId }) => {
   }
 
   if (isStatsError) {
+    if (
+      statsError instanceof APIError &&
+      statsError.response?.status === 400
+    ) {
+      return (
+        <Container size="md">
+          <Alert
+            variant="default"
+            icon={
+              <Box c="blue" component={IconInfoSquareRounded} />
+            }
+            title="Instance is not running"
+          >
+            The generator has stopped. Start it again to see live
+            metrics.
+          </Alert>
+        </Container>
+      );
+    }
+
     return (
       <Container size="md">
         <Alert
           variant="default"
-          icon={<Box c="red" component={IconAlertSquareRounded}></Box>}
+          icon={
+            <Box c="red" component={IconAlertSquareRounded} />
+          }
           title="Failed to load instance stats"
         >
           {statsError.message}

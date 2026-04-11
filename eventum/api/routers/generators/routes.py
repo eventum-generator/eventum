@@ -277,6 +277,7 @@ async def get_generator_stats(
             plugin_id=plugins.event.id,
             produced=plugins.event.produced,
             produce_failed=plugins.event.produce_failed,
+            dropped=plugins.event.dropped,
         ),
         output=[
             OutputPluginStats(
@@ -326,6 +327,7 @@ async def get_running_generators_stats(
                     plugin_id=plugins.event.id,
                     produced=plugins.event.produced,
                     produce_failed=plugins.event.produce_failed,
+                    dropped=plugins.event.dropped,
                 ),
                 output=[
                     OutputPluginStats(

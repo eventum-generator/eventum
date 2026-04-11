@@ -530,6 +530,39 @@ const namespaceCompletions: NamespaceMember = {
       },
       members: templateGlobalStateCompletionMembers,
     },
+    dispatch: {
+      completion: {
+        label: 'dispatch',
+        type: 'namespace',
+        detail: 'Dispatch API for controlling event flow',
+      },
+      members: {
+        drop: {
+          completion: {
+            label: 'drop',
+            type: 'function',
+            detail: 'Drop the current event',
+            info: '() -> Never',
+          },
+        },
+        next: {
+          completion: {
+            label: 'next',
+            type: 'function',
+            detail: 'Discard output and restart with a fresh pick',
+            info: '(max_repicks: int = 64) -> Never',
+          },
+        },
+        exhaust: {
+          completion: {
+            label: 'exhaust',
+            type: 'function',
+            detail: 'Signal that generation is complete',
+            info: '() -> Never',
+          },
+        },
+      },
+    },
   },
 };
 

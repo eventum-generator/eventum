@@ -1,5 +1,6 @@
-"""Input stage of the pipeline — configures and executes input plugins."""
+"""Input stage of the pipeline - configures and executes input plugins."""
 
+import queue as queue_mod
 from threading import Event, Thread
 from typing import TYPE_CHECKING, TypedDict
 from zoneinfo import ZoneInfo
@@ -237,6 +238,10 @@ class InputStage:
             logger.debug('Finishing input plugins execution')
         except PluginGenerationError as e:
             logger.error(str(e), **e.context)
+        except queue_mod.ShutDown:
+            logger.debug(
+                'Input stage interrupted by queue shutdown',
+            )
         except Exception as e:
             logger.exception(
                 'Unexpected error during input plugins execution',
