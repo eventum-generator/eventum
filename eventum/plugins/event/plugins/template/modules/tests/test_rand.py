@@ -179,6 +179,36 @@ def test_ip_v4_private_c():
     assert ip.startswith('192.168.')
 
 
+def test_ip_v4_in_subnet():
+    net = ipaddress.IPv4Network('192.168.1.0/24')
+    for _ in range(100):
+        ip = rand.network.ip_v4_in_subnet('192.168.1.0/24')
+        addr = ipaddress.IPv4Address(ip)
+        assert addr in net
+        assert addr != net.network_address
+        assert addr != net.broadcast_address
+
+
+def test_ip_v4_in_subnet_slash_31():
+    ip = rand.network.ip_v4_in_subnet('10.0.0.0/31')
+    assert ip in ('10.0.0.0', '10.0.0.1')
+
+
+def test_ip_v4_in_subnet_slash_32():
+    ip = rand.network.ip_v4_in_subnet('10.0.0.5/32')
+    assert ip == '10.0.0.5'
+
+
+def test_ip_v4_in_subnet_slash_0():
+    ip = rand.network.ip_v4_in_subnet('0.0.0.0/0')
+    ipaddress.IPv4Address(ip)
+
+
+def test_ip_v4_in_subnet_invalid_cidr():
+    with pytest.raises(ValueError):
+        rand.network.ip_v4_in_subnet('not-a-cidr')
+
+
 def test_ip_v4_public():
     ip = rand.network.ip_v4_public()
     assert isinstance(ipaddress.ip_address(ip), ipaddress.IPv4Address)
