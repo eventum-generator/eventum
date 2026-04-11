@@ -11,7 +11,7 @@ from string import (
 
 import pytest
 
-import eventum.plugins.event.plugins.template.modules.rand as rand
+from eventum.plugins.event.plugins.template.modules import rand
 
 
 # ---- General Random Functions ----
@@ -177,6 +177,22 @@ def test_ip_v4_private_b():
 def test_ip_v4_private_c():
     ip = rand.network.ip_v4_private_c()
     assert ip.startswith('192.168.')
+
+
+def test_ip_v4_in_subnet():
+    ip = rand.network.ip_v4_in_subnet('192.168.1.0/24')
+    addr = ipaddress.IPv4Address(ip)
+    net = ipaddress.IPv4Network('192.168.1.0/24')
+    assert addr in net
+    # must be a host address (not network or broadcast)
+    assert addr != net.network_address
+    assert addr != net.broadcast_address
+
+
+def test_ip_v4_in_subnet_small():
+    # /31 has only 2 addresses, host_count < 1 returns network address
+    ip = rand.network.ip_v4_in_subnet('10.0.0.0/31')
+    assert ip == '10.0.0.0'
 
 
 def test_ip_v4_public():
