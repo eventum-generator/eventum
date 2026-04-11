@@ -301,26 +301,7 @@ class network:  # noqa: N801
 
     @staticmethod
     def ip_v4_in_subnet(cidr: str) -> str:
-        """Return random IPv4 address within the given CIDR subnet.
-
-        Parameters
-        ----------
-        cidr : str
-            IPv4 subnet in CIDR notation (e.g. ``'192.168.1.0/24'``).
-            The host bits are masked automatically, so
-            ``'192.168.1.55/24'`` is treated as ``'192.168.1.0/24'``.
-
-        Returns
-        -------
-        str
-            Random IPv4 address belonging to the subnet. For
-            prefixes <= /30 the network and broadcast addresses
-            are excluded. For /31 subnets (RFC 3021 point-to-point
-            links) both addresses are usable hosts, so one of the
-            two is returned at random. For /32 the single address
-            is returned as-is.
-
-        """
+        """Return random IPv4 host address within the given CIDR subnet."""
         net = ipaddress.IPv4Network(cidr, strict=False)
         prefix = net.prefixlen
 
