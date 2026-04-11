@@ -422,6 +422,15 @@ const namespaceCompletions: NamespaceMember = {
                     info: '() -> str',
                   },
                 },
+                ip_v4_in_subnet: {
+                  completion: {
+                    label: 'ip_v4_in_subnet',
+                    type: 'function',
+                    detail:
+                      'Return random IPv4 address within the given CIDR subnet',
+                    info: '(cidr: str) -> str',
+                  },
+                },
                 mac: {
                   completion: {
                     label: 'mac',
