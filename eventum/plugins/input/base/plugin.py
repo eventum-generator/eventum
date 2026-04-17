@@ -41,9 +41,10 @@ class InputPlugin(Plugin[ConfigT, ParamsT], register=False):
     ----------------
     interactive : bool, default=False
         Whether to mark input plugin as interactive. Interactive input
-        plugins cannot be merged with others and are used individually
-        since they are blocking generation due to unpredictable user
-        interactions.
+        plugins produce timestamps in response to external events (e.g.
+        HTTP requests) rather than on a schedule. They can be merged
+        with others, but the resulting order of timestamps may be
+        unpredictable.
 
     """
 
