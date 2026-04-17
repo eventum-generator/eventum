@@ -9,7 +9,7 @@ import structlog
 
 from eventum.plugins.event.base.plugin import EventPlugin, ProduceParams
 from eventum.plugins.event.exceptions import (
-    PluginExhaustedError,
+    PluginEventsExhaustedError,
     PluginProduceError,
 )
 from eventum.utils.throttler import Throttler
@@ -100,7 +100,7 @@ class EventStage:
                 events.extend(self._plugin.produce(params))
             except PluginProduceError as e:
                 logger.error(str(e), **e.context)
-            except PluginExhaustedError:
+            except PluginEventsExhaustedError:
                 logger.debug(
                     'Events exhausted, closing upstream queue',
                 )

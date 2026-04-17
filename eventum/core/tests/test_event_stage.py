@@ -12,7 +12,7 @@ from eventum.core.parameters import GeneratorParameters
 from eventum.core.queue import PipelineQueue
 from eventum.core.stages.event_stage import EventStage
 from eventum.plugins.event.exceptions import (
-    PluginExhaustedError,
+    PluginEventsExhaustedError,
     PluginProduceError,
 )
 from eventum.plugins.input.protocols import IdentifiedTimestamps
@@ -288,7 +288,7 @@ def test_execute_unexpected_error_skips_and_continues():
 
 
 def test_execute_exhausted_error_shuts_down_input():
-    """PluginExhaustedError shuts down input queue and closes output."""
+    """PluginEventsExhaustedError shuts down input queue and closes output."""
     plugin = MagicMock()
     call_count = 0
 
@@ -296,7 +296,7 @@ def test_execute_exhausted_error_shuts_down_input():
         nonlocal call_count
         call_count += 1
         if call_count == 2:
-            raise PluginExhaustedError()
+            raise PluginEventsExhaustedError()
         return ['ev']
 
     plugin.produce.side_effect = produce_exhausting

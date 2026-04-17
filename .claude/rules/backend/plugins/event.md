@@ -18,5 +18,5 @@ Event plugins turn a timestamp into zero or more event strings. Pipeline executo
 `_produce` distinguishes control-flow signals from actual errors. Raise signals for expected flow control; raise the error type for unexpected failures.
 
 - `PluginEventDroppedError` signals an intentional drop; the framework silently increments the dropped counter.
-- `PluginExhaustedError` signals no more events are available; stops the pipeline stage.
+- `PluginEventsExhaustedError` signals no more events are available; stops the pipeline stage.
 - `PluginProduceError` is the runtime-failure type - raise it for anything unexpected.

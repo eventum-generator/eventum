@@ -7,7 +7,7 @@ class PluginProduceSignal(Exception):  # noqa: N818
     """Base for non-error control flow signals from event plugins."""
 
 
-class PluginExhaustedError(PluginProduceSignal):
+class PluginEventsExhaustedError(PluginProduceSignal):
     """No more events can be produced by event plugin."""
 
 

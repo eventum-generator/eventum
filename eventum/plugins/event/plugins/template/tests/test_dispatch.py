@@ -5,7 +5,7 @@ import pytest
 from jinja2 import DictLoader
 
 from eventum.plugins.event.exceptions import (
-    PluginExhaustedError,
+    PluginEventsExhaustedError,
     PluginProduceError,
 )
 from eventum.plugins.event.plugins.template.config import (
@@ -92,7 +92,7 @@ class TestDispatchExhaust:
             templates={'t': '{% do dispatch.exhaust() %}'},
             mode=TemplatePickingMode.ANY,
         )
-        with pytest.raises(PluginExhaustedError):
+        with pytest.raises(PluginEventsExhaustedError):
             plugin.produce(params=PRODUCE_PARAMS)
 
 

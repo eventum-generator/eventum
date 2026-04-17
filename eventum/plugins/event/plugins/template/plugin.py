@@ -22,7 +22,7 @@ from eventum.plugins.event.base.plugin import (
 )
 from eventum.plugins.event.exceptions import (
     PluginEventDroppedError,
-    PluginExhaustedError,
+    PluginEventsExhaustedError,
     PluginProduceError,
 )
 from eventum.plugins.event.plugins.template import modules
@@ -438,7 +438,7 @@ class TemplateEventPlugin(
                     ) from None
                 continue
             except DispatchExhaustSignal:
-                raise PluginExhaustedError from None
+                raise PluginEventsExhaustedError from None
 
             self._event_context['locals'] = self._template_states[
                 picked_aliases[-1]

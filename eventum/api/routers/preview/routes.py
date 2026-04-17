@@ -53,7 +53,7 @@ from eventum.api.routers.preview.timestamps_aggregation import (
 from eventum.api.utils.response_description import merge_responses
 from eventum.plugins.event.base.plugin import ProduceParams
 from eventum.plugins.event.exceptions import (
-    PluginExhaustedError,
+    PluginEventsExhaustedError,
     PluginProduceError,
 )
 from eventum.plugins.input.adapters import IdentifiedTimestampsPluginAdapter
@@ -176,7 +176,7 @@ async def produce_events(
             events.extend(produced)
         except PluginProduceError as e:
             errors.append((i, e))
-        except PluginExhaustedError:
+        except PluginEventsExhaustedError:
             exhausted = True
             break
 
