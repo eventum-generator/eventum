@@ -148,6 +148,8 @@ Top-level: `shuffle`, `choice`, `choices`, `weighted_choice`, `weighted_choices`
 
 Locale-keyed: `module.faker.locale['en_US']` returns a `Faker('en_US')`; `module.mimesis.locale['en']` returns `Generic(Locale('en'))`. Locales are cached; unknown ones raise `KeyError`. All Faker / Mimesis methods are available on the returned instance. `module.mimesis` also exposes `.enums` and `.random`.
 
+Full catalogs: [Faker providers](https://faker.readthedocs.io/en/master/providers.html), [Mimesis API](https://mimesis.name/en/master/api.html).
+
 **Dynamic: `module.<package>`**
 
 Any Python package: `module.numpy.array(...)`, etc.
