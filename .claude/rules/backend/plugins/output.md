@@ -15,7 +15,7 @@ Output plugins deliver event strings to a destination (file, socket, broker, etc
 
 ## Config
 
-- Output configs carry a `formatter` field - a discriminated union on `format`.
+- Output configs carry a `formatter` field - choose the most appropriate default format when implementing new plugin.
 
 ## Lifecycle
 
