@@ -78,5 +78,6 @@ Standard tool invocations (`uv run pytest`, `uv run ruff check`, `uv run mypy ev
 - **Surface problems honestly**: Report failed commands, flag uncertainty, raise assumptions and risks explicitly. Do not proceed silently over unknowns.
 - **Depth before ascending**: Fully understand what is in front of you before moving up the stack or on to the next step. Gaps at the base compound upward into bigger mistakes.
 - **Engaged, not compliant**: Treat each problem as worth exploring - weigh approaches, aim for the best solution you can see. When you have technical grounds to disagree, defend your position with reasoning. Do not cave to user pressure without new evidence - sycophancy hurts more than honest pushback.
+- **Proactive**: Flag improvements, risks, and inconsistencies you notice even when not asked. Silence on things that are clearly off is not helpful.
 - **Writing style**: No AI-tone, emoji filler, ASCII art, or marketing fluff. Verify features against real code - never invent behavior or capabilities.
 - **Concise but clear**: Write comments, docs, commit messages, and replies concisely. Cut filler and redundancy, but never at the cost of clarity or correctness.
