@@ -25,8 +25,6 @@ Nine phases in order. Phases 4 and 5 can send work back when issues surface. Pha
 
 ### 1. Research
 
-Build a complete picture of the data source.
-
 Primary sources:
 - Elastic integration `sample_event.json` + `fields.yml` per data stream - ground truth for output structure. Save `sample_event.json` for the coverage check in phase 4.
 - Vendor documentation: event ID catalogs, log format specs, real-world frequency distributions between event types.
@@ -36,7 +34,7 @@ Exit criterion: field map (path, source, generation strategy) targeting ≥90% c
 
 ### 2. Plan
 
-Turn research into an architecture. Pick from the options defined in `.claude/rules/content/templates.md` and `.claude/rules/content/generators.md`; every choice must tie back to a phase 1 fact.
+Architecture options - in `.claude/rules/content/templates.md` and `.claude/rules/content/generators.md`.
 
 - **Picking mode** - which template-plugin mode fits the pipeline shape of the source.
 - **Input plugin** - `cron` or `timer` for a steady rate (content-pack convention).
@@ -50,7 +48,7 @@ Exit criterion: every architectural choice traceable to a phase 1 fact.
 
 ### 3. Build
 
-Produce a runnable generator under `../content-packs/generators/<name>/` following all conventions in `.claude/rules/content/generators.md` and `.claude/rules/content/templates.md`.
+Generator path: `../content-packs/generators/<name>/`. Conventions: `.claude/rules/content/generators.md` and `.claude/rules/content/templates.md`.
 
 Needed by later phases:
 - Reference `sample_event.json` saved under `generators/<name>/reference/` (used in phases 4 and 6).
@@ -86,7 +84,7 @@ Any failure returns to phase 3 (Build), or to phase 2 (Plan) if the root cause i
 
 ### 5. Self-review
 
-Re-read the work with fresh eyes. Check it against every rule in `.claude/rules/content/templates.md` and `.claude/rules/content/generators.md`. Skill-specific failure modes to watch for:
+Check against every rule in `.claude/rules/content/templates.md` and `.claude/rules/content/generators.md`. Skill-specific failure modes:
 
 - Picking mode defaulted to `chance` on a source that is actually stateful, sequenced, or otherwise non-random.
 - Top-level `params` / `secrets` declared but missing from the README parameters table.
@@ -97,7 +95,7 @@ If anything triggers: return to phase 3, or to phase 2 if the issue is architect
 
 ### 6. Document
 
-Write the generator's README to the spec in `.claude/rules/content/generators.md`, section README. Match the tone and structure of existing READMEs in `../content-packs/generators/` for a consistent style across the catalog.
+Write the generator's README to the spec in `.claude/rules/content/generators.md`, section README. Match the tone and structure of existing READMEs in `../content-packs/generators/`.
 
 Two additions specific to this skill:
 - The Sample output event must be a real event copied from `output/events.json` before the cleanup step below. Not a hand-written sample.
@@ -125,7 +123,7 @@ Ask only: proceed to publish to the hub? Architecture was gated in phases 2 and 
 Add a hub page in `../docs/` following `.claude/rules/docs/hub.md`. Verify with `pnpm build`.
 
 Workflow:
-- In the docs repo, branch off `master` (not `develop`) and target the PR at `master`. Branching from `develop` would sweep unrelated work into the PR. This flow is independent of the eventum release cycle; once merged, the hub page is live immediately.
+- In the docs repo, branch off `master` (not `develop`) and target the PR at `master`. Branching from `develop` would sweep unrelated work into the PR. The flow is independent of the eventum release cycle.
 - Open the PR after `pnpm build` passes. Do not block phase 9 on merge; record the PR URL and continue.
 
 ### 9. Report
@@ -139,4 +137,4 @@ Final summary to the user:
 
 ## Notes
 
-**One generator at a time is the stable default.** Parallel runs are possible but phase 4 is resource-intensive (real eventum processes plus validation), and concurrent load has dropped agents in the past. Go sequential until parallel load is profiled.
+**One generator at a time.** Phase 4 is resource-intensive (real eventum processes plus validation); concurrent load has dropped agents previously. Sequential until parallel load is profiled.
