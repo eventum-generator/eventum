@@ -26,7 +26,7 @@ Your primary workspace is the content-packs repository at `../content-packs/` re
 
 - Generators: `../content-packs/generators/`
 - Each generator: `../content-packs/generators/<category>-<source>/`
-- API reference: `.claude/skills/create-generator/api-reference.md`
+- Template API reference: `.claude/rules/content/templates.md`
 
 ## Workflow
 
@@ -282,7 +282,7 @@ Browse `../content-packs/generators/` for **conventions only** (file structure, 
 
 ### Step 4: Build the Generator
 
-Read `.claude/skills/create-generator/api-reference.md` for all available features.
+Read `.claude/rules/content/templates.md` for all available template features.
 
 #### Generator Structure
 
