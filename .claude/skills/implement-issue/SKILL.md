@@ -1,111 +1,105 @@
 ---
 name: implement-issue
-description: Implement a GitHub issue end-to-end - orchestrate agents through plan, code, test, review, document, verify, close.
-user-invokable: true
-argument-hint: "#<issue-number>"
-context: fork
+description: Implement a GitHub issue end-to-end - understand, plan, branch, implement with tests, verify, review, document, finalize.
 ---
 
-## Current state
-- Issue details: !`gh issue view $ARGUMENTS --json title,body,labels,assignees`
-- Recent commits: !`git log --oneline -10`
-- Branch status: !`git status --short`
+## Input
 
-## Implement GitHub Issue
+- GitHub issue number in `eventum-generator/eventum`.
 
-Orchestrate the implementation of GitHub issue **$ARGUMENTS** by delegating to your team of agents.
+## Output
 
-### Phase 1: Understand
+- Feature branch with implementation, tests, and (when user-facing) docs and a changelog entry.
+- PR opened against `develop`.
 
-**TL directly**:
+## Reference
 
-1. Fetch the issue details: `gh issue view <number> --json title,body,labels,assignees,milestone,projectItems`
-2. Read the issue comments to understand intentions of participants.
+Rules under `.claude/rules/**` - consult the ones matching touched paths.
 
-**Delegate to researcher agent** (optional - use for complex issues or unfamiliar areas):
+## When to use
 
-- Explore the relevant parts of the codebase
-- Identify existing patterns, conventions, and where changes are needed
-- Report findings
+Any issue beyond a one-line typo or comment fix. A trivial edit can skip straight to a commit.
 
-### Phase 2: Design
+## Process
 
-**Delegate to architect agent** (skip for simple bug fixes):
+Eight steps. Step 2 requires user approval. Step 5 re-runs after fixes; step 6 sends work back to step 5. Side-improvements spotted along the way stay out of the diff (see Notes).
 
-- Design an implementation approach based on issue requirements and researcher findings
-- Identify all files that need to be created or modified
-- Consult the cross-cutting change checklist in CLAUDE.md
-- Produce 2-3 options with recommendation
+### 1. Understand
 
-**TL directly**: Present the plan to the user for approval before proceeding.
+Fetch the issue with comments:
 
-### Phase 3: Implement
-
-**Delegate to developer agent**:
-
-- Implement all code changes (Python backend + React/TS frontend if needed)
-- Follow the architect's design if one exists
-- Run ruff/mypy on own code before returning
-
-**Checkpoint**: Present the developer's changes to the user before proceeding.
-
-### Phase 4: Test
-
-**Delegate to qa-engineer agent**:
-
-- Write tests for all new functionality (co-located in `<package>/tests/test_<name>.py`)
-- Run full verification pipeline: pytest + ruff + mypy
-- Report results
-
-If QA reports failures: route findings to **developer** to fix, then re-run QA. Loop until all checks pass. If the loop does not converge after 3 cycles, stop and consult the user.
-
-### Phase 5: Code Review
-
-**Delegate to code-reviewer agent**:
-
-- Review ALL changes as a unit: implementation code + tests
-- If verdict is **FAIL**: route findings to **developer** and/or **qa-engineer** to fix, then re-review
-- Loop until **PASS**. If the loop does not converge after 3 cycles, stop and consult the user.
-
-This is a mandatory quality gate - do NOT skip it.
-
-### Phase 6: Documentation
-
-**Delegate to docs-writer agent** (if change affects user-facing behavior):
-
-- Update relevant docs in `../docs/content/docs/`
-- Add changelog entry to `CHANGELOG.md` under `## Unreleased`
-
-### Phase 7: Final Verification
-
-**Delegate to qa-engineer agent**:
-
-- Run the full pipeline: pytest + ruff + mypy
-- If docs were changed: `cd ../docs && pnpm build`
-- Report all-green status
-
-If any check fails: route to the responsible agent (**developer** for code, **docs-writer** for docs), fix, and re-verify. If the loop does not converge after 3 cycles, stop and consult the user.
-
-### Phase 8: Improvements
-
-**TL directly**:
-
-If non-trivial improvements were discovered during implementation, create GitHub issues:
 ```bash
-gh issue create --repo eventum-generator/eventum --title "<title>" --body "<problem + proposed solution>"
+gh issue view <n> --json title,body,labels,assignees,milestone,comments
 ```
-Check existing issues first to avoid duplicates.
 
-### Phase 9: Close
+Later comments often narrow or redirect the original ask - resolve what "done" means before planning. If the issue is ambiguous, stale, or blocked by an upstream decision, surface it to the user before step 2.
 
-**TL directly**:
+For unfamiliar areas, read the files the issue touches and the rules under `.claude/rules/**` that match those paths. Identify existing patterns before designing new ones.
 
-1. Ask user whether to close the issue.
-2. Comment on the issue with a summary of changes (what changed, which files, usage example).
-3. Close: `gh issue close <number> --reason completed`
+### 2. Plan
 
-### Important
+Plan depth matches issue complexity. A single-cause bug: name the cause and the minimal patch. A feature or cross-cutting change: list files to create or modify, call out design choices and trade-offs. Tie every decision to a fact from the issue or the code.
 
-- Do NOT commit or push unless the user explicitly asks. Use conventional commits: `feat(scope):`, `fix(scope):`, etc.
-- Track progress with the todo list throughout.
-- If blocked or uncertain, ask the user rather than guessing.
+Present the plan and wait for approval. Do not widen scope beyond what the issue defines.
+
+### 3. Branch
+
+Create the feature branch (git-flow convention, off `develop`):
+
+```bash
+git switch develop && git pull
+git switch -c feat/<short-slug>
+```
+
+Skip if already on a feature branch created for this issue.
+
+### 4. Implement
+
+Write code and tests together; every new control-flow branch and error path gets a test. Follow path-local rules under `.claude/rules/**` and the style. Keep the diff scoped to the issue.
+
+### 5. Verify
+
+```bash
+uv run ruff check .
+uv run ruff format --check .
+uv run mypy eventum/
+uv run pytest
+```
+
+If the UI changed:
+
+```bash
+cd eventum/ui && pnpm build
+```
+
+All green is required to advance. On failure, fix and re-run; if three cycles do not converge, stop and surface to the user.
+
+### 6. Review
+
+Review the full diff as a unit - implementation, tests, docs if present. Re-check rules and style. Typical gaps: scope creep, untested branches, violated plugin or API contracts, style drift. Fix findings, return to step 5, and advance only when the review is clean.
+
+### 7. Document
+
+Only when the change is user-facing. Skip for internal refactors, test-only changes, and build plumbing.
+
+- Update docs under `../docs/content/docs/` matching the touched area.
+- Add an entry to `CHANGELOG.md`. If `## Unreleased` is absent, create it above the latest version section; match the formatting of existing sections.
+
+Verify the docs site still builds:
+
+```bash
+cd ../docs && pnpm build
+```
+
+### 8. Finalize
+
+On user approval (commits and pushes require an explicit ask):
+
+1. Commit using conventional commits.
+2. Push the branch and open a PR targeting `develop` with referencing original issue in the body.
+3. Report the PR URL. User will close PR and issue manually.
+
+## Notes
+
+- Side-improvements spotted during implementation: keep a one-line list and offer to file them as follow-up issues after the PR is open. Do not expand the current diff.
+- Merge, tag, and release belong to the `release` skill. Not current.
