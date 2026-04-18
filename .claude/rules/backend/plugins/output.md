@@ -31,3 +31,11 @@ Output plugins deliver event strings to a destination (file, socket, broker, etc
 ## Async context
 
 - `_write` runs on the event loop. Offload CPU-bound work via `asyncio.to_thread` to keep the loop free.
+
+## Cross-cutting updates
+
+Adding a new formatter requires:
+
+- matching Zod schema under `ui/src/api/routes/generator-configs/schemas/`.
+- `FormatterParams.tsx` UI component.
+- entry in `../docs/content/docs/plugins/formatters.mdx`.

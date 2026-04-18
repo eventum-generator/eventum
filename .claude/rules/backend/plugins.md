@@ -43,3 +43,7 @@ eventum/plugins/<type>/plugins/<name>/
         test_plugin.py
         static/     # fixtures
 ```
+
+## Cross-cutting updates
+
+- Any user-facing change - new plugin or config field change - must be mirrored in the UI (Zod schema + form) and docs (MDX page). See `frontend/ui.md` "Plugin UI" and `docs/mdx.md` rules.

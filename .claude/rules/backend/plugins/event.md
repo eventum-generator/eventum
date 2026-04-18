@@ -20,3 +20,10 @@ Event plugins turn a timestamp into zero or more event strings. Pipeline executo
 - `PluginEventDroppedError` signals an intentional drop; the framework silently increments the dropped counter.
 - `PluginEventsExhaustedError` signals no more events are available; stops the pipeline stage.
 - `PluginProduceError` is the runtime-failure type - raise it for anything unexpected.
+
+## Cross-cutting updates
+
+Adding a new context variable or module function to the template plugin requires syncing:
+
+- `globals.ts` under `ui/src/pages/ProjectPage/common/EditorTab/FileEditor/completions/` - Jinja autocomplete.
+- `../docs/content/docs/plugins/event/template/` - user-facing docs.
