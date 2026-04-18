@@ -60,7 +60,7 @@ Standard tool invocations (`uv run pytest`, `uv run ruff check`, `uv run mypy ev
 
 ## Style
 
-- **Python style**: 79-character lines for code and 72-character lines for docstrings. ASCII only in code, comments, and docstrings.
+- **Python style**: 79-character lines for code and 72-character lines for docstrings - applies to `.py` files only. Do not hard-wrap prose in Markdown, MDX, YAML, or other formats; let the renderer/formatter handle those. ASCII only in Python code, comments, and docstrings.
 - **Python typing and docstrings**: Full types and complete docstrings on public interfaces. Internal one-liners are fine, unless the logic is non-trivial.
 - **Dashes**: Use a single hyphen `-` instead of em dash `—` in source code. The em dash `—` is allowed for MDX prose under `../docs/`.
 
