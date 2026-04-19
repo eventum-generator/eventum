@@ -1,83 +1,85 @@
 ---
 name: new-docs-page
-description: Create a new documentation page for the Eventum docs site - orchestrate agents through research, write, review, verify.
-user-invokable: true
-argument-hint: "<section>/<page-name> (e.g. plugins/input/kafka, core/secrets)"
-context: fork
+description: Create a new MDX documentation page for the Eventum docs site - research, plan, write, verify, review.
 ---
 
-## Current state
-- Existing docs: !`ls ../docs/content/docs/`
-- Recent doc commits: !`cd ../docs && git log --oneline -5`
+## Input
 
-## Create New Documentation Page
+- Topic of the page, e.g. `Kafka input plugin`, `Secrets`, `Upgrading from 1.x`.
+- Optional short description if the topic alone is ambiguous.
 
-Orchestrate the creation of a new MDX documentation page at **$ARGUMENTS** by delegating to your team of agents.
+## Output
 
-Parse the argument as the page location within `../docs/content/docs/` (e.g., `plugins/input/kafka` -> `../docs/content/docs/plugins/input/kafka.mdx`).
+- MDX page under `../docs/content/docs/` at a location chosen from the existing section layout.
+- Entry in the nearest `meta.json` so the page shows up in navigation.
+- Cross-references to and from related pages where they help.
+- Docs site builds green.
 
-### Phase 1: Research
+## Reference
 
-**Delegate to researcher agent**:
+- MDX authoring rules: `.claude/rules/docs/mdx.md`.
+- Sibling pages in the same section - for tone, depth, and section order.
 
-- Read existing pages in the same section to understand tone, structure, depth, formatting conventions
-- Read the feature code in `eventum/` to understand what's being documented (plugin config.py/plugin.py, core module, etc.)
-- Identify pages that should cross-reference the new page (and vice versa)
-- Report findings: tone, structure template, related pages, feature details
+## When to use
 
-### Phase 2: Plan
+Any new technical docs page under `../docs/content/docs/`.
 
-**TL directly**:
+Not for: blog posts (see `.claude/rules/docs/blog.md`), hub entries for generators (use the `create-generator` skill), release changelogs (use the `release` skill), API reference pages (auto-generated from OpenAPI).
 
-Based on researcher's findings, outline the page structure:
-- What sections will it have?
-- What examples will you include?
-- What parameters/configuration need documenting?
+## Process
 
-Present the outline to the user for approval before writing.
+Six steps. Step 2 requires user approval. Step 5 sends work back to step 3 when it finds issues; fixes re-enter step 4 before re-reviewing.
 
-### Phase 3: Write
+### 1. Research
 
-**Delegate to docs-writer agent**:
+Four inputs before writing:
 
-- Create the MDX page with proper frontmatter (title, description, icon)
-- Follow the structure from the plan
-- Add entry to the relevant `meta.json`
-- Add cross-references to/from related pages where helpful
-- Run `cd ../docs && pnpm build` to verify
+- Location - scan `../docs/content/docs/` and pick the section where the topic fits; propose a file name consistent with siblings.
+- Sibling pages in the chosen section - open a few to anchor tone, depth, and section order.
+- Feature source - the code or data being documented, typically under `eventum/` or `eventum/ui/`. Skip if the page is a purely conceptual guide with no single source.
+- Cross-references - target pages the new page should link to, and existing pages that should link back to it.
 
-**Checkpoint**: Present the written page to the user before proceeding to review.
+### 2. Plan
 
-### Phase 4: Review
+Outline: proposed location, section list, parameter table shape (if any), example count and variants, cross-reference targets. Match sibling pages for structure; deviate only with a reason tied to the content.
 
-**Delegate to code-reviewer agent**:
+Present the outline and wait for approval.
 
-- Review documentation quality: accuracy, structure, completeness, code examples
-- If verdict is **FAIL**: route findings to **docs-writer** to fix, then re-review
-- Loop until **PASS**. If the loop does not converge after 3 cycles, stop and consult the user.
+### 3. Write
 
-### Phase 5: Verify
+Create the MDX page following `.claude/rules/docs/mdx.md`:
 
-**Delegate to qa-engineer agent**:
+- Frontmatter with `title`, `description`, and an `icon` when the section uses them.
+- Sections from the plan, using Fumadocs components where they help.
+- Parameter table in the five-column convention when documenting config.
+- Cross-references to and from related pages.
+- End-user language - describe what the user sees and configures, not engine internals.
 
-- Run `cd ../docs && pnpm build`
-- Verify no broken links or build errors
-- Report status
+Add the page to the nearest `meta.json` - entries omitted from `pages` are hidden.
 
-If build fails: route to **docs-writer** to fix, then re-verify. If the loop does not converge after 3 cycles, stop and consult the user.
+### 4. Verify
 
-### Phase 6: Summary
+```bash
+cd ../docs && pnpm build
+```
 
-**TL directly**:
+Catches broken MDX, missing nav entries, broken links, and type errors. All green is required to advance.
 
-Present to the user:
-- Page created and its URL path
-- Cross-references added
-- Build status
+### 5. Review
 
-### Important
+Re-read the page against `.claude/rules/docs/mdx.md` and sibling pages. Typical gaps: engine jargon in prose, missing parameter rows, stale or contrived examples, orphaned cross-references.
 
-- Never edit files in `../docs/content/docs/api/` (auto-generated from OpenAPI spec).
-- Never edit `../docs/.source/` (auto-generated by fumadocs-mdx).
-- Match the quality and depth of existing pages - consistency matters.
-- Track progress with the todo list throughout.
+Fix findings, return to step 4, and advance only when the review is clean.
+
+### 6. Report
+
+Summary to the user:
+
+- Page path and URL: `/docs/<location>`.
+- Cross-references added.
+- `pnpm build` status.
+
+## Notes
+
+- Never edit `../docs/content/docs/api/` (auto-generated from OpenAPI) or `../docs/.source/` (auto-generated by fumadocs-mdx).
+- Match the quality and depth of sibling pages - consistency across the section matters more than novelty.

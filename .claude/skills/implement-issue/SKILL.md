@@ -82,14 +82,16 @@ Review the full diff as a unit - implementation, tests, docs if present. Re-chec
 
 Only when the change is user-facing. Skip for internal refactors, test-only changes, and build plumbing.
 
-- Update docs under `../docs/content/docs/` matching the touched area.
+- Update docs under `../docs/content/docs/` matching the touched area. When the feature has no existing page, delegate to the `new-docs-page` skill rather than drafting one inline.
 - Add an entry to `CHANGELOG.md`. If `## Unreleased` is absent, create it above the latest version section; match the formatting of existing sections.
 
-Verify the docs site still builds:
+After inline edits, verify the docs site still builds:
 
 ```bash
 cd ../docs && pnpm build
 ```
+
+Skip this check when the work was delegated to `new-docs-page` - that skill runs the build itself.
 
 ### 8. Finalize
 
