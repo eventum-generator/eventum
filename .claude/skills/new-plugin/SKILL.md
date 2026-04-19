@@ -1,122 +1,100 @@
 ---
 name: new-plugin
-description: Add a new input, event, or output plugin to Eventum - orchestrate agents through research, design, code, UI, review, docs.
-user-invokable: true
-argument-hint: "<type>/<name> (e.g. input/kafka, output/s3, event/jsonl)"
-context: fork
+description: Add a new input, event, or output plugin to Eventum - research, plan, branch, implement, verify, review, document, finalize.
 ---
 
-## Current state
-- Existing plugins: !`ls eventum/plugins/`
-- Recent commits: !`git log --oneline -5`
+## Input
 
-## Add New Plugin
+- Plugin type (`input`, `event`, or `output`) and plugin name, e.g. a Kafka input plugin.
+- Optional notes on the external technology (library, protocol, API) the plugin integrates with.
 
-Orchestrate the creation of a new Eventum plugin **$ARGUMENTS** by delegating to your team of agents.
+## Output
 
-Parse the argument as `<type>/<name>` where type is `input`, `event`, or `output`.
+- Feature branch with plugin code, tests, UI, docs page, and changelog entry.
+- PR opened against `develop`.
 
-### Phase 1: Research
+## Reference
 
-**Delegate to researcher agent**:
+- Plugin rules: `.claude/rules/backend/plugins.md` plus the type-specific file under `.claude/rules/backend/plugins/{input,event,output}.md`.
+- UI rules: `.claude/rules/frontend/ui.md`, section "Plugin UI".
+- Docs rules: `.claude/rules/docs/mdx.md`.
+- Sibling plugins of the same type under `eventum/plugins/<type>/plugins/` - for layout and tone only.
 
-- Study existing plugins of the same type: read base classes, config patterns, test structure
-- Research the external technology (library, protocol, API) the plugin will integrate with
-- Identify dependencies, authentication patterns, configuration options
-- Report findings with recommendations
+## When to use
 
-### Phase 2: Design
+Any new input, event, or output plugin.
 
-**Delegate to architect agent**:
+Not for: single-field additions to an existing plugin (handle inline); new formatters (separate checklist in `.claude/rules/backend/plugins/output.md`).
 
-- Design the plugin based on researcher's findings: config model, implementation approach, test strategy
-- Follow plugin conventions: Pydantic config (frozen, `extra='forbid'`), class extending base plugin
-- Plan the UI integration (Zod schema, form component)
-- Produce implementation plan with ordered steps
+## Process
 
-**TL directly**: Present the design to the user for approval. Ask whether to implement UI changes or skip for now.
+Eight steps. Step 2 requires user approval. Step 5 re-runs after fixes; step 6 sends work back to step 5. Step 8 waits on an explicit ask.
 
-### Phase 3: Implement
+### 1. Research
 
-**Delegate to developer agent**:
+Three inputs before planning:
 
-- Create plugin directory: `eventum/plugins/<type>/plugins/<name>/`
-  - `config.py` - Pydantic config model
-  - `plugin.py` - Plugin class extending the base
-  - `__init__.py` - Exports
-  - `tests/` - Test directory structure
-- If UI approved:
-  - Zod schema mirroring the Pydantic config
-  - UI form component
-  - Registry entries (union index, default config, plugin info)
-- Run ruff/mypy on own code before returning
+- One or two sibling plugins of the same type, read closely for class shape, config shape, and test structure.
+- The external technology - library choice, authentication, configuration options, error model.
+- The plugin rules and the type-specific rules file for the chosen type.
 
-**Checkpoint**: Present the developer's changes to the user before proceeding.
+### 2. Plan
 
-### Phase 4: Test
+The plan covers both surfaces:
 
-**Delegate to qa-engineer agent**:
+- **Python** - config model (fields, validation, defaults), plugin class responsibilities, tests, new dependencies.
+- **UI** - per `.claude/rules/frontend/ui.md`. Required by `.claude/rules/backend/plugins.md` and included by default; drop only on the user's explicit ask.
 
-- Write comprehensive tests in `eventum/plugins/<type>/plugins/<name>/tests/`
-- Test plugin functionality, config validation, edge cases, error paths
-- Run: `uv run pytest eventum/plugins/<type>/plugins/<name>/tests/ -v`
-- Run: `uv run ruff check` and `uv run mypy` on all changed files
-- Report results
+Tie each decision to a fact from research. Present the plan and wait for approval.
 
-If QA reports failures: route findings to **developer** to fix, then re-run QA. Loop until all checks pass. If the loop does not converge after 3 cycles, stop and consult the user.
+### 3. Branch
 
-### Phase 5: Code Review
+Create the feature branch (git-flow, off `develop`):
 
-**Delegate to code-reviewer agent**:
+```bash
+git switch develop && git pull
+git switch -c feat/<short-slug>
+```
 
-- Review ALL changes: Python plugin code + UI code (if any) + tests
-- If verdict is **FAIL**: route findings to **developer** and/or **qa-engineer** to fix, then re-review
-- Loop until **PASS**. If the loop does not converge after 3 cycles, stop and consult the user.
+### 4. Implement
 
-This is a mandatory quality gate - do NOT skip it.
+Write code and tests together; every new control-flow branch and error path gets a test. Follow `.claude/rules/backend/plugins.md` (plus the type-specific file) and `.claude/rules/frontend/ui.md`. Keep the diff scoped to the plan.
 
-### Phase 6: Documentation
+### 5. Verify
 
-**Delegate to docs-writer agent**:
+```bash
+uv run ruff check .
+uv run ruff format --check .
+uv run mypy eventum/
+uv run pytest
+cd eventum/ui && pnpm build
+```
 
-- Create MDX page at `../docs/content/docs/plugins/<type>/<name>.mdx`:
-  - Overview, configuration table, examples (basic + advanced), input/output example
-- Add entry to `../docs/content/docs/plugins/<type>/meta.json`
-- Add changelog entry to `CHANGELOG.md` under `## Unreleased` / `### New Features`
+All green is required to advance. On failure, fix and re-run; if three cycles do not converge, stop and surface to the user.
 
-### Phase 7: Update CLAUDE.md
+### 6. Review
 
-**Delegate to developer agent**:
+Review the full diff as a unit - Python, UI, and tests. Re-check the plugin and UI rules. Typical gaps: config field mismatch between Pydantic and Zod, untested error paths, violated plugin contract (wrong base class, wrong exception types).
 
-- Update `CLAUDE.md` (this repo): plugin tables, counts, new dependency if applicable
+Fix findings, return to step 5, and advance only when the review is clean.
 
-### Phase 8: Final Verification
+### 7. Document
 
-**Delegate to qa-engineer agent**:
+Three artifacts:
 
-- Run full pipeline:
-  ```bash
-  uv run pytest eventum/plugins/<type>/plugins/<name>/tests/ -v
-  uv run ruff check eventum/plugins/<type>/plugins/<name>/
-  uv run mypy eventum/plugins/<type>/plugins/<name>/
-  cd ../docs && pnpm build
-  ```
-- Report all-green status
+- MDX page under `../docs/content/docs/plugins/<type>/<name>.mdx`. Delegate to the `new-docs-page` skill rather than drafting inline; that skill runs the docs build.
+- Row in the overview table for the plugin's type at `../docs/content/docs/plugins/index.mdx`.
+- `CHANGELOG.md` entry. If `## Unreleased` is absent, create it above the latest version section; match the formatting of existing sections.
 
-If any check fails: route to the responsible agent (**developer** for code, **docs-writer** for docs), fix, and re-verify. If the loop does not converge after 3 cycles, stop and consult the user.
+### 8. Finalize
 
-### Phase 9: Summary
+On user approval (commits and pushes require an explicit ask):
 
-**TL directly**:
+1. Commit using conventional commits (scope: `plugins`).
+2. Push the branch and open a PR targeting `develop` linking the work in the body.
+3. Report the PR URL.
 
-Present to the user:
-- What was created (plugin code, UI, tests, docs)
-- File list with key changes
-- Verification results
+## Notes
 
-### Important
-
-- Do NOT commit or push unless the user explicitly asks.
-- Track progress with the todo list throughout.
-- If blocked or uncertain, ask the user rather than guessing.
-- Check CLAUDE.md cross-cutting change checklist for completeness.
+- Side-improvements spotted during implementation: keep a one-line list and offer to file them as follow-up issues after the PR is open. Do not expand the current diff.
+- Merge, tag, and release belong to the `release` skill.
