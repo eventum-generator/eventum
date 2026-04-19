@@ -1,129 +1,133 @@
 ---
 name: release
-description: Prepare and execute an Eventum release - orchestrate agents through changelog, version bump, verification, PR, tag.
-user-invokable: true
-argument-hint: "<version> (e.g. 2.0.3)"
-context: fork
+description: Prepare and execute an Eventum release - changelog, version bump, verification, PR, tag, GitHub release, announcement.
 ---
 
-## Current state
-- Current version: !`grep -m1 '__version__' eventum/__init__.py`
-- Unreleased changes: !`git log $(git describe --tags --abbrev=0)..HEAD --oneline`
-- Branch status: !`git status --short`
-- CI status: !`gh run list --limit 3`
+## Input
 
-## Release Eventum
+- Version number (e.g. `2.0.3`).
 
-Orchestrate the release for version **$ARGUMENTS** by delegating to your team of agents.
+## Output
 
-Parse the argument as the version number (e.g., `2.0.3`). If not provided, ask the user.
+- Two PRs merged by the user: `eventum` (`develop` -> `master`) and `../docs` (`release/<version>` -> `master`).
+- Tag `v<version>` on `eventum` `master`, pushed only after both PRs merge.
+- PyPI package and Docker Hub image (published by CI on tag push).
+- GitHub release with notes and a full changelog link.
+- Announcement discussion in the Announcements category.
 
-### Phase 1: Pre-flight Checks
+## Reference
 
-**TL directly**:
+- `CHANGELOG.md` - existing version sections set the formatting convention.
+- Last release tags and PRs - tone for release notes and announcement body.
 
-1. Verify we're on the `develop` branch with a clean working tree:
-   ```bash
-   git branch --show-current
-   git status --porcelain
-   ```
-2. Check the current version in `eventum/__init__.py`.
-3. Verify the tag `v<version>` doesn't already exist.
-4. Ask the user to confirm the version bump.
+## When to use
 
-### Phase 2: Changelog
+Cutting a new versioned release of `eventum` (PyPI package + Docker image).
 
-**Delegate to docs-writer agent**:
+Not for: docs-only updates, content-pack changes (independent flow under `../content-packs/`).
 
-1. Finalize `CHANGELOG.md`:
-   - If `## Unreleased` exists: rename to `## <version> (<date>)` (YYYY-MM-DD format)
-   - Cross-check with commits since last tag:
-     ```bash
-     git tag --list 'v*' --sort=-version:refname | head -5
-     git log <latest-tag>..HEAD --format='%H %s%n%b---'
-     ```
-   - Add any missing entries, clean up wording
-   - If `## Unreleased` doesn't exist: create version entry from git history
-2. Create docs changelog page at `../docs/content/docs/changelog/<version>.mdx`
-3. Update `../docs/content/docs/changelog/meta.json` with the new page
+## Process
 
-### Phase 3: Version Bump
+Seven steps. Steps 1, 5, and 7 are user checkpoints. Step 4 sends work back to step 2 or 3 on failure.
 
-**Delegate to developer agent**:
+### 1. Pre-flight
 
-1. Update `eventum/__init__.py`: `__version__ = '<version>'`
-2. Update CLAUDE.md files to reflect the new version
+Verify the release environment:
 
-### Phase 4: Verification
+- Branch is `develop` with a clean working tree.
+- Read the current `__version__` from `eventum/__init__.py`. Confirm the requested `<version>` is greater than it, and keep the current value as `<previous>` for step 7's full-changelog link.
+- Tag `v<version>` does not exist (`git tag --list 'v<version>'`).
 
-**Delegate to qa-engineer agent**:
+Confirm the version bump with the user before continuing.
 
-- Run the complete check suite:
-  ```bash
-  uv run ruff check .
-  uv run ruff format --check .
-  uv run mypy eventum/
-  uv run pytest
-  cd ../docs && pnpm build
-  ```
-- Report results
+### 2. Changelog
 
-If any check fails: route to the responsible agent (**developer** for code, **docs-writer** for docs), fix, and re-verify. If the loop does not converge after 3 cycles, stop and consult the user.
+Two artifacts across two repos, each in its own voice:
 
-### Phase 5: Present Summary
+- `eventum` on `develop` - rename `## Unreleased` in `CHANGELOG.md` to `## <version> (<date>)` in YYYY-MM-DD form. When no `Unreleased` section exists, build the section from `git log <latest-tag>..HEAD`. Always re-check the resulting list against `git log <latest-tag>..HEAD` even when an `Unreleased` section was already present - small fixes often land without a CHANGELOG entry. Fill gaps, polish wording. Technical voice, for developers.
+- `../docs` - new page at `content/docs/changelog/<version>.mdx`, registered in `content/docs/changelog/meta.json`. User-facing voice: describe what changed for the end user (not developer) - not a one-to-one copy of the CHANGELOG entry. Commits land on a dedicated branch in step 6.
 
-**TL directly**:
+### 3. Version bump
 
-Show the user a summary of all changes:
-- Version bump diff
-- Changelog entries (both files)
-- Full check results
-- What happens next (commit, push, PR, merge, tag)
+- `eventum/__init__.py`: `__version__ = '<version>'`.
 
-Ask the user to review before committing.
+### 4. Verify
 
-### Phase 6: Commit & PR (on user approval)
+```bash
+uv run ruff check .
+uv run ruff format --check .
+uv run mypy eventum/
+uv run pytest
+cd ../docs && pnpm build
+```
 
-**TL directly**:
+All green is required to advance. On failure, fix in step 2 or 3 and re-run; if three cycles do not converge, stop and surface to the user.
 
-1. Commit all changes: `chore: bump version to <version>`
-2. Push to `develop`.
-3. Create the release PR:
-   ```bash
-   gh pr create --base master --head develop --title "Release <version>" --body "..."
-   ```
-4. Report the PR URL.
+### 5. Approve
 
-### Phase 7: Tag (after PR merge)
+Show the user:
 
-**TL directly** (after user confirms PR was merged):
+- Version bump diff.
+- Changelog entries (CHANGELOG.md + docs MDX).
+- Verification results.
+- What happens next: commits, push, two PRs, user merges both, tag, GitHub release, announcement.
 
-1. Fetch and checkout `master`.
-2. Verify the version matches.
-3. Create annotated tag: `git tag -a v<version> -m "Release <version>"`
-4. Push the tag: `git push origin v<version>`
-5. Switch back to `develop`.
+Wait for explicit go-ahead before proceeding.
 
-The tag push triggers the CI release pipeline (PyPI + Docker Hub).
+### 6. Open PRs
 
-### Phase 8: GitHub Release
+Two PRs, both targeting `master`:
 
-**TL directly**:
+In `eventum`:
+
+```bash
+git add -A && git commit -m "chore: bump version to <version>"
+git push origin develop
+gh pr create --base master --head develop --title "Release <version>"
+```
+
+In `../docs` (branch off `master`):
+
+```bash
+git switch master && git pull
+git switch -c release/<version>
+git add -A && git commit -m "docs: changelog for <version>"
+git push -u origin release/<version>
+gh pr create --base master --head release/<version> --title "docs: changelog for <version>"
+```
+
+Report both PR URLs.
+
+### 7. Tag and publish
+
+After the user confirms both PRs were merged:
+
+1. In `eventum`: fetch and switch to `master`, verify the version bump landed.
+2. Annotated tag and push - CI pipeline takes over from here (PyPI + Docker Hub).
+3. Switch back to `develop`.
+4. Create the GitHub release with notes mirroring the docs changelog MDX, plus a full changelog link.
+5. Open an announcement discussion in the Announcements category.
+
+Tag:
+
+```bash
+git tag -a v<version> -m "Release <version>"
+git push origin v<version>
+```
+
+GitHub release:
 
 ```bash
 gh release create v<version> --title "Eventum <version>" --notes "..."
 ```
 
-Use the same content as the docs changelog MDX. Include a full changelog link:
+Full changelog link to append to the release notes:
+
 ```
-**Full Changelog**: https://github.com/eventum-generator/eventum/compare/v<previous-version>...v<version>
+**Full Changelog**: https://github.com/eventum-generator/eventum/compare/v<previous>...v<version>
 ```
 
-### Phase 9: Announcement Discussion
-
-**TL directly**:
-
-Create a discussion in the Announcements category via GraphQL:
+Announcement discussion (Announcements category ID `DIC_kwDOKpjxBc4CfS4C`):
 
 ```bash
 gh api graphql -f query='
@@ -139,25 +143,12 @@ mutation {
 }'
 ```
 
-- Get repo node ID: `gh api graphql -f query='{ repository(owner: "eventum-generator", name: "eventum") { id } }'`
-- Announcements category ID: `DIC_kwDOKpjxBc4CfS4C`
+Repo node ID is stable across releases - fetch once:
 
-### Phase 10: Promotion (Optional)
+```bash
+gh api graphql -f query='{ repository(owner: "eventum-generator", name: "eventum") { id } }'
+```
 
-**TL directly**:
+## Notes
 
-Ask the user: "Would you like to create additional promotional content for this release?"
-
-If yes, **delegate to content-growth agent**:
-
-- Draft blog post for the docs site (`../docs/content/blog/`)
-- Draft social media posts for relevant platforms (Reddit, Twitter/X, LinkedIn, Habr)
-- Suggest external platforms for cross-posting with reasoning
-
-Present drafts to the user for review and publishing.
-
-### Important
-
-- Each phase requires user confirmation before proceeding to the next.
-- Do NOT force-push or run destructive git operations.
-- Track progress with the todo list throughout.
+- Never force-push or run destructive git operations.
