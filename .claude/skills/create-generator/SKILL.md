@@ -39,6 +39,7 @@ Architecture options - in `.claude/rules/content/templates.md` and `.claude/rule
 - **Picking mode** - which template-plugin mode fits the pipeline shape of the source.
 - **Input plugin** - `cron` or `timer` for a steady rate (content-pack convention).
 - **State strategy** - where state is needed and at what scope.
+- **Source cardinality** - multi-source (many instances, per-instance correlations) vs single-source (one instance, per-flow correlations). Full rule: `generators.md`, section Source cardinality.
 - **Sample layout** - which fields come from static samples versus generated live.
 - **Template reuse** - whether event types overlap enough to share a template via `vars`.
 

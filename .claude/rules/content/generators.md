@@ -88,6 +88,15 @@ These defaults apply only to generators shipped within the `content-packs` repo.
 - 50-100 items per sample file is the usual scale (hosts, users, processes).
 - Use realistic-looking but clearly fake data: RFC 1918 IPs, generic company names (Contoso, Fabrikam), synthetic usernames. Never real PII.
 
+## Source cardinality
+
+How many instances of the data source emit events shapes the generator design:
+
+- **Multi-source** (workstation agents, auditd, sysmon, EDR, web access, fleet IoT) - pool of dozens of instances; correlations (user session, process tree, `event.sequence`) live per instance.
+- **Single-source** (firewall, DNS, LB, proxy, broker) - typically one instance; correlations (flow, session, src/dst pair) span traffic through that instance.
+
+Pick the shape from the real context. Mixing them is also ok.
+
 ## ECS fields
 
 Event-like outputs follow ECS. If an Elastic integration exists for the source (check [elastic/integrations](https://github.com/elastic/integrations)), mirror its `sample_event.json` exactly; otherwise infer a reasonable ECS shape. For non-event payloads (e.g. API responses with source-specific fields), keep the native format - don't force ECS onto data that doesn't fit it.
