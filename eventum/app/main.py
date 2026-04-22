@@ -29,6 +29,8 @@ class AppError(ContextualError):
 class App:
     """Main application."""
 
+    SERVER_SHUTDOWN_TIMEOUT = 10
+
     def __init__(
         self,
         settings: Settings,
@@ -344,17 +346,35 @@ class App:
                 port=self._settings.server.port,
                 access_log=True,
                 log_config=None,
+                timeout_graceful_shutdown=self.SERVER_SHUTDOWN_TIMEOUT,
                 **ssl_settings,  # type: ignore[arg-type]
             ),
         )
         self._server_thread.start()
 
     def _stop_server(self) -> None:
-        """Stop application server."""
+        """Stop application server.
+
+        Requests graceful shutdown. If the server does not stop within
+        the timeout window, forces exit so long-lived connections (e.g.
+        streaming WebSockets) cannot block termination indefinitely.
+        """
         if self._server is None:
             return
 
         self._server.should_exit = True
 
-        if self._server_thread.is_alive():
-            self._server_thread.join()
+        if not self._server_thread.is_alive():
+            return
+
+        self._server_thread.join(timeout=self.SERVER_SHUTDOWN_TIMEOUT)
+
+        if not self._server_thread.is_alive():
+            return
+
+        logger.warning(
+            'Server did not stop gracefully, forcing exit',
+            timeout=self.SERVER_SHUTDOWN_TIMEOUT,
+        )
+        self._server.force_exit = True
+        self._server_thread.join()
