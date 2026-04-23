@@ -1,14 +1,12 @@
-"""CRUD over the application's startup file.
+"""CRUD over the startup file.
 
-The startup file (located at `settings.path.startup`, shipped as
-`config/startup.yml`) lists the generators the app loads on boot:
-each entry is a `StartupGeneratorParameters` model (generator id,
-path to its config, autostart flag, generation overrides). This
-module is the single entry point for reading and mutating that list
-and is shared by `App.start()` and the HTTP API.
+The startup file (located at `settings.path.startup`) is a YAML list
+of `StartupGeneratorParameters` entries: per-generator id, path to
+its config, autostart flag, and overrides over the default
+generation parameters.
 
 Storage convention: generator paths are stored absolute. Inputs may
-carry relative paths; the module normalizes them against
+carry relative paths; they are normalized against
 `settings.path.generators_dir` before persistence.
 """
 
