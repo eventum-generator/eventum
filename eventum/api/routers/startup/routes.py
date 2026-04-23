@@ -12,7 +12,7 @@ from eventum.api.routers.startup.dependencies import (
     CheckIdInBodyMatchPathDep,
 )
 from eventum.api.utils.response_description import merge_responses
-from eventum.app.models.generators import (
+from eventum.app.models.startup import (
     StartupGeneratorParameters,
     StartupGeneratorParametersList,
 )
@@ -173,7 +173,7 @@ async def add_generator_to_startup(
     ),
 )
 async def update_generator_in_startup(
-    id: Annotated[str, CheckIdInBodyMatchPathDep],
+    id: Annotated[str, CheckIdInBodyMatchPathDep],  # noqa: ARG001
     params: Annotated[
         StartupGeneratorParameters,
         Body(description='Startup generator parameters'),
@@ -181,7 +181,7 @@ async def update_generator_in_startup(
     startup: StartupDep,
 ) -> None:
     try:
-        await asyncio.to_thread(startup.update, id, params)
+        await asyncio.to_thread(startup.update, params)
     except StartupNotFoundError as e:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,

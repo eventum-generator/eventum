@@ -8,8 +8,8 @@ import uvicorn
 
 from eventum.app.hooks import InstanceHooks
 from eventum.app.manager import GeneratorManager, ManagingError
-from eventum.app.models.generators import StartupGeneratorParametersList
 from eventum.app.models.settings import Settings
+from eventum.app.models.startup import StartupGeneratorParametersList
 from eventum.app.startup import Startup, StartupError
 from eventum.exceptions import ContextualError
 from eventum.security.manage import SECURITY_SETTINGS

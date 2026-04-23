@@ -1,15 +1,27 @@
-"""Operations over the application's startup file."""
+"""CRUD over the application's startup file.
+
+The startup file (located at `settings.path.startup`, shipped as
+`config/startup.yml`) lists the generators the app loads on boot:
+each entry is a `StartupGeneratorParameters` model (generator id,
+path to its config, autostart flag, generation overrides). This
+module is the single entry point for reading and mutating that list
+and is shared by `App.start()` and the HTTP API.
+
+Storage convention: generator paths are stored absolute. Inputs may
+carry relative paths; the module normalizes them against
+`settings.path.generators_dir` before persistence.
+"""
 
 from collections.abc import Iterable
 
 import yaml
 from pydantic import ValidationError
 
-from eventum.app.models.generators import (
+from eventum.app.models.settings import Settings
+from eventum.app.models.startup import (
     StartupGeneratorParameters,
     StartupGeneratorParametersList,
 )
-from eventum.app.models.settings import Settings
 from eventum.exceptions import ContextualError
 from eventum.utils.validation_prettier import prettify_validation_errors
 
@@ -38,8 +50,8 @@ class Startup:
     """Entry point for CRUD over the startup file.
 
     All returned parameters have absolute paths (storage canonical
-    form). Inputs may carry relative paths - they are normalized
-    against `settings.path.generators_dir` before persistence.
+    form). Mutating methods validate the whole file before writing
+    and refuse to touch a currently-invalid file.
     """
 
     def __init__(self, settings: Settings) -> None:
@@ -74,8 +86,7 @@ class Startup:
             If the file content is malformed or does not validate.
 
         """
-        raw = self._read_raw()
-        return self._validate(raw)
+        return self._validate(self._read_raw())
 
     def get(self, id: str) -> StartupGeneratorParameters:
         """Read a single entry by id.
@@ -108,7 +119,7 @@ class Startup:
                 return params
 
         msg = 'Generator with this ID is not defined'
-        raise StartupNotFoundError(msg, context={'generator_id': id})
+        raise StartupNotFoundError(msg, context={'value': id})
 
     def add(self, params: StartupGeneratorParameters) -> None:
         """Append a new entry.
@@ -126,40 +137,31 @@ class Startup:
             If the file cannot be read or written.
 
         StartupFormatError
-            If existing file content is malformed or does not validate.
+            If the current file content is malformed or does not
+            validate.
 
         StartupConflictError
             If an entry with the same id already exists.
 
         """
-        raw = self._read_raw()
+        raw = self._read_and_validate()
 
-        for entry in raw:
-            if entry.get('id') == params.id:
-                msg = 'Generator with this ID is already defined'
-                raise StartupConflictError(
-                    msg,
-                    context={'generator_id': params.id},
-                )
+        if self._find_index_or_none(raw, params.id) is not None:
+            msg = 'Generator with this ID is already defined'
+            raise StartupConflictError(msg, context={'value': params.id})
 
         raw.append(self._dump_entry(params))
         self._write_raw(raw)
 
-    def update(
-        self,
-        id: str,
-        params: StartupGeneratorParameters,
-    ) -> None:
+    def update(self, params: StartupGeneratorParameters) -> None:
         """Replace an existing entry.
 
-        Other entries are preserved byte-identically (their unset
-        fields stay unset, key order is preserved).
+        The entry identified by `params.id` is replaced. Other entries
+        are preserved byte-identically (their unset fields stay unset,
+        key order preserved).
 
         Parameters
         ----------
-        id : str
-            Id of the entry to replace.
-
         params : StartupGeneratorParameters
             New entry value. Path may be relative or absolute; it is
             normalized to absolute against
@@ -171,15 +173,15 @@ class Startup:
             If the file cannot be read or written.
 
         StartupFormatError
-            If existing file content is malformed or does not validate.
+            If the current file content is malformed or does not
+            validate.
 
         StartupNotFoundError
-            If no entry with the provided id exists.
+            If no entry with `params.id` exists.
 
         """
-        raw = self._read_raw()
-        index = self._find_index(raw, id)
-        raw[index] = self._dump_entry(params)
+        raw = self._read_and_validate()
+        raw[self._find_index(raw, params.id)] = self._dump_entry(params)
         self._write_raw(raw)
 
     def delete(self, id: str) -> None:
@@ -196,15 +198,15 @@ class Startup:
             If the file cannot be read or written.
 
         StartupFormatError
-            If existing file content is malformed or does not validate.
+            If the current file content is malformed or does not
+            validate.
 
         StartupNotFoundError
             If no entry with the provided id exists.
 
         """
-        raw = self._read_raw()
-        index = self._find_index(raw, id)
-        del raw[index]
+        raw = self._read_and_validate()
+        del raw[self._find_index(raw, id)]
         self._write_raw(raw)
 
     def bulk_delete(self, ids: Iterable[str]) -> list[str]:
@@ -228,23 +230,29 @@ class Startup:
             If the file cannot be read or written.
 
         StartupFormatError
-            If existing file content is malformed or does not validate.
+            If the current file content is malformed or does not
+            validate.
 
         """
-        raw = self._read_raw()
+        raw = self._read_and_validate()
         targets = set(ids)
 
         deleted: list[str] = []
         remaining: list[dict] = []
         for entry in raw:
-            entry_id = entry.get('id')
-            if entry_id in targets:
-                deleted.append(entry_id)
+            if entry['id'] in targets:
+                deleted.append(entry['id'])
             else:
                 remaining.append(entry)
 
         self._write_raw(remaining)
         return deleted
+
+    def _read_and_validate(self) -> list[dict]:
+        """Read raw content and raise if it fails validation."""
+        raw = self._read_raw()
+        self._validate(raw)
+        return raw
 
     def _read_raw(self) -> list[dict]:
         """Read and parse the startup file into a list of dicts."""
@@ -280,9 +288,7 @@ class Startup:
             msg = 'Startup file content is not a list'
             raise StartupFormatError(
                 msg,
-                context={
-                    'file_path': str(self._settings.path.startup),
-                },
+                context={'file_path': str(self._settings.path.startup)},
             )
 
         return parsed
@@ -325,20 +331,28 @@ class Startup:
                 },
             ) from None
 
-        normalized = tuple(
-            params.as_absolute(base_dir=self._settings.path.generators_dir)
-            for params in params_list.root
+        return StartupGeneratorParametersList(
+            root=tuple(
+                params.as_absolute(base_dir=self._settings.path.generators_dir)
+                for params in params_list.root
+            ),
         )
-        return StartupGeneratorParametersList(root=normalized)
+
+    @staticmethod
+    def _find_index_or_none(raw: list[dict], id: str) -> int | None:
+        """Return index of entry with matching id, or None."""
+        for i, entry in enumerate(raw):
+            if entry['id'] == id:
+                return i
+        return None
 
     def _find_index(self, raw: list[dict], id: str) -> int:
-        """Find the index of an entry by id."""
-        for i, entry in enumerate(raw):
-            if entry.get('id') == id:
-                return i
-
-        msg = 'Generator with this ID is not defined'
-        raise StartupNotFoundError(msg, context={'generator_id': id})
+        """Return index of entry with matching id, raise if absent."""
+        index = self._find_index_or_none(raw, id)
+        if index is None:
+            msg = 'Generator with this ID is not defined'
+            raise StartupNotFoundError(msg, context={'value': id})
+        return index
 
     def _dump_entry(self, params: StartupGeneratorParameters) -> dict:
         """Serialize params to a dict with 'id' as the first key."""
@@ -346,8 +360,4 @@ class Startup:
             base_dir=self._settings.path.generators_dir,
         )
         data = absolute.model_dump(mode='json', exclude_unset=True)
-
-        if 'id' in data:
-            data = {'id': data.pop('id'), **data}
-
-        return data
+        return {'id': data.pop('id'), **data}

@@ -5,11 +5,11 @@ from pathlib import Path
 import pytest
 import yaml
 
-from eventum.app.models.generators import StartupGeneratorParameters
 from eventum.app.models.parameters.log import LogParameters
 from eventum.app.models.parameters.path import PathParameters
 from eventum.app.models.parameters.server import ServerParameters
 from eventum.app.models.settings import Settings
+from eventum.app.models.startup import StartupGeneratorParameters
 from eventum.app.startup import (
     Startup,
     StartupConflictError,
@@ -191,7 +191,7 @@ def test_get_raises_not_found_for_unknown_id(
     with pytest.raises(StartupNotFoundError) as exc:
         startup.get('missing')
 
-    assert exc.value.context['generator_id'] == 'missing'  # noqa: S101
+    assert exc.value.context['value'] == 'missing'  # noqa: S101
 
 
 def test_add_appends_entry_with_id_first(
@@ -245,7 +245,7 @@ def test_add_raises_conflict_on_duplicate_id(
     with pytest.raises(StartupConflictError) as exc:
         startup.add(new)
 
-    assert exc.value.context['generator_id'] == 'gen-1'  # noqa: S101
+    assert exc.value.context['value'] == 'gen-1'  # noqa: S101
 
 
 def test_update_replaces_entry_and_preserves_other_entries(
@@ -266,7 +266,7 @@ def test_update_replaces_entry_and_preserves_other_entries(
         id='gen-1',
         path=Path('gen-1/new.yml'),
     )
-    startup.update('gen-1', updated)
+    startup.update(updated)
 
     dumped = yaml.safe_load(_read_startup(settings))
     assert dumped[0]['id'] == 'gen-1'  # noqa: S101
@@ -290,7 +290,7 @@ def test_update_raises_not_found_for_unknown_id(
         path=Path('missing/generator.yml'),
     )
     with pytest.raises(StartupNotFoundError):
-        startup.update('missing', params)
+        startup.update(params)
 
 
 def test_delete_removes_entry(
@@ -355,3 +355,35 @@ def test_bulk_delete_empty_input_is_noop(
     dumped = yaml.safe_load(_read_startup(settings))
     assert len(dumped) == 1  # noqa: S101
     assert dumped[0]['id'] == 'gen-1'  # noqa: S101
+
+
+def test_mutations_refuse_to_touch_invalid_file(
+    startup: Startup,
+    settings: Settings,
+) -> None:
+    """Mutations raise StartupFormatError if the file is invalid,
+    instead of silently propagating corrupt state.
+    """
+    # Missing required `id` in the second entry makes the file invalid.
+    _write_startup(
+        settings,
+        '- id: gen-1\n  path: gen-1/generator.yml\n'
+        '- path: gen-2/generator.yml\n',
+    )
+
+    new = StartupGeneratorParameters(
+        id='gen-3',
+        path=Path('gen-3/generator.yml'),
+    )
+
+    with pytest.raises(StartupFormatError):
+        startup.add(new)
+
+    with pytest.raises(StartupFormatError):
+        startup.update(new)
+
+    with pytest.raises(StartupFormatError):
+        startup.delete('gen-1')
+
+    with pytest.raises(StartupFormatError):
+        startup.bulk_delete(['gen-1'])

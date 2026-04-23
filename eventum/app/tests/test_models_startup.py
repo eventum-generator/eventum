@@ -5,7 +5,7 @@ from pathlib import Path
 import pytest
 from pydantic import ValidationError
 
-from eventum.app.models.generators import (
+from eventum.app.models.startup import (
     StartupGeneratorParameters,
     StartupGeneratorParametersList,
 )

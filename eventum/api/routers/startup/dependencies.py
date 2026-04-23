@@ -13,7 +13,7 @@ from eventum.api.utils.response_description import (
     merge_responses,
     set_responses,
 )
-from eventum.app.models.generators import (
+from eventum.app.models.startup import (
     StartupGeneratorParameters,
     StartupGeneratorParametersList,
 )
