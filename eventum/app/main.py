@@ -5,19 +5,14 @@ from threading import Thread
 
 import structlog
 import uvicorn
-import yaml
-from pydantic import ValidationError, validate_call
 
 from eventum.app.hooks import InstanceHooks
 from eventum.app.manager import GeneratorManager, ManagingError
-from eventum.app.models.generators import (
-    StartupGeneratorParameters,
-    StartupGeneratorParametersList,
-)
+from eventum.app.models.generators import StartupGeneratorParametersList
 from eventum.app.models.settings import Settings
+from eventum.app.startup import Startup, StartupError
 from eventum.exceptions import ContextualError
 from eventum.security.manage import SECURITY_SETTINGS
-from eventum.utils.validation_prettier import prettify_validation_errors
 
 logger = structlog.stdlib.get_logger()
 
@@ -60,6 +55,7 @@ class App:
         )
 
         self._manager = GeneratorManager()
+        self._startup = Startup(settings=settings)
 
         self._server: uvicorn.Server | None = None
         self._server_thread = Thread(target=self._run_server, name='server')
@@ -107,79 +103,24 @@ class App:
         logger.info('Stopping generators')
         self._stop_generators()
 
-    @validate_call
-    def _validate_generators_params(
-        self,
-        object: list[dict],
-    ) -> StartupGeneratorParametersList:
-        """Validate list of startup generator params.
-
-        Parameters
-        ----------
-        object : list[dict]
-            List with startup parameters of generators.
-
-        Returns
-        -------
-        StartupGeneratorParametersList
-            Validated list of startup generator parameters applied
-            above generation parameters from settings.
-
-        Raises
-        ------
-        ValidationError
-            If validation of provided object fails.
-
-        """
-        generators_parameters = (
-            StartupGeneratorParametersList.build_over_generation_parameters(
-                object=object,
-                generation_parameters=self._settings.generation,
-            )
-        )
-
-        logger.debug(
-            'Next base generation parameters will be used for generators',
-            parameters=self._settings.generation.model_dump(mode='json'),
-        )
-
-        normalized_params_list: list[StartupGeneratorParameters] = []
-        for params in generators_parameters.root:
-            normalized_params = params.as_absolute(
-                base_dir=self._settings.path.generators_dir,
-            )
-            normalized_params_list.append(normalized_params)
-
-            if not normalized_params.path.is_relative_to(
-                self._settings.path.generators_dir,
-            ):
-                logger.warning(
-                    'Generator is outside the configured generators '
-                    'directory. Consider moving it into specified directory '
-                    'so it can be observed by the API service.',
-                    generator_id=normalized_params.id,
-                    path=str(self._settings.path.generators_dir),
-                )
-
-        return StartupGeneratorParametersList(
-            root=tuple(normalized_params_list),
-        )
-
     def _load_startup_generators_params(
         self,
     ) -> StartupGeneratorParametersList:
-        """Load params of generators from the startup file specified in
-        config.
+        """Load params of generators from the startup file.
+
+        Warns for entries whose path is outside the configured
+        generators directory, since such generators cannot be observed
+        by the API service.
 
         Returns
         -------
         StartupGeneratorParametersList
-            List of startup generator params.
+            List of startup generator params with absolute paths.
 
         Raises
         ------
         AppError
-            If error occurs during loading generators list.
+            If the startup file cannot be loaded or validated.
 
         """
         logger.debug(
@@ -187,40 +128,28 @@ class App:
             file_path=str(self._settings.path.startup),
         )
         try:
-            with self._settings.path.startup.open() as f:
-                content = f.read()
-        except OSError as e:
-            msg = 'Failed to read generators list from startup file'
-            raise AppError(
-                msg,
-                context={
-                    'file_path': str(self._settings.path.startup),
-                    'reason': str(e),
-                },
-            ) from None
+            params_list = self._startup.get_all()
+        except StartupError as e:
+            raise AppError(str(e), context=e.context) from e
 
-        logger.debug('Parsing yaml content of generators list')
-        try:
-            obj = yaml.load(content, Loader=yaml.SafeLoader)
-        except yaml.error.YAMLError as e:
-            msg = 'Failed to parse generators list'
-            raise AppError(
-                msg,
-                context={
-                    'file_path': str(self._settings.path.startup),
-                    'reason': str(e),
-                },
-            ) from None
+        logger.debug(
+            'Next base generation parameters will be used for generators',
+            parameters=self._settings.generation.model_dump(mode='json'),
+        )
 
-        logger.debug('Validating generators list')
-        try:
-            return self._validate_generators_params(obj)
-        except ValidationError as e:
-            msg = 'Invalid structure of generators list'
-            raise AppError(
-                msg,
-                context={'reason': prettify_validation_errors(e.errors())},
-            ) from None
+        for params in params_list.root:
+            if not params.path.is_relative_to(
+                self._settings.path.generators_dir,
+            ):
+                logger.warning(
+                    'Generator is outside the configured generators '
+                    'directory. Consider moving it into specified directory '
+                    'so it can be observed by the API service.',
+                    generator_id=params.id,
+                    path=str(self._settings.path.generators_dir),
+                )
+
+        return params_list
 
     def _start_generators(
         self,

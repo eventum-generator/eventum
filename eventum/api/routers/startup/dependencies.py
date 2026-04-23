@@ -31,7 +31,11 @@ type StartupGeneratorParametersListRaw = list[dict]
 async def get_startup_generator_parameters_list(
     settings: SettingsDep,
 ) -> tuple[StartupGeneratorParametersList, StartupGeneratorParametersListRaw]:
-    """Get startup generator parameters.
+    """Get startup generator parameters (for scenarios router).
+
+    Kept as a transitional helper for the scenarios router until that
+    router is migrated to its own entry point. New code should use
+    `StartupDep` from `eventum.api.dependencies.app`.
 
     Parameters
     ----------
@@ -73,14 +77,14 @@ async def get_startup_generator_parameters_list(
         ) from None
 
     try:
-        return await asyncio.to_thread(
+        params_list = await asyncio.to_thread(
             lambda: (
                 StartupGeneratorParametersList.build_over_generation_parameters(
                     object=parsed_object,
                     generation_parameters=settings.generation,
                 )
             ),
-        ), parsed_object
+        )
     except ValidationError as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -89,95 +93,12 @@ async def get_startup_generator_parameters_list(
                 f'{prettify_validation_errors(e.errors())}'
             ),
         ) from None
+    return params_list, parsed_object
 
 
 StartupGeneratorsParametersListDep = Annotated[
     tuple[StartupGeneratorParametersList, StartupGeneratorParametersListRaw],
     Depends(get_startup_generator_parameters_list),
-]
-
-
-@set_responses({404: {'description': 'Generator with this ID is not defined'}})
-async def get_target_startup_params_index(
-    id: Annotated[str, Path(description='ID of the generator', min_length=1)],
-    generators_parameters: StartupGeneratorsParametersListDep,
-) -> int:
-    """Get target startup params index.
-
-    Parameters
-    ----------
-    id : Annotated[str, Path]
-        ID of the generator.
-
-    generators_parameters : StartupGeneratorsParametersListDep
-        Startup generator parameters list dependency.
-
-    Returns
-    -------
-    int
-        Index of the target parameters that match provided ID.
-
-    Raises
-    ------
-    HTTPException
-        If generator with this ID is not defined.
-
-    """
-    generators_parameters_model, _ = generators_parameters
-    for i, startup_params in enumerate(generators_parameters_model.root):
-        if id == startup_params.id:
-            return i
-
-    raise HTTPException(
-        status_code=status.HTTP_404_NOT_FOUND,
-        detail='Generator with this ID is not defined',
-    )
-
-
-TargetStartupParamsIndexDep = Annotated[
-    int,
-    Depends(get_target_startup_params_index),
-]
-
-
-@set_responses({})
-async def get_target_startup_params_indexes(
-    ids: Annotated[
-        list[str],
-        Body(description='IDs of the generators', min_length=1),
-    ],
-    generators_parameters: StartupGeneratorsParametersListDep,
-) -> set[int]:
-    """Get target startup params indexes.
-
-    Parameters
-    ----------
-    ids : Annotated[list[str], Body]
-        IDs of the generators.
-
-    generators_parameters : StartupGeneratorsParametersListDep
-        Startup generator parameters list dependency.
-
-    Returns
-    -------
-    set[int]
-        Indexes of the target parameters that match provided IDs.
-
-    """
-    generators_parameters_model, _ = generators_parameters
-    indexes: set[int] = set()
-    ids_set = set(ids)
-
-    for i, startup_params in enumerate(generators_parameters_model.root):
-        if startup_params.id in ids_set:
-            indexes.add(i)
-
-    return indexes
-
-
-TargetStartupParamsIndexesDep = Annotated[
-    set[int],
-    Depends(get_target_startup_params_indexes),
 ]
 
 

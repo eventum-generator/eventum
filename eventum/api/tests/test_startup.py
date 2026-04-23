@@ -1,10 +1,7 @@
 """Tests for startup API router."""
 
-from pathlib import Path
-
-import yaml
-
 import pytest
+import yaml
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
@@ -16,10 +13,11 @@ from eventum.app.models.parameters.server import (
     ServerParameters,
 )
 from eventum.app.models.settings import Settings
+from eventum.app.startup import Startup
 from eventum.core.parameters import GenerationParameters
 
 
-@pytest.fixture()
+@pytest.fixture
 def tmp_settings(tmp_path):
     generators_dir = tmp_path / 'generators'
     generators_dir.mkdir()
@@ -41,10 +39,11 @@ def tmp_settings(tmp_path):
     )
 
 
-@pytest.fixture()
+@pytest.fixture
 def client(tmp_settings):
     app = FastAPI()
     app.state.settings = tmp_settings
+    app.state.startup = Startup(settings=tmp_settings)
     app.include_router(router, prefix='/startup')
     with TestClient(app) as c:
         yield c

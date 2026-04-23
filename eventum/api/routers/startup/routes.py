@@ -1,32 +1,57 @@
 """Routes."""
 
 import asyncio
-from typing import Annotated
+from pathlib import Path
+from typing import Annotated, Any
 
-import aiofiles
-import yaml
 from fastapi import APIRouter, Body, HTTPException, status
+from fastapi import Path as PathParam
 
-from eventum.api.dependencies.app import SettingsDep
+from eventum.api.dependencies.app import SettingsDep, StartupDep
 from eventum.api.routers.startup.dependencies import (
     CheckIdInBodyMatchPathDep,
-    StartupGeneratorParametersListRaw,
-    StartupGeneratorsParametersListDep,
-    TargetStartupParamsIndexDep,
-    TargetStartupParamsIndexesDep,
-    check_id_in_body_match_path,
-    get_startup_generator_parameters_list,
-    get_target_startup_params_index,
-    get_target_startup_params_indexes,
 )
-from eventum.api.routers.startup.utils import move_key_to_first_position
 from eventum.api.utils.response_description import merge_responses
 from eventum.app.models.generators import (
     StartupGeneratorParameters,
     StartupGeneratorParametersList,
 )
+from eventum.app.startup import (
+    StartupConflictError,
+    StartupFileError,
+    StartupFormatError,
+    StartupNotFoundError,
+)
 
 router = APIRouter()
+
+
+_READ_RESPONSES: dict[int | str, dict[str, Any]] = {
+    500: {'description': 'Cannot read startup file due to OS error'},
+    422: {'description': 'Startup file content is malformed or invalid'},
+}
+
+_WRITE_RESPONSES: dict[int | str, dict[str, Any]] = {
+    500: {'description': 'Cannot write startup file due to OS error'},
+}
+
+_NOT_FOUND_RESPONSES: dict[int | str, dict[str, Any]] = {
+    404: {'description': 'Generator with this ID is not defined'},
+}
+
+
+def _relative_where_possible(
+    params_list: StartupGeneratorParametersList,
+    base_dir: Path,
+) -> StartupGeneratorParametersList:
+    """Convert entries to relative paths where possible."""
+    normalized: list[StartupGeneratorParameters] = []
+    for params in params_list.root:
+        try:
+            normalized.append(params.as_relative(base_dir=base_dir))
+        except ValueError:
+            normalized.append(params)
+    return StartupGeneratorParametersList(root=tuple(normalized))
 
 
 @router.get(
@@ -37,26 +62,29 @@ router = APIRouter()
         'Note that response also includes default parameters '
         'even if they are not set in the file.'
     ),
-    responses=get_startup_generator_parameters_list.responses,
+    responses=_READ_RESPONSES,
 )
 async def get_generators_in_startup(
-    generators_parameters: StartupGeneratorsParametersListDep,
+    startup: StartupDep,
     settings: SettingsDep,
 ) -> StartupGeneratorParametersList:
-    generators_parameters_model, _ = generators_parameters
+    try:
+        params_list = await asyncio.to_thread(startup.get_all)
+    except StartupFileError as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=str(e),
+        ) from None
+    except StartupFormatError as e:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            detail=str(e),
+        ) from None
 
-    normalized_params_list: list[StartupGeneratorParameters] = []
-    for params in generators_parameters_model.root:
-        try:
-            normalized_params = params.as_relative(
-                base_dir=settings.path.generators_dir,
-            )
-        except ValueError:
-            normalized_params = params
-
-        normalized_params_list.append(normalized_params)
-
-    return StartupGeneratorParametersList(root=tuple(normalized_params_list))
+    return _relative_where_possible(
+        params_list,
+        base_dir=settings.path.generators_dir,
+    )
 
 
 @router.get(
@@ -67,91 +95,71 @@ async def get_generators_in_startup(
         'Note that response also includes default parameters '
         'even if they are not set in the file.'
     ),
-    responses=merge_responses(
-        get_startup_generator_parameters_list.responses,
-        get_target_startup_params_index.responses,
-    ),
+    responses=merge_responses(_READ_RESPONSES, _NOT_FOUND_RESPONSES),
 )
 async def get_generator_from_startup(
-    generators_parameters: StartupGeneratorsParametersListDep,
-    target_index: TargetStartupParamsIndexDep,
+    id: Annotated[str, PathParam(description='Generator id', min_length=1)],
+    startup: StartupDep,
     settings: SettingsDep,
 ) -> StartupGeneratorParameters:
-    generators_parameters_model, _ = generators_parameters
-
-    target_params = generators_parameters_model.root[target_index]
     try:
-        return target_params.as_relative(base_dir=settings.path.generators_dir)
+        params = await asyncio.to_thread(startup.get, id)
+    except StartupNotFoundError as e:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=str(e),
+        ) from None
+    except StartupFileError as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=str(e),
+        ) from None
+    except StartupFormatError as e:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            detail=str(e),
+        ) from None
+
+    try:
+        return params.as_relative(base_dir=settings.path.generators_dir)
     except ValueError:
-        return target_params
+        return params
 
 
 @router.post(
     '/{id}',
     description='Add generator definition to list in the startup file',
     responses=merge_responses(
-        get_startup_generator_parameters_list.responses,
-        check_id_in_body_match_path.responses,
+        _READ_RESPONSES,
+        _WRITE_RESPONSES,
         {409: {'description': 'Generator with this ID is already defined'}},
-        {
-            500: {
-                'description': (
-                    'Cannot append updated content to startup file '
-                    'due to OS error'
-                ),
-            },
-        },
     ),
     status_code=status.HTTP_201_CREATED,
 )
 async def add_generator_to_startup(
-    id: Annotated[str, CheckIdInBodyMatchPathDep],
+    id: Annotated[str, CheckIdInBodyMatchPathDep],  # noqa: ARG001
     params: Annotated[
         StartupGeneratorParameters,
         Body(description='Generator parameters'),
     ],
-    generators_parameters: StartupGeneratorsParametersListDep,
-    settings: SettingsDep,
+    startup: StartupDep,
 ) -> None:
-    generators_parameters_model, generators_parameters_raw_content = (
-        generators_parameters
-    )
-
-    for startup_params in generators_parameters_model.root:
-        if id == startup_params.id:
-            raise HTTPException(
-                status_code=status.HTTP_409_CONFLICT,
-                detail=(
-                    'Generator with this ID is already defined '
-                    f'({startup_params.path})'
-                ),
-            )
-
-    new_content = await asyncio.to_thread(
-        lambda: yaml.dump(
-            [
-                *generators_parameters_raw_content,
-                move_key_to_first_position(
-                    params.as_absolute(
-                        base_dir=settings.path.generators_dir,
-                    ).model_dump(mode='json', exclude_unset=True),
-                    'id',
-                ),
-            ],
-            sort_keys=False,
-        ),
-    )
-
     try:
-        async with aiofiles.open(settings.path.startup, 'w') as f:
-            await f.write(new_content)
-    except OSError as e:
+        await asyncio.to_thread(startup.add, params)
+    except StartupConflictError as e:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=str(e),
+        ) from None
+    except StartupFileError as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=(
-                'Cannot append updated content to startup file '
-                f'due to OS error: {e}'
-            ),
+            detail=str(e),
+        ) from None
+    except StartupFormatError as e:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            detail=str(e),
         ) from None
 
 
@@ -159,50 +167,35 @@ async def add_generator_to_startup(
     '/{id}',
     description='Update generator definition in list in the startup file',
     responses=merge_responses(
-        get_startup_generator_parameters_list.responses,
-        get_target_startup_params_index.responses,
-        check_id_in_body_match_path.responses,
-        {
-            500: {
-                'description': ('Cannot modify startup file due to OS error'),
-            },
-        },
+        _READ_RESPONSES,
+        _WRITE_RESPONSES,
+        _NOT_FOUND_RESPONSES,
     ),
 )
 async def update_generator_in_startup(
-    id: Annotated[str, CheckIdInBodyMatchPathDep],  # noqa: ARG001
+    id: Annotated[str, CheckIdInBodyMatchPathDep],
     params: Annotated[
         StartupGeneratorParameters,
         Body(description='Startup generator parameters'),
     ],
-    target_index: TargetStartupParamsIndexDep,
-    generators_parameters: StartupGeneratorsParametersListDep,
-    settings: SettingsDep,
+    startup: StartupDep,
 ) -> None:
-    _, generators_parameters_raw_content = generators_parameters
-
-    generators_parameters_raw_content[target_index] = (
-        move_key_to_first_position(
-            params.as_absolute(
-                base_dir=settings.path.generators_dir,
-            ).model_dump(
-                mode='json',
-                exclude_unset=True,
-            ),
-            'id',
-        )
-    )
-    new_content = await asyncio.to_thread(
-        lambda: yaml.dump(generators_parameters_raw_content, sort_keys=False),
-    )
-
     try:
-        async with aiofiles.open(settings.path.startup, 'w') as f:
-            await f.write(new_content)
-    except OSError as e:
+        await asyncio.to_thread(startup.update, id, params)
+    except StartupNotFoundError as e:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=str(e),
+        ) from None
+    except StartupFileError as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f'Cannot modify startup file due to OS error: {e}',
+            detail=str(e),
+        ) from None
+    except StartupFormatError as e:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            detail=str(e),
         ) from None
 
 
@@ -210,34 +203,31 @@ async def update_generator_in_startup(
     '/{id}',
     description='Delete generator definition from list in the startup file',
     responses=merge_responses(
-        get_startup_generator_parameters_list.responses,
-        get_target_startup_params_index.responses,
-        {
-            500: {
-                'description': 'Cannot modify startup file due to OS error',
-            },
-        },
+        _READ_RESPONSES,
+        _WRITE_RESPONSES,
+        _NOT_FOUND_RESPONSES,
     ),
 )
 async def delete_generator_from_startup(
-    generators_parameters: StartupGeneratorsParametersListDep,
-    target_index: TargetStartupParamsIndexDep,
-    settings: SettingsDep,
+    id: Annotated[str, PathParam(description='Generator id', min_length=1)],
+    startup: StartupDep,
 ) -> None:
-    _, generators_parameters_raw_content = generators_parameters
-
-    del generators_parameters_raw_content[target_index]
-    new_content = await asyncio.to_thread(
-        lambda: yaml.dump(generators_parameters_raw_content, sort_keys=False),
-    )
-
     try:
-        async with aiofiles.open(settings.path.startup, 'w') as f:
-            await f.write(new_content)
-    except OSError as e:
+        await asyncio.to_thread(startup.delete, id)
+    except StartupNotFoundError as e:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=str(e),
+        ) from None
+    except StartupFileError as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f'Cannot modify startup file due to OS error: {e}',
+            detail=str(e),
+        ) from None
+    except StartupFormatError as e:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            detail=str(e),
         ) from None
 
 
@@ -248,43 +238,24 @@ async def delete_generator_from_startup(
         'startup file'
     ),
     response_description='IDs of deleted generator definitions',
-    responses=merge_responses(
-        get_startup_generator_parameters_list.responses,
-        get_target_startup_params_indexes.responses,
-        {
-            500: {
-                'description': 'Cannot modify startup file due to OS error',
-            },
-        },
-    ),
+    responses=merge_responses(_READ_RESPONSES, _WRITE_RESPONSES),
 )
 async def bulk_delete_generators_from_startup(
-    generators_parameters: StartupGeneratorsParametersListDep,
-    target_indexes: TargetStartupParamsIndexesDep,
-    settings: SettingsDep,
+    ids: Annotated[
+        list[str],
+        Body(description='IDs of the generators', min_length=1),
+    ],
+    startup: StartupDep,
 ) -> list[str]:
-    _, generators_parameters_raw_content = generators_parameters
-
-    deleted_ids: list[str] = []
-    new_raw_content: StartupGeneratorParametersListRaw = []
-
-    for index, params in enumerate(generators_parameters_raw_content):
-        if index in target_indexes:
-            deleted_ids.append(params['id'])
-        else:
-            new_raw_content.append(params)
-
-    new_content = await asyncio.to_thread(
-        lambda: yaml.dump(new_raw_content, sort_keys=False),
-    )
-
     try:
-        async with aiofiles.open(settings.path.startup, 'w') as f:
-            await f.write(new_content)
-    except OSError as e:
+        return await asyncio.to_thread(startup.bulk_delete, ids)
+    except StartupFileError as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f'Cannot modify startup file due to OS error: {e}',
+            detail=str(e),
         ) from None
-
-    return deleted_ids
+    except StartupFormatError as e:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            detail=str(e),
+        ) from None

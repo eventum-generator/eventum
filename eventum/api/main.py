@@ -30,6 +30,7 @@ from eventum.api.routers.startup import router as startup_router
 from eventum.app.hooks import InstanceHooks
 from eventum.app.manager import GeneratorManager
 from eventum.app.models.settings import Settings
+from eventum.app.startup import Startup
 
 logger = structlog.stdlib.get_logger()
 
@@ -88,6 +89,7 @@ def build_api_app(
     app.state.generator_manager = generator_manager
     app.state.settings = settings
     app.state.instance_hooks = instance_hooks
+    app.state.startup = Startup(settings=settings)
 
     logger.debug('Connecting routers')
     app.include_router(
