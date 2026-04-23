@@ -29,9 +29,10 @@ cd "$CLAUDE_PROJECT_DIR"
 # Diff base: merge-base with develop if available, otherwise HEAD
 diff_base=$(git merge-base HEAD develop 2>/dev/null || echo HEAD)
 
-# Collect modified Python files in the eventum package
-py_files=$( { git diff --name-only "$diff_base" 2>/dev/null; \
-              git diff --name-only --cached 2>/dev/null; } \
+# Collect modified Python files in the eventum package (skip deleted -
+# mypy would fail on paths that no longer exist)
+py_files=$( { git diff --name-only --diff-filter=d "$diff_base" 2>/dev/null; \
+              git diff --name-only --diff-filter=d --cached 2>/dev/null; } \
            | sort -u | grep -E '^eventum/.*\.py$' || true)
 
 if [[ -z "$py_files" ]]; then
