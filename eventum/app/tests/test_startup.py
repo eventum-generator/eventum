@@ -13,8 +13,7 @@ from eventum.app.models.startup import StartupGeneratorParameters
 from eventum.app.startup import (
     Startup,
     StartupConflictError,
-    StartupFileError,
-    StartupFormatError,
+    StartupError,
     StartupNotFoundError,
 )
 from eventum.core.parameters import GenerationParameters
@@ -119,8 +118,8 @@ def test_get_all_applies_generation_defaults(
 def test_get_all_raises_file_error_when_file_missing(
     startup: Startup,
 ) -> None:
-    """Missing startup file raises StartupFileError."""
-    with pytest.raises(StartupFileError) as exc:
+    """Missing startup file raises StartupError."""
+    with pytest.raises(StartupError) as exc:
         startup.get_all()
 
     assert 'file_path' in exc.value.context  # noqa: S101
@@ -131,10 +130,10 @@ def test_get_all_raises_format_error_on_invalid_yaml(
     startup: Startup,
     settings: Settings,
 ) -> None:
-    """Malformed YAML raises StartupFormatError."""
+    """Malformed YAML raises StartupError."""
     _write_startup(settings, '- id: gen-1\n  path: [unclosed')
 
-    with pytest.raises(StartupFormatError) as exc:
+    with pytest.raises(StartupError) as exc:
         startup.get_all()
 
     assert exc.value.context['file_path'] == str(settings.path.startup)  # noqa: S101
@@ -144,10 +143,10 @@ def test_get_all_raises_format_error_when_top_level_not_list(
     startup: Startup,
     settings: Settings,
 ) -> None:
-    """Top-level mapping instead of list raises StartupFormatError."""
+    """Top-level mapping instead of list raises StartupError."""
     _write_startup(settings, 'id: gen-1\npath: gen-1/generator.yml\n')
 
-    with pytest.raises(StartupFormatError):
+    with pytest.raises(StartupError):
         startup.get_all()
 
 
@@ -155,10 +154,10 @@ def test_get_all_raises_format_error_on_validation_failure(
     startup: Startup,
     settings: Settings,
 ) -> None:
-    """Missing required fields raise StartupFormatError."""
+    """Missing required fields raise StartupError."""
     _write_startup(settings, '- path: gen-1/generator.yml\n')
 
-    with pytest.raises(StartupFormatError) as exc:
+    with pytest.raises(StartupError) as exc:
         startup.get_all()
 
     assert 'reason' in exc.value.context  # noqa: S101
@@ -361,7 +360,7 @@ def test_mutations_refuse_to_touch_invalid_file(
     startup: Startup,
     settings: Settings,
 ) -> None:
-    """Mutations raise StartupFormatError if the file is invalid,
+    """Mutations raise StartupError if the file is invalid,
     instead of silently propagating corrupt state.
     """
     # Missing required `id` in the second entry makes the file invalid.
@@ -376,14 +375,14 @@ def test_mutations_refuse_to_touch_invalid_file(
         path=Path('gen-3/generator.yml'),
     )
 
-    with pytest.raises(StartupFormatError):
+    with pytest.raises(StartupError):
         startup.add(new)
 
-    with pytest.raises(StartupFormatError):
+    with pytest.raises(StartupError):
         startup.update(new)
 
-    with pytest.raises(StartupFormatError):
+    with pytest.raises(StartupError):
         startup.delete('gen-1')
 
-    with pytest.raises(StartupFormatError):
+    with pytest.raises(StartupError):
         startup.bulk_delete(['gen-1'])

@@ -25,15 +25,7 @@ from eventum.utils.validation_prettier import prettify_validation_errors
 
 
 class StartupError(ContextualError):
-    """Base error for startup file operations."""
-
-
-class StartupFileError(StartupError):
-    """Startup file cannot be read or written due to OS error."""
-
-
-class StartupFormatError(StartupError):
-    """Startup file content is malformed or does not validate."""
+    """Startup file cannot be read, parsed, or validated."""
 
 
 class StartupNotFoundError(StartupError):
@@ -77,11 +69,8 @@ class Startup:
 
         Raises
         ------
-        StartupFileError
-            If the file cannot be read.
-
-        StartupFormatError
-            If the file content is malformed or does not validate.
+        StartupError
+            If the file cannot be read, parsed, or validated.
 
         """
         return self._validate(self._read_raw())
@@ -102,11 +91,8 @@ class Startup:
 
         Raises
         ------
-        StartupFileError
-            If the file cannot be read.
-
-        StartupFormatError
-            If the file content is malformed or does not validate.
+        StartupError
+            If the file cannot be read, parsed, or validated.
 
         StartupNotFoundError
             If no entry with the provided id exists.
@@ -131,12 +117,8 @@ class Startup:
 
         Raises
         ------
-        StartupFileError
-            If the file cannot be read or written.
-
-        StartupFormatError
-            If the current file content is malformed or does not
-            validate.
+        StartupError
+            If the file cannot be read, parsed, validated, or written.
 
         StartupConflictError
             If an entry with the same id already exists.
@@ -167,12 +149,8 @@ class Startup:
 
         Raises
         ------
-        StartupFileError
-            If the file cannot be read or written.
-
-        StartupFormatError
-            If the current file content is malformed or does not
-            validate.
+        StartupError
+            If the file cannot be read, parsed, validated, or written.
 
         StartupNotFoundError
             If no entry with `params.id` exists.
@@ -192,12 +170,8 @@ class Startup:
 
         Raises
         ------
-        StartupFileError
-            If the file cannot be read or written.
-
-        StartupFormatError
-            If the current file content is malformed or does not
-            validate.
+        StartupError
+            If the file cannot be read, parsed, validated, or written.
 
         StartupNotFoundError
             If no entry with the provided id exists.
@@ -224,12 +198,8 @@ class Startup:
 
         Raises
         ------
-        StartupFileError
-            If the file cannot be read or written.
-
-        StartupFormatError
-            If the current file content is malformed or does not
-            validate.
+        StartupError
+            If the file cannot be read, parsed, validated, or written.
 
         """
         raw = self._read_and_validate()
@@ -259,7 +229,7 @@ class Startup:
                 content = f.read()
         except OSError as e:
             msg = 'Failed to read startup file'
-            raise StartupFileError(
+            raise StartupError(
                 msg,
                 context={
                     'file_path': str(self._settings.path.startup),
@@ -271,7 +241,7 @@ class Startup:
             parsed = yaml.load(content, Loader=yaml.SafeLoader)
         except yaml.error.YAMLError as e:
             msg = 'Failed to parse startup file'
-            raise StartupFormatError(
+            raise StartupError(
                 msg,
                 context={
                     'file_path': str(self._settings.path.startup),
@@ -284,7 +254,7 @@ class Startup:
 
         if not isinstance(parsed, list):
             msg = 'Startup file content is not a list'
-            raise StartupFormatError(
+            raise StartupError(
                 msg,
                 context={'file_path': str(self._settings.path.startup)},
             )
@@ -300,7 +270,7 @@ class Startup:
                 f.write(content)
         except OSError as e:
             msg = 'Failed to write startup file'
-            raise StartupFileError(
+            raise StartupError(
                 msg,
                 context={
                     'file_path': str(self._settings.path.startup),
@@ -321,7 +291,7 @@ class Startup:
             )
         except ValidationError as e:
             msg = 'Startup file content is invalid'
-            raise StartupFormatError(
+            raise StartupError(
                 msg,
                 context={
                     'file_path': str(self._settings.path.startup),

@@ -18,21 +18,19 @@ from eventum.app.models.startup import (
 )
 from eventum.app.startup import (
     StartupConflictError,
-    StartupFileError,
-    StartupFormatError,
+    StartupError,
     StartupNotFoundError,
 )
 
 router = APIRouter()
 
 
-_READ_RESPONSES: dict[int | str, dict[str, Any]] = {
-    500: {'description': 'Cannot read startup file due to OS error'},
-    422: {'description': 'Startup file content is malformed or invalid'},
-}
-
-_WRITE_RESPONSES: dict[int | str, dict[str, Any]] = {
-    500: {'description': 'Cannot write startup file due to OS error'},
+_STARTUP_ERROR_RESPONSES: dict[int | str, dict[str, Any]] = {
+    500: {
+        'description': (
+            'Startup file cannot be read, parsed, validated, or written'
+        ),
+    },
 }
 
 _NOT_FOUND_RESPONSES: dict[int | str, dict[str, Any]] = {
@@ -62,7 +60,7 @@ def _relative_where_possible(
         'Note that response also includes default parameters '
         'even if they are not set in the file.'
     ),
-    responses=_READ_RESPONSES,
+    responses=_STARTUP_ERROR_RESPONSES,
 )
 async def get_generators_in_startup(
     startup: StartupDep,
@@ -70,14 +68,9 @@ async def get_generators_in_startup(
 ) -> StartupGeneratorParametersList:
     try:
         params_list = await asyncio.to_thread(startup.get_all)
-    except StartupFileError as e:
+    except StartupError as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=str(e),
-        ) from None
-    except StartupFormatError as e:
-        raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
             detail=str(e),
         ) from None
 
@@ -95,7 +88,10 @@ async def get_generators_in_startup(
         'Note that response also includes default parameters '
         'even if they are not set in the file.'
     ),
-    responses=merge_responses(_READ_RESPONSES, _NOT_FOUND_RESPONSES),
+    responses=merge_responses(
+        _STARTUP_ERROR_RESPONSES,
+        _NOT_FOUND_RESPONSES,
+    ),
 )
 async def get_generator_from_startup(
     id: Annotated[str, PathParam(description='Generator id', min_length=1)],
@@ -109,14 +105,9 @@ async def get_generator_from_startup(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=str(e),
         ) from None
-    except StartupFileError as e:
+    except StartupError as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=str(e),
-        ) from None
-    except StartupFormatError as e:
-        raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
             detail=str(e),
         ) from None
 
@@ -130,8 +121,7 @@ async def get_generator_from_startup(
     '/{id}',
     description='Add generator definition to list in the startup file',
     responses=merge_responses(
-        _READ_RESPONSES,
-        _WRITE_RESPONSES,
+        _STARTUP_ERROR_RESPONSES,
         {409: {'description': 'Generator with this ID is already defined'}},
     ),
     status_code=status.HTTP_201_CREATED,
@@ -151,14 +141,9 @@ async def add_generator_to_startup(
             status_code=status.HTTP_409_CONFLICT,
             detail=str(e),
         ) from None
-    except StartupFileError as e:
+    except StartupError as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=str(e),
-        ) from None
-    except StartupFormatError as e:
-        raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
             detail=str(e),
         ) from None
 
@@ -167,8 +152,7 @@ async def add_generator_to_startup(
     '/{id}',
     description='Update generator definition in list in the startup file',
     responses=merge_responses(
-        _READ_RESPONSES,
-        _WRITE_RESPONSES,
+        _STARTUP_ERROR_RESPONSES,
         _NOT_FOUND_RESPONSES,
     ),
 )
@@ -187,14 +171,9 @@ async def update_generator_in_startup(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=str(e),
         ) from None
-    except StartupFileError as e:
+    except StartupError as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=str(e),
-        ) from None
-    except StartupFormatError as e:
-        raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
             detail=str(e),
         ) from None
 
@@ -203,8 +182,7 @@ async def update_generator_in_startup(
     '/{id}',
     description='Delete generator definition from list in the startup file',
     responses=merge_responses(
-        _READ_RESPONSES,
-        _WRITE_RESPONSES,
+        _STARTUP_ERROR_RESPONSES,
         _NOT_FOUND_RESPONSES,
     ),
 )
@@ -219,14 +197,9 @@ async def delete_generator_from_startup(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=str(e),
         ) from None
-    except StartupFileError as e:
+    except StartupError as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=str(e),
-        ) from None
-    except StartupFormatError as e:
-        raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
             detail=str(e),
         ) from None
 
@@ -238,7 +211,7 @@ async def delete_generator_from_startup(
         'startup file'
     ),
     response_description='IDs of deleted generator definitions',
-    responses=merge_responses(_READ_RESPONSES, _WRITE_RESPONSES),
+    responses=_STARTUP_ERROR_RESPONSES,
 )
 async def bulk_delete_generators_from_startup(
     ids: Annotated[
@@ -249,13 +222,8 @@ async def bulk_delete_generators_from_startup(
 ) -> list[str]:
     try:
         return await asyncio.to_thread(startup.bulk_delete, ids)
-    except StartupFileError as e:
+    except StartupError as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=str(e),
-        ) from None
-    except StartupFormatError as e:
-        raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
             detail=str(e),
         ) from None
