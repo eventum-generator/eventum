@@ -89,7 +89,11 @@ def build_api_app(
     app.state.generator_manager = generator_manager
     app.state.settings = settings
     app.state.instance_hooks = instance_hooks
-    app.state.startup = Startup(settings=settings)
+    app.state.startup = Startup(
+        file_path=settings.path.startup,
+        generators_dir=settings.path.generators_dir,
+        generation_parameters=settings.generation,
+    )
 
     logger.debug('Connecting routers')
     app.include_router(

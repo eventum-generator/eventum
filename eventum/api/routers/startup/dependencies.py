@@ -6,18 +6,20 @@ from typing import Annotated
 import aiofiles
 import yaml
 from fastapi import Body, Depends, HTTPException, Path, status
-from pydantic import ValidationError
 
 from eventum.api.dependencies.app import SettingsDep
 from eventum.api.utils.response_description import (
     merge_responses,
     set_responses,
 )
-from eventum.app.models.startup import (
+from eventum.app.startup import (
     StartupGeneratorParameters,
     StartupGeneratorParametersList,
 )
-from eventum.utils.validation_prettier import prettify_validation_errors
+from eventum.app.startup.mapping import (
+    RawEntriesValidationError,
+    StartupEntryMapper,
+)
 
 type StartupGeneratorParametersListRaw = list[dict]
 
@@ -76,21 +78,17 @@ async def get_startup_generator_parameters_list(
             detail='Startup file structure is invalid: object is not a list',
         ) from None
 
+    mapper = StartupEntryMapper(
+        generators_dir=settings.path.generators_dir,
+        generation_parameters=settings.generation,
+    )
     try:
-        params_list = await asyncio.to_thread(
-            lambda: (
-                StartupGeneratorParametersList.build_over_generation_parameters(
-                    object=parsed_object,
-                    generation_parameters=settings.generation,
-                )
-            ),
-        )
-    except ValidationError as e:
+        params_list = await asyncio.to_thread(mapper.parse, parsed_object)
+    except RawEntriesValidationError as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=(
-                'Startup file structure is invalid: '
-                f'{prettify_validation_errors(e.errors())}'
+                f'Startup file structure is invalid: {e.context["reason"]}'
             ),
         ) from None
     return params_list, parsed_object

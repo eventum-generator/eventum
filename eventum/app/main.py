@@ -9,8 +9,11 @@ import uvicorn
 from eventum.app.hooks import InstanceHooks
 from eventum.app.manager import GeneratorManager, ManagingError
 from eventum.app.models.settings import Settings
-from eventum.app.models.startup import StartupGeneratorParametersList
-from eventum.app.startup import Startup, StartupError
+from eventum.app.startup import (
+    Startup,
+    StartupError,
+    StartupGeneratorParametersList,
+)
 from eventum.exceptions import ContextualError
 from eventum.security.manage import SECURITY_SETTINGS
 
@@ -55,7 +58,11 @@ class App:
         )
 
         self._manager = GeneratorManager()
-        self._startup = Startup(settings=settings)
+        self._startup = Startup(
+            file_path=settings.path.startup,
+            generators_dir=settings.path.generators_dir,
+            generation_parameters=settings.generation,
+        )
 
         self._server: uvicorn.Server | None = None
         self._server_thread = Thread(target=self._run_server, name='server')

@@ -9,11 +9,11 @@ from eventum.app.models.parameters.log import LogParameters
 from eventum.app.models.parameters.path import PathParameters
 from eventum.app.models.parameters.server import ServerParameters
 from eventum.app.models.settings import Settings
-from eventum.app.models.startup import StartupGeneratorParameters
 from eventum.app.startup import (
     Startup,
     StartupConflictError,
     StartupError,
+    StartupGeneratorParameters,
     StartupNotFoundError,
 )
 from eventum.core.parameters import GenerationParameters
@@ -38,8 +38,12 @@ def settings(tmp_path: Path) -> Settings:
 
 @pytest.fixture
 def startup(settings: Settings) -> Startup:
-    """Build Startup bound to the fixture Settings."""
-    return Startup(settings=settings)
+    """Build Startup wired to the fixture Settings."""
+    return Startup(
+        file_path=settings.path.startup,
+        generators_dir=settings.path.generators_dir,
+        generation_parameters=settings.generation,
+    )
 
 
 def _write_startup(settings: Settings, content: str) -> None:
@@ -251,7 +255,7 @@ def test_update_replaces_entry_and_preserves_other_entries(
     startup: Startup,
     settings: Settings,
 ) -> None:
-    """Updating one entry leaves others byte-identical."""
+    """Updating one entry leaves others structurally unchanged."""
     original = (
         '- id: gen-1\n'
         '  path: gen-1/generator.yml\n'
@@ -386,3 +390,71 @@ def test_mutations_refuse_to_touch_invalid_file(
 
     with pytest.raises(StartupError):
         startup.bulk_delete(['gen-1'])
+
+
+def test_get_all_raises_on_invalid_utf8(
+    startup: Startup,
+    settings: Settings,
+) -> None:
+    """Non-UTF-8 file content raises StartupError, not UnicodeDecodeError."""
+    settings.path.startup.write_bytes(b'\xff\xfe\xfd binary garbage')
+
+    with pytest.raises(StartupError) as exc:
+        startup.get_all()
+
+    assert exc.value.context['file_path'] == str(settings.path.startup)  # noqa: S101
+    assert 'reason' in exc.value.context  # noqa: S101
+
+
+def test_failed_write_does_not_leave_tmp_file(
+    startup: Startup,
+    settings: Settings,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """If atomic write fails (after tmpfile is created) it is cleaned up."""
+    _write_startup(settings, '[]\n')
+
+    def failing_replace(*_args: object, **_kwargs: object) -> None:
+        msg = 'simulated atomic-replace failure'
+        raise OSError(msg)
+
+    monkeypatch.setattr(Path, 'replace', failing_replace)
+
+    new = StartupGeneratorParameters(
+        id='gen-1',
+        path=Path('gen-1/generator.yml'),
+    )
+    with pytest.raises(StartupError):
+        startup.add(new)
+
+    tmp = settings.path.startup.with_suffix(
+        settings.path.startup.suffix + '.tmp',
+    )
+    assert not tmp.exists()  # noqa: S101
+
+
+def test_atomic_write_preserves_symlink(
+    settings: Settings,
+    tmp_path: Path,
+) -> None:
+    """Mutation through a symlink replaces the target, not the link."""
+    real = tmp_path / 'real.yml'
+    real.write_text('[]\n')
+    link = tmp_path / 'link.yml'
+    link.symlink_to(real)
+
+    linked_startup = Startup(
+        file_path=link,
+        generators_dir=settings.path.generators_dir,
+        generation_parameters=settings.generation,
+    )
+    linked_startup.add(
+        StartupGeneratorParameters(
+            id='gen-1',
+            path=Path('gen-1/generator.yml'),
+        ),
+    )
+
+    assert link.is_symlink()  # noqa: S101
+    assert link.resolve() == real  # noqa: S101
+    assert 'gen-1' in real.read_text()  # noqa: S101

@@ -12,13 +12,11 @@ from eventum.api.routers.startup.dependencies import (
     CheckIdInBodyMatchPathDep,
 )
 from eventum.api.utils.response_description import merge_responses
-from eventum.app.models.startup import (
-    StartupGeneratorParameters,
-    StartupGeneratorParametersList,
-)
 from eventum.app.startup import (
     StartupConflictError,
     StartupError,
+    StartupGeneratorParameters,
+    StartupGeneratorParametersList,
     StartupNotFoundError,
 )
 
