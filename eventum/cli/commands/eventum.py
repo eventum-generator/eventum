@@ -127,9 +127,20 @@ def _start_app_instance(config: str) -> App:
 def run(config: str) -> None:
     """Run application with all defined generators."""
     app: App = None  # type: ignore[assignment]
+    is_handling_signal = False
 
     def handle_termination(signal_num: int) -> NoReturn:
-        nonlocal app
+        nonlocal app, is_handling_signal
+
+        if is_handling_signal:
+            logger.warning(
+                'Termination signal received during shutdown, '
+                'forcing immediate exit',
+                signal=signal.Signals(signal_num).name,
+            )
+            os._exit(1)
+
+        is_handling_signal = True
 
         logger.info(
             'OS signal is received',
@@ -140,15 +151,26 @@ def run(config: str) -> None:
         sys.exit(1)
 
     def handle_restart(signal_num: int) -> None:
-        nonlocal app
+        nonlocal app, is_handling_signal
 
-        logger.info(
-            'OS signal is received',
-            signal=signal.Signals(signal_num).name,
-        )
-        logger.info('App is going to be restarted')
-        app.stop()
-        app = _start_app_instance(config=config)
+        if is_handling_signal:
+            logger.warning(
+                'Restart signal received during shutdown, ignoring',
+                signal=signal.Signals(signal_num).name,
+            )
+            return
+
+        is_handling_signal = True
+        try:
+            logger.info(
+                'OS signal is received',
+                signal=signal.Signals(signal_num).name,
+            )
+            logger.info('App is going to be restarted')
+            app.stop()
+            app = _start_app_instance(config=config)
+        finally:
+            is_handling_signal = False
 
     app = _start_app_instance(config=config)
 
@@ -215,7 +237,21 @@ def generate(
         logger.error('Failed to start generator')
         sys.exit(1)
 
+    is_handling_signal = False
+
     def handle_termination(signal_num: int) -> NoReturn:
+        nonlocal is_handling_signal
+
+        if is_handling_signal:
+            logger.warning(
+                'Termination signal received during shutdown, '
+                'forcing immediate exit',
+                signal=signal.Signals(signal_num).name,
+            )
+            os._exit(128 + signal_num)
+
+        is_handling_signal = True
+
         logger.info(
             'Termination signal is received',
             signal=signal.Signals(signal_num).name,
