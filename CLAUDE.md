@@ -64,6 +64,10 @@ Standard tool invocations (`uv run pytest`, `uv run ruff check`, `uv run mypy ev
 - **Python typing and docstrings**: Full types and complete docstrings on public interfaces. Internal one-liners are fine, unless the logic is non-trivial.
 - **Dashes**: Use a single hyphen `-` instead of em dash `—` in source code. The em dash `—` is allowed for MDX prose under `../docs/`.
 
+## Rules
+
+Area-specific rules live in `.claude/rules/`, scoped by `backend`, `frontend`, `docs`, and `content`. Read the relevant scope before touching that area.
+
 ## Hard rules
 
 - **Commands**: Run appropriate commands through `uv run`. Don't invoke `python`, `pytest`, `ruff`, or `mypy` directly to avoid environment errors.
