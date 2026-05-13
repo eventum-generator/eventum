@@ -2,6 +2,17 @@
 
 All notable changes to this project will be documented in this file.
 
+## 2.5.0 (2026-05-14)
+
+### 🚀 New Features
+
+- **Template dispatch API** — templates can route each event across multiple sub-templates with `dispatch.next(...)`, end generation early with `dispatch.exhaust()`, and drop unwanted events with `PluginEventDroppedError`; new `dropped` counter exposed in generator stats, pipeline graph, and metrics modal
+- **`module.rand.network.ip_v4_in_subnet(cidr)`** — generate random IPv4 host addresses within a CIDR subnet (handles `/31` per RFC 3021 and excludes network/broadcast for standard subnets)
+
+### 🐛 Bug Fixes
+
+- Fix shutdown hang when log-stream WebSockets stay open — uvicorn now honors `timeout_graceful_shutdown`, and a second termination signal forces exit
+
 ## 2.4.0 (2026-04-02)
 
 ### 🚀 New Features
