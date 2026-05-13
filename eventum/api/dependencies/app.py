@@ -7,6 +7,7 @@ from fastapi import Depends, FastAPI, Request, WebSocket
 from eventum.app.hooks import InstanceHooks
 from eventum.app.manager import GeneratorManager
 from eventum.app.models.settings import Settings
+from eventum.app.startup import Startup
 
 
 async def get_app(
@@ -96,6 +97,29 @@ async def get_generator_manager(app: AppDep) -> GeneratorManager:
 GeneratorManagerDep = Annotated[
     GeneratorManager,
     Depends(get_generator_manager),
+]
+
+
+async def get_startup(app: AppDep) -> Startup:
+    """Get Startup entry point.
+
+    Parameters
+    ----------
+    app : AppDep
+        App dependency.
+
+    Returns
+    -------
+    Startup
+        Startup entry point held on app state.
+
+    """
+    return app.state.startup
+
+
+StartupDep = Annotated[
+    Startup,
+    Depends(get_startup),
 ]
 
 

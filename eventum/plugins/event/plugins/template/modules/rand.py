@@ -300,6 +300,25 @@ class network:  # noqa: N801
         return str(ipaddress.IPv4Address(ipv4_int))
 
     @staticmethod
+    def ip_v4_in_subnet(cidr: str) -> str:
+        """Return random IPv4 host address within the given CIDR subnet."""
+        net = ipaddress.IPv4Network(cidr, strict=False)
+        prefix = net.prefixlen
+
+        if prefix == 32:  # noqa: PLR2004
+            return str(net.network_address)
+
+        if prefix == 31:  # noqa: PLR2004
+            return str(
+                random.choice(
+                    [net.network_address, net.broadcast_address],
+                )
+            )
+
+        offset = random.randint(1, net.num_addresses - 2)
+        return str(net.network_address + offset)
+
+    @staticmethod
     def mac() -> str:
         """Return random MAC address."""
         mac = [random.randint(0x00, 0xFF) for _ in range(6)]

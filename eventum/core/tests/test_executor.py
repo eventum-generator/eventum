@@ -45,7 +45,7 @@ def _make_mock_output_plugin():
     return plugin
 
 
-# -- Constructor validation ------------------------------------------------
+# - Constructor validation ------------------------------------------------
 
 
 def test_empty_input_raises():
@@ -81,7 +81,7 @@ def test_valid_construction():
     assert executor._execution_error is None
 
 
-# -- execute() -------------------------------------------------------------
+# - execute() -------------------------------------------------------------
 
 
 def test_execute_happy_path():
@@ -208,7 +208,7 @@ def test_abort_upstream_shuts_down_queues():
         executor._timestamps_queue.put(MagicMock())
 
 
-# -- request_stop() --------------------------------------------------------
+# - request_stop() --------------------------------------------------------
 
 
 def test_request_stop_sets_event():
@@ -256,7 +256,7 @@ def test_request_stop_calls_stop_interactive():
     p2.stop_interacting.assert_not_called()
 
 
-# -- Configuration ---------------------------------------------------------
+# - Configuration ---------------------------------------------------------
 
 
 def test_queue_sizes_from_params():

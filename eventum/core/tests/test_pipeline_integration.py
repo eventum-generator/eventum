@@ -82,7 +82,7 @@ def _make_mock_output_plugin():
     return plugin
 
 
-# -- Full pipeline ---------------------------------------------------------
+# - Full pipeline ---------------------------------------------------------
 
 
 def test_full_pipeline():

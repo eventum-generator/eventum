@@ -12,7 +12,7 @@ from eventum.core.parameters import GeneratorParameters
 from eventum.core.queue import PipelineQueue
 from eventum.core.stages.event_stage import EventStage
 from eventum.plugins.event.exceptions import (
-    PluginExhaustedError,
+    PluginEventsExhaustedError,
     PluginProduceError,
 )
 from eventum.plugins.input.protocols import IdentifiedTimestamps
@@ -80,7 +80,7 @@ def _feed_and_close(input_q: PipelineQueue, batches: list) -> None:
     input_q.close()
 
 
-# -- Normal flow -------------------------------------------------------
+# - Normal flow -------------------------------------------------------
 
 
 def test_execute_normal_flow():
@@ -207,7 +207,7 @@ def test_execute_uses_correct_tags():
     assert produced_tags[0] == ('web', 'prod')
 
 
-# -- Error handling ----------------------------------------------------
+# - Error handling ----------------------------------------------------
 
 
 def test_execute_produce_error_skips_and_continues():
@@ -288,7 +288,7 @@ def test_execute_unexpected_error_skips_and_continues():
 
 
 def test_execute_exhausted_error_shuts_down_input():
-    """PluginExhaustedError shuts down input queue and closes output."""
+    """PluginEventsExhaustedError shuts down input queue and closes output."""
     plugin = MagicMock()
     call_count = 0
 
@@ -296,7 +296,7 @@ def test_execute_exhausted_error_shuts_down_input():
         nonlocal call_count
         call_count += 1
         if call_count == 2:
-            raise PluginExhaustedError()
+            raise PluginEventsExhaustedError()
         return ['ev']
 
     plugin.produce.side_effect = produce_exhausting
@@ -305,7 +305,7 @@ def test_execute_exhausted_error_shuts_down_input():
     input_q: PipelineQueue[IdentifiedTimestamps] = PipelineQueue(maxsize=10)
     output_q: PipelineQueue[list[str]] = PipelineQueue(maxsize=10)
 
-    # Put data but don't close -- stage should shutdown() the input
+    # Put data but don't close - stage should shutdown() the input
     input_q.put(_make_timestamps(count=3))
 
     stage_thread = threading.Thread(
@@ -407,7 +407,7 @@ def test_execute_always_closes_output():
     assert len(batches) == 1  # one batch of events was produced
 
 
-# -- Shutdown resilience -----------------------------------------------
+# - Shutdown resilience -----------------------------------------------
 
 
 def test_execute_closes_output_on_input_shutdown():

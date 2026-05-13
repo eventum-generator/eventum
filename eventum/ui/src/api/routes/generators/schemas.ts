@@ -34,6 +34,7 @@ export type InputPluginStats = z.infer<typeof InputPluginStatsSchema>;
 export const EventPluginStatsSchema = PluginStatsSchema.extend({
   produced: z.int().min(0),
   produce_failed: z.int().min(0),
+  dropped: z.int().min(0),
 });
 export type EventPluginStats = z.infer<typeof EventPluginStatsSchema>;
 

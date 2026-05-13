@@ -166,3 +166,4 @@ www/
 .superpowers/
 superpowers/
 .playwright-mcp/
+.claude/scheduled_tasks.lock

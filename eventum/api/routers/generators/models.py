@@ -62,6 +62,10 @@ class EventPluginStats(PluginStats, frozen=True, extra='forbid'):
         ge=0,
         description='Number of unsuccessfully produced events',
     )
+    dropped: int = Field(
+        ge=0,
+        description='Number of intentionally dropped events',
+    )
 
 
 class OutputPluginStats(PluginStats, frozen=True, extra='forbid'):

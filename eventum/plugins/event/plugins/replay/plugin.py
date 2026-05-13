@@ -12,7 +12,7 @@ from eventum.plugins.event.base.plugin import (
     ProduceParams,
 )
 from eventum.plugins.event.exceptions import (
-    PluginExhaustedError,
+    PluginEventsExhaustedError,
     PluginProduceError,
 )
 from eventum.plugins.event.plugins.replay.config import ReplayEventPluginConfig
@@ -247,7 +247,7 @@ class ReplayEventPlugin(
         try:
             line = next(self._lines)
         except StopIteration:
-            raise PluginExhaustedError from None
+            raise PluginEventsExhaustedError from None
 
         if self._pattern is None:
             return [line]

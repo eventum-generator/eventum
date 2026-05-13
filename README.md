@@ -21,12 +21,12 @@
 </p>
 
 <p align="center">
-  <a href="https://eventum.run"><strong>📖 Documentation</strong></a> &nbsp;·&nbsp;
-  <a href="https://eventum.run/docs/tutorials"><strong>🎓 Tutorials</strong></a> &nbsp;·&nbsp;
-  <a href="https://eventum.run/docs/api"><strong>🔌 API Reference</strong></a> &nbsp;·&nbsp;
-  <a href="https://github.com/eventum-generator/eventum/blob/master/CHANGELOG.md"><strong>📋 Changelog</strong></a> &nbsp;·&nbsp;
-  <a href="https://github.com/orgs/eventum-generator/projects/4"><strong>📅 Task tracker</strong></a>  &nbsp;·&nbsp;
-  <a href="https://github.com/orgs/eventum-generator/discussions"><strong>💬 Discuss</strong></a>
+  <a href="https://eventum.run"><strong>Documentation</strong></a> &nbsp;·&nbsp;
+  <a href="https://eventum.run/docs/tutorials"><strong>Tutorials</strong></a> &nbsp;·&nbsp;
+  <a href="https://eventum.run/docs/api"><strong>API Reference</strong></a> &nbsp;·&nbsp;
+  <a href="https://github.com/eventum-generator/eventum/blob/master/CHANGELOG.md"><strong>Changelog</strong></a> &nbsp;·&nbsp;
+  <a href="https://github.com/orgs/eventum-generator/projects/4"><strong>Task tracker</strong></a>  &nbsp;·&nbsp;
+  <a href="https://github.com/orgs/eventum-generator/discussions"><strong>Discuss</strong></a>
 </p>
 
 ---
@@ -37,25 +37,22 @@ Eventum produces synthetic events and delivers them anywhere — in real time or
   <img src="https://raw.githubusercontent.com/eventum-generator/eventum/master/.github/assets/pipeline.svg" alt="Input → Event → Output pipeline" width="680" />
 </p>
 
-## ✨ Highlights
+<p align="center">
+  <img src="https://raw.githubusercontent.com/eventum-generator/eventum/master/.github/assets/studio_dark.png" alt="Eventum Studio — event debugger" width="680" />
+</p>
 
-🎭 **Realistic data** — Jinja2 templates with [Faker](https://faker.readthedocs.io/) and [Mimesis](https://mimesis.name/) generate believable names, IPs, timestamps, and domain-specific values
+## Highlights
 
-🕐 **Flexible scheduling** — cron expressions, fixed intervals, or statistical time patterns that mimic real-world traffic curves
+- **Realistic data** — Jinja2 templates with [Faker](https://faker.readthedocs.io/) and [Mimesis](https://mimesis.name/) generate believable names, IPs, timestamps, and domain-specific values
+- **Flexible scheduling** — cron expressions, fixed intervals, or statistical time patterns that mimic real-world traffic curves
+- **Multiple destinations** — fan-out to stdout, files, ClickHouse, OpenSearch, or any HTTP endpoint simultaneously
+- **Two modes** — stream events in real time at their scheduled timestamps, or generate everything as fast as possible
+- **Built-in web UI** — [Eventum Studio](https://eventum.run) for visual editing, event preview, and monitoring
+- **REST API** — start, stop, and manage generators programmatically
+- **Encrypted secrets** — credentials stored securely via an encrypted keyring
+- **Docker ready** — multi-stage builds, runs anywhere
 
-📤 **Multiple destinations** — fan-out to stdout, files, ClickHouse, OpenSearch, or any HTTP endpoint simultaneously
-
-🔀 **Two modes** — stream events in real time at their scheduled timestamps, or generate everything as fast as possible
-
-🖥️ **Built-in web UI** — [Eventum Studio](https://eventum.run) for visual editing, event preview, and monitoring
-
-⚡ **REST API** — start, stop, and manage generators programmatically
-
-🔒 **Encrypted secrets** — credentials stored securely via an encrypted keyring
-
-🐳 **Docker ready** — multi-stage builds, runs anywhere
-
-## 🚀 Quick start
+## Quick start
 
 **Install**
 
@@ -103,11 +100,11 @@ eventum generate --path generator.yml --live-mode
 ```
 
 
-## 🔌 Plugins
+## Plugins
 
 Each part of the pipeline is a plugin. Swap, combine, or extend — change the schedule without touching templates, add new outputs without modifying anything else. See the [plugin reference](https://eventum.run/docs/plugins) for the full list.
 
-## 🖥️ Application mode
+## Application mode
 
 Run multiple generators with a web UI and REST API:
 
@@ -117,7 +114,7 @@ eventum run -c eventum.yml
 
 Starts on port **9474** with **Eventum Studio** (web UI), **REST API**, and **multi-generator orchestration** — each generator runs independently with its own schedule, templates, and outputs.
 
-## 📖 Documentation
+## Documentation
 
 Full documentation at **[eventum.run](https://eventum.run)**:
 
@@ -127,7 +124,7 @@ Full documentation at **[eventum.run](https://eventum.run)**:
 - [Plugin reference](https://eventum.run/docs/plugins) — every plugin with full parameter tables
 - [Tutorials](https://eventum.run/docs/tutorials) — end-to-end walkthroughs (SIEM, clickstream, IoT, and more)
 
-## 📊 Activity
+## Activity
 
 <p align="center">
   <img src="https://repobeats.axiom.co/api/embed/f22feef9f6aaae3972c8368e5e425dd06be42c87.svg" alt="Repobeats analytics image" />
@@ -143,6 +140,6 @@ Full documentation at **[eventum.run](https://eventum.run)**:
   </a>
 </p>
 
-## 📄 License
+## License
 
 [Apache License 2.0](LICENSE)

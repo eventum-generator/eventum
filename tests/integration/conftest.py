@@ -12,7 +12,7 @@ import httpx
 import pytest
 import pytest_asyncio
 
-# -- Connection configuration (env-based for CI / local flexibility) --
+# - Connection configuration (env-based for CI / local flexibility) --
 
 OPENSEARCH_URL = os.environ.get('OPENSEARCH_URL', 'http://localhost:9200')
 CLICKHOUSE_HOST = os.environ.get('CLICKHOUSE_HOST', 'localhost')
@@ -20,7 +20,7 @@ CLICKHOUSE_PORT = int(os.environ.get('CLICKHOUSE_PORT', '8123'))
 KAFKA_BOOTSTRAP = os.environ.get('KAFKA_BOOTSTRAP', 'localhost:9094')
 
 
-# -- Service readiness helpers --
+# - Service readiness helpers --
 
 
 def _wait_for_service(
@@ -69,7 +69,7 @@ def _check_kafka() -> None:
     s.close()
 
 
-# -- Session-scoped service readiness fixtures --
+# - Session-scoped service readiness fixtures --
 
 
 @pytest.fixture(scope='session')
@@ -93,7 +93,7 @@ def kafka_bootstrap():
     return KAFKA_BOOTSTRAP
 
 
-# -- Shared utility fixtures --
+# - Shared utility fixtures --
 
 
 @pytest.fixture()
@@ -104,7 +104,7 @@ def event_factory():
     return EventFactory()
 
 
-# -- OpenSearch fixtures --
+# - OpenSearch fixtures --
 
 
 @pytest_asyncio.fixture()
@@ -143,7 +143,7 @@ async def opensearch_plugin(opensearch_consumer):
     await plugin.close()
 
 
-# -- ClickHouse fixtures --
+# - ClickHouse fixtures --
 
 
 @pytest_asyncio.fixture()
@@ -180,7 +180,7 @@ async def clickhouse_plugin(clickhouse_consumer):
     await plugin.close()
 
 
-# -- Kafka fixtures --
+# - Kafka fixtures --
 
 
 @pytest_asyncio.fixture()

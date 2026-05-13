@@ -84,6 +84,7 @@ export function buildNodes(stats: GeneratorStats): Node<PipelineNodeData>[] {
       pluginId: stats.event.plugin_id,
       metrics: [
         { label: 'Produced', value: stats.event.produced },
+        { label: 'Dropped', value: stats.event.dropped },
         { label: 'Produce failed', value: stats.event.produce_failed, isError: stats.event.produce_failed > 0 },
       ],
       colorType: 'event',
@@ -172,6 +173,7 @@ export function updateNodesData(
             ...data,
             metrics: [
               { label: 'Produced', value: stats.event.produced },
+              { label: 'Dropped', value: stats.event.dropped },
               { label: 'Produce failed', value: stats.event.produce_failed, isError: stats.event.produce_failed > 0 },
             ],
           },

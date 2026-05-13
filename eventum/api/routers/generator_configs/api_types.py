@@ -47,7 +47,7 @@ from eventum.plugins.loader import (
     load_output_plugin,
 )
 
-# -- Placeholder type -------------------------------------------------
+# - Placeholder type -------------------------------------------------
 
 _PLACEHOLDER_RE = re.compile(r'^\$\{(params|secrets)\..+\}$')
 
@@ -74,7 +74,7 @@ PlaceholderString = Annotated[
     AfterValidator(_validate_placeholder),
 ]
 
-# -- Type relaxation --------------------------------------------------
+# - Type relaxation --------------------------------------------------
 
 _relaxed_model_cache: dict[type, type] = {}
 
@@ -189,7 +189,7 @@ def _relax_type(  # noqa: C901, PLR0911, PLR0912
     return annotation | PlaceholderString
 
 
-# -- Model relaxation -------------------------------------------------
+# - Model relaxation -------------------------------------------------
 
 
 def _build_relaxed_field(
@@ -291,7 +291,7 @@ def relax_model(
     return relaxed_cls
 
 
-# -- API plugin config model generation -------------------------------
+# - API plugin config model generation -------------------------------
 
 
 def _generate_api_plugin_config_models(
@@ -330,7 +330,7 @@ def _generate_api_plugin_config_models(
     return tuple(models)
 
 
-# -- Top-level types --------------------------------------------------
+# - Top-level types --------------------------------------------------
 
 type ApiInputPluginNamedConfig = Union[  # type: ignore  # noqa: PGH003
     *_generate_api_plugin_config_models('input')  # type: ignore  # noqa: PGH003
