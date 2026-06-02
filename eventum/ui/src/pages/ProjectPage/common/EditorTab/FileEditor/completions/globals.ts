@@ -488,8 +488,9 @@ const namespaceCompletions: NamespaceMember = {
                   completion: {
                     label: 'mac',
                     type: 'function',
-                    detail: 'Return random MAC address',
-                    info: '() -> str',
+                    detail:
+                      'Return random MAC address, optionally with a fixed OUI prefix or vendor-picked OUI',
+                    info: '(*, oui: str | None = None, vendor: str | None = None) -> str',
                   },
                 },
               },
