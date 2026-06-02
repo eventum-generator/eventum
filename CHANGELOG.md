@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## Unreleased
+
+### 🚀 New Features
+
+- **`module.rand.network.ip_v6` family** — generate random IPv6 addresses: `ip_v6()` for the full space, `ip_v6_global()` for global unicast (`2000::/3`), `ip_v6_link_local()` for link-local (`fe80::/10`), `ip_v6_ula()` for unique local (`fc00::/7`)
+
 ## 2.5.0 (2026-05-14)
 
 ### 🚀 New Features
