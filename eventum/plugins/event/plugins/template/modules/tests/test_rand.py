@@ -295,6 +295,27 @@ def test_ip_v4():
     assert isinstance(ipaddress.ip_address(ip), ipaddress.IPv4Address)
 
 
+def test_ip_v4_private():
+    private_nets = [
+        ipaddress.IPv4Network('10.0.0.0/8'),
+        ipaddress.IPv4Network('172.16.0.0/12'),
+        ipaddress.IPv4Network('192.168.0.0/16'),
+    ]
+    seen_nets: set[int] = set()
+    for _ in range(200):
+        ip = rand.network.ip_v4_private()
+        addr = ipaddress.IPv4Address(ip)
+        matched = next(
+            (i for i, net in enumerate(private_nets) if addr in net),
+            None,
+        )
+        assert matched is not None, f'{ip} not in any RFC 1918 range'
+        seen_nets.add(matched)
+    assert seen_nets == {0, 1, 2}, (
+        f'expected all three ranges to be sampled, got {seen_nets}'
+    )
+
+
 def test_ip_v4_private_a():
     ip = rand.network.ip_v4_private_a()
     assert ip.startswith('10.')
