@@ -345,6 +345,26 @@ def test_ip_v4_public():
     assert isinstance(ipaddress.ip_address(ip), ipaddress.IPv4Address)
 
 
+def test_ip_v6():
+    ip = rand.network.ip_v6()
+    assert isinstance(ipaddress.ip_address(ip), ipaddress.IPv6Address)
+
+
+def test_ip_v6_global():
+    ip = rand.network.ip_v6_global()
+    assert ipaddress.IPv6Address(ip) in ipaddress.IPv6Network('2000::/3')
+
+
+def test_ip_v6_link_local():
+    ip = rand.network.ip_v6_link_local()
+    assert ipaddress.IPv6Address(ip) in ipaddress.IPv6Network('fe80::/10')
+
+
+def test_ip_v6_ula():
+    ip = rand.network.ip_v6_ula()
+    assert ipaddress.IPv6Address(ip) in ipaddress.IPv6Network('fc00::/7')
+
+
 def test_mac():
     mac = rand.network.mac()
     assert len(mac.split(':')) == 6

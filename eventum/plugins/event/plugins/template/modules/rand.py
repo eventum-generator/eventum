@@ -442,6 +442,32 @@ class network:  # noqa: N801
         return str(net.network_address + offset)
 
     @staticmethod
+    def ip_v6() -> str:
+        """Return random IPv6 address."""
+        return str(ipaddress.IPv6Address(random.getrandbits(128)))
+
+    @staticmethod
+    def ip_v6_global() -> str:
+        """Return random global unicast IPv6 address (2000::/3)."""
+        net = ipaddress.IPv6Network('2000::/3')
+        offset = random.randint(0, net.num_addresses - 1)
+        return str(ipaddress.IPv6Address(int(net.network_address) + offset))
+
+    @staticmethod
+    def ip_v6_link_local() -> str:
+        """Return random link-local IPv6 address (fe80::/10)."""
+        net = ipaddress.IPv6Network('fe80::/10')
+        offset = random.randint(0, net.num_addresses - 1)
+        return str(ipaddress.IPv6Address(int(net.network_address) + offset))
+
+    @staticmethod
+    def ip_v6_ula() -> str:
+        """Return random unique local IPv6 address (fc00::/7)."""
+        net = ipaddress.IPv6Network('fc00::/7')
+        offset = random.randint(0, net.num_addresses - 1)
+        return str(ipaddress.IPv6Address(int(net.network_address) + offset))
+
+    @staticmethod
     def mac() -> str:
         """Return random MAC address."""
         mac = [random.randint(0x00, 0xFF) for _ in range(6)]
