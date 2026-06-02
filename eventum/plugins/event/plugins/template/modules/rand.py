@@ -1,6 +1,7 @@
 """Rand module."""
 
 import datetime as dt
+import functools
 import ipaddress
 import random
 import uuid
@@ -15,6 +16,95 @@ from string import (
 from typing import TypeVar, overload
 
 T = TypeVar('T')
+
+_HEX_LOWER = digits + 'abcdef'
+_HEX_UPPER = digits + 'ABCDEF'
+_WORD = ascii_letters + digits
+_NON_ZERO_DIGITS = '123456789'
+
+_PATTERN_CHARSETS: dict[str, str] = {
+    'a': ascii_lowercase,
+    'A': ascii_uppercase,
+    'l': ascii_letters,
+    'd': digits,
+    'n': _NON_ZERO_DIGITS,
+    'h': _HEX_LOWER,
+    'H': _HEX_UPPER,
+    'p': punctuation,
+    'w': _WORD,
+}
+
+
+def _parse_brace_count(format_string: str, start: int) -> tuple[int, int]:
+    """Parse a ``{N}`` block at `start` (the ``{`` position).
+
+    Returns ``(count, next_index)``. Raises ``ValueError`` for an
+    unclosed brace or a non-numeric count.
+    """
+    end = format_string.find('}', start + 1)
+    if end == -1:
+        msg = "unclosed '{' in pattern"
+        raise ValueError(msg)
+    count_str = format_string[start + 1 : end]
+    if not count_str.isdigit():
+        msg = f'invalid repeat count: {count_str!r}'
+        raise ValueError(msg)
+    return int(count_str), end + 1
+
+
+@functools.lru_cache(maxsize=256)
+def _compile_pattern(format_string: str) -> tuple[tuple, ...]:
+    """Parse a pattern string into a tuple of tokens.
+
+    Each token is either ``('lit', text)`` for verbatim text or
+    ``('spec', charset, count)`` for a random-character segment.
+    Results are cached so repeated calls with the same pattern
+    skip re-parsing.
+    """
+    tokens: list[tuple] = []
+    literal_buf: list[str] = []
+    i = 0
+    n = len(format_string)
+
+    while i < n:
+        c = format_string[i]
+        if c != '%':
+            literal_buf.append(c)
+            i += 1
+            continue
+
+        i += 1
+        if i >= n:
+            msg = (
+                "incomplete format specifier at end of pattern (trailing '%')"
+            )
+            raise ValueError(msg)
+
+        spec = format_string[i]
+        i += 1
+
+        count = 1
+        if i < n and format_string[i] == '{':
+            count, i = _parse_brace_count(format_string, i)
+
+        if spec == '%':
+            literal_buf.append('%' * count)
+            continue
+
+        charset = _PATTERN_CHARSETS.get(spec)
+        if charset is None:
+            msg = f'unknown format specifier: %{spec}'
+            raise ValueError(msg)
+
+        if literal_buf:
+            tokens.append(('lit', ''.join(literal_buf)))
+            literal_buf.clear()
+        tokens.append(('spec', charset, count))
+
+    if literal_buf:
+        tokens.append(('lit', ''.join(literal_buf)))
+
+    return tuple(tokens)
 
 
 def shuffle(items: Sequence[T]) -> list[T] | str:
@@ -230,8 +320,41 @@ class string:  # noqa: N801
         """Return string of specified `size` that contains random hex
         characters.
         """
-        hexdigits = digits + 'abcdef'
-        return ''.join(random.choices(hexdigits, k=size))
+        return ''.join(random.choices(_HEX_LOWER, k=size))
+
+    @staticmethod
+    def pattern(format_string: str) -> str:
+        """Return random string built from a printf-like pattern.
+
+        Format specifiers:
+
+        - ``%a`` lowercase letter (a-z)
+        - ``%A`` uppercase letter (A-Z)
+        - ``%l`` any letter (a-zA-Z)
+        - ``%d`` digit (0-9)
+        - ``%n`` non-zero digit (1-9)
+        - ``%h`` lowercase hex (0-9a-f)
+        - ``%H`` uppercase hex (0-9A-F)
+        - ``%p`` ASCII punctuation
+        - ``%w`` word character (a-zA-Z0-9)
+        - ``%%`` literal ``%``
+
+        Append ``{N}`` to a specifier to emit ``N`` random characters
+        from its set instead of one. Other characters in the pattern
+        are emitted as-is.
+
+        Example::
+
+            pattern('%A{3}-%d{4}')  # 'ABC-1234'
+        """
+        parts: list[str] = []
+        for token in _compile_pattern(format_string):
+            if token[0] == 'lit':
+                parts.append(token[1])
+            else:
+                _, charset, count = token
+                parts.append(''.join(random.choices(charset, k=count)))
+        return ''.join(parts)
 
 
 class network:  # noqa: N801
