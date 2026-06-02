@@ -167,3 +167,4 @@ www/
 superpowers/
 .playwright-mcp/
 .claude/scheduled_tasks.lock
+.claude/worktrees/

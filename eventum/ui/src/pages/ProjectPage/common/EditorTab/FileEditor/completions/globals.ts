@@ -372,6 +372,15 @@ const namespaceCompletions: NamespaceMember = {
                     info: '(size: int) -> str',
                   },
                 },
+                pattern: {
+                  completion: {
+                    label: 'pattern',
+                    type: 'function',
+                    detail:
+                      'Return random string built from a printf-like pattern (%a %A %l %d %n %h %H %p %w %%, repeat with {N})',
+                    info: '(format_string: str) -> str',
+                  },
+                },
               },
             },
 
@@ -429,6 +438,41 @@ const namespaceCompletions: NamespaceMember = {
                     detail:
                       'Return random IPv4 address within the given CIDR subnet',
                     info: '(cidr: str) -> str',
+                  },
+                },
+                ip_v6: {
+                  completion: {
+                    label: 'ip_v6',
+                    type: 'function',
+                    detail: 'Return random IPv6 address',
+                    info: '() -> str',
+                  },
+                },
+                ip_v6_global: {
+                  completion: {
+                    label: 'ip_v6_global',
+                    type: 'function',
+                    detail:
+                      'Return random global unicast IPv6 address (2000::/3)',
+                    info: '() -> str',
+                  },
+                },
+                ip_v6_link_local: {
+                  completion: {
+                    label: 'ip_v6_link_local',
+                    type: 'function',
+                    detail:
+                      'Return random link-local IPv6 address (fe80::/10)',
+                    info: '() -> str',
+                  },
+                },
+                ip_v6_ula: {
+                  completion: {
+                    label: 'ip_v6_ula',
+                    type: 'function',
+                    detail:
+                      'Return random unique local IPv6 address (fc00::/7)',
+                    info: '() -> str',
                   },
                 },
                 mac: {
