@@ -489,6 +489,11 @@ class crypto:  # noqa: N801
         return f'{random.getrandbits(128):032x}'
 
     @staticmethod
+    def sha1() -> str:
+        """Return random SHA-1 hash."""
+        return f'{random.getrandbits(160):040x}'
+
+    @staticmethod
     def sha256() -> str:
         """Return random SHA-256 hash."""
         return f'{random.getrandbits(256):064x}'

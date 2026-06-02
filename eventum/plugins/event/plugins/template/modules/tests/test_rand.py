@@ -382,6 +382,12 @@ def test_md5():
     assert all(c in '0123456789abcdef' for c in result)
 
 
+def test_sha1():
+    result = rand.crypto.sha1()
+    assert len(result) == 40
+    assert all(c in '0123456789abcdef' for c in result)
+
+
 def test_sha256():
     result = rand.crypto.sha256()
     assert len(result) == 64

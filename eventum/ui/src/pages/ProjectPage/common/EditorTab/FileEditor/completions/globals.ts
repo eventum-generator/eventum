@@ -102,7 +102,8 @@ const namespaceCompletions: NamespaceMember = {
       completion: {
         label: 'vars',
         type: 'namespace',
-        detail: 'Per-template variables provided in template entry configuration',
+        detail:
+          'Per-template variables provided in template entry configuration',
       },
     },
     samples: {
@@ -461,8 +462,7 @@ const namespaceCompletions: NamespaceMember = {
                   completion: {
                     label: 'ip_v6_link_local',
                     type: 'function',
-                    detail:
-                      'Return random link-local IPv6 address (fe80::/10)',
+                    detail: 'Return random link-local IPv6 address (fe80::/10)',
                     info: '() -> str',
                   },
                 },
@@ -507,6 +507,14 @@ const namespaceCompletions: NamespaceMember = {
                     label: 'md5',
                     type: 'function',
                     detail: 'Return random MD5 hash',
+                    info: '() -> str',
+                  },
+                },
+                sha1: {
+                  completion: {
+                    label: 'sha1',
+                    type: 'function',
+                    detail: 'Return random SHA-1 hash',
                     info: '() -> str',
                   },
                 },
