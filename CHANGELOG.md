@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file.
 
+## Unreleased
+
+### 🚀 New Features
+
+- **`samples.<name>.where(**conditions)`** — filter sample rows by multiple equality conditions in a single call (AND-combined). Replaces verbose chained `selectattr` and returns a `Sample` that supports further `where`/`pick` calls
+- **`pick(default=...)` and `weighted_pick(weight, default=...)`** — return a fallback value when the sample is empty instead of raising; `pick_n` and `weighted_pick_n` return `[]` on empty samples
+
 ## 2.5.0 (2026-05-14)
 
 ### 🚀 New Features

@@ -12,6 +12,7 @@ from eventum.plugins.event.plugins.template.config import (
 from eventum.plugins.event.plugins.template.sample_reader import (
     Row,
     Sample,
+    SampleFilterError,
     SampleLoadError,
     SamplePickError,
     SamplesReader,
@@ -574,3 +575,161 @@ def test_weighted_pick_caches_weights(weighted_csv_sample_config):
 
     # Second call uses cache
     sample.weighted_pick('weight')
+
+
+# --- Filtering and empty-sample tests ---
+
+
+def test_where_single_condition(csv_sample_config):
+    sample_reader = SamplesReader(csv_sample_config, BASE_PATH)
+    sample = sample_reader['csv_sample']
+
+    filtered = sample.where(position='Manager')
+    assert isinstance(filtered, Sample)
+    assert len(filtered) == 1
+    assert filtered[0].name == 'John'
+
+
+def test_where_multiple_conditions_anded(csv_sample_config):
+    sample_reader = SamplesReader(csv_sample_config, BASE_PATH)
+    sample = sample_reader['csv_sample']
+
+    filtered = sample.where(name='Jane', position='HR')
+    assert len(filtered) == 1
+    assert filtered[0].name == 'Jane'
+
+    # AND - no row matches both
+    filtered = sample.where(name='Jane', position='Manager')
+    assert len(filtered) == 0
+
+
+def test_where_empty_result_is_valid_sample(csv_sample_config):
+    sample_reader = SamplesReader(csv_sample_config, BASE_PATH)
+    sample = sample_reader['csv_sample']
+
+    filtered = sample.where(position='nonexistent')
+    assert isinstance(filtered, Sample)
+    assert len(filtered) == 0
+
+
+def test_where_unknown_column_raises(csv_sample_config):
+    sample_reader = SamplesReader(csv_sample_config, BASE_PATH)
+    sample = sample_reader['csv_sample']
+
+    with pytest.raises(SampleFilterError, match='Unknown column'):
+        sample.where(nonexistent='foo')
+
+
+def test_where_no_conditions_returns_self(csv_sample_config):
+    sample_reader = SamplesReader(csv_sample_config, BASE_PATH)
+    sample = sample_reader['csv_sample']
+
+    assert sample.where() is sample
+
+
+def test_where_chainable(csv_sample_config):
+    sample_reader = SamplesReader(csv_sample_config, BASE_PATH)
+    sample = sample_reader['csv_sample']
+
+    filtered = sample.where(name='Jane').where(position='HR')
+    assert len(filtered) == 1
+    assert filtered[0].name == 'Jane'
+
+
+def test_where_then_pick(csv_sample_config):
+    sample_reader = SamplesReader(csv_sample_config, BASE_PATH)
+    sample = sample_reader['csv_sample']
+
+    row = sample.where(position='Manager').pick()
+    assert row.name == 'John'
+
+
+def test_where_then_weighted_pick(weighted_csv_sample_config):
+    sample_reader = SamplesReader(weighted_csv_sample_config, BASE_PATH)
+    sample = sample_reader['weighted_csv']
+
+    row = sample.where(name='Jane').weighted_pick('weight')
+    assert row.name == 'Jane'
+
+
+def test_pick_default_on_empty(csv_sample_config):
+    sample_reader = SamplesReader(csv_sample_config, BASE_PATH)
+    sample = sample_reader['csv_sample']
+
+    empty = sample.where(position='nonexistent')
+    assert empty.pick(default=None) is None
+    assert empty.pick(default='fallback') == 'fallback'
+
+
+def test_pick_no_default_on_empty_raises(csv_sample_config):
+    sample_reader = SamplesReader(csv_sample_config, BASE_PATH)
+    sample = sample_reader['csv_sample']
+
+    empty = sample.where(position='nonexistent')
+    with pytest.raises(SamplePickError, match='empty sample'):
+        empty.pick()
+
+
+def test_pick_n_on_empty_returns_empty_list(csv_sample_config):
+    sample_reader = SamplesReader(csv_sample_config, BASE_PATH)
+    sample = sample_reader['csv_sample']
+
+    empty = sample.where(position='nonexistent')
+    assert empty.pick_n(5) == []
+
+
+def test_pick_n_with_zero(csv_sample_config):
+    sample_reader = SamplesReader(csv_sample_config, BASE_PATH)
+    sample = sample_reader['csv_sample']
+
+    assert sample.pick_n(0) == []
+
+
+def test_weighted_pick_default_on_empty(weighted_csv_sample_config):
+    sample_reader = SamplesReader(weighted_csv_sample_config, BASE_PATH)
+    sample = sample_reader['weighted_csv']
+
+    empty = sample.where(name='nonexistent')
+    assert empty.weighted_pick('weight', default=None) is None
+
+
+def test_weighted_pick_no_default_on_empty_raises(
+    weighted_csv_sample_config,
+):
+    sample_reader = SamplesReader(weighted_csv_sample_config, BASE_PATH)
+    sample = sample_reader['weighted_csv']
+
+    empty = sample.where(name='nonexistent')
+    with pytest.raises(SamplePickError, match='empty sample'):
+        empty.weighted_pick('weight')
+
+
+def test_weighted_pick_n_on_empty_returns_empty_list(
+    weighted_csv_sample_config,
+):
+    sample_reader = SamplesReader(weighted_csv_sample_config, BASE_PATH)
+    sample = sample_reader['weighted_csv']
+
+    empty = sample.where(name='nonexistent')
+    assert empty.weighted_pick_n('weight', 5) == []
+
+
+def test_where_preserves_named_access(csv_sample_config):
+    sample_reader = SamplesReader(csv_sample_config, BASE_PATH)
+    sample = sample_reader['csv_sample']
+
+    filtered = sample.where(position='Manager')
+    row = filtered[0]
+    assert row.name == 'John'
+    assert row.email == 'john@example.com'
+
+
+def test_where_on_items_sample_uses_numeric_columns(
+    items_sample_config,
+):
+    sample_reader = SamplesReader(items_sample_config, BASE_PATH)
+    sample = sample_reader['items_sample']
+
+    filtered = sample.where(_0='one')
+    assert len(filtered) == 1
+    assert filtered[0] == ('one', 'two')
