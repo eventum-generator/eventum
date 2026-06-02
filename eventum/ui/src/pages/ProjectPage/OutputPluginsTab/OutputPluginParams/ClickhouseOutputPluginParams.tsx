@@ -246,25 +246,47 @@ export const ClickhouseOutputPluginParams: FC<
         />
       </Group>
 
-      <TextInput
-        label={
-          <LabelWithTooltip
-            label="Client name"
-            tooltip="Client name that is prepended to the HTTP User Agent header,
+      <Group grow align="start" wrap="nowrap">
+        <TextInput
+          label={
+            <LabelWithTooltip
+              label="Client name"
+              tooltip="Client name that is prepended to the HTTP User Agent header,
               set this to track client queries in the ClickHouse query log"
-          />
-        }
-        placeholder="name"
-        {...form.getInputProps('client_name')}
-        onChange={(value) =>
-          form.setFieldValue(
-            'client_name',
-            value.currentTarget.value !== ''
-              ? value.currentTarget.value
-              : undefined
-          )
-        }
-      />
+            />
+          }
+          placeholder="name"
+          {...form.getInputProps('client_name')}
+          onChange={(value) =>
+            form.setFieldValue(
+              'client_name',
+              value.currentTarget.value !== ''
+                ? value.currentTarget.value
+                : undefined
+            )
+          }
+        />
+        <NumberInput
+          label={
+            <LabelWithTooltip
+              label="Pool max size"
+              tooltip="Maximum number of HTTP connections kept in the pool toward the ClickHouse host, default value is 32. Raise alongside `generation.max_concurrency` to avoid pool exhaustion under bursts of concurrent writes."
+            />
+          }
+          placeholder="connections"
+          min={1}
+          step={1}
+          allowDecimal={false}
+          {...form.getInputProps('pool_maxsize')}
+          value={form.getValues().pool_maxsize ?? ''}
+          onChange={(value) =>
+            form.setFieldValue(
+              'pool_maxsize',
+              typeof value === 'number' ? value : undefined
+            )
+          }
+        />
+      </Group>
 
       <Paper withBorder p="xs">
         <Stack gap="xs">
