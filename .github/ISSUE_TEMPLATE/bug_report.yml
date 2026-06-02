@@ -1,0 +1,81 @@
+name: Bug report
+description: Report a problem with Eventum
+title: "[Bug]: "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to report a bug. Please fill in the fields below so we can reproduce and fix it.
+
+        For usage questions, use [Discussions](https://github.com/orgs/eventum-generator/discussions) instead. Do not report security issues here - see the [security policy](https://github.com/eventum-generator/eventum/security/policy).
+  - type: checkboxes
+    id: preflight
+    attributes:
+      label: Preliminary checks
+      options:
+        - label: I searched existing issues and did not find a duplicate.
+          required: true
+        - label: I reproduced the problem on the latest release.
+          required: true
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened?
+      description: A clear description of the bug, including what you expected to happen instead.
+    validations:
+      required: true
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Steps to reproduce
+      description: Minimal steps to trigger the bug.
+      placeholder: |
+        1. ...
+        2. ...
+        3. ...
+    validations:
+      required: true
+  - type: textarea
+    id: config
+    attributes:
+      label: Minimal config or template
+      description: A minimal generator config and/or template that reproduces the issue. Rendered as code, so no backticks needed.
+      render: yaml
+    validations:
+      required: false
+  - type: textarea
+    id: logs
+    attributes:
+      label: Relevant logs or output
+      description: Paste any error messages, stack traces, or logs. Rendered as code.
+      render: shell
+    validations:
+      required: false
+  - type: input
+    id: version
+    attributes:
+      label: Eventum version
+      description: Find it with `pip show eventum-generator`, or the Docker image tag.
+      placeholder: e.g. 1.2.3
+    validations:
+      required: true
+  - type: dropdown
+    id: install
+    attributes:
+      label: How do you run Eventum?
+      options:
+        - pip
+        - uv
+        - Docker
+        - From source
+    validations:
+      required: true
+  - type: input
+    id: environment
+    attributes:
+      label: Environment
+      description: Operating system and Python version.
+      placeholder: e.g. Ubuntu 24.04, Python 3.14
+    validations:
+      required: false
