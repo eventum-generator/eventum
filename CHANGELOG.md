@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## Unreleased
+
+### 🚀 New Features
+
+- **`module.rand.string.pattern(format_string)`** — build random strings from a printf-like pattern with specifiers `%a %A %l %d %n %h %H %p %w %%` and repeat syntax `{N}` (e.g. `pattern("ORD-%A{3}-%d{6}")`)
+
 ## 2.5.0 (2026-05-14)
 
 ### 🚀 New Features

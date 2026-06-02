@@ -372,6 +372,15 @@ const namespaceCompletions: NamespaceMember = {
                     info: '(size: int) -> str',
                   },
                 },
+                pattern: {
+                  completion: {
+                    label: 'pattern',
+                    type: 'function',
+                    detail:
+                      'Return random string built from a printf-like pattern (%a %A %l %d %n %h %H %p %w %%, repeat with {N})',
+                    info: '(format_string: str) -> str',
+                  },
+                },
               },
             },
 
