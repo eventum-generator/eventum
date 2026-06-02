@@ -399,6 +399,15 @@ const namespaceCompletions: NamespaceMember = {
                     info: '() -> str',
                   },
                 },
+                ip_v4_private: {
+                  completion: {
+                    label: 'ip_v4_private',
+                    type: 'function',
+                    detail:
+                      'Return random private IPv4 address (RFC 1918, any class)',
+                    info: '() -> str',
+                  },
+                },
                 ip_v4_private_a: {
                   completion: {
                     label: 'ip_v4_private_a',
