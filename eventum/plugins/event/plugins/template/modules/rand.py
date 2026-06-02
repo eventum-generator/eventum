@@ -413,6 +413,25 @@ class network:  # noqa: N801
         return '.'.join(str(random.randint(0, 255)) for _ in range(4))
 
     @staticmethod
+    def ip_v4_private() -> str:
+        """Return random private IPv4 address (RFC 1918, any class)."""
+        private_ranges = [
+            ('10.0.0.0', '10.255.255.255'),
+            ('172.16.0.0', '172.31.255.255'),
+            ('192.168.0.0', '192.168.255.255'),
+        ]
+        start, end = random.choices(
+            population=private_ranges,
+            weights=[5, 2, 5],
+            k=1,
+        ).pop()
+        ipv4_int = random.randint(
+            int(ipaddress.IPv4Address(start)),
+            int(ipaddress.IPv4Address(end)),
+        )
+        return str(ipaddress.IPv4Address(ipv4_int))
+
+    @staticmethod
     def ip_v4_private_a() -> str:
         """Return random private IPv4 address of Class A."""
         ipv4_int = random.randint(
@@ -565,6 +584,11 @@ class crypto:  # noqa: N801
     def md5() -> str:
         """Return random MD5 hash."""
         return f'{random.getrandbits(128):032x}'
+
+    @staticmethod
+    def sha1() -> str:
+        """Return random SHA-1 hash."""
+        return f'{random.getrandbits(160):040x}'
 
     @staticmethod
     def sha256() -> str:
