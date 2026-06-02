@@ -27,6 +27,7 @@ export const ClickhouseOutputPluginConfigSchema =
     server_host_name: z.string().min(1).nullable().optional(),
     tls_mode: orPlaceholder(z.enum(TLS_MODES)).nullable().optional(),
     proxy_url: z.string().min(1).nullable().optional(),
+    pool_maxsize: orPlaceholder(z.number().int().gte(1)).optional(),
     input_format: orPlaceholder(z.enum(CLICKHOUSE_INPUT_FORMAT)).optional(),
     header: z.string().optional(),
     footer: z.string().optional(),
