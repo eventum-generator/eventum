@@ -295,6 +295,27 @@ def test_ip_v4():
     assert isinstance(ipaddress.ip_address(ip), ipaddress.IPv4Address)
 
 
+def test_ip_v4_private():
+    private_nets = [
+        ipaddress.IPv4Network('10.0.0.0/8'),
+        ipaddress.IPv4Network('172.16.0.0/12'),
+        ipaddress.IPv4Network('192.168.0.0/16'),
+    ]
+    seen_nets: set[int] = set()
+    for _ in range(200):
+        ip = rand.network.ip_v4_private()
+        addr = ipaddress.IPv4Address(ip)
+        matched = next(
+            (i for i, net in enumerate(private_nets) if addr in net),
+            None,
+        )
+        assert matched is not None, f'{ip} not in any RFC 1918 range'
+        seen_nets.add(matched)
+    assert seen_nets == {0, 1, 2}, (
+        f'expected all three ranges to be sampled, got {seen_nets}'
+    )
+
+
 def test_ip_v4_private_a():
     ip = rand.network.ip_v4_private_a()
     assert ip.startswith('10.')
@@ -371,6 +392,53 @@ def test_mac():
     assert all(0 <= int(x, 16) <= 255 for x in mac.split(':'))
 
 
+def test_mac_with_oui():
+    mac = rand.network.mac(oui='00:50:56')
+    parts = mac.split(':')
+    assert len(parts) == 6
+    assert parts[:3] == ['00', '50', '56']
+    assert all(0 <= int(x, 16) <= 255 for x in parts[3:])
+
+
+def test_mac_oui_accepts_dashes():
+    mac = rand.network.mac(oui='aa-bb-cc')
+    assert mac.startswith('aa:bb:cc:')
+
+
+def test_mac_oui_invalid():
+    for bad in ('', '00:50', '00:50:56:78', 'gg:50:56', '0:50:56', 'xyz'):
+        with pytest.raises(ValueError, match='invalid OUI prefix'):
+            rand.network.mac(oui=bad)
+
+
+def test_mac_with_vendor():
+    mac = rand.network.mac(vendor='dell')
+    prefix = ':'.join(mac.split(':')[:3])
+    assert prefix in {
+        '00:14:22',
+        '18:03:73',
+        '34:17:eb',
+        'b0:83:fe',
+        'f8:db:88',
+    }
+
+
+def test_mac_vendor_case_insensitive():
+    mac = rand.network.mac(vendor='VMware')
+    prefix = ':'.join(mac.split(':')[:3])
+    assert prefix in {'00:05:69', '00:0c:29', '00:1c:14', '00:50:56'}
+
+
+def test_mac_unknown_vendor():
+    with pytest.raises(ValueError, match='unknown vendor'):
+        rand.network.mac(vendor='nosuchvendor')
+
+
+def test_mac_oui_and_vendor_mutually_exclusive():
+    with pytest.raises(ValueError, match='mutually exclusive'):
+        rand.network.mac(oui='00:50:56', vendor='vmware')
+
+
 # ---- Crypto Namespace ----
 def test_uuid4():
     assert isinstance(uuid.UUID(rand.crypto.uuid4()), uuid.UUID)
@@ -379,6 +447,12 @@ def test_uuid4():
 def test_md5():
     result = rand.crypto.md5()
     assert len(result) == 32
+    assert all(c in '0123456789abcdef' for c in result)
+
+
+def test_sha1():
+    result = rand.crypto.sha1()
+    assert len(result) == 40
     assert all(c in '0123456789abcdef' for c in result)
 
 

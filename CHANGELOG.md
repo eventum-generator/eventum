@@ -9,8 +9,11 @@ All notable changes to this project will be documented in this file.
 - **`samples.<name>.where(**conditions)`** — filter sample rows by multiple equality conditions in a single call (AND-combined). Replaces verbose chained `selectattr` and returns a `Sample` that supports further `where`/`pick` calls
 - **`pick(default=...)` and `weighted_pick(weight, default=...)`** — return a fallback value when the sample is empty instead of raising; `pick_n` and `weighted_pick_n` return `[]` on empty samples
 - **`module.rand.network.ip_v6` family** — generate random IPv6 addresses: `ip_v6()` for the full space, `ip_v6_global()` for global unicast (`2000::/3`), `ip_v6_link_local()` for link-local (`fe80::/10`), `ip_v6_ula()` for unique local (`fc00::/7`)
+- **`module.rand.network.mac(oui=..., vendor=...)`** — fix the OUI prefix to a 3-byte string (e.g. `mac(oui="00:50:56")`) or pick one at random from a built-in table for a given vendor (e.g. `mac(vendor="dell")`); 20 vendor keys cover Apple, Cisco, Dell, HP, Intel, VMware, and others. No-argument call keeps the previous fully-random behavior
+- **`module.rand.network.ip_v4_private()`** — generate a random RFC 1918 private IPv4 address from any class (`10.0.0.0/8`, `172.16.0.0/12`, `192.168.0.0/16`) with realistic weights
 - **`module.rand.string.pattern(format_string)`** — build random strings from a printf-like pattern with specifiers `%a %A %l %d %n %h %H %p %w %%` and repeat syntax `{N}` (e.g. `pattern("ORD-%A{3}-%d{6}")`)
 - **ClickHouse output: `pool_maxsize` parameter** — configure the HTTP connection pool size toward the ClickHouse host (default `32`); raise it together with `generation.max_concurrency` to avoid `Connection pool is full` warnings and connection churn under bursts of concurrent writes
+- **`module.rand.crypto.sha1()`** — generate a random 40-character hex string (SHA-1-length)
 
 ## 2.5.0 (2026-05-14)
 

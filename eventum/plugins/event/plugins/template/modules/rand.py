@@ -34,6 +34,53 @@ _PATTERN_CHARSETS: dict[str, str] = {
     'w': _WORD,
 }
 
+# OUI prefixes per vendor. Each value is a tuple of 3-byte prefixes
+# expressed in lowercase colon notation. Source: public IEEE OUI
+# assignments, sampled to give a few prefixes per vendor.
+_VENDOR_OUIS: dict[str, tuple[str, ...]] = {
+    'apple': ('00:03:93', '00:1f:f3', '04:0c:ce', '6c:96:cf', 'f0:b4:79'),
+    'aruba': ('00:0b:86', '00:1a:1e', '20:4c:03', '94:b4:0f'),
+    'broadcom': ('00:0a:f7', '00:10:18', '00:1b:e9', 'd4:01:29'),
+    'cisco': ('00:00:0c', '00:01:42', '00:1b:54', '00:24:97', 'a4:6c:2a'),
+    'dell': ('00:14:22', '18:03:73', '34:17:eb', 'b0:83:fe', 'f8:db:88'),
+    'fortinet': ('00:09:0f', '04:d5:90', '90:6c:ac', 'e0:23:ff'),
+    'hp': ('00:01:e6', '00:08:83', '00:0e:7f', '3c:d9:2b', '94:18:82'),
+    'huawei': ('00:18:82', '00:1e:10', '04:25:c5', '20:f3:a3', '38:bc:01'),
+    'ibm': ('00:01:e1', '00:09:6b', '00:14:5e', '00:17:ef', '00:21:5e'),
+    'intel': ('00:03:47', '00:07:e9', '00:13:02', 'a0:36:9f', 'e8:b1:fc'),
+    'juniper': ('00:05:85', '00:12:1e', '00:14:f6', '00:17:cb', '00:1f:12'),
+    'lenovo': ('00:21:cc', '54:e1:ad', 'a0:51:0b', 'cc:07:e4', 'e8:6f:38'),
+    'microsoft': ('00:03:ff', '00:15:5d', '00:50:f2', '28:18:78', '60:45:bd'),
+    'mikrotik': ('00:0c:42', '4c:5e:0c', '6c:3b:6b', 'b8:69:f4'),
+    'netgear': ('00:09:5b', '00:14:6c', '00:1b:2f', '20:e5:2a', '4c:60:de'),
+    'paloalto': ('00:1b:17', 'b4:0c:25'),
+    'samsung': ('00:07:ab', '00:23:39', '08:08:c2', '34:23:ba', 'f0:08:f1'),
+    'tplink': ('00:1d:0f', '14:cc:20', '50:c7:bf', '98:da:c4', 'd8:0d:17'),
+    'ubiquiti': ('00:15:6d', '04:18:d6', '24:5a:4c', '74:ac:b9', 'fc:ec:da'),
+    'vmware': ('00:05:69', '00:0c:29', '00:1c:14', '00:50:56'),
+}
+
+
+@functools.lru_cache(maxsize=256)
+def _parse_oui(oui: str) -> tuple[int, int, int]:
+    """Parse a 3-byte OUI prefix into a tuple of integers.
+
+    Accepts ``aa:bb:cc`` and ``aa-bb-cc`` (case-insensitive). Each
+    octet must be exactly two hex digits. Raises ``ValueError`` for
+    any other shape. Cached because callers may invoke ``mac()`` on
+    the hot path with the same prefix repeatedly.
+    """
+    parts = oui.replace('-', ':').split(':')
+    if len(parts) != 3 or not all(len(p) == 2 for p in parts):  # noqa: PLR2004
+        msg = f'invalid OUI prefix: {oui!r}'
+        raise ValueError(msg)
+    try:
+        a, b, c = (int(p, 16) for p in parts)
+    except ValueError:
+        msg = f'invalid OUI prefix: {oui!r}'
+        raise ValueError(msg) from None
+    return a, b, c
+
 
 def _parse_brace_count(format_string: str, start: int) -> tuple[int, int]:
     """Parse a ``{N}`` block at `start` (the ``{`` position).
@@ -366,6 +413,25 @@ class network:  # noqa: N801
         return '.'.join(str(random.randint(0, 255)) for _ in range(4))
 
     @staticmethod
+    def ip_v4_private() -> str:
+        """Return random private IPv4 address (RFC 1918, any class)."""
+        private_ranges = [
+            ('10.0.0.0', '10.255.255.255'),
+            ('172.16.0.0', '172.31.255.255'),
+            ('192.168.0.0', '192.168.255.255'),
+        ]
+        start, end = random.choices(
+            population=private_ranges,
+            weights=[5, 2, 5],
+            k=1,
+        ).pop()
+        ipv4_int = random.randint(
+            int(ipaddress.IPv4Address(start)),
+            int(ipaddress.IPv4Address(end)),
+        )
+        return str(ipaddress.IPv4Address(ipv4_int))
+
+    @staticmethod
     def ip_v4_private_a() -> str:
         """Return random private IPv4 address of Class A."""
         ipv4_int = random.randint(
@@ -468,11 +534,42 @@ class network:  # noqa: N801
         return str(ipaddress.IPv6Address(int(net.network_address) + offset))
 
     @staticmethod
-    def mac() -> str:
-        """Return random MAC address."""
-        mac = [random.randint(0x00, 0xFF) for _ in range(6)]
+    def mac(
+        *,
+        oui: str | None = None,
+        vendor: str | None = None,
+    ) -> str:
+        """Return random MAC address.
 
-        return ':'.join(f'{x:02x}' for x in mac)
+        Without arguments, all six bytes are random. With `oui`, the
+        given 3-byte prefix is reused and only the last three bytes
+        vary; `oui` accepts ``aa:bb:cc`` or ``aa-bb-cc``. With
+        `vendor`, the prefix is picked at random from a built-in OUI
+        table for that vendor (case-insensitive lookup). Pass at
+        most one of `oui` or `vendor`.
+
+        Raises ``ValueError`` for an invalid `oui`, an unknown
+        `vendor`, or both arguments at once.
+        """
+        if oui is not None and vendor is not None:
+            msg = "'oui' and 'vendor' are mutually exclusive"
+            raise ValueError(msg)
+
+        if vendor is not None:
+            ouis = _VENDOR_OUIS.get(vendor.lower())
+            if ouis is None:
+                msg = f'unknown vendor: {vendor!r}'
+                raise ValueError(msg)
+            oui = random.choice(ouis)
+
+        if oui is not None:
+            prefix = _parse_oui(oui)
+            suffix = (random.randint(0, 0xFF) for _ in range(3))
+            octets = (*prefix, *suffix)
+        else:
+            octets = tuple(random.randint(0, 0xFF) for _ in range(6))
+
+        return ':'.join(f'{x:02x}' for x in octets)
 
 
 class crypto:  # noqa: N801
@@ -487,6 +584,11 @@ class crypto:  # noqa: N801
     def md5() -> str:
         """Return random MD5 hash."""
         return f'{random.getrandbits(128):032x}'
+
+    @staticmethod
+    def sha1() -> str:
+        """Return random SHA-1 hash."""
+        return f'{random.getrandbits(160):040x}'
 
     @staticmethod
     def sha256() -> str:
