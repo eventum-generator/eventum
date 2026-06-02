@@ -11,7 +11,7 @@ from string import (
 
 import pytest
 
-import eventum.plugins.event.plugins.template.modules.rand as rand
+from eventum.plugins.event.plugins.template.modules import rand
 
 
 # ---- General Random Functions ----
@@ -156,6 +156,137 @@ def test_string_hex():
     result = rand.string.hex(8)
     assert len(result) == 8
     assert all(c in '0123456789abcdef' for c in result)
+
+
+# ---- String Pattern ----
+def test_string_pattern_empty():
+    assert rand.string.pattern('') == ''
+
+
+def test_string_pattern_literal_only():
+    assert rand.string.pattern('hello') == 'hello'
+
+
+def test_string_pattern_lowercase_letter():
+    result = rand.string.pattern('%a')
+    assert len(result) == 1
+    assert result in ascii_lowercase
+
+
+def test_string_pattern_uppercase_letter():
+    result = rand.string.pattern('%A')
+    assert len(result) == 1
+    assert result in ascii_uppercase
+
+
+def test_string_pattern_any_letter():
+    result = rand.string.pattern('%l{20}')
+    assert len(result) == 20
+    assert all(c in ascii_letters for c in result)
+
+
+def test_string_pattern_digit():
+    result = rand.string.pattern('%d{10}')
+    assert len(result) == 10
+    assert all(c in digits for c in result)
+
+
+def test_string_pattern_non_zero_digit():
+    result = rand.string.pattern('%n{100}')
+    assert len(result) == 100
+    assert all(c in '123456789' for c in result)
+
+
+def test_string_pattern_hex_lower():
+    result = rand.string.pattern('%h{16}')
+    assert len(result) == 16
+    assert all(c in '0123456789abcdef' for c in result)
+
+
+def test_string_pattern_hex_upper():
+    result = rand.string.pattern('%H{16}')
+    assert len(result) == 16
+    assert all(c in '0123456789ABCDEF' for c in result)
+
+
+def test_string_pattern_punctuation():
+    result = rand.string.pattern('%p{10}')
+    assert len(result) == 10
+    assert all(c in punctuation for c in result)
+
+
+def test_string_pattern_word():
+    result = rand.string.pattern('%w{30}')
+    assert len(result) == 30
+    assert all(c in ascii_letters + digits for c in result)
+
+
+def test_string_pattern_escaped_percent():
+    assert rand.string.pattern('%%') == '%'
+
+
+def test_string_pattern_escaped_percent_repeated():
+    assert rand.string.pattern('%%{4}') == '%%%%'
+
+
+def test_string_pattern_mixed():
+    result = rand.string.pattern('ID-%A{2}%d{4}')
+    assert len(result) == 9
+    assert result.startswith('ID-')
+    assert all(c in ascii_uppercase for c in result[3:5])
+    assert all(c in digits for c in result[5:])
+
+
+def test_string_pattern_zero_count():
+    assert rand.string.pattern('a%d{0}b') == 'ab'
+
+
+def test_string_pattern_literal_braces():
+    result = rand.string.pattern('{3}')
+    assert result == '{3}'
+
+
+def test_string_pattern_literal_braces_after_text():
+    result = rand.string.pattern('size={5}')
+    assert result == 'size={5}'
+
+
+def test_string_pattern_no_repeat_emits_one():
+    result = rand.string.pattern('%a%A%d')
+    assert len(result) == 3
+    assert result[0] in ascii_lowercase
+    assert result[1] in ascii_uppercase
+    assert result[2] in digits
+
+
+def test_string_pattern_trailing_percent_raises():
+    with pytest.raises(ValueError, match='trailing'):
+        rand.string.pattern('abc%')
+
+
+def test_string_pattern_unknown_specifier_raises():
+    with pytest.raises(ValueError, match='unknown format specifier'):
+        rand.string.pattern('%z')
+
+
+def test_string_pattern_unclosed_brace_raises():
+    with pytest.raises(ValueError, match='unclosed'):
+        rand.string.pattern('%a{5')
+
+
+def test_string_pattern_non_numeric_count_raises():
+    with pytest.raises(ValueError, match='invalid repeat count'):
+        rand.string.pattern('%a{abc}')
+
+
+def test_string_pattern_negative_count_raises():
+    with pytest.raises(ValueError, match='invalid repeat count'):
+        rand.string.pattern('%a{-3}')
+
+
+def test_string_pattern_empty_count_raises():
+    with pytest.raises(ValueError, match='invalid repeat count'):
+        rand.string.pattern('%a{}')
 
 
 # ---- Network Namespace ----
