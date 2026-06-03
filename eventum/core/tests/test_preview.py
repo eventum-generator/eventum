@@ -3,7 +3,7 @@
 from collections.abc import Callable
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any, cast
 
 import pytest
 
@@ -13,6 +13,10 @@ from eventum.core.preview import (
     produce_events_with_plugin,
     validate_generator,
 )
+from eventum.plugins.event.base.plugin import ProduceParams
+
+if TYPE_CHECKING:
+    from eventum.plugins.event.base.plugin import EventPlugin
 
 
 class _FakePlugin:
@@ -39,12 +43,14 @@ def test_produce_events_with_plugin_collects_events_and_errors() -> None:  # noq
         return [f'event-{calls["n"]}']
 
     plugin = _FakePlugin(behavior)
-    params_list = [
+    params_list: list[ProduceParams] = [
         {'timestamp': datetime(2026, 1, 1, tzinfo=UTC), 'tags': ()}
         for _ in range(3)
     ]
 
-    result = produce_events_with_plugin(plugin, params_list)
+    result = produce_events_with_plugin(
+        cast('EventPlugin', plugin), params_list
+    )
 
     assert isinstance(result, SampleEvents)  # noqa: S101
     assert result.events == ['event-1', 'event-3']  # noqa: S101
@@ -64,12 +70,14 @@ def test_produce_events_with_plugin_stops_on_exhausted() -> None:  # noqa: D103
         return ['event']
 
     plugin = _FakePlugin(behavior)
-    params_list = [
+    params_list: list[ProduceParams] = [
         {'timestamp': datetime(2026, 1, 1, tzinfo=UTC), 'tags': ()}
         for _ in range(3)
     ]
 
-    result = produce_events_with_plugin(plugin, params_list)
+    result = produce_events_with_plugin(
+        cast('EventPlugin', plugin), params_list
+    )
 
     assert result.exhausted is True  # noqa: S101
     assert len(result.events) == 1  # noqa: S101
