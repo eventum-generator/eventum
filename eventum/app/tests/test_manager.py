@@ -1,8 +1,18 @@
+import threading
+from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import pytest
 
 from eventum.app.manager import GeneratorManager, ManagingError
+from eventum.core.parameters import GeneratorParameters
+
+
+def _params(generator_id: str, tmp_path: Path) -> GeneratorParameters:
+    cfg = tmp_path / generator_id / 'generator.yml'
+    cfg.parent.mkdir(parents=True, exist_ok=True)
+    cfg.write_text('input: []\nevent: {}\noutput: []\n')
+    return GeneratorParameters(id=generator_id, path=cfg)
 
 
 @pytest.fixture
@@ -119,3 +129,61 @@ def test_get_generator_property(manager, fake_params):
         manager.add(fake_params)
 
     assert manager.generator_ids == ['gen1']
+
+
+@patch('eventum.app.manager.Generator')
+def test_concurrent_add_same_id_adds_once(_, tmp_path):
+    manager = GeneratorManager()
+    params = _params('dup', tmp_path)
+    errors: list[Exception] = []
+    lock = threading.Lock()
+    barrier = threading.Barrier(2)
+
+    def worker():
+        barrier.wait()
+        try:
+            manager.add(params)
+        except ManagingError as e:
+            with lock:
+                errors.append(e)
+
+    threads = [threading.Thread(target=worker) for _ in range(2)]
+    for t in threads:
+        t.start()
+    for t in threads:
+        t.join()
+
+    assert manager.generator_ids == ['dup']
+    assert len(errors) == 1
+
+
+@patch('eventum.app.manager.Generator')
+def test_concurrent_remove_same_id_removes_once(_, tmp_path):
+    manager = GeneratorManager()
+    manager.add(_params('dup', tmp_path))
+    errors: list[Exception] = []
+    lock = threading.Lock()
+    barrier = threading.Barrier(2)
+
+    def worker():
+        barrier.wait()
+        try:
+            manager.remove('dup')
+        except ManagingError as e:
+            with lock:
+                errors.append(e)
+
+    threads = [threading.Thread(target=worker) for _ in range(2)]
+    for t in threads:
+        t.start()
+    for t in threads:
+        t.join()
+
+    assert manager.generator_ids == []
+    assert len(errors) == 1
+
+
+def test_get_generator_missing_raises():
+    manager = GeneratorManager()
+    with pytest.raises(ManagingError):
+        manager.get_generator('absent')
