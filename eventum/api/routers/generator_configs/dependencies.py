@@ -8,6 +8,11 @@ from fastapi import Depends, HTTPException, Path, status
 
 from eventum.api.dependencies.app import SettingsDep
 from eventum.api.utils.response_description import set_responses
+from eventum.app.workspace import (
+    WorkspaceError,
+    ensure_relative,
+    resolve_generator_dir,
+)
 
 
 async def list_generator_dirs(settings: SettingsDep) -> list[str]:
@@ -77,16 +82,16 @@ async def check_directory_is_allowed(
         If the resolved path is outside `settings.path.generators_dir`.
 
     """
-    path = (settings.path.generators_dir / name).resolve()
-
-    if not path.is_relative_to(settings.path.generators_dir):
+    try:
+        resolve_generator_dir(settings.path.generators_dir, name)
+    except WorkspaceError:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail=(
                 'Accessing directories outside `path.generators_dir` '
                 'is not allowed'
             ),
-        )
+        ) from None
 
     return name
 
@@ -229,20 +234,21 @@ async def check_filepath_is_directly_relative(
         - Path cannot be absolute
 
     """
-    if filepath.is_absolute():
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail='Path cannot be absolute',
-        )
-
-    if any(part == '..' for part in filepath.parts):
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=(
+    try:
+        ensure_relative(filepath)
+    except WorkspaceError:
+        detail = (
+            'Path cannot be absolute'
+            if filepath.is_absolute()
+            else (
                 "Parent directories traversal (i.e. using '..') "
                 'is not allowed.'
-            ),
+            )
         )
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=detail,
+        ) from None
 
     return filepath
 
