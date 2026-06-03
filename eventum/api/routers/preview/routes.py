@@ -51,11 +51,8 @@ from eventum.api.routers.preview.timestamps_aggregation import (
     aggregate_timestamps,
 )
 from eventum.api.utils.response_description import merge_responses
+from eventum.core.preview import produce_events_with_plugin
 from eventum.plugins.event.base.plugin import ProduceParams
-from eventum.plugins.event.exceptions import (
-    PluginEventsExhaustedError,
-    PluginProduceError,
-)
 from eventum.plugins.input.adapters import IdentifiedTimestampsPluginAdapter
 from eventum.plugins.input.exceptions import PluginGenerationError
 from eventum.plugins.input.merger import InputPluginsMerger
@@ -164,33 +161,21 @@ async def produce_events(
         ),
     ],
 ) -> ProducedEventsInfo:
-    events: list[str] = []
-    errors: list[tuple[int, PluginProduceError]] = []
-    exhausted = False
-
-    for i, params in enumerate(params_list):
-        try:
-            produced = await asyncio.to_thread(
-                lambda params=params: plugin.produce(params=params),  # type: ignore[misc]
-            )
-            events.extend(produced)
-        except PluginProduceError as e:
-            errors.append((i, e))
-        except PluginEventsExhaustedError:
-            exhausted = True
-            break
+    result = await asyncio.to_thread(
+        produce_events_with_plugin, plugin, params_list
+    )
 
     return ProducedEventsInfo(
-        events=events,
+        events=result.events,
         errors=[
             ProduceEventErrorInfo(
-                index=i,
-                message=str(error),
-                context=error.context,
+                index=e.index,
+                message=e.message,
+                context=e.context,
             )
-            for i, error in errors
+            for e in result.errors
         ],
-        exhausted=exhausted,
+        exhausted=result.exhausted,
     )
 
 
