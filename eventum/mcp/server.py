@@ -14,6 +14,7 @@ from eventum.mcp.context import AuthoringContext
 from eventum.mcp.errors import ToolFailure
 from eventum.mcp.tools import discovery
 from eventum.mcp.tools import formatters as fmt_tools
+from eventum.mcp.tools import samples as sample_tools
 
 _INSTRUCTIONS = (
     'Eventum MCP server. Author and inspect synthetic data generators: '
@@ -33,7 +34,8 @@ def build_server(context: AuthoringContext) -> FastMCP:
     Returns
     -------
     FastMCP
-        Configured server with discovery and formatter tools registered.
+        Configured server with plugin discovery, formatter discovery,
+        and sample introspection tools registered.
 
     """
     mcp = FastMCP('eventum', instructions=_INSTRUCTIONS)
@@ -120,5 +122,38 @@ def build_server(context: AuthoringContext) -> FastMCP:
 
         """
         return fmt_tools.get_formatter_schema(context, format=format)
+
+    @mcp.tool()
+    def describe_sample(
+        name: str,
+        relative_path: str,
+    ) -> dict[str, Any] | ToolFailure:
+        """Describe a CSV or JSON sample file in a generator directory.
+
+        Use it to learn a sample's column names so templates can
+        reference them via ``samples.<name>.<column>``.
+
+        Parameters
+        ----------
+        name : str
+            Generator directory name.
+
+        relative_path : str
+            Path to the sample file relative to the generator directory
+            (e.g. ``'samples/cities.csv'``).
+
+        Returns
+        -------
+        dict[str, Any] | ToolFailure
+            ``type``, ``columns``, ``row_count``, and ``example_rows``
+            for the sample, or a structured failure if the path is
+            invalid, missing, unsupported, or malformed. Does not raise.
+
+        """
+        return sample_tools.describe_sample(
+            context,
+            name=name,
+            relative_path=relative_path,
+        )
 
     return mcp

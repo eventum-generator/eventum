@@ -18,7 +18,7 @@ def ctx(tmp_path: Path) -> FileAuthoringContext:
 def test_build_server_registers_tools(
     ctx: FileAuthoringContext,
 ) -> None:
-    """build_server registers exactly the discovery and formatter tools."""
+    """build_server registers exactly the expected tool set."""
     server = build_server(ctx)
     tools = anyio.run(server.list_tools)
     names = {t.name for t in tools}
@@ -27,6 +27,7 @@ def test_build_server_registers_tools(
         'get_plugin_schema',
         'list_formatters',
         'get_formatter_schema',
+        'describe_sample',
     }
 
 
