@@ -81,6 +81,43 @@ def test_validate_generator_missing_file_raises(tmp_path: Path) -> None:  # noqa
         validate_generator(tmp_path / 'nope' / 'generator.yml', params={})
 
 
+def test_aggregate_sample_timestamps_returns_counts(tmp_path: Path) -> None:  # noqa: D103
+    from eventum.core.preview import (
+        TimestampsAggregate,
+        aggregate_sample_timestamps,
+    )
+
+    gen = tmp_path / 'g'
+    gen.mkdir()
+
+    config_text = (
+        'input:\n'
+        '  - linspace:\n'
+        '      start: "2025-01-01 00:00:00"\n'
+        '      end: "2025-01-01 01:00:00"\n'
+        '      count: 10\n'
+        'event:\n'
+        '  script:\n'
+        '    path: produce.py\n'
+        'output:\n'
+        '  - stdout:\n'
+        '      stream: stderr\n'
+    )
+    (gen / 'generator.yml').write_text(config_text)
+    (gen / 'produce.py').write_text(
+        'def produce(params):\n    return [str(params["timestamp"])]\n',
+    )
+
+    agg = aggregate_sample_timestamps(
+        gen / 'generator.yml',
+        size=100,
+        params={},
+        skip_past=False,
+    )
+    assert isinstance(agg, TimestampsAggregate)  # noqa: S101
+    assert agg.total >= 1  # noqa: S101
+
+
 def test_produce_sample_events_end_to_end(tmp_path: Path) -> None:  # noqa: D103
     gen = tmp_path / 'g'
     gen.mkdir()
@@ -117,3 +154,26 @@ def test_produce_sample_events_end_to_end(tmp_path: Path) -> None:  # noqa: D103
     assert result.events  # noqa: S101
     assert all(isinstance(e, str) for e in result.events)  # noqa: S101
     assert result.exhausted is False  # noqa: S101
+
+
+def test_calculate_auto_span_small_range() -> None:  # noqa: D103
+    import numpy as np
+
+    from eventum.core.preview import _calculate_auto_span
+
+    earliest = np.datetime64('2024-01-01T00:00:00', 'us')
+    latest = np.datetime64('2024-01-01T00:00:10', 'us')
+    span = _calculate_auto_span(earliest, latest, 10, 30)
+    assert span <= np.timedelta64(10, 's')  # noqa: S101
+
+
+def test_calculate_auto_span_24h_range() -> None:  # noqa: D103
+    import numpy as np
+
+    from eventum.core.preview import _calculate_auto_span
+
+    earliest = np.datetime64('2024-01-01T00:00:00', 'us')
+    latest = np.datetime64('2024-01-02T00:00:00', 'us')
+    span = _calculate_auto_span(earliest, latest, 1000, 30)
+    assert span >= np.timedelta64(1, 's')  # noqa: S101
+    assert span <= np.timedelta64(24, 'h')  # noqa: S101

@@ -1,16 +1,19 @@
 """Stateless preview and validation of generator configurations.
 
 Loads a generator config from disk and either validates it (load +
-initialize every plugin) or produces a bounded sample of events.
+initialize every plugin), produces a bounded sample of events, or
+aggregates a bounded sample of input timestamps into a histogram.
 Plugins and their template state are discarded each call; this module
 never uses the stateful api preview storage.
 """
 
 from collections.abc import Sequence
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, timedelta
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any, cast
+
+import numpy as np
 
 from eventum.core.config_loader import load
 from eventum.core.parameters import GeneratorParameters
@@ -22,6 +25,38 @@ from eventum.plugins.event.exceptions import (
 )
 from eventum.plugins.input.adapters import IdentifiedTimestampsPluginAdapter
 from eventum.plugins.input.merger import InputPluginsMerger
+from eventum.plugins.input.protocols import IdentifiedTimestamps
+
+if TYPE_CHECKING:
+    from numpy.typing import NDArray
+
+_AUTO_SPANS_US = np.array(
+    [
+        1,  # 1s
+        5,  # 5s
+        10,  # 10s
+        15,  # 15s
+        30,  # 30s
+        60,  # 1m
+        300,  # 5m
+        600,  # 10m
+        900,  # 15m
+        1800,  # 30m
+        3600,  # 1h
+        7200,  # 2h
+        14400,  # 4h
+        21600,  # 6h
+        43200,  # 12h
+        86400,  # 1d
+        604800,  # 7d
+        2592000,  # 30d
+    ],
+    dtype='timedelta64[s]',
+).astype('timedelta64[us]')
+
+_OPTIMAL_SPANS_COUNT = 30
+
+_MAX_FULLY_RETURNED_TIMESTAMPS_SAMPLE_SIZE = 100
 
 
 @dataclass(frozen=True)
@@ -67,6 +102,40 @@ class SampleEvents:
     events: list[str]
     errors: list[ProduceError]
     exhausted: bool
+
+
+@dataclass(frozen=True)
+class TimestampsAggregate:
+    """Transport-neutral result of timestamp histogram aggregation.
+
+    Attributes
+    ----------
+    span_edges : list[datetime]
+        Timestamps representing the left edge of each histogram bucket.
+
+    span_counts : dict[int, list[int]]
+        Count of timestamps per bucket for each plugin id.
+
+    total : int
+        Total count of timestamps in the sample.
+
+    first : list[datetime] | None
+        First 50 timestamps when sample exceeds the full-return limit.
+
+    last : list[datetime] | None
+        Last 50 timestamps when sample exceeds the full-return limit.
+
+    timestamps : list[datetime] | None
+        All timestamps when sample fits within the full-return limit.
+
+    """
+
+    span_edges: list[datetime]
+    span_counts: dict[int, list[int]]
+    total: int
+    first: list[datetime] | None
+    last: list[datetime] | None
+    timestamps: list[datetime] | None
 
 
 def _load_initialized(
@@ -175,6 +244,175 @@ def produce_events_with_plugin(
     return SampleEvents(events=events, errors=errors, exhausted=exhausted)
 
 
+def aggregate(
+    timestamps: IdentifiedTimestamps,
+    span: timedelta | None,
+) -> TimestampsAggregate:
+    """Compute a histogram over identified timestamps.
+
+    The single authoritative implementation of the bucketing logic.
+
+    Parameters
+    ----------
+    timestamps : IdentifiedTimestamps
+        Record array with fields 'timestamp' (datetime64[us]) and
+        'id' (uint16).
+
+    span : timedelta | None
+        Bucket width. None triggers auto-span selection.
+
+    Returns
+    -------
+    TimestampsAggregate
+        Histogram counts and sample timestamps.
+
+    """
+    plugin_ids = timestamps['id']
+    ts = timestamps['timestamp']
+
+    if ts.size == 0:
+        return TimestampsAggregate(
+            span_edges=[],
+            span_counts={},
+            total=0,
+            first=None,
+            last=None,
+            timestamps=[],
+        )
+
+    if span is None:
+        span_td64 = _calculate_auto_span(
+            earliest_ts=ts.min(),
+            latest_ts=ts.max(),
+            timestamps_count=ts.size,
+            optimal_spans_count=_OPTIMAL_SPANS_COUNT,
+        )
+    else:
+        span_td64 = np.timedelta64(span, 'us')
+
+    origin = np.datetime64('1970-01-01', 'us')
+
+    timestamp_spans = (ts - origin) // span_td64
+    min_span, max_span = timestamp_spans.min(), timestamp_spans.max()
+    all_spans: NDArray = np.arange(min_span, max_span + 1)
+
+    span_edges: NDArray = all_spans * span_td64 + origin
+
+    counts, _, _ = np.histogram2d(
+        timestamp_spans - min_span,
+        plugin_ids,
+        bins=(all_spans.size, plugin_ids.max()),
+        range=[[0, all_spans.size], [1, plugin_ids.max() + 1]],
+    )
+    span_counts = {
+        plugin_id: plugin_counts.tolist()
+        for plugin_id, plugin_counts in enumerate(counts.T, start=1)
+    }
+
+    if ts.size <= _MAX_FULLY_RETURNED_TIMESTAMPS_SAMPLE_SIZE:
+        first = None
+        last = None
+        all_ts = cast('list[datetime]', ts.tolist())
+    else:
+        first = cast('list[datetime]', ts[:50].tolist())
+        last = cast('list[datetime]', ts[-50:].tolist())
+        all_ts = None
+
+    return TimestampsAggregate(
+        span_edges=cast('list[datetime]', span_edges.tolist()),
+        span_counts=span_counts,
+        total=ts.size,
+        first=first,
+        last=last,
+        timestamps=all_ts,
+    )
+
+
+def _calculate_auto_span(
+    earliest_ts: np.datetime64,
+    latest_ts: np.datetime64,
+    timestamps_count: int,
+    optimal_spans_count: int,
+) -> np.timedelta64:
+    """Calculate optimal bucket width for a time distribution.
+
+    Parameters
+    ----------
+    earliest_ts : np.datetime64
+        Earliest timestamp in the sample.
+
+    latest_ts : np.datetime64
+        Latest timestamp in the sample.
+
+    timestamps_count : int
+        Total count of timestamps.
+
+    optimal_spans_count : int
+        Target number of buckets.
+
+    Returns
+    -------
+    np.timedelta64
+        Selected span, aligned to the nearest nice value that does not
+        exceed the computed optimal span.
+
+    """
+    optimal_span = np.timedelta64(
+        (latest_ts - earliest_ts) / min(optimal_spans_count, timestamps_count),
+        'us',
+    )
+
+    indexes = np.where(optimal_span >= _AUTO_SPANS_US)[0]
+    index = indexes[-1] if indexes.size > 0 else 0
+    return _AUTO_SPANS_US[index]
+
+
+def _take_raw_batch(
+    initialized: InitializedPlugins,
+    *,
+    size: int,
+    skip_past: bool,
+) -> IdentifiedTimestamps | None:
+    """Return the first batch from non-interactive input plugins.
+
+    Parameters
+    ----------
+    initialized : InitializedPlugins
+        Initialized plugins container.
+
+    size : int
+        Maximum number of timestamps to retrieve.
+
+    skip_past : bool
+        Whether to skip past timestamps before yielding.
+
+    Returns
+    -------
+    IdentifiedTimestamps | None
+        Raw structured array, or None if no non-interactive plugins
+        exist or the iterator is empty.
+
+    """
+    plugins = [p for p in initialized.input if not p.is_interactive]
+
+    if not plugins:
+        return None
+
+    if len(plugins) == 1:
+        source: IdentifiedTimestampsPluginAdapter | InputPluginsMerger = (
+            IdentifiedTimestampsPluginAdapter(plugin=plugins[0])
+        )
+    else:
+        source = InputPluginsMerger(plugins=plugins)
+
+    iterator = source.iterate(size=size, skip_past=skip_past)
+
+    try:
+        return next(iterator)
+    except StopIteration:
+        return None
+
+
 def produce_sample_events(
     path: Path,
     count: int,
@@ -227,6 +465,60 @@ def produce_sample_events(
     return produce_events_with_plugin(initialized.event, params_list)
 
 
+def aggregate_sample_timestamps(
+    path: Path,
+    size: int,
+    params: dict[str, Any],
+    *,
+    skip_past: bool = True,
+    span: timedelta | None = None,
+) -> TimestampsAggregate:
+    """Load a generator and aggregate up to `size` sample timestamps.
+
+    Parameters
+    ----------
+    path : Path
+        Absolute path to the generator configuration file.
+
+    size : int
+        Maximum number of timestamps to generate.
+
+    params : dict[str, Any]
+        Parameter substitutions for the config template.
+
+    skip_past : bool, default=True
+        Whether to skip timestamps that are in the past before
+        generating. Set to False for static date ranges.
+
+    span : timedelta | None, default=None
+        Histogram bucket width. None triggers auto-span selection.
+
+    Returns
+    -------
+    TimestampsAggregate
+        Histogram counts and sample timestamps.
+
+    Raises
+    ------
+    ConfigurationLoadError
+        If the config cannot be loaded, parsed, or name-validated.
+
+    InitializationError
+        If any plugin's nested config is invalid.
+
+    """
+    initialized = _load_initialized(path, params)
+    batch = _take_raw_batch(initialized, size=size, skip_past=skip_past)
+
+    if batch is None:
+        empty: IdentifiedTimestamps = np.array(
+            [], dtype=[('timestamp', 'datetime64[us]'), ('id', 'uint16')]
+        )
+        return aggregate(empty, span)
+
+    return aggregate(batch, span)
+
+
 def _take_timestamps(
     initialized: InitializedPlugins,
     *,
@@ -252,23 +544,9 @@ def _take_timestamps(
         List of naive UTC datetime objects.
 
     """
-    plugins = [p for p in initialized.input if not p.is_interactive]
+    batch = _take_raw_batch(initialized, size=size, skip_past=skip_past)
 
-    if not plugins:
-        return []
-
-    if len(plugins) == 1:
-        source: IdentifiedTimestampsPluginAdapter | InputPluginsMerger = (
-            IdentifiedTimestampsPluginAdapter(plugin=plugins[0])
-        )
-    else:
-        source = InputPluginsMerger(plugins=plugins)
-
-    iterator = source.iterate(size=size, skip_past=skip_past)
-
-    try:
-        batch = next(iterator)
-    except StopIteration:
+    if batch is None:
         return []
 
     # batch is a structured numpy array with fields 'timestamp'
