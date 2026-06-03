@@ -1,0 +1,50 @@
+"""Tests for the FastMCP server factory."""
+
+from pathlib import Path
+
+import anyio
+import pytest
+
+from eventum.mcp.context import FileAuthoringContext
+from eventum.mcp.server import build_server
+
+
+@pytest.fixture
+def ctx(tmp_path: Path) -> FileAuthoringContext:
+    """Return a read-only FileAuthoringContext rooted at tmp_path."""
+    return FileAuthoringContext(generators_dir=tmp_path, read_only=True)
+
+
+def test_build_server_registers_discovery_tools(
+    ctx: FileAuthoringContext,
+) -> None:
+    """build_server registers exactly the two discovery tools."""
+    server = build_server(ctx)
+    tools = anyio.run(server.list_tools)
+    names = {t.name for t in tools}
+    assert names == {'list_plugins', 'get_plugin_schema'}
+
+
+def test_get_plugin_schema_input_schema_has_kind_and_name(
+    ctx: FileAuthoringContext,
+) -> None:
+    """get_plugin_schema exposes kind and name but not context."""
+    server = build_server(ctx)
+    tools = anyio.run(server.list_tools)
+    tool = next(t for t in tools if t.name == 'get_plugin_schema')
+    props = tool.inputSchema.get('properties', {})
+    assert 'kind' in props
+    assert 'name' in props
+    assert 'context' not in props
+
+
+def test_list_plugins_input_schema_has_kind_not_context(
+    ctx: FileAuthoringContext,
+) -> None:
+    """list_plugins exposes kind but hides the injected context."""
+    server = build_server(ctx)
+    tools = anyio.run(server.list_tools)
+    tool = next(t for t in tools if t.name == 'list_plugins')
+    props = tool.inputSchema.get('properties', {})
+    assert 'kind' in props
+    assert 'context' not in props
