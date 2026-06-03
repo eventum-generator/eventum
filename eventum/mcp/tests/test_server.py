@@ -28,6 +28,10 @@ def test_build_server_registers_tools(
         'list_formatters',
         'get_formatter_schema',
         'describe_sample',
+        'list_generators',
+        'list_generator_files',
+        'read_generator_file',
+        'write_generator_file',
     }
 
 

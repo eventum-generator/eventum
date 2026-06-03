@@ -15,6 +15,7 @@ from eventum.mcp.errors import ToolFailure
 from eventum.mcp.tools import discovery
 from eventum.mcp.tools import formatters as fmt_tools
 from eventum.mcp.tools import samples as sample_tools
+from eventum.mcp.tools import workspace_files as ws_tools
 
 _INSTRUCTIONS = (
     'Eventum MCP server. Author and inspect synthetic data generators: '
@@ -35,7 +36,7 @@ def build_server(context: AuthoringContext) -> FastMCP:
     -------
     FastMCP
         Configured server with plugin discovery, formatter discovery,
-        and sample introspection tools registered.
+        sample introspection, and workspace file tools registered.
 
     """
     mcp = FastMCP('eventum', instructions=_INSTRUCTIONS)
@@ -154,6 +155,104 @@ def build_server(context: AuthoringContext) -> FastMCP:
             context,
             name=name,
             relative_path=relative_path,
+        )
+
+    @mcp.tool()
+    def list_generators() -> list[str]:
+        """List generator directory names in the generators directory.
+
+        Returns
+        -------
+        list[str]
+            Sorted list of generator names (immediate subdirectories
+            containing a ``generator.yml`` file). Empty if the
+            generators directory does not exist.
+
+        """
+        return ws_tools.list_generators(context)
+
+    @mcp.tool()
+    def list_generator_files(name: str) -> list[str] | ToolFailure:
+        """List files in a generator directory.
+
+        Only files with allowed extensions (``.yml``, ``.yaml``,
+        ``.jinja``, ``.csv``, ``.json``) are included.
+
+        Parameters
+        ----------
+        name : str
+            Generator directory name, as returned by
+            ``list_generators``.
+
+        Returns
+        -------
+        list[str] | ToolFailure
+            Sorted POSIX-relative paths inside the generator directory,
+            or a structured failure if the name is invalid or the
+            directory does not exist. Does not raise.
+
+        """
+        return ws_tools.list_generator_files(context, name)
+
+    @mcp.tool()
+    def read_generator_file(
+        name: str,
+        relative_path: str,
+    ) -> str | ToolFailure:
+        """Return the text content of a file in a generator directory.
+
+        Parameters
+        ----------
+        name : str
+            Generator directory name.
+
+        relative_path : str
+            Path to the file relative to the generator directory
+            (e.g. ``'templates/event.jinja'``).
+
+        Returns
+        -------
+        str | ToolFailure
+            File contents, or a structured failure if the path is
+            invalid, the extension is not allowed, or the file does not
+            exist. Does not raise.
+
+        """
+        return ws_tools.read_generator_file(context, name, relative_path)
+
+    @mcp.tool()
+    def write_generator_file(
+        name: str,
+        relative_path: str,
+        content: str,
+    ) -> dict[str, Any] | ToolFailure:
+        """Write text content to a file in a generator directory.
+
+        Creates parent directories as needed. Fails immediately when
+        the server is read-only without touching the filesystem.
+
+        Parameters
+        ----------
+        name : str
+            Generator directory name.
+
+        relative_path : str
+            Path to the file relative to the generator directory
+            (e.g. ``'templates/event.jinja'``).
+
+        content : str
+            Text to write.
+
+        Returns
+        -------
+        dict[str, Any] | ToolFailure
+            ``{'written': relative_path}`` on success, or a structured
+            failure if the server is read-only, the path is invalid, the
+            extension is not allowed, or the write fails. Does not raise.
+
+        """
+        return ws_tools.write_generator_file(
+            context, name, relative_path, content
         )
 
     return mcp
