@@ -15,14 +15,19 @@ def ctx(tmp_path: Path) -> FileAuthoringContext:
     return FileAuthoringContext(generators_dir=tmp_path, read_only=True)
 
 
-def test_build_server_registers_discovery_tools(
+def test_build_server_registers_tools(
     ctx: FileAuthoringContext,
 ) -> None:
-    """build_server registers exactly the two discovery tools."""
+    """build_server registers exactly the discovery and formatter tools."""
     server = build_server(ctx)
     tools = anyio.run(server.list_tools)
     names = {t.name for t in tools}
-    assert names == {'list_plugins', 'get_plugin_schema'}
+    assert names == {
+        'list_plugins',
+        'get_plugin_schema',
+        'list_formatters',
+        'get_formatter_schema',
+    }
 
 
 def test_get_plugin_schema_input_schema_has_kind_and_name(

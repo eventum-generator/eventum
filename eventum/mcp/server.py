@@ -13,6 +13,7 @@ from eventum import __version__ as _eventum_version
 from eventum.mcp.context import AuthoringContext
 from eventum.mcp.errors import ToolFailure
 from eventum.mcp.tools import discovery
+from eventum.mcp.tools import formatters as fmt_tools
 
 _INSTRUCTIONS = (
     'Eventum MCP server. Author and inspect synthetic data generators: '
@@ -32,7 +33,7 @@ def build_server(context: AuthoringContext) -> FastMCP:
     Returns
     -------
     FastMCP
-        Configured server with discovery tools registered.
+        Configured server with discovery and formatter tools registered.
 
     """
     mcp = FastMCP('eventum', instructions=_INSTRUCTIONS)
@@ -83,5 +84,41 @@ def build_server(context: AuthoringContext) -> FastMCP:
 
         """
         return discovery.get_plugin_schema(context, kind=kind, name=name)
+
+    @mcp.tool()
+    def list_formatters() -> list[dict[str, Any]]:
+        """Return metadata for all available output formatters.
+
+        Returns
+        -------
+        list[dict[str, Any]]
+            One entry per format: ``format`` (string value),
+            ``description`` (one-line semantic), and ``config_model``
+            (Pydantic model name).
+
+        """
+        return fmt_tools.list_formatters(context)
+
+    @mcp.tool()
+    def get_formatter_schema(format: str) -> dict[str, Any] | ToolFailure:
+        """Return the JSON Schema of a formatter's config model.
+
+        Use it to author a valid ``formatter`` block in an output plugin
+        config.
+
+        Parameters
+        ----------
+        format : str
+            Format value (e.g. ``'json'``, ``'template'``), as returned
+            by ``list_formatters``.
+
+        Returns
+        -------
+        dict[str, Any] | ToolFailure
+            The formatter config's JSON Schema, or a structured failure
+            if the format is unknown. Does not raise.
+
+        """
+        return fmt_tools.get_formatter_schema(context, format=format)
 
     return mcp
