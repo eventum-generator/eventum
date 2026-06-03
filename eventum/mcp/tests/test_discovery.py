@@ -34,6 +34,7 @@ def test_get_plugin_schema_returns_json_schema(
 ) -> None:
     """get_plugin_schema returns a valid JSON Schema object dict."""
     schema = get_plugin_schema(ctx, kind='output', name='stdout')
+    assert not isinstance(schema, ToolFailure)
     assert schema['type'] == 'object'
     assert 'properties' in schema
 
