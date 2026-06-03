@@ -86,12 +86,19 @@ class ToolFailure:
 def scrub_context(
     context: dict[str, Any],
     generators_dir: Path,
+    redact_values: list[str] | None = None,
 ) -> dict[str, Any]:
-    """Allow-list context keys and relativize any absolute path.
+    """Allow-list context keys, relativize paths, scrub reason text.
 
     Keys not in ``_ALLOWED_KEYS`` are dropped. ``file_path`` values
     are relativized to ``generators_dir``; if the path falls outside
-    that directory, only the final component is kept.
+    that directory, only the final component is kept. A ``reason``
+    value is run through ``_scrub_reason`` so absolute paths embedded
+    in OS error / validation strings are stripped and any value in
+    ``redact_values`` is replaced with ``[redacted]``.
+
+    This is the single scrub point for both error routes: direct
+    per-event use (``preview_events``) and ``to_tool_error``.
 
     Parameters
     ----------
@@ -99,7 +106,13 @@ def scrub_context(
         Raw context dict from a ``ContextualError``.
 
     generators_dir : Path
-        Base directory used to relativize ``file_path`` values.
+        Base directory used to relativize paths.
+
+    redact_values : list[str] | None, default None
+        Secret values to replace with ``[redacted]`` in ``reason``.
+        Secret redaction applies only to values listed here; callers
+        running real configs must pass the config's resolved
+        ``${secrets.*}`` values.
 
     Returns
     -------
@@ -122,6 +135,13 @@ def scrub_context(
                 out[key] = Path(str(value)).name
         else:
             out[key] = value
+
+    if 'reason' in out:
+        out['reason'] = _scrub_reason(
+            str(out['reason']),
+            base,
+            redact_values or [],
+        )
 
     return out
 
@@ -154,17 +174,11 @@ def to_tool_error(
         ``details`` dict.
 
     """
-    # The `reason` text can carry absolute filesystem paths (embedded
-    # in OS error / validation strings) and resolved secret values;
-    # both are scrubbed here (spec 7.1). Path stripping is automatic;
-    # secret redaction needs `redact_values` from the caller.
-    details = scrub_context(error.context, generators_dir)
-
-    if 'reason' in details:
-        details['reason'] = _scrub_reason(
-            str(details['reason']),
-            generators_dir.resolve(),
-            redact_values or [],
-        )
-
-    return ToolFailure(error=str(error), details=details)
+    # `reason` scrubbing (absolute paths + secret redaction, spec 7.1)
+    # happens inside `scrub_context`, the single scrub point shared with
+    # the direct per-event route. Path stripping is automatic; secret
+    # redaction needs `redact_values` from the caller.
+    return ToolFailure(
+        error=str(error),
+        details=scrub_context(error.context, generators_dir, redact_values),
+    )

@@ -302,7 +302,9 @@ async def preview_events(
         {
             'index': e.index,
             'message': e.message,
-            'context': scrub_context(e.context, context.generators_dir),
+            'context': scrub_context(
+                e.context, context.generators_dir, redact_values
+            ),
         }
         for e in sample.errors
     ]

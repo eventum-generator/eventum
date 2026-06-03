@@ -3,7 +3,7 @@
 from pathlib import Path
 
 from eventum.core.config_loader import ConfigurationLoadError
-from eventum.mcp.errors import ToolFailure, to_tool_error
+from eventum.mcp.errors import ToolFailure, scrub_context, to_tool_error
 
 
 def test_scrub_relativizes_paths_and_allowlists(tmp_path: Path) -> None:
@@ -80,3 +80,30 @@ def test_reason_secret_value_redacted(tmp_path: Path) -> None:
     )
     assert credential not in repr(failure.details)
     assert '[redacted]' in failure.details['reason']
+
+
+def test_scrub_context_reason_path_scrubbed_direct_route(
+    tmp_path: Path,
+) -> None:
+    """Per-event route: scrub_context strips abs paths from reason.
+
+    Mirrors a replay PluginProduceError where ``reason`` is the OSError
+    string embedding an absolute path. preview_events calls
+    scrub_context directly (not to_tool_error), so the scrub must run
+    here too. Covers a path under generators_dir and one outside it.
+    """
+    gens = tmp_path / 'generators'
+    inside = gens / 'g' / 'replay.log'
+    outside = tmp_path / 'elsewhere' / 'replay.log'
+    context = {
+        'file_path': str(inside),
+        'reason': (
+            f"[Errno 13] Permission denied: '{inside}' (fallback '{outside}')"
+        ),
+    }
+
+    out = scrub_context(context, gens)
+
+    assert str(gens) not in repr(out)
+    assert str(tmp_path) not in repr(out)
+    assert out['file_path'] == 'g/replay.log'
