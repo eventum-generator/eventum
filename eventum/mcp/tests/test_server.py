@@ -32,6 +32,9 @@ def test_build_server_registers_tools(
         'list_generator_files',
         'read_generator_file',
         'write_generator_file',
+        'validate_generator',
+        'preview_timestamps',
+        'preview_events',
     }
 
 

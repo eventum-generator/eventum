@@ -14,17 +14,22 @@ from eventum.mcp.context import AuthoringContext
 from eventum.mcp.errors import ToolFailure
 from eventum.mcp.tools import discovery
 from eventum.mcp.tools import formatters as fmt_tools
+from eventum.mcp.tools import preview as preview_tools
 from eventum.mcp.tools import samples as sample_tools
 from eventum.mcp.tools import workspace_files as ws_tools
 
 _INSTRUCTIONS = (
     'Eventum MCP server. Author and inspect synthetic data generators: '
-    'discover plugins and their config schemas, and (in later tools) '
-    'validate and preview generators before running them.'
+    'discover plugins and their config schemas, and validate and preview '
+    'generators before running them.'
 )
 
 
-def build_server(context: AuthoringContext) -> FastMCP:
+# C901: complexity is the count of flat tool wrappers, not branching
+# logic. If more tools land (e.g. Plan 3 live-management), refactor to
+# per-module register(mcp, context) helpers rather than growing this
+# function or its noqa list.
+def build_server(context: AuthoringContext) -> FastMCP:  # noqa: C901
     """Build a FastMCP server with tools bound to the given context.
 
     Parameters
@@ -36,7 +41,8 @@ def build_server(context: AuthoringContext) -> FastMCP:
     -------
     FastMCP
         Configured server with plugin discovery, formatter discovery,
-        sample introspection, and workspace file tools registered.
+        sample introspection, workspace file tools, and validate/preview
+        tools registered.
 
     """
     mcp = FastMCP('eventum', instructions=_INSTRUCTIONS)
@@ -253,6 +259,120 @@ def build_server(context: AuthoringContext) -> FastMCP:
         """
         return ws_tools.write_generator_file(
             context, name, relative_path, content
+        )
+
+    @mcp.tool()
+    async def validate_generator(
+        name: str,
+        params: dict[str, Any] | None = None,
+    ) -> dict[str, Any] | ToolFailure:
+        """Validate a saved generator by loading and initialising every plugin.
+
+        Parameters
+        ----------
+        name : str
+            Generator directory name, as returned by ``list_generators``.
+
+        params : dict[str, Any] | None, default None
+            Parameter substitutions for ``${params.*}`` tokens.
+
+        Returns
+        -------
+        dict[str, Any] | ToolFailure
+            ``{'valid': True}`` on success, or a structured failure if
+            the config is invalid or a plugin cannot be initialised. Does
+            not raise.
+
+        """
+        return await preview_tools.validate_generator(
+            context, name, params=params
+        )
+
+    @mcp.tool()
+    async def preview_timestamps(
+        name: str,
+        size: int = 100,
+        skip_past: bool = True,  # noqa: FBT001, FBT002
+        span: str | None = None,
+        params: dict[str, Any] | None = None,
+    ) -> dict[str, Any] | ToolFailure:
+        """Generate a histogram of input timestamps for a saved generator.
+
+        Parameters
+        ----------
+        name : str
+            Generator directory name.
+
+        size : int, default 100
+            Maximum number of timestamps to generate.
+
+        skip_past : bool, default True
+            Whether to skip timestamps in the past. Pass ``false`` for
+            generators with a static date range in the past.
+
+        span : str | None, default None
+            Histogram bucket width. ``null`` triggers auto-span
+            selection. Duration parsing is not yet implemented; omit
+            this parameter for now.
+
+        params : dict[str, Any] | None, default None
+            Parameter substitutions for ``${params.*}`` tokens.
+
+        Returns
+        -------
+        dict[str, Any] | ToolFailure
+            Histogram with ``total``, ``span_edges``, ``span_counts``,
+            ``first``, ``last``, and ``timestamps`` (ISO 8601 strings),
+            or a structured failure. Does not raise.
+
+        """
+        return await preview_tools.preview_timestamps(
+            context,
+            name,
+            size,
+            skip_past=skip_past,
+            span=span,
+            params=params,
+        )
+
+    @mcp.tool()
+    async def preview_events(
+        name: str,
+        count: int = 10,
+        params: dict[str, Any] | None = None,
+        skip_past: bool = True,  # noqa: FBT001, FBT002
+    ) -> dict[str, Any] | ToolFailure:
+        """Produce sample events from a saved generator.
+
+        Parameters
+        ----------
+        name : str
+            Generator directory name.
+
+        count : int, default 10
+            Maximum number of events to produce.
+
+        params : dict[str, Any] | None, default None
+            Parameter substitutions for ``${params.*}`` tokens.
+
+        skip_past : bool, default True
+            Whether to skip timestamps in the past. Pass ``false`` for
+            generators with a static date range in the past.
+
+        Returns
+        -------
+        dict[str, Any] | ToolFailure
+            ``events`` (list of strings), ``errors`` (list of per-index
+            dicts), and ``exhausted`` (bool), or a structured failure.
+            Does not raise.
+
+        """
+        return await preview_tools.preview_events(
+            context,
+            name,
+            count,
+            params=params,
+            skip_past=skip_past,
         )
 
     return mcp
