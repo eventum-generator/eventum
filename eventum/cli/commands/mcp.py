@@ -1,0 +1,54 @@
+"""Command for running Eventum as an MCP stdio server."""
+
+from pathlib import Path
+from typing import get_args
+
+import click
+
+import eventum.logging.config as logconf
+
+LOG_LEVELS = get_args(logconf.LogLevel.__value__)
+
+
+@click.command('mcp')
+@click.option(
+    '--generators-dir',
+    required=True,
+    type=click.Path(exists=True, file_okay=False, resolve_path=True),
+    help='Path to generators directory.',
+)
+@click.option(
+    '--read-only',
+    is_flag=True,
+    default=False,
+    help='Run in read-only mode (disable write tools).',
+)
+@click.option(
+    '--log-level',
+    type=click.Choice(LOG_LEVELS),
+    default='WARNING',
+    show_default=True,
+    help='Level of logs emitted to stderr.',
+)
+def cli(
+    generators_dir: str,
+    read_only: bool,  # noqa: FBT001
+    log_level: logconf.LogLevel,
+) -> None:
+    """Run Eventum as a read-only or authoring MCP stdio server.
+
+    Stdout is reserved exclusively for the MCP JSON-RPC stream; logs go
+    to stderr at the chosen level and no splash screen is emitted.
+    """
+    # Stdout is the MCP JSON-RPC channel - route logs to stderr only.
+    logconf.use_stderr(level=log_level)
+
+    from eventum.mcp.context import FileAuthoringContext
+    from eventum.mcp.server import build_server
+
+    context = FileAuthoringContext(
+        generators_dir=Path(generators_dir),
+        read_only=read_only,
+    )
+    server = build_server(context)
+    server.run(transport='stdio')

@@ -18,6 +18,7 @@ import eventum.logging.config as logconf
 from eventum.app.hooks import InstanceHooks
 from eventum.app.main import App, AppError
 from eventum.app.models.settings import Settings
+from eventum.cli.commands.mcp import cli as mcp_cli
 from eventum.cli.commands.service import cli as service_cli
 from eventum.cli.pydantic_converter import from_model
 from eventum.cli.splash_screen import SPLASH_SCREEN
@@ -40,6 +41,7 @@ def cli():  # noqa: ANN201
     """Data generation platform."""  # noqa: D401
 
 
+cli.add_command(mcp_cli)
 cli.add_command(service_cli)
 
 

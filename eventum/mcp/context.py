@@ -13,8 +13,15 @@ from typing import Protocol, runtime_checkable
 class AuthoringContext(Protocol):
     """Capabilities available to authoring tools in any transport."""
 
-    generators_dir: Path
-    read_only: bool
+    @property
+    def generators_dir(self) -> Path:
+        """Absolute path to the generators directory."""
+        ...
+
+    @property
+    def read_only(self) -> bool:
+        """Whether write tools are disabled."""
+        ...
 
 
 @dataclass(frozen=True)
