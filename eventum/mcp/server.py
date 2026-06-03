@@ -9,6 +9,7 @@ from typing import Any
 
 from mcp.server.fastmcp import FastMCP
 
+from eventum import __version__ as _eventum_version
 from eventum.mcp.context import AuthoringContext
 from eventum.mcp.errors import ToolFailure
 from eventum.mcp.tools import discovery
@@ -35,6 +36,7 @@ def build_server(context: AuthoringContext) -> FastMCP:
 
     """
     mcp = FastMCP('eventum', instructions=_INSTRUCTIONS)
+    mcp._mcp_server.version = _eventum_version  # noqa: SLF001
 
     @mcp.tool()
     def list_plugins(
