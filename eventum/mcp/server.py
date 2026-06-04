@@ -8,6 +8,7 @@ from mcp.server.fastmcp import FastMCP
 
 from eventum import __version__ as _eventum_version
 from eventum.mcp.context import AuthoringContext
+from eventum.mcp.resources import examples as examples_resource
 from eventum.mcp.resources import templating as templating_resource
 from eventum.mcp.tools import discovery
 from eventum.mcp.tools import formatters as fmt_tools
@@ -55,5 +56,6 @@ def build_server(
     preview_tools.register(mcp, context, transport=transport)
 
     templating_resource.register(mcp)
+    examples_resource.register(mcp)
 
     return mcp
