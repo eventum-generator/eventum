@@ -28,6 +28,7 @@ from eventum.core.config_loader import ConfigurationLoadError, extract_secrets
 from eventum.core.plugins_initializer import InitializationError
 from eventum.mcp.context import AuthoringContext
 from eventum.mcp.errors import ToolFailure, scrub_context, to_tool_error
+from eventum.mcp.observability import observe_failure
 from eventum.security.manage import get_secret
 
 _CONFIG_FILENAME = 'generator.yml'
@@ -322,7 +323,7 @@ def register(
     mcp: FastMCP,
     context: AuthoringContext,
     *,
-    transport: str,  # noqa: ARG001
+    transport: str,
 ) -> None:
     """Register validate/preview tools on the server."""
 
@@ -349,7 +350,11 @@ def register(
             not raise.
 
         """
-        return await validate_generator(context, name, params=params)
+        return observe_failure(
+            await validate_generator(context, name, params=params),
+            mcp_tool='validate_generator',
+            mcp_transport=transport,
+        )
 
     @mcp.tool(name='preview_timestamps')
     async def _preview_timestamps_tool(
@@ -389,13 +394,17 @@ def register(
             or a structured failure. Does not raise.
 
         """
-        return await preview_timestamps(
-            context,
-            name,
-            size,
-            skip_past=skip_past,
-            span=span,
-            params=params,
+        return observe_failure(
+            await preview_timestamps(
+                context,
+                name,
+                size,
+                skip_past=skip_past,
+                span=span,
+                params=params,
+            ),
+            mcp_tool='preview_timestamps',
+            mcp_transport=transport,
         )
 
     @mcp.tool(name='preview_events')
@@ -430,10 +439,14 @@ def register(
             Does not raise.
 
         """
-        return await preview_events(
-            context,
-            name,
-            count,
-            params=params,
-            skip_past=skip_past,
+        return observe_failure(
+            await preview_events(
+                context,
+                name,
+                count,
+                params=params,
+                skip_past=skip_past,
+            ),
+            mcp_tool='preview_events',
+            mcp_transport=transport,
         )

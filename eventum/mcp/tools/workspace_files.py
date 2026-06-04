@@ -18,6 +18,7 @@ from eventum.app import workspace
 from eventum.app.workspace import WorkspaceError
 from eventum.mcp.context import AuthoringContext
 from eventum.mcp.errors import ToolFailure, to_tool_error
+from eventum.mcp.observability import observe_failure
 
 _CONFIG_FILENAME = 'generator.yml'
 _ALLOWED_EXTENSIONS = frozenset({'.yml', '.yaml', '.jinja', '.csv', '.json'})
@@ -225,7 +226,7 @@ def register(
     mcp: FastMCP,
     context: AuthoringContext,
     *,
-    transport: str,  # noqa: ARG001
+    transport: str,
 ) -> None:
     """Register workspace-file tools on the server."""
 
@@ -241,7 +242,11 @@ def register(
             generators directory does not exist.
 
         """
-        return list_generators(context)
+        return observe_failure(
+            list_generators(context),
+            mcp_tool='list_generators',
+            mcp_transport=transport,
+        )
 
     @mcp.tool(name='list_generator_files')
     def _list_generator_files_tool(
@@ -266,7 +271,11 @@ def register(
             directory does not exist. Does not raise.
 
         """
-        return list_generator_files(context, name)
+        return observe_failure(
+            list_generator_files(context, name),
+            mcp_tool='list_generator_files',
+            mcp_transport=transport,
+        )
 
     @mcp.tool(name='read_generator_file')
     def _read_generator_file_tool(
@@ -292,7 +301,11 @@ def register(
             exist. Does not raise.
 
         """
-        return read_generator_file(context, name, relative_path)
+        return observe_failure(
+            read_generator_file(context, name, relative_path),
+            mcp_tool='read_generator_file',
+            mcp_transport=transport,
+        )
 
     @mcp.tool(name='write_generator_file')
     def _write_generator_file_tool(
@@ -325,4 +338,8 @@ def register(
             extension is not allowed, or the write fails. Does not raise.
 
         """
-        return write_generator_file(context, name, relative_path, content)
+        return observe_failure(
+            write_generator_file(context, name, relative_path, content),
+            mcp_tool='write_generator_file',
+            mcp_transport=transport,
+        )

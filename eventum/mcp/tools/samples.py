@@ -10,6 +10,7 @@ from eventum.app.workspace import WorkspaceError
 from eventum.exceptions import ContextualError
 from eventum.mcp.context import AuthoringContext
 from eventum.mcp.errors import ToolFailure, to_tool_error
+from eventum.mcp.observability import observe_failure
 from eventum.plugins.event.plugins.template.config import (
     CSVSampleConfig,
     JSONSampleConfig,
@@ -132,7 +133,7 @@ def register(
     mcp: FastMCP,
     context: AuthoringContext,
     *,
-    transport: str,  # noqa: ARG001
+    transport: str,
 ) -> None:
     """Register sample-introspection tools on the server."""
 
@@ -163,4 +164,8 @@ def register(
             invalid, missing, unsupported, or malformed. Does not raise.
 
         """
-        return describe_sample(context, name=name, relative_path=relative_path)
+        return observe_failure(
+            describe_sample(context, name=name, relative_path=relative_path),
+            mcp_tool='describe_sample',
+            mcp_transport=transport,
+        )

@@ -4,8 +4,11 @@ from pathlib import Path
 from typing import get_args
 
 import click
+import structlog
 
 import eventum.logging.config as logconf
+
+logger = structlog.stdlib.get_logger()
 
 LOG_LEVELS = get_args(logconf.LogLevel.__value__)
 
@@ -51,4 +54,9 @@ def cli(
         read_only=read_only,
     )
     server = build_server(context)
+    logger.info(
+        'Starting MCP server',
+        mcp_transport='stdio',
+        read_only=read_only,
+    )
     server.run(transport='stdio')

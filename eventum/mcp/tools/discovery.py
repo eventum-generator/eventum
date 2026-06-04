@@ -8,6 +8,7 @@ from pydantic import BaseModel
 
 from eventum.mcp.context import AuthoringContext
 from eventum.mcp.errors import ToolFailure
+from eventum.mcp.observability import observe_failure
 from eventum.plugins.exceptions import PluginLoadError, PluginNotFoundError
 from eventum.plugins.loader import (
     get_event_plugin_names,
@@ -107,7 +108,7 @@ def register(
     mcp: FastMCP,
     context: AuthoringContext,
     *,
-    transport: str,  # noqa: ARG001
+    transport: str,
 ) -> None:
     """Register plugin-discovery tools on the server."""
 
@@ -128,7 +129,11 @@ def register(
             Maps each kind to a sorted list of plugin names.
 
         """
-        return list_plugins(context, kind=kind)
+        return observe_failure(
+            list_plugins(context, kind=kind),
+            mcp_tool='list_plugins',
+            mcp_transport=transport,
+        )
 
     @mcp.tool(name='get_plugin_schema')
     def _get_plugin_schema_tool(
@@ -155,4 +160,8 @@ def register(
             not raise.
 
         """
-        return get_plugin_schema(context, kind=kind, name=name)
+        return observe_failure(
+            get_plugin_schema(context, kind=kind, name=name),
+            mcp_tool='get_plugin_schema',
+            mcp_transport=transport,
+        )

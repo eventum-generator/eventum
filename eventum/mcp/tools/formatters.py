@@ -7,6 +7,7 @@ from pydantic import BaseModel
 
 from eventum.mcp.context import AuthoringContext
 from eventum.mcp.errors import ToolFailure
+from eventum.mcp.observability import observe_failure
 from eventum.plugins.output.fields import (
     Format,
     JsonFormatterConfig,
@@ -113,7 +114,7 @@ def register(
     mcp: FastMCP,
     context: AuthoringContext,
     *,
-    transport: str,  # noqa: ARG001
+    transport: str,
 ) -> None:
     """Register formatter-discovery tools on the server."""
 
@@ -129,7 +130,11 @@ def register(
             (Pydantic model name).
 
         """
-        return list_formatters(context)
+        return observe_failure(
+            list_formatters(context),
+            mcp_tool='list_formatters',
+            mcp_transport=transport,
+        )
 
     @mcp.tool(name='get_formatter_schema')
     def _get_formatter_schema_tool(
@@ -153,4 +158,8 @@ def register(
             if the format is unknown. Does not raise.
 
         """
-        return get_formatter_schema(context, format=format)
+        return observe_failure(
+            get_formatter_schema(context, format=format),
+            mcp_tool='get_formatter_schema',
+            mcp_transport=transport,
+        )
