@@ -90,6 +90,6 @@ def build_server_app(
             inject_service as inject_mcp_service,
         )
 
-        inject_mcp_service(app, settings)
+        inject_mcp_service(app, generator_manager, settings)
 
     return app

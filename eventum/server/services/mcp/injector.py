@@ -10,20 +10,29 @@ SDK migration to one file.
 from fastapi import FastAPI
 from mcp.server.transport_security import TransportSecuritySettings
 
+from eventum.app.manager import GeneratorManager
 from eventum.app.models.settings import Settings
-from eventum.mcp.context import FileAuthoringContext
+from eventum.app.startup import Startup
+from eventum.mcp.context import ServerLiveContext
 from eventum.mcp.server import build_server
 from eventum.server.exceptions import ServiceBuildingError
 from eventum.server.services.mcp.auth import BasicAuthMiddleware
 
 
-def inject_service(app: FastAPI, settings: Settings) -> None:
+def inject_service(
+    app: FastAPI,
+    generator_manager: GeneratorManager,
+    settings: Settings,
+) -> None:
     """Mount the MCP Streamable-HTTP app onto the server app.
 
     Parameters
     ----------
     app : FastAPI
         The server application to mount onto.
+
+    generator_manager : GeneratorManager
+        Manager of generators, exposed to the live tools.
 
     settings : Settings
         Resolved settings providing the generators directory, the
@@ -37,11 +46,19 @@ def inject_service(app: FastAPI, settings: Settings) -> None:
 
     """
     try:
-        context = FileAuthoringContext(
+        startup = Startup(
+            file_path=settings.path.startup,
+            generators_dir=settings.path.generators_dir,
+            generation_parameters=settings.generation,
+        )
+        context = ServerLiveContext(
             generators_dir=settings.path.generators_dir,
             read_only=not settings.server.mcp.allow_write,
+            manager=generator_manager,
+            startup=startup,
+            generation=settings.generation,
         )
-        mcp = build_server(context, transport='http')
+        mcp = build_server(context, transport='http', live=True)
 
         # Configure Streamable HTTP BEFORE building the sub-app: the
         # session manager is created lazily inside streamable_http_app().

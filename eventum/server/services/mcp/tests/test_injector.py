@@ -42,7 +42,7 @@ def test_inject_mounts_and_registers_lifespan(tmp_path: Path) -> None:
         instance_hooks=MagicMock(),  # type: ignore[arg-type]
     )
 
-    inject_service(app, settings)
+    inject_service(app, MagicMock(), settings)
 
     assert len(app.state.lifespan_cms) == 1
     mounts = [r for r in app.routes if isinstance(r, Mount)]
