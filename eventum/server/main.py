@@ -17,6 +17,7 @@ class EnabledServices(TypedDict):
 
     api: NotRequired[bool]
     ui: NotRequired[bool]
+    mcp: NotRequired[bool]
 
 
 def build_server_app(

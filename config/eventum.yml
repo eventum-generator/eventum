@@ -52,6 +52,21 @@ server.auth.user: eventum
 # Optional, default is "eventum"
 server.auth.password: eventum
 
+
+# MCP parameters
+
+# Whether to mount the MCP server over HTTP
+# Optional, default is false
+server.mcp.enabled: false
+
+# Whether MCP write tools are permitted over HTTP
+# Optional, default is false
+server.mcp.allow_write: false
+
+# Mount path for the MCP HTTP endpoint
+# Optional, default is "/mcp"
+server.mcp.path: "/mcp"
+
 # =========================== Generation Parameters ===========================
 
 # Time zone for generating timestamps
