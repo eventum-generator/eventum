@@ -1,0 +1,15 @@
+{%- set row = samples.paths.pick() -%}
+{
+  "@timestamp": "{{ timestamp.isoformat() }}",
+  "client": {"ip": "{{ module.rand.network.ip_v4() }}"},
+  "http": {
+    "request": {
+      "method": "{{ module.rand.choice(['GET', 'POST', 'PUT']) }}"
+    },
+    "response": {
+      "status_code": {{ row.status }},
+      "bytes": {{ module.rand.number.integer(120, 9000) }}
+    }
+  },
+  "url": {"path": "{{ row.path }}"}
+}
