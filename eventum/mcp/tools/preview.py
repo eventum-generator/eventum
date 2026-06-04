@@ -19,6 +19,8 @@ from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Any
 
+from mcp.server.fastmcp import FastMCP
+
 from eventum.app import workspace
 from eventum.app.workspace import WorkspaceError
 from eventum.core import preview as core_preview
@@ -314,3 +316,124 @@ async def preview_events(
         'errors': errors,
         'exhausted': sample.exhausted,
     }
+
+
+def register(
+    mcp: FastMCP,
+    context: AuthoringContext,
+    *,
+    transport: str,  # noqa: ARG001
+) -> None:
+    """Register validate/preview tools on the server."""
+
+    @mcp.tool(name='validate_generator')
+    async def _validate_generator_tool(
+        name: str,
+        params: dict[str, Any] | None = None,
+    ) -> dict[str, Any] | ToolFailure:
+        """Validate a saved generator by loading and initialising every plugin.
+
+        Parameters
+        ----------
+        name : str
+            Generator directory name, as returned by ``list_generators``.
+
+        params : dict[str, Any] | None, default None
+            Parameter substitutions for ``${params.*}`` tokens.
+
+        Returns
+        -------
+        dict[str, Any] | ToolFailure
+            ``{'valid': True}`` on success, or a structured failure if
+            the config is invalid or a plugin cannot be initialised. Does
+            not raise.
+
+        """
+        return await validate_generator(context, name, params=params)
+
+    @mcp.tool(name='preview_timestamps')
+    async def _preview_timestamps_tool(
+        name: str,
+        size: int = 100,
+        skip_past: bool = True,  # noqa: FBT001, FBT002
+        span: str | None = None,
+        params: dict[str, Any] | None = None,
+    ) -> dict[str, Any] | ToolFailure:
+        """Generate a histogram of input timestamps for a saved generator.
+
+        Parameters
+        ----------
+        name : str
+            Generator directory name.
+
+        size : int, default 100
+            Maximum number of timestamps to generate.
+
+        skip_past : bool, default True
+            Whether to skip timestamps in the past. Pass ``false`` for
+            generators with a static date range in the past.
+
+        span : str | None, default None
+            Histogram bucket width. ``null`` triggers auto-span
+            selection. Duration parsing is not yet implemented; omit
+            this parameter for now.
+
+        params : dict[str, Any] | None, default None
+            Parameter substitutions for ``${params.*}`` tokens.
+
+        Returns
+        -------
+        dict[str, Any] | ToolFailure
+            Histogram with ``total``, ``span_edges``, ``span_counts``,
+            ``first``, ``last``, and ``timestamps`` (ISO 8601 strings),
+            or a structured failure. Does not raise.
+
+        """
+        return await preview_timestamps(
+            context,
+            name,
+            size,
+            skip_past=skip_past,
+            span=span,
+            params=params,
+        )
+
+    @mcp.tool(name='preview_events')
+    async def _preview_events_tool(
+        name: str,
+        count: int = 10,
+        params: dict[str, Any] | None = None,
+        skip_past: bool = True,  # noqa: FBT001, FBT002
+    ) -> dict[str, Any] | ToolFailure:
+        """Produce sample events from a saved generator.
+
+        Parameters
+        ----------
+        name : str
+            Generator directory name.
+
+        count : int, default 10
+            Maximum number of events to produce.
+
+        params : dict[str, Any] | None, default None
+            Parameter substitutions for ``${params.*}`` tokens.
+
+        skip_past : bool, default True
+            Whether to skip timestamps in the past. Pass ``false`` for
+            generators with a static date range in the past.
+
+        Returns
+        -------
+        dict[str, Any] | ToolFailure
+            ``events`` (list of strings), ``errors`` (list of per-index
+            dicts), and ``exhausted`` (bool), or a structured failure.
+            Does not raise.
+
+        """
+        return await preview_events(
+            context,
+            name,
+            count,
+            params=params,
+            skip_past=skip_past,
+        )

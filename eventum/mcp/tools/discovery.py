@@ -3,6 +3,7 @@
 from collections.abc import Callable
 from typing import Any, Literal
 
+from mcp.server.fastmcp import FastMCP
 from pydantic import BaseModel
 
 from eventum.mcp.context import AuthoringContext
@@ -100,3 +101,58 @@ def get_plugin_schema(
         )
 
     return config_cls.model_json_schema()
+
+
+def register(
+    mcp: FastMCP,
+    context: AuthoringContext,
+    *,
+    transport: str,  # noqa: ARG001
+) -> None:
+    """Register plugin-discovery tools on the server."""
+
+    @mcp.tool(name='list_plugins')
+    def _list_plugins_tool(
+        kind: Kind | None = None,
+    ) -> dict[str, list[str]]:
+        """List registered plugin names grouped by kind.
+
+        Parameters
+        ----------
+        kind : 'input' | 'event' | 'output', optional
+            Restrict to one kind. Omit to get all three.
+
+        Returns
+        -------
+        dict[str, list[str]]
+            Maps each kind to a sorted list of plugin names.
+
+        """
+        return list_plugins(context, kind=kind)
+
+    @mcp.tool(name='get_plugin_schema')
+    def _get_plugin_schema_tool(
+        kind: Kind,
+        name: str,
+    ) -> dict[str, Any] | ToolFailure:
+        """Return the JSON Schema of a plugin's config model.
+
+        Use it to author a valid config block for the plugin.
+
+        Parameters
+        ----------
+        kind : 'input' | 'event' | 'output'
+            Plugin kind.
+
+        name : str
+            Plugin name, as returned by ``list_plugins``.
+
+        Returns
+        -------
+        dict[str, Any] | ToolFailure
+            The plugin config's JSON Schema, or a structured failure
+            (error plus kind and name) if the plugin is unknown. Does
+            not raise.
+
+        """
+        return get_plugin_schema(context, kind=kind, name=name)

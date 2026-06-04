@@ -3,6 +3,8 @@
 from pathlib import Path
 from typing import Any
 
+from mcp.server.fastmcp import FastMCP
+
 from eventum.app import workspace
 from eventum.app.workspace import WorkspaceError
 from eventum.exceptions import ContextualError
@@ -124,3 +126,41 @@ def describe_sample(
         'row_count': len(sample),
         'example_rows': example_rows,
     }
+
+
+def register(
+    mcp: FastMCP,
+    context: AuthoringContext,
+    *,
+    transport: str,  # noqa: ARG001
+) -> None:
+    """Register sample-introspection tools on the server."""
+
+    @mcp.tool(name='describe_sample')
+    def _describe_sample_tool(
+        name: str,
+        relative_path: str,
+    ) -> dict[str, Any] | ToolFailure:
+        """Describe a CSV or JSON sample file in a generator directory.
+
+        Use it to learn a sample's column names so templates can
+        reference them via ``samples.<name>.<column>``.
+
+        Parameters
+        ----------
+        name : str
+            Generator directory name.
+
+        relative_path : str
+            Path to the sample file relative to the generator directory
+            (e.g. ``'samples/cities.csv'``).
+
+        Returns
+        -------
+        dict[str, Any] | ToolFailure
+            ``type``, ``columns``, ``row_count``, and ``example_rows``
+            for the sample, or a structured failure if the path is
+            invalid, missing, unsupported, or malformed. Does not raise.
+
+        """
+        return describe_sample(context, name=name, relative_path=relative_path)

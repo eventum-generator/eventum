@@ -2,6 +2,7 @@
 
 from typing import Any
 
+from mcp.server.fastmcp import FastMCP
 from pydantic import BaseModel
 
 from eventum.mcp.context import AuthoringContext
@@ -106,3 +107,50 @@ def get_formatter_schema(
 
     config_cls = _FORMAT_CONFIG[fmt]
     return config_cls.model_json_schema()
+
+
+def register(
+    mcp: FastMCP,
+    context: AuthoringContext,
+    *,
+    transport: str,  # noqa: ARG001
+) -> None:
+    """Register formatter-discovery tools on the server."""
+
+    @mcp.tool(name='list_formatters')
+    def _list_formatters_tool() -> list[dict[str, Any]]:
+        """Return metadata for all available output formatters.
+
+        Returns
+        -------
+        list[dict[str, Any]]
+            One entry per format: ``format`` (string value),
+            ``description`` (one-line semantic), and ``config_model``
+            (Pydantic model name).
+
+        """
+        return list_formatters(context)
+
+    @mcp.tool(name='get_formatter_schema')
+    def _get_formatter_schema_tool(
+        format: str,
+    ) -> dict[str, Any] | ToolFailure:
+        """Return the JSON Schema of a formatter's config model.
+
+        Use it to author a valid ``formatter`` block in an output plugin
+        config.
+
+        Parameters
+        ----------
+        format : str
+            Format value (e.g. ``'json'``, ``'template'``), as returned
+            by ``list_formatters``.
+
+        Returns
+        -------
+        dict[str, Any] | ToolFailure
+            The formatter config's JSON Schema, or a structured failure
+            if the format is unknown. Does not raise.
+
+        """
+        return get_formatter_schema(context, format=format)
