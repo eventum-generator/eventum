@@ -84,4 +84,12 @@ def build_server_app(
 
         inject_ui_service(app)
 
+    if enabled_services.get('mcp', False):
+        logger.info('Starting MCP service')
+        from eventum.server.services.mcp.injector import (
+            inject_service as inject_mcp_service,
+        )
+
+        inject_mcp_service(app, settings)
+
     return app

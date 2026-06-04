@@ -254,6 +254,7 @@ class App:
             enabled_services={
                 'api': self._settings.server.api_enabled,
                 'ui': self._settings.server.ui_enabled,
+                'mcp': self._settings.server.mcp.enabled,
             },
             generator_manager=self._manager,
             settings=self._settings,
