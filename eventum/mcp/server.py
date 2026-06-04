@@ -31,23 +31,30 @@ def build_server(
     context: AuthoringContext,
     *,
     transport: str = 'stdio',
+    live: bool = False,
 ) -> FastMCP:
     """Build a FastMCP server bound to the given context.
 
     Parameters
     ----------
     context : AuthoringContext
-        Authoring context injected into each tool.
+        Authoring context injected into each tool. When ``live`` is
+        True it must also be a ``LiveContext``.
 
     transport : str, default 'stdio'
         Transport label, forwarded to tool failure logging.
+
+    live : bool, default False
+        Whether to also register live generator-management tools.
+        Requires ``context`` to be a ``LiveContext``.
 
     Returns
     -------
     FastMCP
         Server with discovery, formatter, sample, workspace, and
         validate/preview tools; the templating-reference, examples, and
-        workspace-configs resources; and the authoring prompts.
+        workspace-configs resources; the authoring prompts; and, when
+        ``live`` is set, the live generator-management tools.
 
     """
     mcp = FastMCP('eventum', instructions=_INSTRUCTIONS)
@@ -64,5 +71,14 @@ def build_server(
     workspace_resource.register(mcp, context)
 
     authoring_prompts.register(mcp)
+
+    if live:
+        from eventum.mcp.context import LiveContext
+        from eventum.mcp.tools import live as live_tools
+
+        if not isinstance(context, LiveContext):
+            msg = 'live mode requires a LiveContext'
+            raise TypeError(msg)
+        live_tools.register(mcp, context, transport=transport)
 
     return mcp

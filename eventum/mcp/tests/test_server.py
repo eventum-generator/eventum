@@ -1,12 +1,13 @@
 """Tests for the FastMCP server factory."""
 
 from pathlib import Path
+from unittest.mock import MagicMock
 
 import anyio
 import pytest
 
 from eventum import __version__ as _eventum_version
-from eventum.mcp.context import FileAuthoringContext
+from eventum.mcp.context import FileAuthoringContext, ServerLiveContext
 from eventum.mcp.server import build_server
 
 _EXPECTED_TOOLS = {
@@ -103,3 +104,48 @@ def test_build_server_registers_resources(
     resources = anyio.run(server.list_resources)
     uris = {str(r.uri) for r in resources}
     assert uris >= _EXPECTED_RESOURCES
+
+
+_EXPECTED_LIVE_TOOLS = {
+    'list_generators_live',
+    'get_generator_status',
+    'start_generator',
+    'stop_generator',
+    'register_generator',
+}
+
+
+@pytest.fixture
+def live_ctx(tmp_path: Path) -> ServerLiveContext:
+    """Return a ServerLiveContext with mock manager/startup."""
+    return ServerLiveContext(
+        generators_dir=tmp_path,
+        read_only=True,
+        manager=MagicMock(),
+        startup=MagicMock(),
+        generation=MagicMock(),
+    )
+
+
+def test_stdio_has_no_live_tools(ctx: FileAuthoringContext) -> None:
+    """The stdio authoring server registers no live tools."""
+    server = build_server(ctx, transport='stdio')
+    names = {t.name for t in anyio.run(server.list_tools)}
+    assert names == _EXPECTED_TOOLS
+    assert names.isdisjoint(_EXPECTED_LIVE_TOOLS)
+
+
+def test_live_server_registers_live_tools(
+    live_ctx: ServerLiveContext,
+) -> None:
+    """The HTTP live server registers the live-management tools."""
+    server = build_server(live_ctx, transport='http', live=True)
+    names = {t.name for t in anyio.run(server.list_tools)}
+    assert names >= _EXPECTED_LIVE_TOOLS
+    assert names >= _EXPECTED_TOOLS
+
+
+def test_live_requires_live_context(ctx: FileAuthoringContext) -> None:
+    """Requesting live tools with a non-live context raises."""
+    with pytest.raises(TypeError):
+        build_server(ctx, transport='http', live=True)
