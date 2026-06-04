@@ -6,6 +6,7 @@ from types import SimpleNamespace
 from typing import Any
 
 from eventum.app.manager import ManagingError
+from eventum.app.startup import StartupError
 from eventum.core.parameters import GenerationParameters
 from eventum.mcp.context import ServerLiveContext
 from eventum.mcp.errors import ToolFailure
@@ -62,10 +63,16 @@ class _FakeManager:
 
 
 class _FakeStartup:
-    def __init__(self) -> None:
+    def __init__(self, *, fail: bool = False) -> None:
         self.added: list[Any] = []
+        self._fail = fail
 
     def add(self, params: Any) -> None:
+        if self._fail:
+            msg = 'cannot write startup file'
+            raise StartupError(
+                msg, context={'file_path': '/abs/secret/startup.yml'}
+            )
         self.added.append(params)
 
 
@@ -122,6 +129,7 @@ async def test_write_tools_gate_on_read_only(tmp_path: Path) -> None:
     assert isinstance(await stop_generator(ctx, 'g1'), ToolFailure)
     assert isinstance(await register_generator(ctx, 'new'), ToolFailure)
     assert manager.started == []
+    assert manager.stopped == []
     assert manager.added == []
 
 
@@ -140,6 +148,19 @@ async def test_register_generator_adds_and_persists(
     assert added.id == 'newgen'
     assert added.path == tmp_path / 'newgen' / 'generator.yml'
     assert added.params == {'x': 1}
+
+
+async def test_register_rolls_back_on_startup_error(
+    tmp_path: Path,
+) -> None:
+    """A startup failure rolls back the live add and scrubs the path."""
+    manager = _FakeManager()
+    ctx = _ctx(tmp_path, manager, _FakeStartup(fail=True))
+    result = await register_generator(ctx, 'newgen')
+    assert isinstance(result, ToolFailure)
+    assert manager.removed == ['newgen']
+    assert '/abs/secret' not in result.error
+    assert '/abs/secret' not in repr(result.details)
 
 
 async def test_concurrent_start_is_safe(tmp_path: Path) -> None:
