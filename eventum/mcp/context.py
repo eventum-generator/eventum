@@ -8,6 +8,10 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Protocol, runtime_checkable
 
+from eventum.app.manager import GeneratorManager
+from eventum.app.startup import Startup
+from eventum.core.parameters import GenerationParameters
+
 
 @runtime_checkable
 class AuthoringContext(Protocol):
@@ -30,3 +34,34 @@ class FileAuthoringContext:
 
     generators_dir: Path
     read_only: bool
+
+
+@runtime_checkable
+class LiveContext(AuthoringContext, Protocol):
+    """Authoring context plus live generator management."""
+
+    @property
+    def manager(self) -> GeneratorManager:
+        """The generator manager."""
+        ...
+
+    @property
+    def startup(self) -> Startup:
+        """The startup-config service."""
+        ...
+
+    @property
+    def generation(self) -> GenerationParameters:
+        """Generation parameters for newly registered generators."""
+        ...
+
+
+@dataclass(frozen=True)
+class ServerLiveContext:
+    """Live context backed by the server's manager and startup."""
+
+    generators_dir: Path
+    read_only: bool
+    manager: GeneratorManager
+    startup: Startup
+    generation: GenerationParameters
