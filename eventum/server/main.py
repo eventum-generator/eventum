@@ -1,5 +1,7 @@
 """Server application definition."""
 
+import contextlib
+from collections.abc import AsyncIterator, Callable
 from typing import NotRequired, TypedDict
 
 import structlog
@@ -52,9 +54,19 @@ def build_server_app(
         If some of the services fails to build.
 
     """
-    app = FastAPI(
-        title='Eventum Server',
-    )
+    lifespan_cms: list[
+        Callable[[], contextlib.AbstractAsyncContextManager[None]]
+    ] = []
+
+    @contextlib.asynccontextmanager
+    async def lifespan(app: FastAPI) -> AsyncIterator[None]:  # noqa: ARG001
+        async with contextlib.AsyncExitStack() as stack:
+            for make_cm in lifespan_cms:
+                await stack.enter_async_context(make_cm())
+            yield
+
+    app = FastAPI(title='Eventum Server', lifespan=lifespan)
+    app.state.lifespan_cms = lifespan_cms
 
     if enabled_services.get('api', False):
         logger.info('Starting REST API service')
