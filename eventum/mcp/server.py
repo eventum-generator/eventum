@@ -1,13 +1,15 @@
 """FastMCP server factory.
 
 The only FastMCP-aware module besides the transport roots. Wires the
-tool registrations onto one server bound to an injected context.
+tool, resource, and prompt registrations onto one server bound to an
+injected context.
 """
 
 from mcp.server.fastmcp import FastMCP
 
 from eventum import __version__ as _eventum_version
 from eventum.mcp.context import AuthoringContext
+from eventum.mcp.prompts import authoring as authoring_prompts
 from eventum.mcp.resources import examples as examples_resource
 from eventum.mcp.resources import templating as templating_resource
 from eventum.mcp.resources import workspace as workspace_resource
@@ -19,8 +21,9 @@ from eventum.mcp.tools import workspace_files as ws_tools
 
 _INSTRUCTIONS = (
     'Eventum MCP server. Author and inspect synthetic data generators: '
-    'discover plugins and their config schemas, and validate and '
-    'preview generators before running them.'
+    'discover plugins and their config schemas, read the template '
+    'context reference and worked examples, then validate and preview '
+    'generators before running them.'
 )
 
 
@@ -42,9 +45,9 @@ def build_server(
     Returns
     -------
     FastMCP
-        Server with discovery, formatter, sample, workspace,
-        validate/preview tools, and templating reference resource
-        registered.
+        Server with discovery, formatter, sample, workspace, and
+        validate/preview tools; the templating-reference, examples, and
+        workspace-configs resources; and the authoring prompts.
 
     """
     mcp = FastMCP('eventum', instructions=_INSTRUCTIONS)
@@ -59,5 +62,7 @@ def build_server(
     templating_resource.register(mcp)
     examples_resource.register(mcp)
     workspace_resource.register(mcp, context)
+
+    authoring_prompts.register(mcp)
 
     return mcp

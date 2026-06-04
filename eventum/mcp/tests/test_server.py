@@ -24,6 +24,17 @@ _EXPECTED_TOOLS = {
     'preview_events',
 }
 
+_EXPECTED_PROMPTS = {
+    'create_generator',
+    'simulate_incident',
+}
+
+_EXPECTED_RESOURCES = {
+    'eventum://templating/reference',
+    'eventum://examples/generators',
+    'eventum://workspace/configs',
+}
+
 
 @pytest.fixture
 def ctx(tmp_path: Path) -> FileAuthoringContext:
@@ -72,3 +83,23 @@ def test_list_plugins_input_schema_has_kind_not_context(
     props = tool.inputSchema.get('properties', {})
     assert 'kind' in props
     assert 'context' not in props
+
+
+def test_build_server_registers_prompts(
+    ctx: FileAuthoringContext,
+) -> None:
+    """build_server registers the authoring prompts."""
+    server = build_server(ctx, transport='stdio')
+    prompts = anyio.run(server.list_prompts)
+    names = {p.name for p in prompts}
+    assert names >= _EXPECTED_PROMPTS
+
+
+def test_build_server_registers_resources(
+    ctx: FileAuthoringContext,
+) -> None:
+    """build_server registers the grounding resources."""
+    server = build_server(ctx, transport='stdio')
+    resources = anyio.run(server.list_resources)
+    uris = {str(r.uri) for r in resources}
+    assert uris >= _EXPECTED_RESOURCES
