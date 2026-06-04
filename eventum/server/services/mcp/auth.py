@@ -45,9 +45,13 @@ class BasicAuthMiddleware:
             )
         except ValueError, UnicodeDecodeError:
             return False
+        # Compare as bytes: secrets.compare_digest rejects non-ASCII str
+        # (would raise TypeError on crafted credentials).
         return secrets.compare_digest(
-            user, self._user
-        ) and secrets.compare_digest(password, self._password)
+            user.encode(), self._user.encode()
+        ) and secrets.compare_digest(
+            password.encode(), self._password.encode()
+        )
 
     async def _reject(self, send: Send) -> None:
         await send(

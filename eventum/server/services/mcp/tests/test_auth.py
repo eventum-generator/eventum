@@ -1,5 +1,6 @@
 """Tests for the MCP Basic-auth middleware."""
 
+import base64
 from http import HTTPStatus
 
 from starlette.applications import Starlette
@@ -38,3 +39,10 @@ def test_correct_auth_passes() -> None:
     resp = _client().get('/', auth=('u', 'p'))
     assert resp.status_code == HTTPStatus.OK
     assert resp.text == 'ok'
+
+
+def test_non_ascii_credentials_return_401() -> None:
+    """Non-ASCII Basic credentials are rejected, not crashed (500)."""
+    token = base64.b64encode('usér:p'.encode()).decode()
+    resp = _client().get('/', headers={'Authorization': f'Basic {token}'})
+    assert resp.status_code == HTTPStatus.UNAUTHORIZED
