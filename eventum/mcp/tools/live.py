@@ -102,6 +102,11 @@ async def register_generator(
     if context.read_only:
         return ToolFailure(error='Server is read-only', details={'name': name})
     config_path = context.generators_dir / name / _CONFIG_FILENAME
+    if not config_path.is_file():
+        return ToolFailure(
+            error='Generator config not found',
+            details={'name': name},
+        )
     generator_params = StartupGeneratorParameters(
         **context.generation.model_dump(),
         id=name,

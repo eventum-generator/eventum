@@ -140,6 +140,10 @@ async def test_register_generator_adds_and_persists(
     manager = _FakeManager()
     startup = _FakeStartup()
     ctx = _ctx(tmp_path, manager, startup)
+    (tmp_path / 'newgen').mkdir()
+    (tmp_path / 'newgen' / 'generator.yml').write_text(
+        'input: []\n', encoding='utf-8'
+    )
     result = await register_generator(ctx, 'newgen', {'x': 1})
     assert result == {'id': 'newgen', 'registered': True}
     assert len(manager.added) == 1
@@ -156,11 +160,24 @@ async def test_register_rolls_back_on_startup_error(
     """A startup failure rolls back the live add and scrubs the path."""
     manager = _FakeManager()
     ctx = _ctx(tmp_path, manager, _FakeStartup(fail=True))
+    (tmp_path / 'newgen').mkdir()
+    (tmp_path / 'newgen' / 'generator.yml').write_text(
+        'input: []\n', encoding='utf-8'
+    )
     result = await register_generator(ctx, 'newgen')
     assert isinstance(result, ToolFailure)
     assert manager.removed == ['newgen']
     assert '/abs/secret' not in result.error
     assert '/abs/secret' not in repr(result.details)
+
+
+async def test_register_generator_missing_config(tmp_path: Path) -> None:
+    """Registering a generator with no config file fails cleanly."""
+    manager = _FakeManager()
+    ctx = _ctx(tmp_path, manager, _FakeStartup())
+    result = await register_generator(ctx, 'ghost')
+    assert isinstance(result, ToolFailure)
+    assert manager.added == []
 
 
 async def test_concurrent_start_is_safe(tmp_path: Path) -> None:
