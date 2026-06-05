@@ -176,9 +176,11 @@ def to_tool_error(
     """
     # `reason` scrubbing (absolute paths + secret redaction, spec 7.1)
     # happens inside `scrub_context`, the single scrub point shared with
-    # the direct per-event route. Path stripping is automatic; secret
-    # redaction needs `redact_values` from the caller.
+    # the direct per-event route. The top-level message is also scrubbed
+    # here: domain rules keep it a static string, but scrubbing it too is
+    # cheap defense-in-depth against a stray path/secret in the message.
+    base = generators_dir.resolve()
     return ToolFailure(
-        error=str(error),
+        error=_scrub_reason(str(error), base, redact_values or []),
         details=scrub_context(error.context, generators_dir, redact_values),
     )

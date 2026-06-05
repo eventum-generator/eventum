@@ -107,3 +107,17 @@ def test_scrub_context_reason_path_scrubbed_direct_route(
     assert str(gens) not in repr(out)
     assert str(tmp_path) not in repr(out)
     assert out['file_path'] == 'g/replay.log'
+
+
+def test_error_message_is_scrubbed(tmp_path: Path) -> None:
+    """The top-level message is scrubbed too (defense-in-depth)."""
+    gens = tmp_path / 'generators'
+    secret = 'sup3r-secret'  # noqa: S105
+    err = ConfigurationLoadError(
+        f"failed at '{gens / 'g' / 'x.yml'}' with {secret}",
+        context={},
+    )
+    failure = to_tool_error(err, generators_dir=gens, redact_values=[secret])
+    assert str(gens) not in failure.error
+    assert secret not in failure.error
+    assert '[redacted]' in failure.error
