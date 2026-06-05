@@ -72,6 +72,7 @@ def base_url(tmp_path: Path) -> Iterator[str]:
         generator_manager=GeneratorManager(),
         settings=_settings(tmp_path),
         instance_hooks=MagicMock(),  # type: ignore[arg-type]
+        startup=MagicMock(),
     )
     port = _free_port()
     config = uvicorn.Config(

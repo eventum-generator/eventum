@@ -259,6 +259,7 @@ class App:
             generator_manager=self._manager,
             settings=self._settings,
             instance_hooks=self._instance_hooks,
+            startup=self._startup,
         )
 
         if self._settings.server.ssl.enabled:

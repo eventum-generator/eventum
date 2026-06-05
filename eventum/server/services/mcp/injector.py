@@ -23,6 +23,7 @@ def inject_service(
     app: FastAPI,
     generator_manager: GeneratorManager,
     settings: Settings,
+    startup: Startup,
 ) -> None:
     """Mount the MCP Streamable-HTTP app onto the server app.
 
@@ -39,6 +40,10 @@ def inject_service(
         ``server.mcp.*`` parameters, and the ``server.auth``
         credentials.
 
+    startup : Startup
+        Shared startup-config service, used by ``register_generator``
+        to persist generators.
+
     Raises
     ------
     ServiceBuildingError
@@ -46,11 +51,6 @@ def inject_service(
 
     """
     try:
-        startup = Startup(
-            file_path=settings.path.startup,
-            generators_dir=settings.path.generators_dir,
-            generation_parameters=settings.generation,
-        )
         context = ServerLiveContext(
             generators_dir=settings.path.generators_dir,
             read_only=not settings.server.mcp.allow_write,
@@ -63,8 +63,10 @@ def inject_service(
         # Configure Streamable HTTP BEFORE building the sub-app: the
         # session manager is created lazily inside streamable_http_app().
         mcp.settings.streamable_http_path = '/'
+        allowed_hosts = settings.server.mcp.allowed_hosts
         mcp.settings.transport_security = TransportSecuritySettings(
-            enable_dns_rebinding_protection=False,
+            enable_dns_rebinding_protection=bool(allowed_hosts),
+            allowed_hosts=allowed_hosts,
         )
         mcp_app = mcp.streamable_http_app()
 

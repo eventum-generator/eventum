@@ -15,7 +15,8 @@ def _make_deps():
         'terminate': MagicMock(),
         'restart': MagicMock(),
     }
-    return manager, settings, hooks
+    startup = MagicMock()
+    return manager, settings, hooks, startup
 
 
 @patch(
@@ -29,18 +30,19 @@ def _make_deps():
     create=True,
 )
 def test_build_no_services(mock_api, mock_ui):
-    manager, settings, hooks = _make_deps()
+    manager, settings, hooks, startup = _make_deps()
     app = build_server_app(
         enabled_services={},
         generator_manager=manager,
         settings=settings,
         instance_hooks=hooks,  # type: ignore
+        startup=startup,
     )
     assert isinstance(app, FastAPI)
 
 
 def test_build_api_only():
-    manager, settings, hooks = _make_deps()
+    manager, settings, hooks, startup = _make_deps()
     with patch(
         'eventum.server.services.api.injector.inject_service',
     ) as mock_inject:
@@ -49,13 +51,14 @@ def test_build_api_only():
             generator_manager=manager,
             settings=settings,
             instance_hooks=hooks,  # type: ignore
+            startup=startup,
         )
         mock_inject.assert_called_once()
     assert isinstance(app, FastAPI)
 
 
 def test_build_ui_only():
-    manager, settings, hooks = _make_deps()
+    manager, settings, hooks, startup = _make_deps()
     with patch(
         'eventum.server.services.ui.injector.inject_service',
     ) as mock_inject:
@@ -64,13 +67,14 @@ def test_build_ui_only():
             generator_manager=manager,
             settings=settings,
             instance_hooks=hooks,  # type: ignore
+            startup=startup,
         )
         mock_inject.assert_called_once()
     assert isinstance(app, FastAPI)
 
 
 def test_build_both_services():
-    manager, settings, hooks = _make_deps()
+    manager, settings, hooks, startup = _make_deps()
     with (
         patch(
             'eventum.server.services.api.injector.inject_service',
@@ -84,6 +88,7 @@ def test_build_both_services():
             generator_manager=manager,
             settings=settings,
             instance_hooks=hooks,  # type: ignore
+            startup=startup,
         )
         mock_api.assert_called_once()
         mock_ui.assert_called_once()

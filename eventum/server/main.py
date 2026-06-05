@@ -10,6 +10,7 @@ from fastapi import FastAPI
 from eventum.app.hooks import InstanceHooks
 from eventum.app.manager import GeneratorManager
 from eventum.app.models.settings import Settings
+from eventum.app.startup import Startup
 
 logger = structlog.stdlib.get_logger()
 
@@ -27,6 +28,7 @@ def build_server_app(
     generator_manager: GeneratorManager,
     settings: Settings,
     instance_hooks: InstanceHooks,
+    startup: Startup,
 ) -> FastAPI:
     """Build server FastAPI application.
 
@@ -43,6 +45,10 @@ def build_server_app(
 
     instance_hooks : InstanceHooks
         Instance hooks.
+
+    startup : Startup
+        Shared startup-config service, passed to the API and MCP
+        services so they operate on a single instance.
 
     Returns
     -------
@@ -74,7 +80,9 @@ def build_server_app(
             inject_service as inject_api_service,
         )
 
-        inject_api_service(app, generator_manager, settings, instance_hooks)
+        inject_api_service(
+            app, generator_manager, settings, instance_hooks, startup
+        )
 
     if enabled_services.get('ui', False):
         logger.info('Starting web UI service')
@@ -90,6 +98,6 @@ def build_server_app(
             inject_service as inject_mcp_service,
         )
 
-        inject_mcp_service(app, generator_manager, settings)
+        inject_mcp_service(app, generator_manager, settings, startup)
 
     return app

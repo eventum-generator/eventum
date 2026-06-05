@@ -24,6 +24,7 @@ def test_lifespan_runs_registered_cms() -> None:
         generator_manager=MagicMock(),
         settings=MagicMock(),
         instance_hooks=MagicMock(),  # type: ignore[arg-type]
+        startup=MagicMock(),
     )
     app.state.lifespan_cms.append(cm)
 
