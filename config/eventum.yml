@@ -59,13 +59,22 @@ server.auth.password: eventum
 # Optional, default is false
 server.mcp.enabled: false
 
-# Whether MCP write tools are permitted over HTTP
+# Whether MCP write tools are permitted over HTTP.
+# WARNING: enabling this lets a connected agent write and preview
+# generator templates, which execute code on the host. Only enable it
+# on a trusted network with a trusted agent.
 # Optional, default is false
 server.mcp.allow_write: false
 
 # Mount path for the MCP HTTP endpoint
 # Optional, default is "/mcp"
 server.mcp.path: "/mcp"
+
+# Allowed Host header values for DNS-rebinding protection.
+# Empty disables the check (use behind a trusted reverse proxy); a
+# non-empty list enables it and rejects other Host headers.
+# Optional, default is []
+server.mcp.allowed_hosts: []
 
 # =========================== Generation Parameters ===========================
 

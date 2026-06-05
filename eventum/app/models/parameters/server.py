@@ -96,16 +96,36 @@ class MCPParameters(BaseModel, extra='forbid', frozen=True):
         Whether to mount the MCP server over HTTP.
 
     allow_write : bool, default=False
-        Whether MCP write tools are permitted over HTTP.
+        Whether MCP write tools are permitted over HTTP. Enabling this
+        lets a connected agent write and preview generator templates,
+        which execute code on the host - keep it off unless the network
+        and agent are trusted.
 
     path : str, default='/mcp'
         Mount path for the MCP HTTP endpoint.
+
+    allowed_hosts : list[str], default=[]
+        Allowed Host header values for DNS-rebinding protection. Empty
+        disables the check (suitable behind a trusted reverse proxy);
+        a non-empty list enables it and rejects other Host headers.
 
     """
 
     enabled: bool = Field(default=False)
     allow_write: bool = Field(default=False)
     path: str = Field(default='/mcp', min_length=1)
+    allowed_hosts: list[str] = Field(default_factory=list)
+
+    @field_validator('path')
+    @classmethod
+    def validate_path(cls, v: str) -> str:  # noqa: D102
+        if not v.startswith('/'):
+            msg = 'Path must start with "/"'
+            raise ValueError(msg)
+        if len(v) > 1 and v.endswith('/'):
+            msg = 'Path must not end with "/"'
+            raise ValueError(msg)
+        return v
 
 
 class ServerParameters(BaseModel, extra='forbid', frozen=True):
