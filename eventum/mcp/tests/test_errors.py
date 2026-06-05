@@ -3,7 +3,12 @@
 from pathlib import Path
 
 from eventum.core.config_loader import ConfigurationLoadError
-from eventum.mcp.errors import ToolFailure, scrub_context, to_tool_error
+from eventum.mcp.errors import (
+    ToolFailure,
+    scrub_context,
+    scrub_log_line,
+    to_tool_error,
+)
 
 
 def test_scrub_relativizes_paths_and_allowlists(tmp_path: Path) -> None:
@@ -121,3 +126,29 @@ def test_error_message_is_scrubbed(tmp_path: Path) -> None:
     assert str(gens) not in failure.error
     assert secret not in failure.error
     assert '[redacted]' in failure.error
+
+
+def test_scrub_log_line_reduces_paths_and_redacts(tmp_path: Path) -> None:
+    """Workspace and foreign abs paths reduced; secret values redacted."""
+    gens = tmp_path / 'generators'
+    logs = tmp_path / 'logs'
+    secret = 's3cr3t-tok'  # noqa: S105
+    line = (
+        f'rendering {gens / "g" / "t.jinja"} failed at '
+        f'File "/opt/app/.venv/lib/x.py" token={secret}'
+    )
+    out = scrub_log_line(line, gens, logs, [secret])
+    assert str(gens) not in out
+    assert '/opt/app/.venv' not in out
+    assert 'x.py' in out
+    assert secret not in out
+    assert '[redacted]' in out
+
+
+def test_scrub_log_line_preserves_urls(tmp_path: Path) -> None:
+    """A URL is not mangled into a path basename."""
+    gens = tmp_path / 'generators'
+    logs = tmp_path / 'logs'
+    line = 'GET https://api.example.com/v1/users 200'
+    out = scrub_log_line(line, gens, logs, [])
+    assert 'https://api.example.com/v1/users' in out

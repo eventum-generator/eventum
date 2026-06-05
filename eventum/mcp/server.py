@@ -22,10 +22,13 @@ from eventum.mcp.tools import secrets as secrets_tools
 from eventum.mcp.tools import workspace_files as ws_tools
 
 _INSTRUCTIONS = (
-    'Eventum MCP server. Author and inspect synthetic data generators: '
-    'discover plugins and their config schemas, read the template '
-    'context reference and worked examples, then validate and preview '
-    'generators before running them.'
+    'Eventum MCP server. Author, inspect, and operate synthetic data '
+    'generators: discover plugins and their config schemas, read the '
+    'template-context reference, the generator schema, and worked '
+    'examples, then write, validate, and preview generators before '
+    'running them. Over HTTP it also manages running generators - '
+    'register, start, stop, unregister, and read their logs. Writes are '
+    'read-only by default; secret values never cross the boundary.'
 )
 
 

@@ -227,3 +227,11 @@ def test_delete_generator_traversal_rejected(tmp_path: Path) -> None:
     _gen(tmp_path)
     res = delete_generator(_ctx(tmp_path), '../escape')
     assert isinstance(res, ToolFailure)
+
+
+def test_delete_generator_nested_dir_rejected(tmp_path: Path) -> None:
+    """A nested (non-top-level) directory cannot be deleted."""
+    _gen(tmp_path)
+    res = delete_generator(_ctx(tmp_path), 'g/templates')
+    assert isinstance(res, ToolFailure)
+    assert (tmp_path / 'g' / 'templates').exists()

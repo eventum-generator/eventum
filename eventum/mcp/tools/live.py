@@ -141,7 +141,9 @@ async def unregister_generator(
     The inverse of register_generator. Removes the generator from the
     runtime (stopping it if running) and from the startup file, so it
     will not be reloaded. Tolerates a generator that exists in only one
-    of the two; fails only if it is absent from both.
+    of the two; fails only if it is absent from both. If the runtime
+    removal succeeds but the startup file cannot be rewritten, that
+    error is reported and the runtime removal stands.
     """
     if context.read_only:
         return ToolFailure(error='Server is read-only', details={'name': name})

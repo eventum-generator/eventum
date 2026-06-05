@@ -255,6 +255,20 @@ async def test_unregister_missing_everywhere_fails(tmp_path: Path) -> None:
     assert isinstance(result, ToolFailure)
 
 
+async def test_unregister_startup_write_error(tmp_path: Path) -> None:
+    """A startup write failure after runtime removal returns a failure.
+
+    The runtime removal stands; the path in the error is scrubbed.
+    """
+    manager = _FakeManager()
+    ctx = _ctx(tmp_path, manager, _FakeStartup(fail=True))
+    result = await unregister_generator(ctx, 'g1')
+    assert isinstance(result, ToolFailure)
+    assert manager.removed == ['g1']
+    assert '/abs/secret' not in result.error
+    assert '/abs/secret' not in repr(result.details)
+
+
 async def test_unregister_startup_only(tmp_path: Path) -> None:
     """A persisted-but-not-running generator is still unregistered."""
     manager = _FakeManager()
