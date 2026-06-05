@@ -78,11 +78,13 @@ def build_server(
 
     if live:
         from eventum.mcp.context import LiveContext
+        from eventum.mcp.prompts import operations as operations_prompts
         from eventum.mcp.tools import live as live_tools
 
         if not isinstance(context, LiveContext):
             msg = 'live mode requires a LiveContext'
             raise TypeError(msg)
         live_tools.register(mcp, context, transport=transport)
+        operations_prompts.register(mcp)
 
     return mcp

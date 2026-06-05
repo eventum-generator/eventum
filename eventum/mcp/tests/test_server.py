@@ -31,6 +31,7 @@ _EXPECTED_TOOLS = {
 _EXPECTED_PROMPTS = {
     'create_generator',
     'simulate_incident',
+    'historical_backfill',
 }
 
 _EXPECTED_RESOURCES = {
@@ -157,3 +158,19 @@ def test_live_requires_live_context(ctx: FileAuthoringContext) -> None:
     """Requesting live tools with a non-live context raises."""
     with pytest.raises(TypeError):
         build_server(ctx, transport='http', live=True)
+
+
+def test_live_server_registers_live_ops_prompt(
+    live_ctx: ServerLiveContext,
+) -> None:
+    """The HTTP live server adds the live-operations prompt."""
+    server = build_server(live_ctx, transport='http', live=True)
+    names = {p.name for p in anyio.run(server.list_prompts)}
+    assert 'live_ops' in names
+
+
+def test_stdio_has_no_live_ops_prompt(ctx: FileAuthoringContext) -> None:
+    """The stdio server does not expose the live-operations prompt."""
+    server = build_server(ctx, transport='stdio')
+    names = {p.name for p in anyio.run(server.list_prompts)}
+    assert 'live_ops' not in names

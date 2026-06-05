@@ -4,27 +4,40 @@ import shutil
 from importlib.resources import files
 from pathlib import Path
 
+import pytest
+
 from eventum.core import preview
+from eventum.mcp.resources.examples import BUNDLED
 
 _SAMPLE_COUNT = 3
+_EXAMPLE_NAMES = [entry['name'] for entry in BUNDLED]
+
+# Examples whose input covers a fixed (past) date range, previewed with
+# skip_past disabled - mirrors how the preview_events tool handles them.
+_STATIC_RANGE_EXAMPLES = {'latency-metrics', 'audit-backfill'}
 
 
-def _copy_example(tmp_path: Path) -> Path:
-    src = files('eventum.mcp').joinpath('examples', 'web-access-log')
-    dst = tmp_path / 'web-access-log'
+def _copy_example(tmp_path: Path, name: str) -> Path:
+    src = files('eventum.mcp').joinpath('examples', name)
+    dst = tmp_path / name
     shutil.copytree(str(src), dst)
     return dst / 'generator.yml'
 
 
-def test_bundled_example_validates(tmp_path: Path) -> None:
-    """validate_generator raises nothing for the bundled example."""
-    cfg = _copy_example(tmp_path)
+@pytest.mark.parametrize('name', _EXAMPLE_NAMES)
+def test_bundled_example_validates(tmp_path: Path, name: str) -> None:
+    """validate_generator raises nothing for each bundled example."""
+    cfg = _copy_example(tmp_path, name)
     preview.validate_generator(cfg, {})
 
 
-def test_bundled_example_previews_events(tmp_path: Path) -> None:
-    """produce_sample_events returns the requested events with no errors."""
-    cfg = _copy_example(tmp_path)
-    result = preview.produce_sample_events(cfg, _SAMPLE_COUNT, {})
+@pytest.mark.parametrize('name', _EXAMPLE_NAMES)
+def test_bundled_example_previews_events(tmp_path: Path, name: str) -> None:
+    """produce_sample_events returns the events with no errors."""
+    cfg = _copy_example(tmp_path, name)
+    skip_past = name not in _STATIC_RANGE_EXAMPLES
+    result = preview.produce_sample_events(
+        cfg, _SAMPLE_COUNT, {}, skip_past=skip_past
+    )
     assert len(result.events) == _SAMPLE_COUNT
     assert result.errors == []

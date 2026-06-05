@@ -34,6 +34,45 @@ BUNDLED: list[_BundledExample] = [
             'samples/paths.json',
         ],
     },
+    {
+        'name': 'signup-events',
+        'description': (
+            'One JSON signup event per tick with user fields drawn from '
+            'a CSV sample. Uses cron input, a chance-mode template, a '
+            'CSV sample with a header (named-column access), and file '
+            'output with the json formatter.'
+        ),
+        'files': [
+            'generator.yml',
+            'templates/signup.json.jinja',
+            'samples/users.csv',
+        ],
+    },
+    {
+        'name': 'latency-metrics',
+        'description': (
+            'A statsd-style latency line per tick over a fixed time '
+            'range. Uses a linspace input (evenly spaced timestamps) and '
+            'the template output formatter, whose template wraps the raw '
+            'event value.'
+        ),
+        'files': [
+            'generator.yml',
+            'templates/latency.jinja',
+        ],
+    },
+    {
+        'name': 'audit-backfill',
+        'description': (
+            'A finite batch of audit events at explicit past timestamps. '
+            'Uses the timestamps input plugin for historical backfill '
+            'instead of a live stream.'
+        ),
+        'files': [
+            'generator.yml',
+            'templates/audit.json.jinja',
+        ],
+    },
 ]
 
 EXTERNAL: list[dict[str, str]] = [

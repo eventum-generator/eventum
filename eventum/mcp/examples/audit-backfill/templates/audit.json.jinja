@@ -1,0 +1,5 @@
+{
+  "@timestamp": "{{ timestamp.isoformat() }}",
+  "action": "{{ module.rand.choice(['login', 'logout', 'update', 'delete']) }}",
+  "actor": "user_{{ module.rand.number.integer(1, 50) }}"
+}
