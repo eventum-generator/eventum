@@ -16,10 +16,13 @@ _EXPECTED_TOOLS = {
     'list_formatters',
     'get_formatter_schema',
     'describe_sample',
+    'list_secrets',
     'list_generators',
     'list_generator_files',
     'read_generator_file',
     'write_generator_file',
+    'delete_generator_file',
+    'delete_generator',
     'validate_generator',
     'preview_timestamps',
     'preview_events',
@@ -32,6 +35,7 @@ _EXPECTED_PROMPTS = {
 
 _EXPECTED_RESOURCES = {
     'eventum://templating/reference',
+    'eventum://schema/generator',
     'eventum://examples/generators',
     'eventum://workspace/configs',
 }

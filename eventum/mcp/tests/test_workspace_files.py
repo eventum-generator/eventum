@@ -5,6 +5,8 @@ from pathlib import Path
 from eventum.mcp.context import FileAuthoringContext
 from eventum.mcp.errors import ToolFailure
 from eventum.mcp.tools.workspace_files import (
+    delete_generator,
+    delete_generator_file,
     list_generator_files,
     list_generators,
     read_generator_file,
@@ -143,3 +145,85 @@ def test_list_generators_sorted(tmp_path: Path) -> None:
     for name in ['zebra', 'alpha', 'middle']:
         _gen(tmp_path, name)
     assert list_generators(_ctx(tmp_path)) == ['alpha', 'middle', 'zebra']
+
+
+def test_delete_generator_file_removes_file(tmp_path: Path) -> None:
+    """A file is deleted and no longer present."""
+    _gen(tmp_path)
+    res = delete_generator_file(_ctx(tmp_path), 'g', 'templates/a.jinja')
+    assert not isinstance(res, ToolFailure)
+    assert not (tmp_path / 'g' / 'templates' / 'a.jinja').exists()
+
+
+def test_delete_generator_file_blocked_when_read_only(
+    tmp_path: Path,
+) -> None:
+    """Read-only blocks deletion and leaves the file in place."""
+    _gen(tmp_path)
+    res = delete_generator_file(
+        _ctx(tmp_path, read_only=True), 'g', 'templates/a.jinja'
+    )
+    assert isinstance(res, ToolFailure)
+    assert (tmp_path / 'g' / 'templates' / 'a.jinja').exists()
+
+
+def test_delete_generator_file_not_found(tmp_path: Path) -> None:
+    """Missing file returns ToolFailure."""
+    _gen(tmp_path)
+    res = delete_generator_file(_ctx(tmp_path), 'g', 'templates/x.jinja')
+    assert isinstance(res, ToolFailure)
+
+
+def test_delete_generator_file_disallowed_extension(
+    tmp_path: Path,
+) -> None:
+    """Disallowed extension returns ToolFailure and keeps the file."""
+    d = _gen(tmp_path)
+    (d / 'secret.py').write_text('pass')
+    res = delete_generator_file(_ctx(tmp_path), 'g', 'secret.py')
+    assert isinstance(res, ToolFailure)
+    assert (d / 'secret.py').exists()
+
+
+def test_delete_generator_file_traversal_rejected(tmp_path: Path) -> None:
+    """Parent traversal in the delete path returns ToolFailure."""
+    _gen(tmp_path)
+    res = delete_generator_file(_ctx(tmp_path), 'g', '../../etc/passwd')
+    assert isinstance(res, ToolFailure)
+
+
+def test_delete_generator_removes_dir(tmp_path: Path) -> None:
+    """The whole generator directory is removed."""
+    _gen(tmp_path)
+    res = delete_generator(_ctx(tmp_path), 'g')
+    assert not isinstance(res, ToolFailure)
+    assert not (tmp_path / 'g').exists()
+
+
+def test_delete_generator_blocked_when_read_only(tmp_path: Path) -> None:
+    """Read-only blocks directory deletion."""
+    _gen(tmp_path)
+    res = delete_generator(_ctx(tmp_path, read_only=True), 'g')
+    assert isinstance(res, ToolFailure)
+    assert (tmp_path / 'g').exists()
+
+
+def test_delete_generator_missing(tmp_path: Path) -> None:
+    """Unknown generator name returns ToolFailure."""
+    res = delete_generator(_ctx(tmp_path), 'missing')
+    assert isinstance(res, ToolFailure)
+
+
+def test_delete_generator_root_rejected(tmp_path: Path) -> None:
+    """Deleting the generators dir itself is rejected; it survives."""
+    _gen(tmp_path)
+    res = delete_generator(_ctx(tmp_path), '.')
+    assert isinstance(res, ToolFailure)
+    assert tmp_path.exists()
+
+
+def test_delete_generator_traversal_rejected(tmp_path: Path) -> None:
+    """A name escaping the generators root returns ToolFailure."""
+    _gen(tmp_path)
+    res = delete_generator(_ctx(tmp_path), '../escape')
+    assert isinstance(res, ToolFailure)

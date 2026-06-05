@@ -33,10 +33,17 @@ LOG_LEVELS = get_args(logconf.LogLevel.__value__)
     show_default=True,
     help='Level of logs emitted to stderr.',
 )
+@click.option(
+    '--keyring-cryptfile',
+    type=click.Path(exists=True, dir_okay=False, resolve_path=True),
+    default=None,
+    help='Path to the keyring cryptfile, enabling list_secrets.',
+)
 def cli(
     generators_dir: str,
     read_only: bool,  # noqa: FBT001
     log_level: logconf.LogLevel,
+    keyring_cryptfile: str | None,
 ) -> None:
     """Run Eventum as a read-only or authoring MCP stdio server.
 
@@ -45,6 +52,11 @@ def cli(
     """
     # Stdout is the MCP JSON-RPC channel - route logs to stderr only.
     logconf.use_stderr(level=log_level)
+
+    if keyring_cryptfile is not None:
+        from eventum.security.manage import SECURITY_SETTINGS
+
+        SECURITY_SETTINGS['cryptfile_location'] = Path(keyring_cryptfile)
 
     from eventum.mcp.context import FileAuthoringContext
     from eventum.mcp.server import build_server

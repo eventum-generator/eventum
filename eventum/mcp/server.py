@@ -11,12 +11,14 @@ from eventum import __version__ as _eventum_version
 from eventum.mcp.context import AuthoringContext
 from eventum.mcp.prompts import authoring as authoring_prompts
 from eventum.mcp.resources import examples as examples_resource
+from eventum.mcp.resources import schema as schema_resource
 from eventum.mcp.resources import templating as templating_resource
 from eventum.mcp.resources import workspace as workspace_resource
 from eventum.mcp.tools import discovery
 from eventum.mcp.tools import formatters as fmt_tools
 from eventum.mcp.tools import preview as preview_tools
 from eventum.mcp.tools import samples as sample_tools
+from eventum.mcp.tools import secrets as secrets_tools
 from eventum.mcp.tools import workspace_files as ws_tools
 
 _INSTRUCTIONS = (
@@ -63,10 +65,12 @@ def build_server(
     discovery.register(mcp, context, transport=transport)
     fmt_tools.register(mcp, context, transport=transport)
     sample_tools.register(mcp, context, transport=transport)
+    secrets_tools.register(mcp, context, transport=transport)
     ws_tools.register(mcp, context, transport=transport)
     preview_tools.register(mcp, context, transport=transport)
 
     templating_resource.register(mcp)
+    schema_resource.register(mcp)
     examples_resource.register(mcp)
     workspace_resource.register(mcp, context)
 

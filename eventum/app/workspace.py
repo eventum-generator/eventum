@@ -4,6 +4,7 @@ Path-safety, text file IO, and config serialization shared by the
 api, cli, and mcp driver adapters. No transport concerns here.
 """
 
+import shutil
 from collections.abc import Mapping
 from pathlib import Path
 from typing import Any
@@ -162,6 +163,54 @@ def write_text(path: Path, content: str) -> None:
         path.write_text(content)
     except OSError as e:
         msg = 'Failed to write file'
+        raise WorkspaceError(
+            msg,
+            context={'reason': str(e), 'file_path': str(path)},
+        ) from None
+
+
+def delete_file(path: Path) -> None:
+    """Delete a file, translating OS errors to `WorkspaceError`.
+
+    Parameters
+    ----------
+    path : Path
+        Path to delete.
+
+    Raises
+    ------
+    WorkspaceError
+        If the file cannot be deleted.
+
+    """
+    try:
+        path.unlink()
+    except OSError as e:
+        msg = 'Failed to delete file'
+        raise WorkspaceError(
+            msg,
+            context={'reason': str(e), 'file_path': str(path)},
+        ) from None
+
+
+def delete_dir(path: Path) -> None:
+    """Recursively delete a directory, translating OS errors.
+
+    Parameters
+    ----------
+    path : Path
+        Directory to delete.
+
+    Raises
+    ------
+    WorkspaceError
+        If the directory cannot be deleted.
+
+    """
+    try:
+        shutil.rmtree(path)
+    except OSError as e:
+        msg = 'Failed to delete directory'
         raise WorkspaceError(
             msg,
             context={'reason': str(e), 'file_path': str(path)},

@@ -7,6 +7,8 @@ import pytest
 
 from eventum.app.workspace import (
     WorkspaceError,
+    delete_dir,
+    delete_file,
     ensure_relative,
     read_text,
     resolve_generator_dir,
@@ -91,3 +93,32 @@ def test_write_text_parent_is_file_raises(tmp_path: Path):
     with pytest.raises(WorkspaceError) as exc_info:
         write_text(target, 'data')
     assert exc_info.value.context['file_path'] == str(target)
+
+
+def test_delete_file_removes_file(tmp_path: Path):
+    target = tmp_path / 'file.txt'
+    target.write_text('x')
+    delete_file(target)
+    assert not target.exists()
+
+
+def test_delete_file_missing_raises(tmp_path: Path):
+    missing = tmp_path / 'nope.txt'
+    with pytest.raises(WorkspaceError) as exc_info:
+        delete_file(missing)
+    assert exc_info.value.context['file_path'] == str(missing)
+
+
+def test_delete_dir_removes_tree(tmp_path: Path):
+    root = tmp_path / 'gen'
+    (root / 'sub').mkdir(parents=True)
+    (root / 'sub' / 'f.txt').write_text('x')
+    delete_dir(root)
+    assert not root.exists()
+
+
+def test_delete_dir_missing_raises(tmp_path: Path):
+    missing = tmp_path / 'nope'
+    with pytest.raises(WorkspaceError) as exc_info:
+        delete_dir(missing)
+    assert exc_info.value.context['file_path'] == str(missing)
