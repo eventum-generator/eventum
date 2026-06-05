@@ -114,17 +114,15 @@ def describe_sample(
             details={'relative_path': relative_path},
         )
 
-    # _field_map and _rows are private; Sample exposes no public
-    # accessor. _field_map is a dict[str, int] of column name to index.
-    columns = list(sample._field_map)  # noqa: SLF001
-    rows = sample._rows  # noqa: SLF001
-
-    example_rows = [list(row) for row in rows[:_EXAMPLE_ROWS_LIMIT]]
+    row_count = len(sample)
+    example_rows = [
+        list(sample[i]) for i in range(min(_EXAMPLE_ROWS_LIMIT, row_count))
+    ]
 
     return {
         'type': sample_type,
-        'columns': columns,
-        'row_count': len(sample),
+        'columns': sample.columns,
+        'row_count': row_count,
         'example_rows': example_rows,
     }
 
