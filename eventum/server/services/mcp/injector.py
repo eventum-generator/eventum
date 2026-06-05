@@ -57,6 +57,8 @@ def inject_service(
             manager=generator_manager,
             startup=startup,
             generation=settings.generation,
+            logs_dir=settings.path.logs,
+            log_format=settings.log.format,
         )
         mcp = build_server(context, transport='http', live=True)
 

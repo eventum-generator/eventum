@@ -6,7 +6,7 @@ Tools depend on these Protocols, not on globals; composition roots
 
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Protocol, runtime_checkable
+from typing import Literal, Protocol, runtime_checkable
 
 from eventum.app.manager import GeneratorManager
 from eventum.app.startup import Startup
@@ -55,6 +55,16 @@ class LiveContext(AuthoringContext, Protocol):
         """Generation parameters for newly registered generators."""
         ...
 
+    @property
+    def logs_dir(self) -> Path:
+        """Absolute path to the log files directory."""
+        ...
+
+    @property
+    def log_format(self) -> Literal['plain', 'json']:
+        """Log file format - selects the log file extension."""
+        ...
+
 
 @dataclass(frozen=True)
 class ServerLiveContext:
@@ -65,3 +75,5 @@ class ServerLiveContext:
     manager: GeneratorManager
     startup: Startup
     generation: GenerationParameters
+    logs_dir: Path
+    log_format: Literal['plain', 'json']

@@ -117,6 +117,46 @@ def list_secrets(path: Path | None = None) -> list[str]:
     return [unescape(secret_name) for secret_name in service_section]
 
 
+def get_secret_values_for_scrubbing(path: Path | None = None) -> list[str]:
+    """Return all secret values, for redacting them from outgoing text.
+
+    Unlike `get_secret`, this emits no per-secret access audit log: the
+    values are read only to scrub them out of logs or errors before they
+    reach an external consumer, not to use them. Best-effort - returns
+    an empty list if the keyring cannot be read.
+
+    Parameters
+    ----------
+    path : Path | None, default=None
+        Path to keyring file, default location is used if none is
+        provided and security setting cryptfile_location is none.
+
+    Returns
+    -------
+    list[str]
+        Secret values currently stored in the keyring. Empty on any
+        read error.
+
+    """
+    try:
+        keyring = _get_keyring(path)
+        values: list[str] = []
+        for name in list_secrets(path):
+            value = keyring.get_password(
+                service=KEYRING_SERVICE_NAME,
+                username=name,
+            )
+            if value:
+                values.append(value)
+    except Exception as e:  # noqa: BLE001 - best-effort; never raise
+        logger.warning(
+            'Could not read keyring for secret scrubbing',
+            reason=str(e),
+        )
+        return []
+    return values
+
+
 def get_secret(name: str, path: Path | None = None) -> str:
     """Get secret from keyring.
 

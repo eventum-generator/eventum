@@ -23,6 +23,12 @@ _ALLOWED_KEYS = frozenset({'file_path', 'reason', 'value', 'name'})
 # final component so only the basename is kept.
 _QUOTED_ABS_PATH = re.compile(r"'/[^']*/([^/']+)'")
 
+# Any absolute POSIX path in free log text - quoted, double-quoted, or
+# bare - reduced to its final component. Broader than _QUOTED_ABS_PATH
+# (which targets quoted OSError paths in structured tool errors): log
+# lines carry unquoted paths too, e.g. traceback frames.
+_ABS_PATH = re.compile(r"(^|[\s'\"=(,:])/(?:[\w.\-]+/)+([\w.\-]+)")
+
 # Marker replacing redacted secret values inside reason text.
 _REDACTED = '[redacted]'
 
@@ -184,3 +190,52 @@ def to_tool_error(
         error=_scrub_reason(str(error), base, redact_values or []),
         details=scrub_context(error.context, generators_dir, redact_values),
     )
+
+
+def scrub_log_line(
+    line: str,
+    generators_dir: Path,
+    logs_dir: Path,
+    redact_values: list[str],
+) -> str:
+    """Strip absolute paths and secret values from one log line.
+
+    Relativizes the generators and logs directories, reduces any other
+    quoted absolute path to its final component, and replaces each
+    non-empty value in ``redact_values`` with the redaction marker. Used
+    by the log-reading tool; a log line is free-form text, so this is a
+    best-effort scrub over the listed secret values, not a guarantee
+    that every conceivable secret encoding is caught.
+
+    Parameters
+    ----------
+    line : str
+        Raw log line.
+
+    generators_dir : Path
+        Generators directory to relativize.
+
+    logs_dir : Path
+        Logs directory to relativize.
+
+    redact_values : list[str]
+        Secret values to replace with ``[redacted]``.
+
+    Returns
+    -------
+    str
+        Log line safe to forward to an agent.
+
+    """
+    for base in (generators_dir, logs_dir):
+        base_str = str(base.resolve())
+        line = line.replace(base_str + os.sep, '')
+        line = line.replace(base_str, '.')
+
+    line = _ABS_PATH.sub(r'\1\2', line)
+
+    for value in redact_values:
+        if value:
+            line = line.replace(value, _REDACTED)
+
+    return line

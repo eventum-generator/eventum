@@ -5,17 +5,21 @@ from pathlib import Path
 from types import SimpleNamespace
 from typing import Any
 
+import pytest
+
 from eventum.app.manager import ManagingError
-from eventum.app.startup import StartupError
+from eventum.app.startup import StartupError, StartupNotFoundError
 from eventum.core.parameters import GenerationParameters
 from eventum.mcp.context import ServerLiveContext
 from eventum.mcp.errors import ToolFailure
 from eventum.mcp.tools.live import (
+    get_generator_logs,
     get_generator_status,
     list_generators_live,
     register_generator,
     start_generator,
     stop_generator,
+    unregister_generator,
 )
 
 
@@ -57,15 +61,27 @@ class _FakeManager:
 
     def add(self, params: Any) -> None:
         self.added.append(params)
+        self._generators[params.id] = _FakeGenerator(params.id)
 
     def remove(self, generator_id: str) -> None:
+        if generator_id not in self._generators:
+            msg = 'Generator is not found'
+            raise ManagingError(msg)
+        del self._generators[generator_id]
         self.removed.append(generator_id)
 
 
 class _FakeStartup:
-    def __init__(self, *, fail: bool = False) -> None:
+    def __init__(
+        self,
+        *,
+        fail: bool = False,
+        present: set[str] | None = None,
+    ) -> None:
         self.added: list[Any] = []
+        self.deleted: list[str] = []
         self._fail = fail
+        self._present = set() if present is None else set(present)
 
     def add(self, params: Any) -> None:
         if self._fail:
@@ -74,6 +90,18 @@ class _FakeStartup:
                 msg, context={'file_path': '/abs/secret/startup.yml'}
             )
         self.added.append(params)
+
+    def delete(self, name: str) -> None:
+        if self._fail:
+            msg = 'cannot write startup file'
+            raise StartupError(
+                msg, context={'file_path': '/abs/secret/startup.yml'}
+            )
+        if name not in self._present:
+            msg = 'entry not found'
+            raise StartupNotFoundError(msg, context={'id': name})
+        self._present.discard(name)
+        self.deleted.append(name)
 
 
 def _ctx(
@@ -89,6 +117,8 @@ def _ctx(
         manager=manager,  # type: ignore[arg-type]
         startup=startup,  # type: ignore[arg-type]
         generation=GenerationParameters(),
+        logs_dir=tmp_path,
+        log_format='plain',
     )
 
 
@@ -194,3 +224,134 @@ async def test_concurrent_start_is_safe(tmp_path: Path) -> None:
     )
     assert all(r == {'id': 'g1', 'started': True} for r in results)
     assert manager.started == ['g1', 'g1']
+
+
+async def test_unregister_removes_from_both(tmp_path: Path) -> None:
+    """Unregister drops the generator from runtime and startup."""
+    manager = _FakeManager()
+    startup = _FakeStartup(present={'g1'})
+    ctx = _ctx(tmp_path, manager, startup)
+    result = await unregister_generator(ctx, 'g1')
+    assert result == {'id': 'g1', 'unregistered': True}
+    assert manager.removed == ['g1']
+    assert startup.deleted == ['g1']
+
+
+async def test_unregister_gates_on_read_only(tmp_path: Path) -> None:
+    """Read-only mode refuses unregister without touching state."""
+    manager = _FakeManager()
+    startup = _FakeStartup(present={'g1'})
+    ctx = _ctx(tmp_path, manager, startup, read_only=True)
+    result = await unregister_generator(ctx, 'g1')
+    assert isinstance(result, ToolFailure)
+    assert manager.removed == []
+    assert startup.deleted == []
+
+
+async def test_unregister_missing_everywhere_fails(tmp_path: Path) -> None:
+    """A generator absent from runtime and startup yields a failure."""
+    ctx = _ctx(tmp_path, _FakeManager(), _FakeStartup())
+    result = await unregister_generator(ctx, 'ghost')
+    assert isinstance(result, ToolFailure)
+
+
+async def test_unregister_startup_only(tmp_path: Path) -> None:
+    """A persisted-but-not-running generator is still unregistered."""
+    manager = _FakeManager()
+    startup = _FakeStartup(present={'persisted'})
+    ctx = _ctx(tmp_path, manager, startup)
+    result = await unregister_generator(ctx, 'persisted')
+    assert result == {'id': 'persisted', 'unregistered': True}
+    assert manager.removed == []
+    assert startup.deleted == ['persisted']
+
+
+async def test_get_generator_logs_returns_tail(tmp_path: Path) -> None:
+    """The tail of a managed generator's log is returned."""
+    ctx = _ctx(tmp_path, _FakeManager(), _FakeStartup())
+    (tmp_path / 'generator_g1.log').write_text('line one\nline two\n')
+    result = await get_generator_logs(ctx, 'g1')
+    assert result == {'id': 'g1', 'lines': ['line one', 'line two']}
+
+
+async def test_get_generator_logs_unknown_is_failure(tmp_path: Path) -> None:
+    """Logs for an unmanaged id yield a ToolFailure, not a file read."""
+    ctx = _ctx(tmp_path, _FakeManager(), _FakeStartup())
+    result = await get_generator_logs(ctx, 'ghost')
+    assert isinstance(result, ToolFailure)
+
+
+async def test_get_generator_logs_missing_file_is_empty(
+    tmp_path: Path,
+) -> None:
+    """A managed generator with no log file yet returns no lines."""
+    ctx = _ctx(tmp_path, _FakeManager(), _FakeStartup())
+    result = await get_generator_logs(ctx, 'g1')
+    assert result == {'id': 'g1', 'lines': []}
+
+
+async def test_get_generator_logs_scrubs_paths(tmp_path: Path) -> None:
+    """Absolute paths under the generators dir are relativized."""
+    ctx = _ctx(tmp_path, _FakeManager(), _FakeStartup())
+    leaked = tmp_path / 'g1' / 'templates' / 'evt.jinja'
+    (tmp_path / 'generator_g1.log').write_text(f'error rendering {leaked}\n')
+    result = await get_generator_logs(ctx, 'g1')
+    assert not isinstance(result, ToolFailure)
+    joined = '\n'.join(result['lines'])
+    assert str(tmp_path) not in joined
+    assert 'g1/templates/evt.jinja' in joined
+
+
+async def test_get_generator_logs_redacts_secrets(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Configured secret values are redacted from log lines."""
+    ctx = _ctx(tmp_path, _FakeManager(), _FakeStartup())
+    monkeypatch.setattr(
+        'eventum.mcp.tools.live.get_secret_values_for_scrubbing',
+        lambda: ['s3cr3t-token'],
+    )
+    (tmp_path / 'generator_g1.log').write_text(
+        'connecting with token s3cr3t-token failed\n'
+    )
+    result = await get_generator_logs(ctx, 'g1')
+    assert not isinstance(result, ToolFailure)
+    joined = '\n'.join(result['lines'])
+    assert 's3cr3t-token' not in joined
+    assert '[redacted]' in joined
+
+
+async def test_get_generator_logs_caps_lines(tmp_path: Path) -> None:
+    """The lines parameter caps how many trailing lines come back."""
+    ctx = _ctx(tmp_path, _FakeManager(), _FakeStartup())
+    body = ''.join(f'line {i}\n' for i in range(50))
+    (tmp_path / 'generator_g1.log').write_text(body)
+    result = await get_generator_logs(ctx, 'g1', lines=5)
+    assert not isinstance(result, ToolFailure)
+    assert result['lines'] == [f'line {i}' for i in range(45, 50)]
+
+
+async def test_get_generator_logs_rejects_escaping_id(tmp_path: Path) -> None:
+    """A managed id whose log path escapes the logs dir is rejected."""
+    evil = '../../../../etc/passwd'
+    manager = _FakeManager()
+    manager._generators = {evil: _FakeGenerator(evil)}  # noqa: SLF001
+    ctx = _ctx(tmp_path, manager, _FakeStartup())
+    result = await get_generator_logs(ctx, evil)
+    assert isinstance(result, ToolFailure)
+
+
+async def test_get_generator_logs_scrubs_foreign_abs_paths(
+    tmp_path: Path,
+) -> None:
+    """Absolute paths outside the workspace are reduced to basenames."""
+    ctx = _ctx(tmp_path, _FakeManager(), _FakeStartup())
+    (tmp_path / 'generator_g1.log').write_text(
+        'Traceback File "/home/u/.venv/site-packages/kafka/client.py"\n'
+    )
+    result = await get_generator_logs(ctx, 'g1')
+    assert not isinstance(result, ToolFailure)
+    joined = '\n'.join(result['lines'])
+    assert '/home/u/.venv' not in joined
+    assert 'client.py' in joined

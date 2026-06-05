@@ -116,6 +116,8 @@ _EXPECTED_LIVE_TOOLS = {
     'start_generator',
     'stop_generator',
     'register_generator',
+    'unregister_generator',
+    'get_generator_logs',
 }
 
 
@@ -128,6 +130,8 @@ def live_ctx(tmp_path: Path) -> ServerLiveContext:
         manager=MagicMock(),
         startup=MagicMock(),
         generation=MagicMock(),
+        logs_dir=tmp_path,
+        log_format='plain',
     )
 
 

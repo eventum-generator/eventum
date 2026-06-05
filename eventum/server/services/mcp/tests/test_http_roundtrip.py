@@ -33,8 +33,8 @@ from eventum.app.models.settings import Settings
 from eventum.core.parameters import GenerationParameters
 from eventum.server.main import build_server_app
 
-# 12 authoring tools + 5 live-management tools.
-_EXPECTED_TOOL_COUNT = 17
+# 15 authoring tools + 7 live-management tools.
+_EXPECTED_TOOL_COUNT = 22
 _STARTUP_TIMEOUT = 20.0
 _POLL_INTERVAL = 0.05
 

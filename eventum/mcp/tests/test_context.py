@@ -33,6 +33,8 @@ def test_server_live_context_is_both_protocols(tmp_path: Path) -> None:
         manager=MagicMock(),
         startup=MagicMock(),
         generation=MagicMock(),
+        logs_dir=tmp_path,
+        log_format='plain',
     )
     assert isinstance(ctx, AuthoringContext)
     assert isinstance(ctx, LiveContext)
