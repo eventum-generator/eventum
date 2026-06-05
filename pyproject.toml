@@ -183,6 +183,9 @@ exclude = ["**/tests/**"]
     "D103",     # undocumented-public-function
     "FAST003"   # fast-api-unused-path-parameter
 ]
+"**/tests/**" = [
+    "S101",     # assert - required in pytest tests
+]
 
 [tool.ruff.format]
 quote-style = "single"
