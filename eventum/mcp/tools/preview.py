@@ -15,7 +15,7 @@ so they are replaced with ``[redacted]`` before the error is returned.
 
 import asyncio
 import contextlib
-from datetime import datetime, timedelta
+from datetime import datetime
 from pathlib import Path
 from typing import Any
 
@@ -158,13 +158,12 @@ async def validate_generator(
     return {'valid': True}
 
 
-async def preview_timestamps(  # noqa: PLR0913
+async def preview_timestamps(
     context: AuthoringContext,
     name: str,
     size: int = 100,
     *,
     skip_past: bool = True,
-    span: str | None = None,
     params: dict[str, Any] | None = None,
 ) -> dict[str, Any] | ToolFailure:
     """Generate a histogram of input timestamps for a saved generator.
@@ -186,12 +185,6 @@ async def preview_timestamps(  # noqa: PLR0913
     skip_past : bool, default True
         Whether to skip timestamps that are in the past. Pass ``False``
         for generators with a static date range in the past.
-
-    span : str | None, default None
-        Histogram bucket width as an ISO 8601 duration string (e.g.
-        ``'PT1H'`` for 1 hour). ``None`` triggers auto-span selection.
-        Duration parsing is not yet implemented; callers should omit
-        this parameter for now.
 
     params : dict[str, Any] | None, default None
         Parameter substitutions for ``${params.*}`` tokens.
@@ -217,11 +210,6 @@ async def preview_timestamps(  # noqa: PLR0913
     cfg_path = gen_dir / _CONFIG_FILENAME
     redact_values = _read_secret_values(cfg_path)
 
-    # span string -> timedelta conversion is not implemented yet;
-    # the parameter is accepted for forward compatibility but ignored.
-    _ = span
-    span_td: timedelta | None = None
-
     try:
         agg = await asyncio.to_thread(
             core_preview.aggregate_sample_timestamps,
@@ -229,7 +217,6 @@ async def preview_timestamps(  # noqa: PLR0913
             size,
             resolved_params,
             skip_past=skip_past,
-            span=span_td,
         )
     except (ConfigurationLoadError, InitializationError) as e:
         return to_tool_error(e, context.generators_dir, redact_values)
@@ -361,7 +348,6 @@ def register(
         name: str,
         size: int = 100,
         skip_past: bool = True,  # noqa: FBT001, FBT002
-        span: str | None = None,
         params: dict[str, Any] | None = None,
     ) -> dict[str, Any] | ToolFailure:
         """Generate a histogram of input timestamps for a saved generator.
@@ -377,11 +363,6 @@ def register(
         skip_past : bool, default True
             Whether to skip timestamps in the past. Pass ``false`` for
             generators with a static date range in the past.
-
-        span : str | None, default None
-            Histogram bucket width. ``null`` triggers auto-span
-            selection. Duration parsing is not yet implemented; omit
-            this parameter for now.
 
         params : dict[str, Any] | None, default None
             Parameter substitutions for ``${params.*}`` tokens.
@@ -400,7 +381,6 @@ def register(
                 name,
                 size,
                 skip_past=skip_past,
-                span=span,
                 params=params,
             ),
             mcp_tool='preview_timestamps',
