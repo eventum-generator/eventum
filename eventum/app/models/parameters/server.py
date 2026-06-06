@@ -97,9 +97,10 @@ class MCPParameters(BaseModel, extra='forbid', frozen=True):
 
     allow_write : bool, default=False
         Whether MCP write tools are permitted over HTTP. Enabling this
-        lets a connected agent write and preview generator templates,
-        which execute code on the host - keep it off unless the network
-        and agent are trusted.
+        lets a connected agent write and preview generators, and some
+        plugins execute code on the host (the template plugin runs
+        Python, a script plugin runs a provided file) - keep it off
+        unless the network and agent are trusted.
 
     path : str, default='/mcp'
         Mount path for the MCP HTTP endpoint.

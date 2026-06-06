@@ -61,8 +61,9 @@ server.mcp.enabled: false
 
 # Whether MCP write tools are permitted over HTTP.
 # WARNING: enabling this lets a connected agent write and preview
-# generator templates, which execute code on the host. Only enable it
-# on a trusted network with a trusted agent.
+# generators, and some plugins execute code on the host (the template
+# plugin runs Python, a script plugin runs a provided file). Only
+# enable it on a trusted network with a trusted agent.
 # Optional, default is false
 server.mcp.allow_write: false
 
