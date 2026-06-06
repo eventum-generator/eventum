@@ -369,3 +369,74 @@ async def test_get_generator_logs_scrubs_foreign_abs_paths(
     joined = '\n'.join(result['lines'])
     assert '/home/u/.venv' not in joined
     assert 'client.py' in joined
+
+
+async def test_get_generator_logs_does_not_raise(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """An OS error while reading the log becomes a ToolFailure."""
+    ctx = _ctx(tmp_path, _FakeManager(), _FakeStartup())
+    (tmp_path / 'generator_g1.log').write_text('x\n')
+
+    def _boom(*_args: object, **_kwargs: object) -> list[str]:
+        msg = 'disk gone'
+        raise OSError(msg)
+
+    monkeypatch.setattr('eventum.mcp.tools.live._tail_lines', _boom)
+    result = await get_generator_logs(ctx, 'g1')
+    assert isinstance(result, ToolFailure)
+    assert result.error == 'Failed to read logs'
+
+
+async def test_get_generator_logs_tail_drops_partial_first_line(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A truncated tail drops the partial leading line."""
+    monkeypatch.setattr('eventum.mcp.tools.live._TAIL_MAX_BYTES', 12)
+    ctx = _ctx(tmp_path, _FakeManager(), _FakeStartup())
+    (tmp_path / 'generator_g1.log').write_text('AAAAAAAA\nBBBB\nCCCC\n')
+    result = await get_generator_logs(ctx, 'g1')
+    assert not isinstance(result, ToolFailure)
+    assert result['lines'] == ['BBBB', 'CCCC']
+
+
+async def test_get_generator_logs_keeps_single_oversized_line(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A single line larger than the tail window is still returned."""
+    monkeypatch.setattr('eventum.mcp.tools.live._TAIL_MAX_BYTES', 8)
+    ctx = _ctx(tmp_path, _FakeManager(), _FakeStartup())
+    (tmp_path / 'generator_g1.log').write_text('X' * 40)
+    result = await get_generator_logs(ctx, 'g1')
+    assert not isinstance(result, ToolFailure)
+    assert result['lines'] == ['X' * 8]
+
+
+async def test_unregister_runtime_only(tmp_path: Path) -> None:
+    """A running-but-not-persisted generator is still unregistered."""
+    manager = _FakeManager()
+    startup = _FakeStartup()
+    ctx = _ctx(tmp_path, manager, startup)
+    result = await unregister_generator(ctx, 'g1')
+    assert result == {'id': 'g1', 'unregistered': True}
+    assert manager.removed == ['g1']
+    assert startup.deleted == []
+
+
+async def test_get_generator_logs_json_format(tmp_path: Path) -> None:
+    """The json log format reads the .json log file."""
+    ctx = ServerLiveContext(
+        generators_dir=tmp_path,
+        read_only=False,
+        manager=_FakeManager(),  # type: ignore[arg-type]
+        startup=_FakeStartup(),  # type: ignore[arg-type]
+        generation=GenerationParameters(),
+        logs_dir=tmp_path,
+        log_format='json',
+    )
+    (tmp_path / 'generator_g1.json').write_text('{"e":"hi"}\n')
+    result = await get_generator_logs(ctx, 'g1')
+    assert result == {'id': 'g1', 'lines': ['{"e":"hi"}']}

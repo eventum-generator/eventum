@@ -152,3 +152,28 @@ def test_scrub_log_line_preserves_urls(tmp_path: Path) -> None:
     line = 'GET https://api.example.com/v1/users 200'
     out = scrub_log_line(line, gens, logs, [])
     assert 'https://api.example.com/v1/users' in out
+
+
+def test_scrub_log_line_redacts_path_shaped_secret(tmp_path: Path) -> None:
+    """A secret whose value is a path is redacted whole, not basenamed."""
+    gens = tmp_path / 'generators'
+    logs = tmp_path / 'logs'
+    secret = '/run/secrets/db.sock'  # noqa: S105
+    out = scrub_log_line(f'connect via {secret} ok', gens, logs, [secret])
+    assert secret not in out
+    assert 'db.sock' not in out
+    assert '[redacted]' in out
+
+
+def test_reason_path_shaped_secret_redacted(tmp_path: Path) -> None:
+    """to_tool_error redacts a path-shaped secret before relativizing."""
+    gens = tmp_path / 'generators'
+    secret = '/var/secrets/key.pem'  # noqa: S105
+    err = ConfigurationLoadError(
+        'Invalid configuration',
+        context={'reason': f"failed to load '{secret}'"},
+    )
+    failure = to_tool_error(err, generators_dir=gens, redact_values=[secret])
+    assert secret not in repr(failure.details)
+    assert 'key.pem' not in repr(failure.details)
+    assert '[redacted]' in failure.details['reason']

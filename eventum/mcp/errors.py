@@ -33,6 +33,18 @@ _ABS_PATH = re.compile(r"(^|[\s'\"=(,:])/(?:[\w.\-]+/)+([\w.\-]+)")
 _REDACTED = '[redacted]'
 
 
+def _redact(text: str, redact_values: list[str]) -> str:
+    """Replace each non-empty secret value with the redaction marker.
+
+    Run before path relativization so a secret whose value is itself a
+    path is redacted whole, not first reduced to a leaking basename.
+    """
+    for value in redact_values:
+        if value:
+            text = text.replace(value, _REDACTED)
+    return text
+
+
 def _scrub_reason(
     text: str,
     base: Path,
@@ -42,14 +54,16 @@ def _scrub_reason(
 
     The transforms, applied in order:
 
-    1. Occurrences of ``base`` (the resolved generators_dir) are
-       made relative: a leading ``str(base) + os.sep`` is dropped so
+    1. Each non-empty value in ``redact_values`` is replaced with
+       ``[redacted]`` - before any path stripping, so a secret whose
+       value is itself a path is redacted whole rather than reduced to
+       a leaking basename.
+    2. Occurrences of ``base`` (the resolved generators_dir) are made
+       relative: a leading ``str(base) + os.sep`` is dropped so
        embedded paths under the directory become relative, and a bare
        ``str(base)`` is reduced to ``'.'``.
-    2. Other quoted absolute POSIX paths (as formatted by ``OSError``)
+    3. Other quoted absolute POSIX paths (as formatted by ``OSError``)
        are reduced to their final path component.
-    3. Each non-empty value in ``redact_values`` is replaced with
-       ``[redacted]``.
 
     Parameters
     ----------
@@ -68,17 +82,13 @@ def _scrub_reason(
         Reason text safe to forward to an agent.
 
     """
+    text = _redact(text, redact_values)
+
     base_str = str(base)
     text = text.replace(base_str + os.sep, '')
     text = text.replace(base_str, '.')
 
-    text = _QUOTED_ABS_PATH.sub(r"'\1'", text)
-
-    for value in redact_values:
-        if value:
-            text = text.replace(value, _REDACTED)
-
-    return text
+    return _QUOTED_ABS_PATH.sub(r"'\1'", text)
 
 
 @dataclass(frozen=True)
@@ -200,12 +210,12 @@ def scrub_log_line(
 ) -> str:
     """Strip absolute paths and secret values from one log line.
 
-    Relativizes the generators and logs directories, reduces any other
-    quoted absolute path to its final component, and replaces each
-    non-empty value in ``redact_values`` with the redaction marker. Used
-    by the log-reading tool; a log line is free-form text, so this is a
-    best-effort scrub over the listed secret values, not a guarantee
-    that every conceivable secret encoding is caught.
+    Redacts the listed secret values first (so a path-shaped secret is
+    redacted whole), then relativizes the generators and logs
+    directories and reduces any other absolute path to its final
+    component. Used by the log-reading tool; a log line is free-form
+    text, so this is a best-effort scrub over the listed secret values,
+    not a guarantee that every conceivable secret encoding is caught.
 
     Parameters
     ----------
@@ -227,15 +237,11 @@ def scrub_log_line(
         Log line safe to forward to an agent.
 
     """
+    line = _redact(line, redact_values)
+
     for base in (generators_dir, logs_dir):
         base_str = str(base.resolve())
         line = line.replace(base_str + os.sep, '')
         line = line.replace(base_str, '.')
 
-    line = _ABS_PATH.sub(r'\1\2', line)
-
-    for value in redact_values:
-        if value:
-            line = line.replace(value, _REDACTED)
-
-    return line
+    return _ABS_PATH.sub(r'\1\2', line)

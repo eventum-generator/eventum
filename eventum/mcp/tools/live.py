@@ -181,8 +181,10 @@ def _tail_lines(path: Path, count: int) -> list[str]:
         f.seek(size - read)
         data = f.read()
     lines = data.decode('utf-8', errors='replace').splitlines()
-    if read < size and lines:
-        lines = lines[1:]  # drop the partial first line
+    if read < size and len(lines) > 1:
+        # Drop the leading line - it is a partial cut from mid-file.
+        # Keep it when it is the only line (one oversized line).
+        lines = lines[1:]
     return lines[-count:]
 
 
@@ -228,6 +230,9 @@ async def get_generator_logs(
                 details={'id': generator_id},
             )
 
+        # Scrub every keyring value: a log line may reference any
+        # secret, unlike preview, which scrubs only the config's own
+        # resolved secrets.
         redact = get_secret_values_for_scrubbing()
         scrubbed = [
             scrub_log_line(
