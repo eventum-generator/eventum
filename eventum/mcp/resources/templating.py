@@ -12,8 +12,9 @@ from eventum.plugins.event.plugins.template.reference import (
 )
 
 _INTRO = (
-    'Helpers available inside Eventum event templates (Jinja). Use '
-    'these to author template files. Signatures omit `self`.'
+    'The API the template plugin exposes inside Eventum event '
+    'templates (Jinja) - the objects you call when authoring template '
+    'files. Signatures omit `self`.'
 )
 
 
@@ -43,7 +44,7 @@ def register(mcp: FastMCP) -> None:
         'eventum://templating/reference',
         name='Template context reference',
         description=(
-            'Helpers available inside event templates: module.rand.*, '
+            "The template plugin's in-template API: module.rand.*, "
             'samples.*, dispatch, state, and the event fields. Read '
             'this before writing template files.'
         ),

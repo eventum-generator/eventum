@@ -58,6 +58,13 @@ def register(
         Use it to learn which secrets a config can reference as
         ``${secrets.<name>}``. Returns names only - never values.
 
+        Reading, adding, and removing secret values is intentionally
+        not exposed over MCP - managing them is a human task. If the
+        user asks you to add, change, or read a secret, tell them to
+        run the ``eventum-keyring`` CLI themselves (for example
+        ``eventum-keyring set <name> <value>``), then reference it in
+        the config as ``${secrets.<name>}``.
+
         Returns
         -------
         list[str] | ToolFailure

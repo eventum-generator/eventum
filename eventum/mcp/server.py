@@ -28,7 +28,9 @@ _INSTRUCTIONS = (
     'examples, then write, validate, and preview generators before '
     'running them. Over HTTP it also manages running generators - '
     'register, start, stop, unregister, and read their logs. Writes are '
-    'read-only by default; secret values never cross the boundary.'
+    'read-only by default; secret values never cross the boundary - '
+    'list secret names only, and direct the user to the eventum-keyring '
+    'CLI to add or read a value.'
 )
 
 
