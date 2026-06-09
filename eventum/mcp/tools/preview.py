@@ -27,7 +27,12 @@ from eventum.core import preview as core_preview
 from eventum.core.config_loader import ConfigurationLoadError, extract_secrets
 from eventum.core.plugins_initializer import InitializationError
 from eventum.mcp.context import AuthoringContext
-from eventum.mcp.errors import ToolFailure, scrub_context, to_tool_error
+from eventum.mcp.errors import (
+    ToolFailure,
+    scrub_context,
+    scrub_message,
+    to_tool_error,
+)
 from eventum.mcp.observability import observe_failure
 from eventum.security.manage import get_secret
 
@@ -291,7 +296,9 @@ async def preview_events(
     errors = [
         {
             'index': e.index,
-            'message': e.message,
+            'message': scrub_message(
+                e.message, context.generators_dir, redact_values
+            ),
             'context': scrub_context(
                 e.context, context.generators_dir, redact_values
             ),
@@ -415,8 +422,9 @@ def register(
         -------
         dict[str, Any] | ToolFailure
             ``events`` (list of strings), ``errors`` (list of per-index
-            dicts), and ``exhausted`` (bool), or a structured failure.
-            Does not raise.
+            dicts with ``index``, ``message``, and ``context``), and
+            ``exhausted`` (bool); or a structured failure. Does not
+            raise.
 
         """
         return observe_failure(

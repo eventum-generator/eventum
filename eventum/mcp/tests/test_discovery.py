@@ -6,7 +6,9 @@ import pytest
 
 from eventum.mcp.context import FileAuthoringContext
 from eventum.mcp.errors import ToolFailure
+from eventum.mcp.tools import discovery
 from eventum.mcp.tools.discovery import get_plugin_schema, list_plugins
+from eventum.plugins.exceptions import PluginLoadError
 
 
 @pytest.fixture
@@ -47,3 +49,20 @@ def test_get_plugin_schema_unknown_name_fails(
     assert isinstance(result, ToolFailure)
     assert {'kind', 'name', 'reason'} <= result.details.keys()
     assert result.details['name'] == 'does-not-exist'
+
+
+def test_get_plugin_schema_scrubs_path_in_reason(
+    ctx: FileAuthoringContext,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A path in a plugin-load error reason is scrubbed, not leaked."""
+
+    def _boom(_name: str) -> None:
+        msg = "import failed at '/abs/secret/plugin.py'"
+        raise PluginLoadError(msg, context={})
+
+    monkeypatch.setitem(discovery._LOADERS, 'output', _boom)  # noqa: SLF001
+    result = get_plugin_schema(ctx, kind='output', name='kafka')
+    assert isinstance(result, ToolFailure)
+    assert '/abs/secret' not in result.details['reason']
+    assert 'plugin.py' in result.details['reason']

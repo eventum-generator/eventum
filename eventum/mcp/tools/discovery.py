@@ -7,7 +7,7 @@ from mcp.server.fastmcp import FastMCP
 from pydantic import BaseModel
 
 from eventum.mcp.context import AuthoringContext
-from eventum.mcp.errors import ToolFailure
+from eventum.mcp.errors import ToolFailure, scrub_message
 from eventum.mcp.observability import observe_failure
 from eventum.plugins.exceptions import PluginLoadError, PluginNotFoundError
 from eventum.plugins.loader import (
@@ -60,7 +60,7 @@ def list_plugins(
 
 
 def get_plugin_schema(
-    context: AuthoringContext,  # noqa: ARG001 - DI seam, used by Phase 2B tools
+    context: AuthoringContext,
     kind: Kind,
     name: str,
 ) -> dict[str, Any] | ToolFailure:
@@ -69,7 +69,8 @@ def get_plugin_schema(
     Parameters
     ----------
     context : AuthoringContext
-        Authoring context (DI seam; unused at this layer).
+        Authoring context supplying the generators directory, used to
+        scrub paths from a plugin-load error reason.
 
     kind : Kind
         Plugin kind: 'input', 'event', or 'output'.
@@ -91,7 +92,11 @@ def get_plugin_schema(
     except (PluginNotFoundError, PluginLoadError) as e:
         return ToolFailure(
             error=f'Plugin not found: {name}',
-            details={'kind': kind, 'name': name, 'reason': str(e)},
+            details={
+                'kind': kind,
+                'name': name,
+                'reason': scrub_message(str(e), context.generators_dir),
+            },
         )
 
     config_cls = info.config_cls

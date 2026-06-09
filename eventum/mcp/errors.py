@@ -162,6 +162,39 @@ def scrub_context(
     return out
 
 
+def scrub_message(
+    message: str,
+    generators_dir: Path,
+    redact_values: list[str] | None = None,
+) -> str:
+    """Scrub absolute paths and secret values from a free-text message.
+
+    For error ``message`` fields that travel outside a context dict -
+    such as the per-event errors from ``preview_events`` - mirroring
+    the ``reason`` scrubbing in ``scrub_context``.
+
+    Parameters
+    ----------
+    message : str
+        Raw message text.
+
+    generators_dir : Path
+        Base directory used to relativize paths.
+
+    redact_values : list[str] | None, default None
+        Secret values to replace with ``[redacted]``.
+
+    Returns
+    -------
+    str
+        Message text safe to forward to an agent.
+
+    """
+    return _scrub_reason(
+        message, generators_dir.resolve(), redact_values or []
+    )
+
+
 def to_tool_error(
     error: ContextualError,
     generators_dir: Path,

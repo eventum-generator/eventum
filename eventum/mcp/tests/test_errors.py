@@ -7,6 +7,7 @@ from eventum.mcp.errors import (
     ToolFailure,
     scrub_context,
     scrub_log_line,
+    scrub_message,
     to_tool_error,
 )
 
@@ -177,3 +178,14 @@ def test_reason_path_shaped_secret_redacted(tmp_path: Path) -> None:
     assert secret not in repr(failure.details)
     assert 'key.pem' not in repr(failure.details)
     assert '[redacted]' in failure.details['reason']
+
+
+def test_scrub_message_relativizes_and_redacts(tmp_path: Path) -> None:
+    """scrub_message strips abs paths and redacts secrets in a message."""
+    gens = tmp_path / 'generators'
+    secret = 'sup3r-secret-pw'  # noqa: S105
+    message = f"render failed at '{gens / 'g' / 't.jinja'}' with {secret}"
+    out = scrub_message(message, gens, [secret])
+    assert str(gens) not in out
+    assert secret not in out
+    assert '[redacted]' in out

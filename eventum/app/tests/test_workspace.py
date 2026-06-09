@@ -79,6 +79,43 @@ def test_resolve_generator_dir_symlinked_base_ok(tmp_path: Path):
     assert result.is_relative_to(real.resolve())
 
 
+@pytest.mark.skipif(
+    not _symlink_supported,
+    reason='platform does not support symlinks',
+)
+def test_resolve_generator_file_symlink_leaf_escape_rejected(tmp_path: Path):
+    gens = tmp_path / 'generators'
+    gen = gens / 'gen'
+    gen.mkdir(parents=True)
+    outside = tmp_path / 'outside'
+    outside.mkdir()
+    secret = outside / 'secret.yml'
+    secret.write_text('TOP SECRET')
+    (gen / 'link.yml').symlink_to(secret)
+
+    with pytest.raises(WorkspaceError):
+        resolve_generator_file(gens, 'gen', Path('link.yml'))
+
+
+@pytest.mark.skipif(
+    not _symlink_supported,
+    reason='platform does not support symlinks',
+)
+def test_resolve_generator_file_symlink_component_escape_rejected(
+    tmp_path: Path,
+):
+    gens = tmp_path / 'generators'
+    gen = gens / 'gen'
+    gen.mkdir(parents=True)
+    outside = tmp_path / 'outside'
+    outside.mkdir()
+    (outside / 'secret.yml').write_text('TOP SECRET')
+    (gen / 'sub').symlink_to(outside, target_is_directory=True)
+
+    with pytest.raises(WorkspaceError):
+        resolve_generator_file(gens, 'gen', Path('sub/secret.yml'))
+
+
 def test_read_text_missing_path_raises(tmp_path: Path):
     missing = tmp_path / 'nope.txt'
     with pytest.raises(WorkspaceError) as exc_info:

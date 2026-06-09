@@ -80,7 +80,15 @@ def resolve_generator_file(
 
     """
     ensure_relative(relative)
-    return (resolve_generator_dir(generators_dir, name) / relative).resolve()
+
+    gen_dir = resolve_generator_dir(generators_dir, name)
+    resolved = (gen_dir / relative).resolve()
+
+    if not resolved.is_relative_to(gen_dir):
+        msg = 'File path escapes the generator directory'
+        raise WorkspaceError(msg, context={'file_path': str(relative)})
+
+    return resolved
 
 
 def ensure_relative(relative: Path) -> Path:
