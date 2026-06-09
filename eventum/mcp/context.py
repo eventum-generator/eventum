@@ -27,6 +27,14 @@ class AuthoringContext(Protocol):
         """Whether write tools are disabled."""
         ...
 
+    def is_live_managed(self, generator_id: str) -> bool:
+        """Whether a generator with this id is managed live.
+
+        Always False for authoring-only (stdio) contexts, which have
+        no live runtime; a live context checks its manager.
+        """
+        ...
+
 
 @dataclass(frozen=True)
 class FileAuthoringContext:
@@ -34,6 +42,10 @@ class FileAuthoringContext:
 
     generators_dir: Path
     read_only: bool
+
+    def is_live_managed(self, generator_id: str) -> bool:  # noqa: ARG002
+        """Stdio has no live runtime, so nothing is live-managed."""
+        return False
 
 
 @runtime_checkable
@@ -77,3 +89,7 @@ class ServerLiveContext:
     generation: GenerationParameters
     logs_dir: Path
     log_format: Literal['plain', 'json']
+
+    def is_live_managed(self, generator_id: str) -> bool:
+        """Whether the manager currently holds this generator id."""
+        return generator_id in self.manager.generator_ids

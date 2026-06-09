@@ -17,6 +17,7 @@ from eventum.mcp.resources import workspace as workspace_resource
 from eventum.mcp.tools import discovery
 from eventum.mcp.tools import formatters as fmt_tools
 from eventum.mcp.tools import preview as preview_tools
+from eventum.mcp.tools import run as run_tools
 from eventum.mcp.tools import samples as sample_tools
 from eventum.mcp.tools import secrets as secrets_tools
 from eventum.mcp.tools import workspace_files as ws_tools
@@ -25,12 +26,14 @@ _INSTRUCTIONS = (
     'Eventum MCP server. Author, inspect, and operate synthetic data '
     'generators: discover plugins and their config schemas, read the '
     'template-context reference, the generator schema, and worked '
-    'examples, then write, validate, and preview generators before '
-    'running them. Over HTTP it also manages running generators - '
-    'register, start, stop, unregister, and read their logs. Writes are '
-    'read-only by default; secret values never cross the boundary - '
-    'list secret names only, and direct the user to the eventum-keyring '
-    'CLI to add or read a value.'
+    'examples, then write, validate, preview, and run generators. Over '
+    'HTTP it also manages running generators - register, start, stop, '
+    'unregister, and read their logs. The server is read-only by '
+    'default; write tools are gated on a writable server. Tool failures '
+    'are returned in-band as an object with an `error` field, not as a '
+    'protocol error - check for it before using a result. Secret values '
+    'never cross the boundary - list secret names only, and direct the '
+    'user to the eventum-keyring CLI to add or read a value.'
 )
 
 
@@ -73,6 +76,7 @@ def build_server(
     secrets_tools.register(mcp, context, transport=transport)
     ws_tools.register(mcp, context, transport=transport)
     preview_tools.register(mcp, context, transport=transport)
+    run_tools.register(mcp, context, transport=transport)
 
     templating_resource.register(mcp)
     schema_resource.register(mcp)

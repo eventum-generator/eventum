@@ -446,7 +446,9 @@ def register(
         """Write text content to a file in a generator directory.
 
         Creates parent directories as needed. Fails immediately when
-        the server is read-only without touching the filesystem.
+        the server is read-only without touching the filesystem. Name
+        the config file ``generator.yml`` - validate, preview, and run
+        load that filename.
 
         Parameters
         ----------

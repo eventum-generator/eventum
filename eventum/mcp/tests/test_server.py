@@ -16,7 +16,7 @@ _EXPECTED_TOOLS = {
     'list_formatters',
     'get_formatter_schema',
     'describe_sample',
-    'list_secrets',
+    'list_secret_names',
     'list_generators',
     'list_generator_files',
     'read_generator_file',
@@ -26,12 +26,11 @@ _EXPECTED_TOOLS = {
     'validate_generator',
     'preview_timestamps',
     'preview_events',
+    'run_generator',
 }
 
 _EXPECTED_PROMPTS = {
     'create_generator',
-    'simulate_incident',
-    'historical_backfill',
 }
 
 _EXPECTED_RESOURCES = {
@@ -114,11 +113,13 @@ def test_build_server_registers_resources(
 _EXPECTED_LIVE_TOOLS = {
     'list_generators_live',
     'get_generator_status',
+    'get_generator_stats',
     'start_generator',
     'stop_generator',
     'register_generator',
     'unregister_generator',
     'get_generator_logs',
+    'list_startup_generators',
 }
 
 

@@ -37,7 +37,7 @@ LOG_LEVELS = get_args(logconf.LogLevel.__value__)
     '--keyring-cryptfile',
     type=click.Path(exists=True, dir_okay=False, resolve_path=True),
     default=None,
-    help='Path to the keyring cryptfile, enabling list_secrets.',
+    help='Path to the keyring cryptfile, enabling list_secret_names.',
 )
 def cli(
     generators_dir: str,

@@ -1,21 +1,29 @@
 """Tests for the live generator-management tools."""
 
 import asyncio
+from datetime import datetime
 from pathlib import Path
 from types import SimpleNamespace
 from typing import Any
+from zoneinfo import ZoneInfo
 
 import pytest
 
 from eventum.app.manager import ManagingError
 from eventum.app.startup import StartupError, StartupNotFoundError
+from eventum.app.startup.models import (
+    StartupGeneratorParameters,
+    StartupGeneratorParametersList,
+)
 from eventum.core.parameters import GenerationParameters
 from eventum.mcp.context import ServerLiveContext
 from eventum.mcp.errors import ToolFailure
 from eventum.mcp.tools.live import (
     get_generator_logs,
+    get_generator_stats,
     get_generator_status,
     list_generators_live,
+    list_startup_generators,
     register_generator,
     start_generator,
     stop_generator,
@@ -24,14 +32,26 @@ from eventum.mcp.tools.live import (
 
 
 class _FakeGenerator:
-    def __init__(self, generator_id: str) -> None:
+    def __init__(
+        self,
+        generator_id: str,
+        *,
+        start_time: datetime | None = None,
+        plugins: Any = None,
+    ) -> None:
         self.params = SimpleNamespace(id=generator_id)
         self.is_initializing = False
         self.is_running = True
         self.is_ended_up = False
         self.is_ended_up_successfully = False
         self.is_stopping = False
-        self.start_time = None
+        self.start_time = start_time
+        self._plugins = plugins
+
+    def get_plugins_info(self) -> Any:
+        if isinstance(self._plugins, Exception):
+            raise self._plugins
+        return self._plugins
 
 
 class _FakeManager:
@@ -77,11 +97,13 @@ class _FakeStartup:
         *,
         fail: bool = False,
         present: set[str] | None = None,
+        entries: Any = None,
     ) -> None:
         self.added: list[Any] = []
         self.deleted: list[str] = []
         self._fail = fail
         self._present = set() if present is None else set(present)
+        self._entries = entries
 
     def add(self, params: Any) -> None:
         if self._fail:
@@ -102,6 +124,11 @@ class _FakeStartup:
             raise StartupNotFoundError(msg, context={'id': name})
         self._present.discard(name)
         self.deleted.append(name)
+
+    def get_all(self) -> Any:
+        if self._entries is None:
+            return StartupGeneratorParametersList(root=())
+        return self._entries
 
 
 def _ctx(
@@ -440,3 +467,165 @@ async def test_get_generator_logs_json_format(tmp_path: Path) -> None:
     (tmp_path / 'generator_g1.json').write_text('{"e":"hi"}\n')
     result = await get_generator_logs(ctx, 'g1')
     assert result == {'id': 'g1', 'lines': ['{"e":"hi"}']}
+
+
+_GENERATED = 100
+_PRODUCED = 100
+_WRITTEN = 99
+
+
+def _fake_plugins() -> SimpleNamespace:
+    """Return a plugins-info stand-in with non-zero counters."""
+    return SimpleNamespace(
+        input=[SimpleNamespace(name='cron', id=0, generated=_GENERATED)],
+        event=SimpleNamespace(
+            name='template',
+            id=0,
+            produced=_PRODUCED,
+            produce_failed=1,
+            dropped=0,
+        ),
+        output=[
+            SimpleNamespace(
+                name='stdout',
+                id=0,
+                written=_WRITTEN,
+                write_failed=0,
+                format_failed=0,
+            )
+        ],
+    )
+
+
+async def test_get_generator_stats_running(tmp_path: Path) -> None:
+    """Stats for a running generator include totals and throughput."""
+    gen = _FakeGenerator(
+        'g1',
+        start_time=datetime(2020, 1, 1, tzinfo=ZoneInfo('UTC')),
+        plugins=_fake_plugins(),
+    )
+    manager = _FakeManager()
+    manager._generators = {'g1': gen}  # noqa: SLF001
+    ctx = _ctx(tmp_path, manager, _FakeStartup())
+    result = await get_generator_stats(ctx, 'g1')
+    assert not isinstance(result, ToolFailure)
+    assert result['id'] == 'g1'
+    assert result['total_generated'] == _GENERATED
+    assert result['total_written'] == _WRITTEN
+    assert result['event']['produced'] == _PRODUCED
+    assert result['input_eps'] >= 0
+
+
+async def test_get_generator_stats_not_running(tmp_path: Path) -> None:
+    """Stats for a generator with no start time fail cleanly."""
+    ctx = _ctx(tmp_path, _FakeManager(), _FakeStartup())
+    result = await get_generator_stats(ctx, 'g1')
+    assert isinstance(result, ToolFailure)
+    assert result.error == 'Generator is not running'
+
+
+async def test_get_generator_stats_unknown(tmp_path: Path) -> None:
+    """Stats for an unknown id yield a ToolFailure."""
+    ctx = _ctx(tmp_path, _FakeManager(), _FakeStartup())
+    result = await get_generator_stats(ctx, 'ghost')
+    assert isinstance(result, ToolFailure)
+
+
+async def test_list_startup_generators_relativizes_path(
+    tmp_path: Path,
+) -> None:
+    """Startup entries return with paths relative to the dir."""
+    entry = StartupGeneratorParameters(
+        id='g1',
+        path=tmp_path / 'g1' / 'generator.yml',
+        live_mode=False,
+    )
+    startup = _FakeStartup(
+        entries=StartupGeneratorParametersList(root=(entry,))
+    )
+    ctx = _ctx(tmp_path, _FakeManager(), startup)
+    result = await list_startup_generators(ctx)
+    assert not isinstance(result, ToolFailure)
+    assert result[0]['id'] == 'g1'
+    assert result[0]['path'] == 'g1/generator.yml'
+    assert result[0]['live_mode'] is False
+    assert str(tmp_path) not in repr(result)
+
+
+async def test_register_generator_with_execution_params(
+    tmp_path: Path,
+) -> None:
+    """Per-generator execution overrides reach the persisted entry."""
+    manager = _FakeManager()
+    startup = _FakeStartup()
+    ctx = _ctx(tmp_path, manager, startup)
+    (tmp_path / 'newgen').mkdir()
+    (tmp_path / 'newgen' / 'generator.yml').write_text(
+        'input: []\n', encoding='utf-8'
+    )
+    result = await register_generator(
+        ctx,
+        'newgen',
+        execution={'live_mode': False, 'skip_past': False},
+        autostart=False,
+    )
+    assert result == {'id': 'newgen', 'registered': True}
+    persisted = startup.added[0]
+    assert persisted.live_mode is False
+    assert persisted.skip_past is False
+    assert persisted.autostart is False
+
+
+async def test_register_generator_invalid_execution(tmp_path: Path) -> None:
+    """An invalid execution override is rejected as a clean failure."""
+    manager = _FakeManager()
+    ctx = _ctx(tmp_path, manager, _FakeStartup())
+    (tmp_path / 'newgen').mkdir()
+    (tmp_path / 'newgen' / 'generator.yml').write_text(
+        'input: []\n', encoding='utf-8'
+    )
+    result = await register_generator(
+        ctx, 'newgen', execution={'timezone': 'Not/AZone'}
+    )
+    assert isinstance(result, ToolFailure)
+    assert result.error == 'Invalid execution parameters'
+    assert manager.added == []
+
+
+async def test_register_generator_rejects_reserved_override(
+    tmp_path: Path,
+) -> None:
+    """A reserved key in execution is rejected, not silently applied."""
+    manager = _FakeManager()
+    ctx = _ctx(tmp_path, manager, _FakeStartup())
+    (tmp_path / 'newgen').mkdir()
+    (tmp_path / 'newgen' / 'generator.yml').write_text(
+        'input: []\n', encoding='utf-8'
+    )
+    result = await register_generator(ctx, 'newgen', execution={'id': 'evil'})
+    assert isinstance(result, ToolFailure)
+    assert manager.added == []
+
+
+async def test_get_generator_stats_release_race(tmp_path: Path) -> None:
+    """Return a failure when get_plugins_info raises after release."""
+    gen = _FakeGenerator(
+        'g1',
+        start_time=datetime(2020, 1, 1, tzinfo=ZoneInfo('UTC')),
+        plugins=RuntimeError('plugins released'),
+    )
+    manager = _FakeManager()
+    manager._generators = {'g1': gen}  # noqa: SLF001
+    ctx = _ctx(tmp_path, manager, _FakeStartup())
+    result = await get_generator_stats(ctx, 'g1')
+    assert isinstance(result, ToolFailure)
+    assert result.error == 'Generator is not running'
+
+
+async def test_register_generator_rejects_traversal(tmp_path: Path) -> None:
+    """Reject a name that escapes the generators directory."""
+    manager = _FakeManager()
+    ctx = _ctx(tmp_path, manager, _FakeStartup())
+    result = await register_generator(ctx, '../escape')
+    assert isinstance(result, ToolFailure)
+    assert manager.added == []

@@ -51,8 +51,8 @@ def register(
 ) -> None:
     """Register the secret-introspection tool on the server."""
 
-    @mcp.tool(name='list_secrets')
-    def _list_secrets_tool() -> list[str] | ToolFailure:
+    @mcp.tool(name='list_secret_names')
+    def _list_secret_names_tool() -> list[str] | ToolFailure:
         """List the names of secrets available in the keyring.
 
         Use it to learn which secrets a config can reference as
@@ -75,6 +75,6 @@ def register(
         """
         return observe_failure(
             list_secret_names(context),
-            mcp_tool='list_secrets',
+            mcp_tool='list_secret_names',
             mcp_transport=transport,
         )
