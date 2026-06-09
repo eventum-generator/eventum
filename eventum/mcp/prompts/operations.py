@@ -7,12 +7,14 @@ Operate generators on a running Eventum server through the live (HTTP) \
 tools. A safe loop:
 
 1. SURVEY. `list_generators_live` lists every managed generator with \
-its status; `get_generator_status` drills into one.
+its status; `get_generator_status` drills into one; \
+`list_startup_generators` shows what is configured to start on boot.
 2. REGISTER. For a generator already authored under the generators \
 directory, `register_generator` adds it live and persists it to the \
 startup file.
 3. RUN. `start_generator` begins a run (idempotent if already running).
-4. MONITOR. `get_generator_status` for the lifecycle flags; \
+4. MONITOR. `get_generator_status` for the lifecycle flags, \
+`get_generator_stats` for throughput and event counts; \
 `get_generator_logs` for the recent log tail to diagnose a failure \
 (absolute paths and secrets are scrubbed first).
 5. RETIRE. `stop_generator` halts a run. To remove a generator for \
