@@ -5,6 +5,7 @@ from pathlib import Path
 import pytest
 
 from eventum.mcp.context import FileAuthoringContext
+from eventum.mcp.errors import ToolFailure
 from eventum.mcp.tools.formatters import get_formatter_schema, list_formatters
 from eventum.plugins.output.fields import Format
 
@@ -32,7 +33,7 @@ def test_get_formatter_schema(ctx: FileAuthoringContext) -> None:
 
 def test_get_formatter_schema_unknown(ctx: FileAuthoringContext) -> None:
     """get_formatter_schema returns ToolFailure for an unknown format."""
-    from eventum.mcp.errors import ToolFailure
-
     result = get_formatter_schema(ctx, format='nope')
     assert isinstance(result, ToolFailure)
+    assert result.details['format'] == 'nope'
+    assert result.details['valid_formats'] == [f.value for f in Format]

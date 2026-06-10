@@ -189,3 +189,61 @@ def test_scrub_message_relativizes_and_redacts(tmp_path: Path) -> None:
     assert str(gens) not in out
     assert secret not in out
     assert '[redacted]' in out
+
+
+def test_substring_secret_redacted_whole(tmp_path: Path) -> None:
+    """A secret containing another secret as prefix is redacted whole.
+
+    Replacement order must not let the shorter value fire first and
+    leave the longer secret's remainder in clear text.
+    """
+    gens = tmp_path / 'generators'
+    short = 'hunter2'
+    longer = 'hunter2-XYZ'
+    out = scrub_message(
+        f'auth failed for token {longer}', gens, [short, longer]
+    )
+    assert longer not in out
+    assert 'XYZ' not in out
+    assert '[redacted]' in out
+
+
+def test_reason_sibling_prefix_dir_reduced_to_basename(
+    tmp_path: Path,
+) -> None:
+    """A sibling dir sharing the base prefix is not mangled mid-token.
+
+    The base replace must not fire inside
+    ``<generators_dir>_archive/...``; the quoted-path reduction then
+    collapses the sibling path to its basename.
+    """
+    gens = tmp_path / 'generators'
+    sibling = tmp_path / 'generators_archive' / 'g' / 'x.yml'
+    err = ConfigurationLoadError(
+        'Invalid configuration',
+        context={'reason': f"[Errno 2] No such file: '{sibling}'"},
+    )
+    failure = to_tool_error(err, generators_dir=gens)
+    reason = failure.details['reason']
+    assert str(tmp_path) not in reason
+    assert '_archive' not in reason
+    assert "'x.yml'" in reason
+
+
+def test_scrub_log_line_sibling_prefix_dir_not_mangled(
+    tmp_path: Path,
+) -> None:
+    """A sibling dir sharing the base prefix reduces to its basename.
+
+    The base replace must not fire mid-token; the bare base itself is
+    still reduced to ``'.'``.
+    """
+    gens = tmp_path / 'generators'
+    logs = tmp_path / 'logs'
+    sibling = tmp_path / 'generators_archive' / 'g' / 'x.yml'
+    line = f'moved from {sibling} into {gens} ok'
+    out = scrub_log_line(line, gens, logs, [])
+    assert str(tmp_path) not in out
+    assert '_archive' not in out
+    assert 'x.yml' in out
+    assert 'into . ok' in out

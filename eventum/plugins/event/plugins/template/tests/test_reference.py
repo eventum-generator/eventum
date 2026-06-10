@@ -63,3 +63,13 @@ def test_described_namespaces_have_no_introspected_helpers() -> None:
     by_path = {ns.path: ns for ns in ref.namespaces}
     assert by_path['module.faker'].helpers == ()
     assert by_path['module.faker'].description  # but has prose
+
+
+def test_globals_exposes_lock_methods_not_on_locals() -> None:
+    """Globals surfaces acquire/release; locals does not."""
+    ref = build_context_reference()
+    by_path = {ns.path: ns for ns in ref.namespaces}
+    gl = {h.name for h in by_path['globals'].helpers}
+    loc = {h.name for h in by_path['locals'].helpers}
+    assert {'acquire', 'release'} <= gl
+    assert not ({'acquire', 'release'} & loc)

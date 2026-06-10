@@ -21,6 +21,12 @@ LOG_LEVELS = get_args(logconf.LogLevel.__value__)
     help='Path to generators directory.',
 )
 @click.option(
+    '--config-filename',
+    default='generator.yml',
+    show_default=True,
+    help='Generator config filename inside each generator directory.',
+)
+@click.option(
     '--read-only',
     is_flag=True,
     default=False,
@@ -37,10 +43,11 @@ LOG_LEVELS = get_args(logconf.LogLevel.__value__)
     '--keyring-cryptfile',
     type=click.Path(exists=True, dir_okay=False, resolve_path=True),
     default=None,
-    help='Path to the keyring cryptfile, enabling list_secret_names.',
+    help='Path to the keyring cryptfile that list_secret_names reads.',
 )
 def cli(
     generators_dir: str,
+    config_filename: str,
     read_only: bool,  # noqa: FBT001
     log_level: logconf.LogLevel,
     keyring_cryptfile: str | None,
@@ -64,6 +71,7 @@ def cli(
     context = FileAuthoringContext(
         generators_dir=Path(generators_dir),
         read_only=read_only,
+        config_filename=config_filename,
     )
     server = build_server(context)
     logger.info(

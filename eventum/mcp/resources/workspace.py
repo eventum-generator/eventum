@@ -10,6 +10,7 @@ import json
 from mcp.server.fastmcp import FastMCP
 
 from eventum.mcp.context import AuthoringContext
+from eventum.mcp.errors import ToolFailure
 from eventum.mcp.tools import workspace_files as ws
 
 
@@ -18,8 +19,12 @@ def render_workspace_configs(context: AuthoringContext) -> str:
     generators: list[dict[str, object]] = []
     for name in ws.list_generators(context):
         listed = ws.list_generator_files(context, name)
-        files = listed if isinstance(listed, list) else []
-        generators.append({'name': name, 'files': files})
+        if isinstance(listed, ToolFailure):
+            generators.append(
+                {'name': name, 'files': [], 'error': listed.error}
+            )
+        else:
+            generators.append({'name': name, 'files': listed})
     return json.dumps({'generators': generators}, indent=2)
 
 

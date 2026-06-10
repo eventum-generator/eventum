@@ -14,7 +14,6 @@ so they are replaced with ``[redacted]`` before the error is returned.
 """
 
 import asyncio
-import contextlib
 from datetime import datetime
 from pathlib import Path
 from typing import Any
@@ -24,7 +23,7 @@ from mcp.server.fastmcp import FastMCP
 from eventum.app import workspace
 from eventum.app.workspace import WorkspaceError
 from eventum.core import preview as core_preview
-from eventum.core.config_loader import ConfigurationLoadError, extract_secrets
+from eventum.core.config_loader import ConfigurationLoadError
 from eventum.core.plugins_initializer import InitializationError
 from eventum.mcp.context import AuthoringContext
 from eventum.mcp.errors import (
@@ -34,45 +33,26 @@ from eventum.mcp.errors import (
     to_tool_error,
 )
 from eventum.mcp.observability import observe_failure
-from eventum.security.manage import get_secret
+from eventum.mcp.redaction import read_config_secret_values
+from eventum.plugins.input.exceptions import PluginGenerationError
 
-_CONFIG_FILENAME = 'generator.yml'
 
+def _prepare_config(
+    context: AuthoringContext,
+    name: str,
+) -> tuple[Path, list[str]] | ToolFailure:
+    """Resolve the config path and load its secret values to redact.
 
-def _read_secret_values(cfg_path: Path) -> list[str]:
-    """Return resolved values for secrets referenced in the config file.
-
-    Reads the raw config text, extracts secret names via
-    ``extract_secrets``, then resolves each with ``get_secret``.
-    Secrets that cannot be resolved (missing, keyring error) are
-    silently skipped - this is best-effort redaction; a missing secret
-    value means the corresponding token was never substituted and
-    therefore cannot appear in error text anyway.
-
-    Parameters
-    ----------
-    cfg_path : Path
-        Absolute path to the generator config file.
-
-    Returns
-    -------
-    list[str]
-        Resolved secret values to redact. May be empty.
-
+    Returns a (cfg_path, redact_values) pair, or a path-safe
+    ToolFailure if the generator name escapes the workspace.
     """
     try:
-        text = cfg_path.read_text()
-    except OSError:
-        return []
+        gen_dir = workspace.resolve_generator_dir(context.generators_dir, name)
+    except WorkspaceError as e:
+        return to_tool_error(e, context.generators_dir)
 
-    names = extract_secrets(text)
-    values: list[str] = []
-
-    for name in names:
-        with contextlib.suppress(ValueError, OSError):
-            values.append(get_secret(name))
-
-    return values
+    cfg_path = gen_dir / context.config_filename
+    return cfg_path, read_config_secret_values(cfg_path)
 
 
 def _serialize_timestamps_aggregate(
@@ -118,7 +98,7 @@ async def validate_generator(
     """Validate a saved generator by loading and initialising every plugin.
 
     Loads the generator config at
-    ``<generators_dir>/<name>/generator.yml`` and initialises all
+    ``<generators_dir>/<name>/<config_filename>`` and initialises all
     plugins. Plugins are discarded after the call; no state is mutated.
 
     Parameters
@@ -144,14 +124,10 @@ async def validate_generator(
 
     """
     resolved_params = params or {}
-
-    try:
-        gen_dir = workspace.resolve_generator_dir(context.generators_dir, name)
-    except WorkspaceError as e:
-        return to_tool_error(e, context.generators_dir)
-
-    cfg_path = gen_dir / _CONFIG_FILENAME
-    redact_values = _read_secret_values(cfg_path)
+    prepared = _prepare_config(context, name)
+    if isinstance(prepared, ToolFailure):
+        return prepared
+    cfg_path, redact_values = prepared
 
     try:
         await asyncio.to_thread(
@@ -185,7 +161,8 @@ async def preview_timestamps(
         Generator directory name.
 
     size : int, default 100
-        Maximum number of timestamps to generate.
+        Maximum number of timestamps to generate. Must be greater or
+        equal to 1.
 
     skip_past : bool, default True
         Whether to skip timestamps that are in the past. Pass ``False``
@@ -205,15 +182,17 @@ async def preview_timestamps(
         Structured, path-safe, secret-redacted failure. Does not raise.
 
     """
+    if size < 1:
+        return ToolFailure(
+            error='Parameter `size` must be greater or equal to 1',
+            details={'value': size},
+        )
+
     resolved_params = params or {}
-
-    try:
-        gen_dir = workspace.resolve_generator_dir(context.generators_dir, name)
-    except WorkspaceError as e:
-        return to_tool_error(e, context.generators_dir)
-
-    cfg_path = gen_dir / _CONFIG_FILENAME
-    redact_values = _read_secret_values(cfg_path)
+    prepared = _prepare_config(context, name)
+    if isinstance(prepared, ToolFailure):
+        return prepared
+    cfg_path, redact_values = prepared
 
     try:
         agg = await asyncio.to_thread(
@@ -223,7 +202,11 @@ async def preview_timestamps(
             resolved_params,
             skip_past=skip_past,
         )
-    except (ConfigurationLoadError, InitializationError) as e:
+    except (
+        ConfigurationLoadError,
+        InitializationError,
+        PluginGenerationError,
+    ) as e:
         return to_tool_error(e, context.generators_dir, redact_values)
 
     return _serialize_timestamps_aggregate(agg)
@@ -233,9 +216,9 @@ async def preview_events(
     context: AuthoringContext,
     name: str,
     count: int = 10,
-    params: dict[str, Any] | None = None,
     *,
     skip_past: bool = True,
+    params: dict[str, Any] | None = None,
 ) -> dict[str, Any] | ToolFailure:
     """Produce sample events from a saved generator.
 
@@ -252,14 +235,15 @@ async def preview_events(
         Generator directory name.
 
     count : int, default 10
-        Maximum number of events to produce.
-
-    params : dict[str, Any] | None, default None
-        Parameter substitutions for ``${params.*}`` tokens.
+        Maximum number of input timestamps to generate. The produced
+        events may exceed this count. Must be greater or equal to 1.
 
     skip_past : bool, default True
         Whether to skip timestamps that are in the past. Pass ``False``
         for generators with a static date range in the past.
+
+    params : dict[str, Any] | None, default None
+        Parameter substitutions for ``${params.*}`` tokens.
 
     Returns
     -------
@@ -272,15 +256,17 @@ async def preview_events(
         Structured, path-safe, secret-redacted failure. Does not raise.
 
     """
+    if count < 1:
+        return ToolFailure(
+            error='Parameter `count` must be greater or equal to 1',
+            details={'value': count},
+        )
+
     resolved_params = params or {}
-
-    try:
-        gen_dir = workspace.resolve_generator_dir(context.generators_dir, name)
-    except WorkspaceError as e:
-        return to_tool_error(e, context.generators_dir)
-
-    cfg_path = gen_dir / _CONFIG_FILENAME
-    redact_values = _read_secret_values(cfg_path)
+    prepared = _prepare_config(context, name)
+    if isinstance(prepared, ToolFailure):
+        return prepared
+    cfg_path, redact_values = prepared
 
     try:
         sample = await asyncio.to_thread(
@@ -290,7 +276,11 @@ async def preview_events(
             resolved_params,
             skip_past=skip_past,
         )
-    except (ConfigurationLoadError, InitializationError) as e:
+    except (
+        ConfigurationLoadError,
+        InitializationError,
+        PluginGenerationError,
+    ) as e:
         return to_tool_error(e, context.generators_dir, redact_values)
 
     errors = [
@@ -365,7 +355,8 @@ def register(
             Generator directory name.
 
         size : int, default 100
-            Maximum number of timestamps to generate.
+            Maximum number of timestamps to generate. Must be greater
+            or equal to 1.
 
         skip_past : bool, default True
             Whether to skip timestamps in the past. Pass ``false`` for
@@ -398,8 +389,8 @@ def register(
     async def _preview_events_tool(
         name: str,
         count: int = 10,
-        params: dict[str, Any] | None = None,
         skip_past: bool = True,  # noqa: FBT001, FBT002
+        params: dict[str, Any] | None = None,
     ) -> dict[str, Any] | ToolFailure:
         """Produce sample events from a saved generator.
 
@@ -409,14 +400,16 @@ def register(
             Generator directory name.
 
         count : int, default 10
-            Maximum number of events to produce.
-
-        params : dict[str, Any] | None, default None
-            Parameter substitutions for ``${params.*}`` tokens.
+            Maximum number of input timestamps to generate. The
+            produced events may exceed this count. Must be greater or
+            equal to 1.
 
         skip_past : bool, default True
             Whether to skip timestamps in the past. Pass ``false`` for
             generators with a static date range in the past.
+
+        params : dict[str, Any] | None, default None
+            Parameter substitutions for ``${params.*}`` tokens.
 
         Returns
         -------
@@ -432,8 +425,8 @@ def register(
                 context,
                 name,
                 count,
-                params=params,
                 skip_past=skip_past,
+                params=params,
             ),
             mcp_tool='preview_events',
             mcp_transport=transport,

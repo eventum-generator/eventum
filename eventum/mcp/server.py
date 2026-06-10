@@ -28,8 +28,10 @@ _INSTRUCTIONS = (
     'template-context reference, the generator schema, and worked '
     'examples, then write, validate, preview, and run generators. Over '
     'HTTP it also manages running generators - register, start, stop, '
-    'unregister, and read their logs. The server is read-only by '
-    'default; write tools are gated on a writable server. Tool failures '
+    'unregister, and read their logs. Write tools are gated on a '
+    'writable server: the HTTP mount is read-only unless '
+    '`server.mcp.allow_write` is enabled, and the stdio server is '
+    'writable unless started with `--read-only`. Tool failures '
     'are returned in-band as an object with an `error` field, not as a '
     'protocol error - check for it before using a result. Secret values '
     'never cross the boundary - list secret names only, and direct the '
@@ -61,10 +63,11 @@ def build_server(
     Returns
     -------
     FastMCP
-        Server with discovery, formatter, sample, workspace, and
-        validate/preview tools; the templating-reference, examples, and
-        workspace-configs resources; the authoring prompts; and, when
-        ``live`` is set, the live generator-management tools.
+        Server with discovery, formatter, sample, secret-listing,
+        workspace, validate/preview, and run tools; the
+        templating-reference, generator-schema, examples, and
+        workspace-configs resources; the authoring prompts; and,
+        when ``live`` is set, the live generator-management tools.
 
     """
     mcp = FastMCP('eventum', instructions=_INSTRUCTIONS)

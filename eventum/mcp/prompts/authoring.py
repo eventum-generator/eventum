@@ -20,7 +20,9 @@ request-driven ticks.
 `eventum://templating/reference` for the in-template API (samples, \
 `module.rand`/`faker`/`mimesis`, `locals`/`shared`/`globals` state, \
 `dispatch`). `replay` re-emits lines from an existing log file. \
-`script` runs a Python file you write.
+`script` runs an existing Python file - MCP file tools cannot write \
+`.py`, so pick it only when the script is already on disk; otherwise \
+prefer `template`.
    - Output (delivery): `stdout`/`file` for local sinks, \
 `http`/`tcp`/`udp`/`kafka` to push to a pipeline, \
 `clickhouse`/`opensearch` to index into a datastore; pick a formatter \
@@ -34,8 +36,9 @@ stateful sequence, and `shared`/`locals` state for correlated or \
 drifting values. Inspect any data files with `describe_sample`.
 4. Write the file set with `write_generator_file`, paths relative to \
 the generator directory: `generator.yml`, plus `templates/` and \
-`samples/` for a template generator, or `scripts/` for a script one. \
-A `replay` generator just points at its log file.
+`samples/` for a template generator. A `replay` generator just points \
+at its log file; a `script` generator points at an existing Python \
+file - `.py` is not writable over MCP.
 5. Validate with `validate_generator` and fix until it passes.
 6. Preview before finishing: `preview_timestamps` for the timing \
 shape, then `preview_events` for real rendered events. For a past \

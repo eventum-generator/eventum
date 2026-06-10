@@ -5,12 +5,11 @@ so the MCP mount carries its own Basic-auth gate reusing the configured
 server credentials.
 """
 
-import base64
-import secrets
-
 from starlette.types import ASGIApp, Receive, Scope, Send
 
-_UNAUTHORIZED_BODY = b'{"error": "Unauthorized"}'
+from eventum.security.auth import verify_basic_credentials
+
+_UNAUTHORIZED_BODY = b'{"detail": "Unauthorized"}'
 
 
 class BasicAuthMiddleware:
@@ -38,19 +37,13 @@ class BasicAuthMiddleware:
             return False
         try:
             scheme, _, encoded = raw.decode().partition(' ')
-            if scheme.lower() != 'basic':
-                return False
-            user, _, password = (
-                base64.b64decode(encoded).decode().partition(':')
-            )
-        except ValueError, UnicodeDecodeError:
+        except UnicodeDecodeError:
             return False
-        # Compare as bytes: secrets.compare_digest rejects non-ASCII str
-        # (would raise TypeError on crafted credentials).
-        return secrets.compare_digest(
-            user.encode(), self._user.encode()
-        ) and secrets.compare_digest(
-            password.encode(), self._password.encode()
+        if scheme.lower() != 'basic':
+            return False
+        return (
+            verify_basic_credentials(encoded, self._user, self._password)
+            is not None
         )
 
     async def _reject(self, send: Send) -> None:

@@ -1,11 +1,11 @@
 """Programmatic description of the template Jinja context surface.
 
 Introspects the live helper objects (the ``rand`` module and the
-``Sample``, ``Dispatcher`` and ``State`` classes) so the description
-cannot drift from the code: a new helper added to an existing namespace
-surfaces here with no extra step. Non-introspectable entries (external
-libraries, user-provided dicts, the event fields) are described in
-prose. Consumed by the MCP ``eventum://templating/reference`` resource.
+``Sample``, ``Dispatcher``, ``State`` and ``MultiThreadState``
+classes) so the description cannot drift from the code: a new helper
+added to an existing namespace surfaces here with no extra step.
+Non-introspectable entries (external libraries, user-provided dicts,
+the event fields) are described in prose.
 """
 
 import inspect
@@ -14,7 +14,10 @@ from dataclasses import dataclass
 from eventum.plugins.event.plugins.template.dispatch import Dispatcher
 from eventum.plugins.event.plugins.template.modules import rand
 from eventum.plugins.event.plugins.template.sample_reader import Sample
-from eventum.plugins.event.plugins.template.state import State
+from eventum.plugins.event.plugins.template.state import (
+    MultiThreadState,
+    State,
+)
 
 
 @dataclass(frozen=True)
@@ -150,9 +153,8 @@ def build_context_reference() -> ContextReference:
     namespaces.append(
         Namespace(
             'globals',
-            'Cross-generator mutable state (thread-safe; also exposes '
-            'acquire()/release()).',
-            state_helpers,
+            'Cross-generator mutable state (thread-safe).',
+            _helpers(MultiThreadState, MultiThreadState.__module__),
         )
     )
 

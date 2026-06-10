@@ -1,15 +1,11 @@
 """Transport-neutral generator-workspace operations.
 
-Path-safety, text file IO, and config serialization shared by the
-api, cli, and mcp driver adapters. No transport concerns here.
+Path-safety and text file IO shared by the api and mcp driver
+adapters. No transport concerns here.
 """
 
 import shutil
-from collections.abc import Mapping
 from pathlib import Path
-from typing import Any
-
-import yaml
 
 from eventum.exceptions import ContextualError
 
@@ -122,7 +118,7 @@ def ensure_relative(relative: Path) -> Path:
 
 
 def read_text(path: Path) -> str:
-    """Read a text file, translating OS errors to `WorkspaceError`.
+    """Read a text file, translating failures to `WorkspaceError`.
 
     Parameters
     ----------
@@ -137,12 +133,12 @@ def read_text(path: Path) -> str:
     Raises
     ------
     WorkspaceError
-        If the file cannot be read.
+        If the file cannot be read or decoded as text.
 
     """
     try:
         return path.read_text()
-    except OSError as e:
+    except (OSError, UnicodeDecodeError) as e:
         msg = 'Failed to read file'
         raise WorkspaceError(
             msg,
@@ -163,13 +159,14 @@ def write_text(path: Path, content: str) -> None:
     Raises
     ------
     WorkspaceError
-        If the file cannot be written.
+        If the file cannot be written or the content cannot be
+        encoded.
 
     """
     try:
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text(content)
-    except OSError as e:
+    except (OSError, UnicodeEncodeError) as e:
         msg = 'Failed to write file'
         raise WorkspaceError(
             msg,
@@ -223,20 +220,3 @@ def delete_dir(path: Path) -> None:
             msg,
             context={'reason': str(e), 'file_path': str(path)},
         ) from None
-
-
-def dump_config_yaml(data: Mapping[str, Any]) -> str:
-    """Serialize a config mapping to YAML matching the Studio writer.
-
-    Parameters
-    ----------
-    data : Mapping[str, Any]
-        Config data to serialize.
-
-    Returns
-    -------
-    str
-        YAML string with insertion-order keys preserved.
-
-    """
-    return yaml.dump(data=dict(data), sort_keys=False)

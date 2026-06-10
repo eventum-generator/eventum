@@ -81,8 +81,7 @@ EXTERNAL: list[dict[str, str]] = [
         'url': 'https://github.com/eventum-generator/content-packs',
         'description': (
             'Many realistic, ready-to-run generators (cloud, network, '
-            'security, web). Fetch with your own web tools; this '
-            'server performs no network I/O.'
+            'security, web).'
         ),
     },
     {

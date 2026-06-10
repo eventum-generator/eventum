@@ -185,6 +185,11 @@ def test_server_parameters_port_one_passes():
     assert params.port == 1
 
 
+def test_server_parameters_includes_mcp_defaults() -> None:
+    """ServerParameters exposes nested MCP defaults."""
+    assert ServerParameters().mcp.enabled is False
+
+
 # --- LogParameters ---
 
 
@@ -254,3 +259,14 @@ def test_mcp_parameters_path_rejects_trailing_slash() -> None:
 def test_mcp_parameters_root_path_allowed() -> None:
     """The root path '/' is allowed."""
     assert MCPParameters(path='/').path == '/'
+
+
+def test_mcp_parameters_custom_path() -> None:
+    """A custom mount path is accepted."""
+    assert MCPParameters(path='/agent').path == '/agent'
+
+
+def test_mcp_parameters_rejects_unknown_field() -> None:
+    """Unknown fields are forbidden."""
+    with pytest.raises(ValidationError):
+        MCPParameters(unknown=True)  # type: ignore[call-arg]

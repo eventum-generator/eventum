@@ -84,14 +84,6 @@ def build_server_app(
             app, generator_manager, settings, instance_hooks, startup
         )
 
-    if enabled_services.get('ui', False):
-        logger.info('Starting web UI service')
-        from eventum.server.services.ui.injector import (
-            inject_service as inject_ui_service,
-        )
-
-        inject_ui_service(app)
-
     if enabled_services.get('mcp', False):
         logger.info('Starting MCP service')
         from eventum.server.services.mcp.injector import (
@@ -99,5 +91,16 @@ def build_server_app(
         )
 
         inject_mcp_service(app, generator_manager, settings, startup)
+
+    # The UI service registers an SPA catch-all route, so it must be
+    # injected last: routes and mounts registered after it would be
+    # shadowed and never matched.
+    if enabled_services.get('ui', False):
+        logger.info('Starting web UI service')
+        from eventum.server.services.ui.injector import (
+            inject_service as inject_ui_service,
+        )
+
+        inject_ui_service(app)
 
     return app

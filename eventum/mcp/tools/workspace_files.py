@@ -4,9 +4,9 @@ Lists generators and their files, and reads/writes individual files
 inside a generator directory. All path safety and IO go through
 ``eventum.app.workspace``; this module contains no path logic.
 
-Assumption: the generator config filename is ``generator.yml``. This
-matches the default setting value. The stdio composition root uses the
-default, so the constant is correct for the MCP transport.
+The generator config filename comes from the context
+(``generator.yml`` by default), so generators detected here match
+the ones the composition root's transport serves.
 """
 
 from pathlib import Path
@@ -17,23 +17,41 @@ from mcp.server.fastmcp import FastMCP
 from eventum.app import workspace
 from eventum.app.workspace import WorkspaceError
 from eventum.mcp.context import AuthoringContext
-from eventum.mcp.errors import ToolFailure, to_tool_error
+from eventum.mcp.errors import (
+    ToolFailure,
+    read_only_failure,
+    to_tool_error,
+)
 from eventum.mcp.observability import observe_failure
 
-_CONFIG_FILENAME = 'generator.yml'
 _ALLOWED_EXTENSIONS = frozenset({'.yml', '.yaml', '.jinja', '.csv', '.json'})
+
+
+def _check_extension(rel: Path, relative_path: str) -> ToolFailure | None:
+    """Reject a path whose suffix is not in the allow-list.
+
+    Returns a ToolFailure to forward, or None when the extension is
+    allowed.
+    """
+    if rel.suffix not in _ALLOWED_EXTENSIONS:
+        return ToolFailure(
+            error='File extension not allowed',
+            details={'file_path': relative_path},
+        )
+    return None
 
 
 def list_generators(context: AuthoringContext) -> list[str]:
     """Return sorted names of generator directories.
 
-    A directory qualifies when it contains ``generator.yml`` directly
-    inside it (one level deep).
+    A directory qualifies when it contains the context's config
+    filename directly inside it (one level deep).
 
     Parameters
     ----------
     context : AuthoringContext
-        Authoring context supplying the generators directory.
+        Authoring context supplying the generators directory and the
+        config filename.
 
     Returns
     -------
@@ -48,7 +66,8 @@ def list_generators(context: AuthoringContext) -> list[str]:
         return []
 
     names = [
-        p.parent.name for p in generators_dir.glob(f'*/{_CONFIG_FILENAME}')
+        p.parent.name
+        for p in generators_dir.glob(f'*/{context.config_filename}')
     ]
 
     return sorted(names)
@@ -137,11 +156,9 @@ def read_generator_file(
     except WorkspaceError as e:
         return to_tool_error(e, context.generators_dir)
 
-    if rel.suffix not in _ALLOWED_EXTENSIONS:
-        return ToolFailure(
-            error='File extension not allowed',
-            details={'file_path': relative_path},
-        )
+    extension_failure = _check_extension(rel, relative_path)
+    if extension_failure is not None:
+        return extension_failure
 
     if not path.is_file():
         return ToolFailure(
@@ -194,10 +211,7 @@ def write_generator_file(
 
     """
     if context.read_only:
-        return ToolFailure(
-            error='Server is read-only; writes are disabled',
-            details={'relative_path': relative_path},
-        )
+        return read_only_failure({'file_path': relative_path})
 
     rel = Path(relative_path)
 
@@ -208,11 +222,9 @@ def write_generator_file(
     except WorkspaceError as e:
         return to_tool_error(e, context.generators_dir)
 
-    if rel.suffix not in _ALLOWED_EXTENSIONS:
-        return ToolFailure(
-            error='File extension not allowed',
-            details={'file_path': relative_path},
-        )
+    extension_failure = _check_extension(rel, relative_path)
+    if extension_failure is not None:
+        return extension_failure
 
     try:
         workspace.write_text(path, content)
@@ -256,10 +268,7 @@ def delete_generator_file(
 
     """
     if context.read_only:
-        return ToolFailure(
-            error='Server is read-only; writes are disabled',
-            details={'relative_path': relative_path},
-        )
+        return read_only_failure({'file_path': relative_path})
 
     rel = Path(relative_path)
 
@@ -270,11 +279,9 @@ def delete_generator_file(
     except WorkspaceError as e:
         return to_tool_error(e, context.generators_dir)
 
-    if rel.suffix not in _ALLOWED_EXTENSIONS:
-        return ToolFailure(
-            error='File extension not allowed',
-            details={'file_path': relative_path},
-        )
+    extension_failure = _check_extension(rel, relative_path)
+    if extension_failure is not None:
+        return extension_failure
 
     if not path.is_file():
         return ToolFailure(
@@ -321,10 +328,7 @@ def delete_generator(
 
     """
     if context.read_only:
-        return ToolFailure(
-            error='Server is read-only; writes are disabled',
-            details={'name': name},
-        )
+        return read_only_failure({'name': name})
 
     try:
         path = workspace.resolve_generator_dir(context.generators_dir, name)
@@ -368,8 +372,9 @@ def register(
         -------
         list[str]
             Sorted list of generator names (immediate subdirectories
-            containing a ``generator.yml`` file). Empty if the
-            generators directory does not exist.
+            containing a generator config file, ``generator.yml`` by
+            default). Empty if the generators directory does not
+            exist.
 
         """
         return observe_failure(
@@ -447,8 +452,9 @@ def register(
 
         Creates parent directories as needed. Fails immediately when
         the server is read-only without touching the filesystem. Name
-        the config file ``generator.yml`` - validate, preview, and run
-        load that filename.
+        the config file ``generator.yml`` unless this server is
+        configured with another config filename - validate, preview,
+        and run load that filename.
 
         Parameters
         ----------

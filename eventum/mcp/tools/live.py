@@ -20,11 +20,15 @@ from eventum.app.workspace import WorkspaceError
 from eventum.core.generator import Generator
 from eventum.logging.file_paths import construct_generator_logfile_path
 from eventum.mcp.context import LiveContext
-from eventum.mcp.errors import ToolFailure, scrub_log_line, to_tool_error
+from eventum.mcp.errors import (
+    ToolFailure,
+    read_only_failure,
+    relativize_path,
+    scrub_log_line,
+    to_tool_error,
+)
 from eventum.mcp.observability import observe_failure
-from eventum.security.manage import get_secret_values_for_scrubbing
-
-_CONFIG_FILENAME = 'generator.yml'
+from eventum.mcp.redaction import read_config_secret_values
 
 
 def _isoformat(value: datetime | None) -> str | None:
@@ -43,15 +47,11 @@ def _status_dict(generator: Generator) -> dict[str, Any]:
     }
 
 
-def _relativize(path: Path, base: Path) -> str:
-    """Return ``path`` relative to ``base``, or its name if outside."""
-    try:
-        return str(path.resolve().relative_to(base.resolve()))
-    except ValueError:
-        return path.name
-
-
-def _resolve_config_path(generators_dir: Path, name: str) -> Path:
+def _resolve_config_path(
+    generators_dir: Path,
+    name: str,
+    config_filename: str,
+) -> Path:
     """Resolve a generator's config path, confined to generators_dir.
 
     Raises
@@ -62,7 +62,7 @@ def _resolve_config_path(generators_dir: Path, name: str) -> Path:
 
     """
     gen_dir = workspace.resolve_generator_dir(generators_dir, name)
-    config_path = gen_dir / _CONFIG_FILENAME
+    config_path = gen_dir / config_filename
     if not config_path.is_file():
         msg = 'Generator config not found'
         raise WorkspaceError(msg, context={'name': name})
@@ -153,9 +153,7 @@ async def start_generator(
 ) -> dict[str, Any] | ToolFailure:
     """Start a managed generator (idempotent)."""
     if context.read_only:
-        return ToolFailure(
-            error='Server is read-only', details={'id': generator_id}
-        )
+        return read_only_failure({'id': generator_id})
     try:
         started = await asyncio.to_thread(context.manager.start, generator_id)
     except ManagingError as e:
@@ -168,9 +166,7 @@ async def stop_generator(
 ) -> dict[str, Any] | ToolFailure:
     """Stop a managed generator."""
     if context.read_only:
-        return ToolFailure(
-            error='Server is read-only', details={'id': generator_id}
-        )
+        return read_only_failure({'id': generator_id})
     try:
         await asyncio.to_thread(context.manager.stop, generator_id)
     except ManagingError as e:
@@ -199,15 +195,21 @@ async def register_generator(
     controls whether the server starts it on the next boot.
     """
     if context.read_only:
-        return ToolFailure(
-            error='Server is read-only', details={'id': generator_id}
-        )
+        return read_only_failure({'id': generator_id})
     try:
         config_path = _resolve_config_path(
-            context.generators_dir, generator_id
+            context.generators_dir,
+            generator_id,
+            context.config_filename,
         )
     except WorkspaceError as e:
-        return to_tool_error(e, context.generators_dir)
+        # Workspace errors key the identifier as 'name'; every other
+        # failure and success path of this tool keys it as 'id'.
+        failure = to_tool_error(e, context.generators_dir)
+        details = dict(failure.details)
+        details.pop('name', None)
+        details['id'] = generator_id
+        return ToolFailure(error=failure.error, details=details)
 
     generation = context.generation.model_dump() | (execution or {})
 
@@ -251,9 +253,7 @@ async def unregister_generator(
     error is reported and the runtime removal stands.
     """
     if context.read_only:
-        return ToolFailure(
-            error='Server is read-only', details={'id': generator_id}
-        )
+        return read_only_failure({'id': generator_id})
 
     removed_runtime = True
     try:
@@ -310,7 +310,7 @@ async def list_startup_generators(
     return [
         {
             **entry.model_dump(mode='json'),
-            'path': _relativize(entry.path, context.generators_dir),
+            'path': relativize_path(entry.path, context.generators_dir),
         }
         for entry in entries.root
     ]
@@ -351,7 +351,9 @@ async def get_generator_logs(
     count = max(1, min(lines, _MAX_LOG_LINES))
 
     def _read() -> dict[str, Any] | ToolFailure:
-        if generator_id not in context.manager.generator_ids:
+        try:
+            generator = context.manager.get_generator(generator_id)
+        except ManagingError:
             return ToolFailure(
                 error='Generator not found',
                 details={'id': generator_id},
@@ -378,10 +380,10 @@ async def get_generator_logs(
                 details={'id': generator_id},
             )
 
-        # Scrub every keyring value: a log line may reference any
-        # secret, unlike preview, which scrubs only the config's own
-        # resolved secrets.
-        redact = get_secret_values_for_scrubbing()
+        # Scrub the secrets this generator's own config references - a
+        # per-id log can only contain those, so this stays scoped to one
+        # config rather than reading the whole keyring.
+        redact = read_config_secret_values(generator.params.path)
         scrubbed = [
             scrub_log_line(
                 line, context.generators_dir, context.logs_dir, redact
@@ -407,7 +409,11 @@ def register(mcp: FastMCP, context: LiveContext, *, transport: str) -> None:
             by get_generator_status). Empty if none are managed.
 
         """
-        return await list_generators_live(context)
+        return observe_failure(
+            await list_generators_live(context),
+            mcp_tool='list_generators_live',
+            mcp_transport=transport,
+        )
 
     @mcp.tool(name='get_generator_status')
     async def _get_generator_status_tool(
@@ -469,8 +475,7 @@ def register(mcp: FastMCP, context: LiveContext, *, transport: str) -> None:
     ) -> dict[str, Any] | ToolFailure:
         """Start a managed generator.
 
-        Idempotent: starting an already-running generator succeeds and
-        returns ``started`` false.
+        Idempotent: starting an already-running generator succeeds.
 
         Parameters
         ----------
@@ -480,8 +485,9 @@ def register(mcp: FastMCP, context: LiveContext, *, transport: str) -> None:
         Returns
         -------
         dict[str, Any] | ToolFailure
-            ``{'id', 'started'}`` where ``started`` is false if it was
-            already running; or a structured failure. Does not raise.
+            ``{'id', 'started'}`` where ``started`` is true on success
+            (including an already-running generator) and false only if
+            it failed to start; or a structured failure. Does not raise.
 
         """
         return observe_failure(
@@ -527,11 +533,32 @@ def register(mcp: FastMCP, context: LiveContext, *, transport: str) -> None:
         startup file; it does not start - call start_generator to run
         it now. Fails if this id is already registered.
 
-        ``params`` supplies ``${params.*}`` values. ``execution``
-        overrides the server's generation settings (live_mode,
-        skip_past, timezone, keep_order, max_concurrency, write_timeout,
-        batch, queue). ``autostart`` sets whether it starts on the next
-        server boot.
+        Parameters
+        ----------
+        generator_id : str
+            Directory name of the authored generator, as returned by
+            ``list_generators``; the generator is registered under
+            this id.
+
+        params : dict[str, Any] | None
+            Values supplied for the config's ``${params.*}``
+            placeholders.
+
+        execution : dict[str, Any] | None
+            Overrides for the server's generation settings: live_mode,
+            skip_past, timezone, keep_order, max_concurrency,
+            write_timeout, batch, queue.
+
+        autostart : bool
+            Whether the generator starts on the next server boot.
+
+        Returns
+        -------
+        dict[str, Any] | ToolFailure
+            ``{'id', 'registered': True}``; or a structured failure if
+            the id is already registered or the config is missing. Does
+            not raise.
+
         """
         return observe_failure(
             await register_generator(
@@ -554,6 +581,18 @@ def register(mcp: FastMCP, context: LiveContext, *, transport: str) -> None:
         The inverse of register_generator; run it before
         delete_generator to fully retire a generator. Blocked when the
         server is read-only.
+
+        Parameters
+        ----------
+        generator_id : str
+            Id of a managed generator.
+
+        Returns
+        -------
+        dict[str, Any] | ToolFailure
+            ``{'id', 'unregistered': True}``; or a structured failure if
+            the id is unknown or the server is read-only. Does not raise.
+
         """
         return observe_failure(
             await unregister_generator(context, generator_id),

@@ -25,6 +25,26 @@ def test_file_authoring_context_is_not_live(tmp_path: Path) -> None:
     assert not isinstance(ctx, LiveContext)
 
 
+def test_file_authoring_context_config_filename_default(
+    tmp_path: Path,
+) -> None:
+    """The config filename defaults to generator.yml."""
+    ctx = FileAuthoringContext(generators_dir=tmp_path, read_only=False)
+    assert ctx.config_filename == 'generator.yml'
+
+
+def test_file_authoring_context_config_filename_custom(
+    tmp_path: Path,
+) -> None:
+    """A custom config filename is carried as given."""
+    ctx = FileAuthoringContext(
+        generators_dir=tmp_path,
+        read_only=False,
+        config_filename='custom.yml',
+    )
+    assert ctx.config_filename == 'custom.yml'
+
+
 def test_server_live_context_is_both_protocols(tmp_path: Path) -> None:
     """ServerLiveContext satisfies both authoring and live protocols."""
     ctx = ServerLiveContext(
@@ -39,6 +59,7 @@ def test_server_live_context_is_both_protocols(tmp_path: Path) -> None:
     assert isinstance(ctx, AuthoringContext)
     assert isinstance(ctx, LiveContext)
     assert ctx.read_only is False
+    assert ctx.config_filename == 'generator.yml'
 
 
 def test_file_authoring_context_is_never_live_managed(tmp_path: Path) -> None:

@@ -23,6 +23,11 @@ class AuthoringContext(Protocol):
         ...
 
     @property
+    def config_filename(self) -> str:
+        """Generator config filename inside a generator directory."""
+        ...
+
+    @property
     def read_only(self) -> bool:
         """Whether write tools are disabled."""
         ...
@@ -42,6 +47,7 @@ class FileAuthoringContext:
 
     generators_dir: Path
     read_only: bool
+    config_filename: str = 'generator.yml'
 
     def is_live_managed(self, generator_id: str) -> bool:  # noqa: ARG002
         """Stdio has no live runtime, so nothing is live-managed."""
@@ -89,6 +95,7 @@ class ServerLiveContext:
     generation: GenerationParameters
     logs_dir: Path
     log_format: Literal['plain', 'json']
+    config_filename: str = 'generator.yml'
 
     def is_live_managed(self, generator_id: str) -> bool:
         """Whether the manager currently holds this generator id."""

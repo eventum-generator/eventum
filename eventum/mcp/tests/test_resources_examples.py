@@ -26,8 +26,8 @@ def test_render_includes_contents_and_pointers() -> None:
     """render_examples returns bundled file contents and external URLs."""
     payload = json.loads(render_examples())
     bundled = payload['bundled']
-    assert bundled[0]['name'] == 'web-access-log'
-    assert 'input:' in bundled[0]['files']['generator.yml']
+    wal = next(e for e in bundled if e['name'] == 'web-access-log')
+    assert 'input:' in wal['files']['generator.yml']
     urls = {p['url'] for p in payload['external']}
     assert 'https://github.com/eventum-generator/content-packs' in urls
     assert any('eventum.run' in u for u in urls)

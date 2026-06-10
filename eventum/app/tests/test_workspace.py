@@ -123,6 +123,23 @@ def test_read_text_missing_path_raises(tmp_path: Path):
     assert exc_info.value.context['file_path'] == str(missing)
 
 
+def test_read_text_non_utf8_raises(tmp_path: Path) -> None:
+    """A non-UTF-8 file raises WorkspaceError, not a decode error."""
+    target = tmp_path / 'sample.csv'
+    target.write_bytes('caf\xe9;1\n'.encode('latin-1'))
+    with pytest.raises(WorkspaceError) as exc_info:
+        read_text(target)
+    assert exc_info.value.context['file_path'] == str(target)
+
+
+def test_write_text_unencodable_raises(tmp_path: Path) -> None:
+    """Unencodable content raises WorkspaceError, not an encode error."""
+    target = tmp_path / 'file.txt'
+    with pytest.raises(WorkspaceError) as exc_info:
+        write_text(target, 'lone surrogate: \ud800')
+    assert exc_info.value.context['file_path'] == str(target)
+
+
 def test_write_text_parent_is_file_raises(tmp_path: Path):
     blocker = tmp_path / 'blocker'
     blocker.write_text('x')

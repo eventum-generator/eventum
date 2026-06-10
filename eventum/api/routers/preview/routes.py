@@ -1,7 +1,7 @@
 """Routes."""
 
 import asyncio  # noqa: I001
-from typing import TYPE_CHECKING, Annotated, Any
+from typing import Annotated, Any
 from zoneinfo import ZoneInfo
 
 from fastapi import APIRouter, Body, HTTPException, Path, Query, status
@@ -51,21 +51,18 @@ from eventum.api.routers.preview.timestamps_aggregation import (
     aggregate_timestamps,
 )
 from eventum.api.utils.response_description import merge_responses
-from eventum.core.preview import produce_events_with_plugin
+from eventum.core.preview import (
+    produce_events_with_plugin,
+    select_input_source,
+)
 from eventum.plugins.event.base.plugin import ProduceParams
-from eventum.plugins.input.adapters import IdentifiedTimestampsPluginAdapter
 from eventum.plugins.input.exceptions import PluginGenerationError
-from eventum.plugins.input.merger import InputPluginsMerger
 from eventum.plugins.input.normalizers import (
     normalize_versatile_datetime as norm_versatile_datetime,
 )
 from eventum.plugins.output.formatters import get_formatter_class
 from eventum.utils.json_utils import normalize_types
 
-if TYPE_CHECKING:
-    from eventum.plugins.input.protocols import (
-        SupportsIdentifiedTimestampsSizedIterate,
-    )
 
 router = APIRouter()
 
@@ -92,11 +89,9 @@ async def generate_timestamps(
         Query(description='Whether to skip past timestamps in generation'),
     ] = True,
 ) -> AggregatedTimestamps:
-    non_interactive_plugins = list(
-        filter(lambda plugin: not plugin.is_interactive, plugins),
-    )
+    source = select_input_source(plugins)
 
-    if not non_interactive_plugins:
+    if source is None:
         return AggregatedTimestamps(
             span_edges=[],
             span_counts={},
@@ -106,15 +101,7 @@ async def generate_timestamps(
             timestamps=[],
         )
 
-    if len(non_interactive_plugins) == 1:
-        merged_plugins: SupportsIdentifiedTimestampsSizedIterate = (
-            IdentifiedTimestampsPluginAdapter(
-                plugin=non_interactive_plugins[0],
-            )
-        )
-    else:
-        merged_plugins = InputPluginsMerger(plugins=non_interactive_plugins)
-    iterator = merged_plugins.iterate(size=size, skip_past=skip_past)
+    iterator = source.iterate(size=size, skip_past=skip_past)
 
     try:
         timestamps = await asyncio.to_thread(lambda: next(iterator))

@@ -36,13 +36,36 @@ _REDACTED = '[redacted]'
 def _redact(text: str, redact_values: list[str]) -> str:
     """Replace each non-empty secret value with the redaction marker.
 
+    Longer values are replaced first so a secret that contains another
+    secret as a substring is redacted whole - otherwise the shorter
+    value would fire first and leave the longer secret's remainder in
+    clear text.
+
     Run before path relativization so a secret whose value is itself a
     path is redacted whole, not first reduced to a leaking basename.
     """
-    for value in redact_values:
+    for value in sorted(redact_values, key=len, reverse=True):
         if value:
             text = text.replace(value, _REDACTED)
     return text
+
+
+def _relativize_base(text: str, base_str: str) -> str:
+    """Relativize occurrences of a base directory in free text.
+
+    ``base_str + os.sep`` is dropped so embedded paths under the
+    directory become relative; a bare ``base_str`` at a token boundary
+    is reduced to ``'.'``. The boundary lookahead keeps sibling paths
+    that merely share the prefix (e.g. ``<base>_archive/...``) intact,
+    so the generic path-reduction regexes can collapse them to a
+    basename instead of receiving a mid-token mangled fragment.
+    """
+    text = text.replace(base_str + os.sep, '')
+    return re.sub(
+        re.escape(base_str) + r'(?=[/\s\'"),:]|$)',
+        '.',
+        text,
+    )
 
 
 def _scrub_reason(
@@ -59,9 +82,10 @@ def _scrub_reason(
        value is itself a path is redacted whole rather than reduced to
        a leaking basename.
     2. Occurrences of ``base`` (the resolved generators_dir) are made
-       relative: a leading ``str(base) + os.sep`` is dropped so
-       embedded paths under the directory become relative, and a bare
-       ``str(base)`` is reduced to ``'.'``.
+       relative: ``str(base) + os.sep`` is dropped so embedded paths
+       under the directory become relative, and a bare ``str(base)``
+       at a token boundary is reduced to ``'.'``. Sibling paths that
+       merely share the prefix are left intact for step 3.
     3. Other quoted absolute POSIX paths (as formatted by ``OSError``)
        are reduced to their final path component.
 
@@ -83,12 +107,21 @@ def _scrub_reason(
 
     """
     text = _redact(text, redact_values)
-
-    base_str = str(base)
-    text = text.replace(base_str + os.sep, '')
-    text = text.replace(base_str, '.')
+    text = _relativize_base(text, str(base))
 
     return _QUOTED_ABS_PATH.sub(r"'\1'", text)
+
+
+def relativize_path(path: Path, base: Path) -> str:
+    """Return ``path`` relative to resolved ``base``, else its name.
+
+    Prevents absolute-path leakage: an in-tree path becomes relative to
+    ``base``; a path outside ``base`` collapses to its final component.
+    """
+    try:
+        return str(path.resolve().relative_to(base.resolve()))
+    except ValueError:
+        return path.name
 
 
 @dataclass(frozen=True)
@@ -97,6 +130,14 @@ class ToolFailure:
 
     error: str
     details: dict[str, Any] = field(default_factory=dict)
+
+
+_READ_ONLY_ERROR = 'Server is read-only; writes are disabled'
+
+
+def read_only_failure(details: dict[str, Any]) -> ToolFailure:
+    """Canonical failure for a write tool when the server is read-only."""
+    return ToolFailure(error=_READ_ONLY_ERROR, details=details)
 
 
 def scrub_context(
@@ -113,8 +154,10 @@ def scrub_context(
     in OS error / validation strings are stripped and any value in
     ``redact_values`` is replaced with ``[redacted]``.
 
-    This is the single scrub point for both error routes: direct
-    per-event use (``preview_events``) and ``to_tool_error``.
+    This is the single scrub point for the context dict on both
+    routes that expose it: direct per-event use (``preview_events``)
+    and ``to_tool_error``. On the ``to_tool_error`` route the top-level
+    message is scrubbed separately.
 
     Parameters
     ----------
@@ -144,11 +187,7 @@ def scrub_context(
             continue
 
         if key == 'file_path':
-            try:
-                rel = Path(str(value)).resolve().relative_to(base)
-                out[key] = str(rel)
-            except ValueError:
-                out[key] = Path(str(value)).name
+            out[key] = relativize_path(Path(str(value)), base)
         else:
             out[key] = value
 
@@ -223,14 +262,13 @@ def to_tool_error(
         ``details`` dict.
 
     """
-    # `reason` scrubbing (absolute paths + secret redaction, spec 7.1)
-    # happens inside `scrub_context`, the single scrub point shared with
-    # the direct per-event route. The top-level message is also scrubbed
+    # `reason` scrubbing (absolute paths + secret redaction) happens
+    # inside `scrub_context`, the single scrub point shared with the
+    # direct per-event route. The top-level message is also scrubbed
     # here: domain rules keep it a static string, but scrubbing it too is
     # cheap defense-in-depth against a stray path/secret in the message.
-    base = generators_dir.resolve()
     return ToolFailure(
-        error=_scrub_reason(str(error), base, redact_values or []),
+        error=scrub_message(str(error), generators_dir, redact_values),
         details=scrub_context(error.context, generators_dir, redact_values),
     )
 
@@ -273,8 +311,6 @@ def scrub_log_line(
     line = _redact(line, redact_values)
 
     for base in (generators_dir, logs_dir):
-        base_str = str(base.resolve())
-        line = line.replace(base_str + os.sep, '')
-        line = line.replace(base_str, '.')
+        line = _relativize_base(line, str(base.resolve()))
 
     return _ABS_PATH.sub(r'\1\2', line)

@@ -17,7 +17,7 @@ business logic.
 - **Never import `eventum.api`.** Share via `core/`+`app/`, never call
   the HTTP API over the network, never reach into `api/routers/*`.
 - **Capability via DI, not branching.** Tools depend on a context
-  Protocol (`AuthoringContext`, later `LiveContext`); they must not
+  Protocol (`AuthoringContext`, `LiveContext`); they must not
   branch on transport or concrete context type. Live-only tools are
   registered only by the root that supplies a `LiveContext`.
 
@@ -39,7 +39,7 @@ business logic.
   secrets) so none leak into error text. No absolute path and no secret
   value may reach the agent.
 
-## Concurrency (live tools, Plan 3)
+## Concurrency (live tools)
 
 - Every `GeneratorManager`/`Generator` call runs in `asyncio.to_thread`
   (mirrors `api/routers/generators/routes.py`); these calls block and

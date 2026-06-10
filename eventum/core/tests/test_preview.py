@@ -52,10 +52,12 @@ def test_produce_events_with_plugin_collects_events_and_errors() -> None:  # noq
         cast('EventPlugin', plugin), params_list
     )
 
-    assert isinstance(result, SampleEvents)  # noqa: S101
-    assert result.events == ['event-1', 'event-3']  # noqa: S101
-    assert [e.index for e in result.errors] == [1]  # noqa: S101
-    assert result.exhausted is False  # noqa: S101
+    assert isinstance(result, SampleEvents)
+    assert result.events == ['event-1', 'event-3']
+    assert [e.index for e in result.errors] == [1]
+    assert result.errors[0].message == 'boom'
+    assert result.errors[0].context == {'k': 'v'}
+    assert result.exhausted is False
 
 
 def test_produce_events_with_plugin_stops_on_exhausted() -> None:  # noqa: D103
@@ -79,9 +81,9 @@ def test_produce_events_with_plugin_stops_on_exhausted() -> None:  # noqa: D103
         cast('EventPlugin', plugin), params_list
     )
 
-    assert result.exhausted is True  # noqa: S101
-    assert len(result.events) == 1  # noqa: S101
-    assert result.errors == []  # noqa: S101
+    assert result.exhausted is True
+    assert len(result.events) == 1
+    assert result.errors == []
 
 
 def test_validate_generator_missing_file_raises(tmp_path: Path) -> None:  # noqa: D103
@@ -122,8 +124,8 @@ def test_aggregate_sample_timestamps_returns_counts(tmp_path: Path) -> None:  # 
         params={},
         skip_past=False,
     )
-    assert isinstance(agg, TimestampsAggregate)  # noqa: S101
-    assert agg.total >= 1  # noqa: S101
+    assert isinstance(agg, TimestampsAggregate)
+    assert agg.total == 10  # noqa: PLR2004
 
 
 def test_produce_sample_events_end_to_end(tmp_path: Path) -> None:  # noqa: D103
@@ -159,9 +161,156 @@ def test_produce_sample_events_end_to_end(tmp_path: Path) -> None:  # noqa: D103
         skip_past=False,
     )
 
-    assert result.events  # noqa: S101
-    assert all(isinstance(e, str) for e in result.events)  # noqa: S101
-    assert result.exhausted is False  # noqa: S101
+    assert result.events
+    assert all(isinstance(e, str) for e in result.events)
+    assert result.exhausted is False
+
+
+def test_produce_sample_events_timestamps_are_timezone_aware(  # noqa: D103
+    tmp_path: Path,
+) -> None:
+    gen = tmp_path / 'g'
+    gen.mkdir()
+
+    (gen / 'produce.py').write_text(
+        'def produce(params):\n    return [params["timestamp"].isoformat()]\n',
+    )
+
+    config_text = (
+        'input:\n'
+        '  - linspace:\n'
+        '      start: "2025-01-01 00:00:00"\n'
+        '      end: "2025-01-01 01:00:00"\n'
+        '      count: 10\n'
+        'event:\n'
+        '  script:\n'
+        '    path: produce.py\n'
+        'output:\n'
+        '  - stdout:\n'
+        '      stream: stderr\n'
+    )
+    (gen / 'generator.yml').write_text(config_text)
+
+    from eventum.core.preview import produce_sample_events
+
+    result = produce_sample_events(
+        gen / 'generator.yml',
+        count=5,
+        params={},
+        skip_past=False,
+    )
+
+    # The default generator timezone is UTC; timestamps handed to the
+    # event plugin must carry it, as in the live pipeline.
+    assert result.events
+    assert all(e.endswith('+00:00') for e in result.events)
+
+
+def test_produce_sample_events_merges_inputs_and_maps_tags(  # noqa: D103
+    tmp_path: Path,
+) -> None:
+    gen = tmp_path / 'g'
+    gen.mkdir()
+
+    (gen / 'produce.py').write_text(
+        'def produce(params):\n'
+        '    ts = params["timestamp"].isoformat()\n'
+        '    tags = ",".join(params["tags"])\n'
+        '    return [ts + "|" + tags]\n',
+    )
+
+    config_text = (
+        'input:\n'
+        '  - linspace:\n'
+        '      start: "2025-01-01 00:00:00"\n'
+        '      end: "2025-01-01 01:00:00"\n'
+        '      count: 10\n'
+        '      tags: ["first"]\n'
+        '  - linspace:\n'
+        '      start: "2025-01-02 00:00:00"\n'
+        '      end: "2025-01-02 01:00:00"\n'
+        '      count: 10\n'
+        '      tags: ["second"]\n'
+        'event:\n'
+        '  script:\n'
+        '    path: produce.py\n'
+        'output:\n'
+        '  - stdout:\n'
+        '      stream: stderr\n'
+    )
+    (gen / 'generator.yml').write_text(config_text)
+
+    from eventum.core.preview import produce_sample_events
+
+    result = produce_sample_events(
+        gen / 'generator.yml',
+        count=100,
+        params={},
+        skip_past=False,
+    )
+
+    assert len(result.events) == 20  # noqa: PLR2004
+
+    first_events = [e for e in result.events if e.endswith('|first')]
+    second_events = [e for e in result.events if e.endswith('|second')]
+
+    assert len(first_events) == 10  # noqa: PLR2004
+    assert len(second_events) == 10  # noqa: PLR2004
+
+    # Tags must follow each timestamp's source plugin: the `first`
+    # range lies a day before the `second` one, so every `first`
+    # event must sort before every `second` event (ISO strings with
+    # equal offsets sort chronologically).
+    assert max(first_events) < min(second_events)
+
+
+def test_preview_with_only_interactive_inputs_is_empty(  # noqa: D103
+    tmp_path: Path,
+) -> None:
+    gen = tmp_path / 'g'
+    gen.mkdir()
+
+    (gen / 'produce.py').write_text(
+        'def produce(params):\n    return [str(params["timestamp"])]\n',
+    )
+
+    config_text = (
+        'input:\n'
+        '  - http:\n'
+        '      port: 58123\n'
+        'event:\n'
+        '  script:\n'
+        '    path: produce.py\n'
+        'output:\n'
+        '  - stdout:\n'
+        '      stream: stderr\n'
+    )
+    (gen / 'generator.yml').write_text(config_text)
+
+    from eventum.core.preview import (
+        aggregate_sample_timestamps,
+        produce_sample_events,
+    )
+
+    sample = produce_sample_events(
+        gen / 'generator.yml',
+        count=5,
+        params={},
+        skip_past=False,
+    )
+
+    assert sample.events == []
+    assert sample.errors == []
+    assert sample.exhausted is False
+
+    agg = aggregate_sample_timestamps(
+        gen / 'generator.yml',
+        size=5,
+        params={},
+        skip_past=False,
+    )
+
+    assert agg.total == 0
 
 
 def test_calculate_auto_span_small_range() -> None:  # noqa: D103
@@ -172,7 +321,7 @@ def test_calculate_auto_span_small_range() -> None:  # noqa: D103
     earliest = np.datetime64('2024-01-01T00:00:00', 'us')
     latest = np.datetime64('2024-01-01T00:00:10', 'us')
     span = _calculate_auto_span(earliest, latest, 10, 30)
-    assert span <= np.timedelta64(10, 's')  # noqa: S101
+    assert span <= np.timedelta64(10, 's')
 
 
 def test_calculate_auto_span_24h_range() -> None:  # noqa: D103
@@ -183,5 +332,5 @@ def test_calculate_auto_span_24h_range() -> None:  # noqa: D103
     earliest = np.datetime64('2024-01-01T00:00:00', 'us')
     latest = np.datetime64('2024-01-02T00:00:00', 'us')
     span = _calculate_auto_span(earliest, latest, 1000, 30)
-    assert span >= np.timedelta64(1, 's')  # noqa: S101
-    assert span <= np.timedelta64(24, 'h')  # noqa: S101
+    assert span >= np.timedelta64(1, 's')
+    assert span <= np.timedelta64(24, 'h')

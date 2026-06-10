@@ -1,9 +1,15 @@
 """One-shot generator-run tool (bounded execution to real outputs).
 
-Runs a saved generator to its configured output plugins in sample mode.
-The run is always bounded - it finishes naturally for a finite
-generator, or is stopped at a timeout or event cap for an open-ended
-one - so the call can never hang on an unbounded generator.
+Runs a saved generator to its configured output plugins in sample
+mode via the bounded-run application service. The run is always
+bounded - it finishes naturally for a finite generator, or is stopped
+at a timeout or event cap for an open-ended one - so the call can
+never hang on an unbounded generator.
+
+Security: config loading resolves ``${secrets.*}`` tokens, so load
+errors may carry resolved secret values; the config's secret values
+are passed as ``redact_values`` to ``to_tool_error`` so none leak
+into the returned error text.
 """
 
 import asyncio
@@ -13,46 +19,22 @@ from mcp.server.fastmcp import FastMCP
 from pydantic import ValidationError
 
 from eventum.app import workspace
+from eventum.app.bounded_run import run_bounded
 from eventum.app.workspace import WorkspaceError
-from eventum.core.generator import Generator
+from eventum.core.config_loader import ConfigurationLoadError
+from eventum.core.executor import ImproperlyConfiguredError
 from eventum.core.parameters import GeneratorParameters
-from eventum.core.plugins_initializer import InitializedPlugins
+from eventum.core.plugins_initializer import InitializationError
 from eventum.mcp.context import AuthoringContext
-from eventum.mcp.errors import ToolFailure, to_tool_error
+from eventum.mcp.errors import (
+    ToolFailure,
+    read_only_failure,
+    to_tool_error,
+)
 from eventum.mcp.observability import observe_failure
+from eventum.mcp.redaction import read_config_secret_values
 
-_CONFIG_FILENAME = 'generator.yml'
 _DEFAULT_TIMEOUT = 30.0
-_MAX_TIMEOUT = 300.0
-_POLL_INTERVAL = 0.05
-
-
-def _output_counts(plugins: InitializedPlugins | None) -> tuple[int, int]:
-    """Return (written, failed) summed across the output plugins.
-
-    The executor mutates the plugin instances in place, so a reference
-    captured while the generator is running still reflects the final
-    counts after the run ends and the generator releases its own.
-    """
-    if plugins is None:
-        return 0, 0
-    written = sum(p.written for p in plugins.output)
-    failed = sum(p.write_failed + p.format_failed for p in plugins.output)
-    return written, failed
-
-
-async def _await_run(
-    generator: Generator,
-    plugins: InitializedPlugins | None,
-    max_events: int | None,
-) -> None:
-    """Wait until the run ends, returning early once max_events written."""
-    while generator.is_initializing or generator.is_running:
-        if max_events is not None:
-            written, _ = _output_counts(plugins)
-            if written >= max_events:
-                return
-        await asyncio.sleep(_POLL_INTERVAL)
 
 
 async def run_generator(  # noqa: PLR0913 - context is a DI seam; 5 tool params
@@ -72,7 +54,7 @@ async def run_generator(  # noqa: PLR0913 - context is a DI seam; 5 tool params
     configured output plugins, so it is a write operation.
     """
     if context.read_only:
-        return ToolFailure(error='Server is read-only', details={'name': name})
+        return read_only_failure({'name': name})
 
     if await asyncio.to_thread(context.is_live_managed, name):
         return ToolFailure(
@@ -88,10 +70,12 @@ async def run_generator(  # noqa: PLR0913 - context is a DI seam; 5 tool params
     except WorkspaceError as e:
         return to_tool_error(e, context.generators_dir)
 
+    cfg_path = gen_dir / context.config_filename
+
     try:
         run_params = GeneratorParameters(
             id=name,
-            path=gen_dir / _CONFIG_FILENAME,
+            path=cfg_path,
             params=params or {},
             live_mode=False,
             skip_past=skip_past,
@@ -101,50 +85,27 @@ async def run_generator(  # noqa: PLR0913 - context is a DI seam; 5 tool params
             error='Invalid run parameters', details={'name': name}
         )
 
-    if max_events is not None and max_events < 1:
-        max_events = None
+    redact_values = read_config_secret_values(cfg_path)
 
-    bounded = max(_POLL_INTERVAL, min(timeout_seconds, _MAX_TIMEOUT))
-    generator = Generator(run_params)
-
-    started = await asyncio.to_thread(generator.start)
-    if not started:
-        return ToolFailure(
-            error='Generator failed to start; check its logs',
-            details={'name': name},
-        )
-
-    # Capture a live reference to the plugin instances while they
-    # exist. The generator nulls its own reference on completion, but
-    # the executor keeps mutating these same objects, so this reference
-    # still carries the final counts once the run ends.
     try:
-        plugins: InitializedPlugins | None = generator.get_plugins_info()
-    except RuntimeError:
-        plugins = None
-
-    reason: str | None = None
-    try:
-        await asyncio.wait_for(
-            _await_run(generator, plugins, max_events), bounded
+        summary = await asyncio.to_thread(
+            run_bounded,
+            run_params,
+            timeout_seconds=timeout_seconds,
+            max_events=max_events,
         )
-    except TimeoutError:
-        reason = 'timeout'
-
-    if generator.is_running:
-        await asyncio.to_thread(generator.stop)
-        reason = reason or 'max_events'
-    else:
-        await asyncio.to_thread(generator.join)
-        reason = 'completed' if generator.is_ended_up_successfully else 'error'
-
-    written, failed = _output_counts(plugins)
+    except (
+        ConfigurationLoadError,
+        InitializationError,
+        ImproperlyConfiguredError,
+    ) as e:
+        return to_tool_error(e, context.generators_dir, redact_values)
 
     return {
         'id': name,
-        'reason': reason,
-        'events_written': written,
-        'events_failed': failed,
+        'reason': summary.outcome,
+        'events_written': summary.events_written,
+        'events_failed': summary.events_failed,
     }
 
 

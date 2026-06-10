@@ -1,18 +1,9 @@
 import threading
-from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import pytest
 
 from eventum.app.manager import GeneratorManager, ManagingError
-from eventum.core.parameters import GeneratorParameters
-
-
-def _params(generator_id: str, tmp_path: Path) -> GeneratorParameters:
-    cfg = tmp_path / generator_id / 'generator.yml'
-    cfg.parent.mkdir(parents=True, exist_ok=True)
-    cfg.write_text('input: []\nevent: {}\noutput: []\n')
-    return GeneratorParameters(id=generator_id, path=cfg)
 
 
 @pytest.fixture
@@ -132,9 +123,9 @@ def test_get_generator_property(manager, fake_params):
 
 
 @patch('eventum.app.manager.Generator')
-def test_concurrent_add_same_id_adds_once(_, tmp_path):
+def test_concurrent_add_same_id_adds_once(_):
     manager = GeneratorManager()
-    params = _params('dup', tmp_path)
+    params = FakeParams('dup')
     errors: list[Exception] = []
     lock = threading.Lock()
     barrier = threading.Barrier(2)
@@ -158,9 +149,9 @@ def test_concurrent_add_same_id_adds_once(_, tmp_path):
 
 
 @patch('eventum.app.manager.Generator')
-def test_concurrent_remove_same_id_removes_once(_, tmp_path):
+def test_concurrent_remove_same_id_removes_once(_):
     manager = GeneratorManager()
-    manager.add(_params('dup', tmp_path))
+    manager.add(FakeParams('dup'))
     errors: list[Exception] = []
     lock = threading.Lock()
     barrier = threading.Barrier(2)

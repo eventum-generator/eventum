@@ -67,6 +67,12 @@ class App:
         self._server: uvicorn.Server | None = None
         self._server_thread = Thread(target=self._run_server, name='server')
 
+    @property
+    def _server_enabled(self) -> bool:
+        """Whether any server-hosted service is enabled."""
+        server = self._settings.server
+        return server.api_enabled or server.ui_enabled or server.mcp.enabled
+
     def start(self) -> None:
         """Start the app.
 
@@ -82,10 +88,7 @@ class App:
         logger.info('Starting generators')
         self._start_generators(generators_params=generators_params)
 
-        if (
-            self._settings.server.api_enabled
-            or self._settings.server.ui_enabled
-        ):
+        if self._server_enabled:
             from eventum.server.exceptions import ServiceBuildingError
 
             logger.info(
@@ -100,10 +103,7 @@ class App:
 
     def stop(self) -> None:
         """Stop the app."""
-        if (
-            self._settings.server.api_enabled
-            or self._settings.server.ui_enabled
-        ):
+        if self._server_enabled:
             logger.info('Stopping the server')
             self._stop_server()
 

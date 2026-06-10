@@ -74,6 +74,18 @@ def test_check_auth_basic_valid():
     assert result == 'admin'
 
 
+def test_check_auth_basic_scheme_case_insensitive() -> None:
+    """The Basic scheme is matched case-insensitively."""
+    import base64
+
+    creds = base64.b64encode(b'admin:secret').decode()
+    settings = _make_settings()
+    for scheme in ('basic', 'BASIC', 'Basic'):
+        ctx = _FakeContext(headers={'Authorization': f'{scheme} {creds}'})
+        result = check_auth(ctx, settings)  # type: ignore[arg-type]
+        assert result == 'admin'
+
+
 def test_check_auth_basic_wrong_creds():
     import base64
 

@@ -35,7 +35,7 @@ _LOADERS: dict[str, Callable[[str], PluginInfo]] = {
 
 
 def list_plugins(
-    context: AuthoringContext,  # noqa: ARG001 - DI seam, used by Phase 2B tools
+    context: AuthoringContext,  # noqa: ARG001 - DI seam, unused here
     kind: Kind | None = None,
 ) -> dict[str, list[str]]:
     """List available plugin names grouped by kind.
@@ -89,13 +89,23 @@ def get_plugin_schema(
     """
     try:
         info = _LOADERS[kind](name)
-    except (PluginNotFoundError, PluginLoadError) as e:
+    except PluginNotFoundError as e:
         return ToolFailure(
             error=f'Plugin not found: {name}',
             details={
                 'kind': kind,
                 'name': name,
                 'reason': scrub_message(str(e), context.generators_dir),
+            },
+        )
+    except PluginLoadError as e:
+        reason = str(e.context.get('reason') or e)
+        return ToolFailure(
+            error=f'Plugin failed to load: {name}',
+            details={
+                'kind': kind,
+                'name': name,
+                'reason': scrub_message(reason, context.generators_dir),
             },
         )
 

@@ -1,6 +1,7 @@
 """Tests for the live generator-management tools."""
 
 import asyncio
+import threading
 from datetime import datetime
 from pathlib import Path
 from types import SimpleNamespace
@@ -39,7 +40,9 @@ class _FakeGenerator:
         start_time: datetime | None = None,
         plugins: Any = None,
     ) -> None:
-        self.params = SimpleNamespace(id=generator_id)
+        self.params = SimpleNamespace(
+            id=generator_id, path=Path('nonexistent.yml')
+        )
         self.is_initializing = False
         self.is_running = True
         self.is_ended_up = False
@@ -55,12 +58,17 @@ class _FakeGenerator:
 
 
 class _FakeManager:
-    def __init__(self) -> None:
+    def __init__(
+        self,
+        generators: dict[str, _FakeGenerator] | None = None,
+    ) -> None:
         self.started: list[str] = []
         self.stopped: list[str] = []
         self.added: list[Any] = []
         self.removed: list[str] = []
-        self._generators = {'g1': _FakeGenerator('g1')}
+        self._generators = (
+            {'g1': _FakeGenerator('g1')} if generators is None else generators
+        )
 
     @property
     def generator_ids(self) -> list[str]:
@@ -157,6 +165,21 @@ async def test_list_generators_live(tmp_path: Path) -> None:
     assert statuses[0]['is_running'] is True
 
 
+async def test_list_generators_live_skips_vanished_id(
+    tmp_path: Path,
+) -> None:
+    """An id that vanishes between listing and lookup is skipped."""
+
+    class _VanishingManager(_FakeManager):
+        @property
+        def generator_ids(self) -> list[str]:
+            return [*self._generators, 'vanished']
+
+    ctx = _ctx(tmp_path, _VanishingManager(), _FakeStartup())
+    statuses = await list_generators_live(ctx)
+    assert [s['id'] for s in statuses] == ['g1']
+
+
 async def test_get_generator_status_unknown_is_failure(
     tmp_path: Path,
 ) -> None:
@@ -229,22 +252,44 @@ async def test_register_rolls_back_on_startup_error(
 
 
 async def test_register_generator_missing_config(tmp_path: Path) -> None:
-    """Registering a generator with no config file fails cleanly."""
+    """Registering a generator with no config file fails cleanly.
+
+    The failure keys the identifier as 'id', like every other
+    register_generator response, not as the workspace-level 'name'.
+    """
     manager = _FakeManager()
     ctx = _ctx(tmp_path, manager, _FakeStartup())
     result = await register_generator(ctx, 'ghost')
     assert isinstance(result, ToolFailure)
+    assert result.details == {'id': 'ghost'}
     assert manager.added == []
 
 
-async def test_concurrent_start_is_safe(tmp_path: Path) -> None:
-    """Two concurrent start calls both complete without error.
+class _BlockingManager(_FakeManager):
+    def __init__(self) -> None:
+        super().__init__()
+        self._barrier = threading.Barrier(2, timeout=5)
 
-    Double-spawn prevention itself lives in GeneratorManager (RLock),
-    covered by app/tests/test_manager.py; this asserts the tool layer
-    dispatches each call independently via asyncio.to_thread.
+    def start(self, generator_id: str) -> bool:
+        # Both calls must be in-flight on worker threads at once;
+        # this only releases if start_generator offloaded each via
+        # asyncio.to_thread rather than running on the event loop.
+        self._barrier.wait()
+        return super().start(generator_id)
+
+
+async def test_concurrent_start_dispatches_off_loop(
+    tmp_path: Path,
+) -> None:
+    """Concurrent start calls run on worker threads, not the loop.
+
+    Double-spawn prevention lives in GeneratorManager (RLock), covered
+    by app/tests/test_manager.py. Here the manager blocks on a 2-party
+    barrier, so the pair only completes if the tool layer dispatched
+    each call via asyncio.to_thread; a synchronous on-loop call would
+    deadlock and time out.
     """
-    manager = _FakeManager()
+    manager = _BlockingManager()
     ctx = _ctx(tmp_path, manager, _FakeStartup())
     results = await asyncio.gather(
         start_generator(ctx, 'g1'), start_generator(ctx, 'g1')
@@ -350,8 +395,8 @@ async def test_get_generator_logs_redacts_secrets(
     """Configured secret values are redacted from log lines."""
     ctx = _ctx(tmp_path, _FakeManager(), _FakeStartup())
     monkeypatch.setattr(
-        'eventum.mcp.tools.live.get_secret_values_for_scrubbing',
-        lambda: ['s3cr3t-token'],
+        'eventum.mcp.tools.live.read_config_secret_values',
+        lambda _path: ['s3cr3t-token'],
     )
     (tmp_path / 'generator_g1.log').write_text(
         'connecting with token s3cr3t-token failed\n'
@@ -373,11 +418,39 @@ async def test_get_generator_logs_caps_lines(tmp_path: Path) -> None:
     assert result['lines'] == [f'line {i}' for i in range(45, 50)]
 
 
+_MAX_LOG_LINES = 1000
+
+
+async def test_get_generator_logs_clamps_lines_floor(
+    tmp_path: Path,
+) -> None:
+    """A non-positive lines value is clamped to one trailing line."""
+    ctx = _ctx(tmp_path, _FakeManager(), _FakeStartup())
+    (tmp_path / 'generator_g1.log').write_text('first\nlast\n')
+    result = await get_generator_logs(ctx, 'g1', lines=0)
+    assert not isinstance(result, ToolFailure)
+    assert result['lines'] == ['last']
+
+
+async def test_get_generator_logs_clamps_lines_ceiling(
+    tmp_path: Path,
+) -> None:
+    """A lines value above the maximum returns at most 1000 lines."""
+    ctx = _ctx(tmp_path, _FakeManager(), _FakeStartup())
+    total = _MAX_LOG_LINES + 100
+    body = ''.join(f'line {i}\n' for i in range(total))
+    (tmp_path / 'generator_g1.log').write_text(body)
+    result = await get_generator_logs(ctx, 'g1', lines=5 * _MAX_LOG_LINES)
+    assert not isinstance(result, ToolFailure)
+    assert len(result['lines']) == _MAX_LOG_LINES
+    assert result['lines'][0] == f'line {total - _MAX_LOG_LINES}'
+    assert result['lines'][-1] == f'line {total - 1}'
+
+
 async def test_get_generator_logs_rejects_escaping_id(tmp_path: Path) -> None:
     """A managed id whose log path escapes the logs dir is rejected."""
     evil = '../../../../etc/passwd'
-    manager = _FakeManager()
-    manager._generators = {evil: _FakeGenerator(evil)}  # noqa: SLF001
+    manager = _FakeManager(generators={evil: _FakeGenerator(evil)})
     ctx = _ctx(tmp_path, manager, _FakeStartup())
     result = await get_generator_logs(ctx, evil)
     assert isinstance(result, ToolFailure)
@@ -504,8 +577,7 @@ async def test_get_generator_stats_running(tmp_path: Path) -> None:
         start_time=datetime(2020, 1, 1, tzinfo=ZoneInfo('UTC')),
         plugins=_fake_plugins(),
     )
-    manager = _FakeManager()
-    manager._generators = {'g1': gen}  # noqa: SLF001
+    manager = _FakeManager(generators={'g1': gen})
     ctx = _ctx(tmp_path, manager, _FakeStartup())
     result = await get_generator_stats(ctx, 'g1')
     assert not isinstance(result, ToolFailure)
@@ -614,8 +686,7 @@ async def test_get_generator_stats_release_race(tmp_path: Path) -> None:
         start_time=datetime(2020, 1, 1, tzinfo=ZoneInfo('UTC')),
         plugins=RuntimeError('plugins released'),
     )
-    manager = _FakeManager()
-    manager._generators = {'g1': gen}  # noqa: SLF001
+    manager = _FakeManager(generators={'g1': gen})
     ctx = _ctx(tmp_path, manager, _FakeStartup())
     result = await get_generator_stats(ctx, 'g1')
     assert isinstance(result, ToolFailure)
@@ -628,4 +699,5 @@ async def test_register_generator_rejects_traversal(tmp_path: Path) -> None:
     ctx = _ctx(tmp_path, manager, _FakeStartup())
     result = await register_generator(ctx, '../escape')
     assert isinstance(result, ToolFailure)
+    assert result.details == {'id': '../escape'}
     assert manager.added == []

@@ -1,7 +1,7 @@
 """Module for managing multiple generators."""
 
 import threading
-from collections.abc import Iterable, Iterator
+from collections.abc import Callable, Iterable, Iterator
 from concurrent.futures import Future, ThreadPoolExecutor
 
 import structlog
@@ -10,6 +10,8 @@ from eventum.core.generator import Generator
 from eventum.core.parameters import GeneratorParameters
 
 logger = structlog.stdlib.get_logger()
+
+_STOPPING_POOL_PREFIX = 'generators-stopping:'
 
 
 class ManagingError(Exception):
@@ -88,7 +90,7 @@ class GeneratorManager:
                     continue
 
         with ThreadPoolExecutor(
-            thread_name_prefix='generators-stopping:',
+            thread_name_prefix=_STOPPING_POOL_PREFIX,
         ) as executor:
             for generator in work:
                 executor.submit(generator.stop)
@@ -186,6 +188,38 @@ class GeneratorManager:
         generator = self.get_generator(generator_id)
         generator.stop()
 
+    def _run_on_generators(
+        self,
+        generator_ids: Iterable[str],
+        op: Callable[[Generator], object],
+        thread_name_prefix: str,
+    ) -> None:
+        """Snapshot live generators under the lock and submit `op` for
+        each to a named thread pool.
+
+        Parameters
+        ----------
+        generator_ids : Iterable[str]
+            ID of generators to operate on. Unknown ids are skipped.
+        op : Callable[[Generator], object]
+            Operation to submit for each live generator.
+        thread_name_prefix : str
+            Prefix for the worker thread names.
+
+        """
+        with self._lock:
+            work = [
+                g
+                for id in generator_ids
+                if (g := self._generators.get(id)) is not None
+            ]
+
+        with ThreadPoolExecutor(
+            thread_name_prefix=thread_name_prefix,
+        ) as executor:
+            for generator in work:
+                executor.submit(op, generator)
+
     def bulk_stop(self, generator_ids: Iterable[str]) -> None:
         """Stop generators. Ignore call for those that are not running.
         If no generator of specified id found in list of managed
@@ -197,18 +231,11 @@ class GeneratorManager:
             ID of generators to stop.
 
         """
-        with self._lock:
-            work = [
-                g
-                for id in generator_ids
-                if (g := self._generators.get(id)) is not None
-            ]
-
-        with ThreadPoolExecutor(
-            thread_name_prefix='generators-stopping:',
-        ) as executor:
-            for generator in work:
-                executor.submit(generator.stop)
+        self._run_on_generators(
+            generator_ids,
+            lambda generator: generator.stop(),
+            _STOPPING_POOL_PREFIX,
+        )
 
     def bulk_join(self, generator_ids: Iterable[str]) -> None:
         """Wait until all running generator terminates.
@@ -219,18 +246,11 @@ class GeneratorManager:
             ID of generators to join.
 
         """
-        with self._lock:
-            work = [
-                g
-                for id in generator_ids
-                if (g := self._generators.get(id)) is not None
-            ]
-
-        with ThreadPoolExecutor(
-            thread_name_prefix='generators-joining:',
-        ) as executor:
-            for generator in work:
-                executor.submit(generator.join)
+        self._run_on_generators(
+            generator_ids,
+            lambda generator: generator.join(),
+            'generators-joining:',
+        )
 
     def get_generator(self, generator_id: str) -> Generator:
         """Get generator from list of managed generators.

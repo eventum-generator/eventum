@@ -46,3 +46,16 @@ def test_non_ascii_credentials_return_401() -> None:
     token = base64.b64encode('usér:p'.encode()).decode()
     resp = _client().get('/', headers={'Authorization': f'Basic {token}'})
     assert resp.status_code == HTTPStatus.UNAUTHORIZED
+
+
+def test_non_basic_scheme_returns_401() -> None:
+    """A non-Basic auth scheme is rejected."""
+    token = base64.b64encode(b'u:p').decode()
+    resp = _client().get('/', headers={'Authorization': f'Bearer {token}'})
+    assert resp.status_code == HTTPStatus.UNAUTHORIZED
+
+
+def test_undecodable_header_returns_401() -> None:
+    """A non-UTF8 Authorization header is rejected, not crashed."""
+    resp = _client().get('/', headers={b'Authorization': b'Basic \xff'})
+    assert resp.status_code == HTTPStatus.UNAUTHORIZED

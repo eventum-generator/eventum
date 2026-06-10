@@ -45,4 +45,4 @@ def test_list_secret_names_failure_is_tool_failure(
     result = secrets.list_secret_names(_ctx(tmp_path))
     assert isinstance(result, ToolFailure)
     assert result.error == 'Failed to read keyring'
-    assert '/abs/keyring' not in result.error
+    assert result.details == {}

@@ -12,6 +12,7 @@ from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, cast
+from zoneinfo import ZoneInfo
 
 import numpy as np
 
@@ -24,8 +25,12 @@ from eventum.plugins.event.exceptions import (
     PluginProduceError,
 )
 from eventum.plugins.input.adapters import IdentifiedTimestampsPluginAdapter
+from eventum.plugins.input.base.plugin import InputPlugin
 from eventum.plugins.input.merger import InputPluginsMerger
-from eventum.plugins.input.protocols import IdentifiedTimestamps
+from eventum.plugins.input.protocols import (
+    IdentifiedTimestamps,
+    SupportsIdentifiedTimestampsSizedIterate,
+)
 
 if TYPE_CHECKING:
     from numpy.typing import NDArray
@@ -141,7 +146,7 @@ class TimestampsAggregate:
 def _load_initialized(
     path: Path,
     params: dict[str, Any],
-) -> InitializedPlugins:
+) -> tuple[InitializedPlugins, GeneratorParameters]:
     """Load and initialize all plugins for a generator config.
 
     Parameters
@@ -154,8 +159,9 @@ def _load_initialized(
 
     Returns
     -------
-    InitializedPlugins
-        Initialized input, event, and output plugins.
+    tuple[InitializedPlugins, GeneratorParameters]
+        Initialized input, event, and output plugins, and the
+        generator parameters used to initialize them.
 
     Raises
     ------
@@ -168,12 +174,13 @@ def _load_initialized(
     """
     config = load(path, params)
     gen_params = GeneratorParameters(id='preview', path=path)
-    return init_plugins(
+    initialized = init_plugins(
         input=config.input,
         event=config.event,
         output=config.output,
         params=gen_params,
     )
+    return initialized, gen_params
 
 
 def validate_generator(path: Path, params: dict[str, Any]) -> None:
@@ -367,6 +374,34 @@ def _calculate_auto_span(
     return _AUTO_SPANS_US[index]
 
 
+def select_input_source(
+    plugins: Sequence[InputPlugin],
+) -> SupportsIdentifiedTimestampsSizedIterate | None:
+    """Build a single iterable source from non-interactive plugins.
+
+    Parameters
+    ----------
+    plugins : Sequence[InputPlugin]
+        Input plugins to select from.
+
+    Returns
+    -------
+    SupportsIdentifiedTimestampsSizedIterate | None
+        A single-plugin adapter, a merger over several plugins, or None
+        if no non-interactive plugins exist.
+
+    """
+    non_interactive = [p for p in plugins if not p.is_interactive]
+
+    if not non_interactive:
+        return None
+
+    if len(non_interactive) == 1:
+        return IdentifiedTimestampsPluginAdapter(plugin=non_interactive[0])
+
+    return InputPluginsMerger(plugins=non_interactive)
+
+
 def _take_raw_batch(
     initialized: InitializedPlugins,
     *,
@@ -393,17 +428,10 @@ def _take_raw_batch(
         exist or the iterator is empty.
 
     """
-    plugins = [p for p in initialized.input if not p.is_interactive]
+    source = select_input_source(initialized.input)
 
-    if not plugins:
+    if source is None:
         return None
-
-    if len(plugins) == 1:
-        source: IdentifiedTimestampsPluginAdapter | InputPluginsMerger = (
-            IdentifiedTimestampsPluginAdapter(plugin=plugins[0])
-        )
-    else:
-        source = InputPluginsMerger(plugins=plugins)
 
     iterator = source.iterate(size=size, skip_past=skip_past)
 
@@ -420,11 +448,14 @@ def produce_sample_events(
     *,
     skip_past: bool = True,
 ) -> SampleEvents:
-    """Load a generator and produce up to `count` sample events.
+    """Load a generator and produce sample events.
 
     Initializes all plugins from the config at `path`, generates up
     to `count` timestamps from the non-interactive input plugins, and
-    produces events for them. Plugins are discarded after the call.
+    produces events for them. Timestamps passed to the event plugin
+    are timezone-aware in the generator timezone. A plugin may emit
+    several events per timestamp, so the returned event count can
+    exceed `count`. Plugins are discarded after the call.
 
     Parameters
     ----------
@@ -454,13 +485,29 @@ def produce_sample_events(
     InitializationError
         If any plugin's nested config is invalid.
 
-    """
-    initialized = _load_initialized(path, params)
-    timestamps = _take_timestamps(initialized, size=count, skip_past=skip_past)
+    PluginGenerationError
+        If an input plugin fails to generate timestamps.
 
-    params_list: list[ProduceParams] = [
-        {'timestamp': ts, 'tags': ()} for ts in timestamps
-    ]
+    ValueError
+        If `count` is less than 1.
+
+    """
+    initialized, gen_params = _load_initialized(path, params)
+    batch = _take_raw_batch(initialized, size=count, skip_past=skip_past)
+
+    timezone = ZoneInfo(gen_params.timezone)
+    input_tags = {p.id: p.config.tags for p in initialized.input}
+    params_list: list[ProduceParams] = (
+        [
+            {
+                'timestamp': row['timestamp'].item().replace(tzinfo=timezone),
+                'tags': input_tags[int(row['id'])],
+            }
+            for row in batch
+        ]
+        if batch is not None
+        else []
+    )
 
     return produce_events_with_plugin(initialized.event, params_list)
 
@@ -506,8 +553,14 @@ def aggregate_sample_timestamps(
     InitializationError
         If any plugin's nested config is invalid.
 
+    PluginGenerationError
+        If an input plugin fails to generate timestamps.
+
+    ValueError
+        If `size` is less than 1.
+
     """
-    initialized = _load_initialized(path, params)
+    initialized, _ = _load_initialized(path, params)
     batch = _take_raw_batch(initialized, size=size, skip_past=skip_past)
 
     if batch is None:
@@ -517,44 +570,3 @@ def aggregate_sample_timestamps(
         return aggregate(empty, span)
 
     return aggregate(batch, span)
-
-
-def _take_timestamps(
-    initialized: InitializedPlugins,
-    *,
-    size: int,
-    skip_past: bool,
-) -> list[datetime]:
-    """Extract up to `size` timestamps from non-interactive input plugins.
-
-    Parameters
-    ----------
-    initialized : InitializedPlugins
-        Initialized plugins container.
-
-    size : int
-        Maximum number of timestamps to retrieve.
-
-    skip_past : bool
-        Whether to skip past timestamps before yielding.
-
-    Returns
-    -------
-    list[datetime]
-        List of naive UTC datetime objects.
-
-    """
-    batch = _take_raw_batch(initialized, size=size, skip_past=skip_past)
-
-    if batch is None:
-        return []
-
-    # batch is a structured numpy array with fields 'timestamp'
-    # (datetime64[us]) and 'id' (uint16). numpy's .item() is typed as
-    # Any, so narrow each element to datetime explicitly.
-    timestamps: list[datetime] = []
-    for row in batch:
-        timestamp: datetime = row['timestamp'].item()
-        timestamps.append(timestamp)
-
-    return timestamps

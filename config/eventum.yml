@@ -73,7 +73,10 @@ server.mcp.path: "/mcp"
 
 # Allowed Host header values for DNS-rebinding protection.
 # Empty disables the check (use behind a trusted reverse proxy); a
-# non-empty list enables it and rejects other Host headers.
+# non-empty list enables it and rejects other Host headers. Allowed
+# Origin header values are derived from this list (http/https per
+# host), so same-host browser requests pass while foreign origins
+# are rejected.
 # Optional, default is []
 server.mcp.allowed_hosts: []
 

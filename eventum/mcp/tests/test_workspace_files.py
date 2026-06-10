@@ -109,7 +109,7 @@ def test_write_generator_file_roundtrip(tmp_path: Path) -> None:
     """Written content is readable back via read_generator_file."""
     _gen(tmp_path)
     res = write_generator_file(_ctx(tmp_path), 'g', 'templates/b.jinja', 'yo')
-    assert not isinstance(res, ToolFailure)
+    assert res == {'written': 'templates/b.jinja'}
     assert (
         read_generator_file(_ctx(tmp_path), 'g', 'templates/b.jinja') == 'yo'
     )
@@ -151,7 +151,7 @@ def test_delete_generator_file_removes_file(tmp_path: Path) -> None:
     """A file is deleted and no longer present."""
     _gen(tmp_path)
     res = delete_generator_file(_ctx(tmp_path), 'g', 'templates/a.jinja')
-    assert not isinstance(res, ToolFailure)
+    assert res == {'deleted': 'templates/a.jinja'}
     assert not (tmp_path / 'g' / 'templates' / 'a.jinja').exists()
 
 
@@ -196,7 +196,7 @@ def test_delete_generator_removes_dir(tmp_path: Path) -> None:
     """The whole generator directory is removed."""
     _gen(tmp_path)
     res = delete_generator(_ctx(tmp_path), 'g')
-    assert not isinstance(res, ToolFailure)
+    assert res == {'deleted': 'g'}
     assert not (tmp_path / 'g').exists()
 
 
