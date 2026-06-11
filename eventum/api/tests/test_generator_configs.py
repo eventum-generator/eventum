@@ -197,6 +197,58 @@ def test_get_config_invalid_yaml(client, tmp_settings):
     assert response.status_code == 422
 
 
+def test_get_config_expands_dotted_keys(
+    client: TestClient,
+    tmp_settings: Settings,
+) -> None:
+    """Dotted spelling is served identically to the nested form."""
+    dotted_config = {
+        'input': [{'cron.expression': '* * * * *', 'cron.count': 1}],
+        'event': {'replay.path': 'events.log'},
+        'output': [{'stdout.formatter.format': 'plain'}],
+    }
+    _create_config(tmp_settings, 'canonical_gen')
+    gen_dir = tmp_settings.path.generators_dir / 'dotted_gen'
+    gen_dir.mkdir()
+    config_path = gen_dir / tmp_settings.path.generator_config_filename
+    config_path.write_text(yaml.dump(dotted_config, sort_keys=False))
+
+    dotted = client.get('/configs/dotted_gen')
+    canonical = client.get('/configs/canonical_gen')
+
+    assert dotted.status_code == 200  # noqa: PLR2004
+    assert dotted.json() == canonical.json()
+
+
+def test_get_config_conflicting_dotted_keys(
+    client: TestClient,
+    tmp_settings: Settings,
+) -> None:
+    """Conflicting spellings yield 422 naming the key path."""
+    gen_dir = tmp_settings.path.generators_dir / 'conflict_gen'
+    gen_dir.mkdir()
+    config_path = gen_dir / tmp_settings.path.generator_config_filename
+    config_path.write_text(
+        'input:\n'
+        '- cron:\n'
+        "    expression: '* * * * *'\n"
+        '    count: 1\n'
+        'event:\n'
+        '  replay.path: a.log\n'
+        '  replay:\n'
+        '    path: b.log\n'
+        'output:\n'
+        '- stdout:\n'
+        '    formatter:\n'
+        '      format: plain\n',
+    )
+
+    response = client.get('/configs/conflict_gen')
+
+    assert response.status_code == 422  # noqa: PLR2004
+    assert 'event.replay.path' in response.json()['detail']
+
+
 # --- POST /{name} ---
 
 

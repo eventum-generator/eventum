@@ -16,6 +16,7 @@ from eventum.app.startup import (
     StartupGeneratorParameters,
     StartupNotFoundError,
 )
+from eventum.app.startup.storage import StartupFile
 from eventum.core.parameters import GenerationParameters
 
 
@@ -458,3 +459,43 @@ def test_atomic_write_preserves_symlink(
     assert link.is_symlink()  # noqa: S101
     assert link.resolve() == real  # noqa: S101
     assert 'gen-1' in real.read_text()  # noqa: S101
+
+
+def test_startup_file_read_expands_dotted_keys(
+    settings: Settings,
+) -> None:
+    """Dotted keys in entries are expanded to nested mappings."""
+    _write_startup(
+        settings,
+        '- id: gen-1\n  path: gen-1/generator.yml\n  batch.size: 5\n',
+    )
+
+    entries = StartupFile(file_path=settings.path.startup).read()
+
+    assert entries == [  # noqa: S101
+        {
+            'id': 'gen-1',
+            'path': 'gen-1/generator.yml',
+            'batch': {'size': 5},
+        },
+    ]
+
+
+def test_startup_file_read_raises_on_conflicting_dotted_keys(
+    settings: Settings,
+) -> None:
+    """Conflicting dotted spellings raise StartupError with path."""
+    _write_startup(
+        settings,
+        '- id: gen-1\n'
+        '  path: gen-1/generator.yml\n'
+        '  batch.size: 5\n'
+        '  batch:\n'
+        '    size: 6\n',
+    )
+
+    with pytest.raises(StartupError) as exc:
+        StartupFile(file_path=settings.path.startup).read()
+
+    assert '[0].batch.size' in exc.value.context['reason']  # noqa: S101
+    assert exc.value.context['file_path'] == str(settings.path.startup)  # noqa: S101

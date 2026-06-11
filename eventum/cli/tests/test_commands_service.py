@@ -442,3 +442,60 @@ def test_status_installed_inactive(mock_euid, _mock_service_manager, runner):
     assert result.exit_code == 0
     assert 'installed' in result.output
     assert 'inactive' in result.output
+
+
+# --- _extract_log_dir ---
+
+
+def _installed_status(config_file: Path) -> ServiceStatus:
+    """Build an installed ServiceStatus pointing at config_file."""
+    return ServiceStatus(
+        installed=True,
+        active=False,
+        enabled=False,
+        unit_file=Path('/etc/systemd/system/eventum.service'),
+        config_file=config_file,
+        user_mode=False,
+    )
+
+
+def test_extract_log_dir_flat_dotted_config(tmp_path: Path) -> None:
+    """Flat dotted path.logs key of installed config is read."""
+    from eventum.cli.commands.service import _extract_log_dir
+
+    config_file = tmp_path / 'eventum.yml'
+    config_file.write_text('path.logs: /var/log/eventum\n')
+
+    result = _extract_log_dir(_installed_status(config_file))
+
+    assert result == Path('/var/log/eventum')
+
+
+def test_extract_log_dir_nested_config(tmp_path: Path) -> None:
+    """Nested path.logs spelling is read same as the flat one."""
+    from eventum.cli.commands.service import _extract_log_dir
+
+    config_file = tmp_path / 'eventum.yml'
+    config_file.write_text('path:\n  logs: /var/log/eventum\n')
+
+    result = _extract_log_dir(_installed_status(config_file))
+
+    assert result == Path('/var/log/eventum')
+
+
+def test_extract_log_dir_conflicting_dotted_keys(
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture,
+) -> None:
+    """Conflicting spellings warn and skip log dir extraction."""
+    from eventum.cli.commands.service import _extract_log_dir
+
+    config_file = tmp_path / 'eventum.yml'
+    config_file.write_text(
+        'path.logs: /var/log/eventum\npath:\n  logs: /var/log/other\n',
+    )
+
+    result = _extract_log_dir(_installed_status(config_file))
+
+    assert result is None
+    assert 'Warning: Could not read' in capsys.readouterr().err

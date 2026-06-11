@@ -16,6 +16,10 @@ All notable changes to this project will be documented in this file.
 - **ClickHouse output: `pool_maxsize` parameter** — configure the HTTP connection pool size toward the ClickHouse host (default `32`); raise it together with `generation.max_concurrency` to avoid `Connection pool is full` warnings and connection churn under bursts of concurrent writes
 - **`module.rand.crypto.sha1()`** — generate a random 40-character hex string (SHA-1-length)
 
+### 🐛 Bug Fixes
+
+- **Dot-separated config keys work at any depth, in every YAML file** — previously only the top level of `eventum.yml` understood dotted keys, so a nested spelling like `server: {mcp.enabled: true}` was rejected with `extra inputs are not permitted`. Now `eventum.yml`, generator configs, `startup.yml`, and time-pattern files all accept dotted keys at any nesting level, both spellings can be mixed and are deep-merged, and defining the same key twice fails with the exact conflicting path
+
 ## 2.5.0 (2026-05-14)
 
 ### 🚀 New Features

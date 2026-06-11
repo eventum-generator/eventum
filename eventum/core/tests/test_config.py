@@ -13,6 +13,10 @@ INVALID_YAML_CONFIG_PATH = BASE_PATH / 'static' / 'invalid_yaml_config.yml'
 INVALID_STRUCTURE_CONFIG_PATH = (
     BASE_PATH / 'static' / 'invalid_structure_config.yml'
 )
+DOTTED_KEYS_CONFIG_PATH = BASE_PATH / 'static' / 'dotted_keys_config.yml'
+CONFLICTING_DOTTED_KEYS_CONFIG_PATH = (
+    BASE_PATH / 'static' / 'conflicting_dotted_keys_config.yml'
+)
 
 
 def test_load():
@@ -45,3 +49,32 @@ def test_invalid_config_structure():
 def test_missing_parameters():
     with pytest.raises(ConfigurationLoadError):
         load(path=CONFIG_PATH, params={})
+
+
+def test_load_expands_dotted_keys() -> None:
+    """Dotted spellings load identically to the nested form."""
+    config = load(path=DOTTED_KEYS_CONFIG_PATH, params={})
+
+    canonical = GeneratorConfig.model_validate(
+        {
+            'input': [{'cron': {'expression': '*/5 * * * *', 'count': 1}}],
+            'event': {
+                'template': {
+                    'mode': 'all',
+                    'params': {},
+                    'samples': {},
+                    'templates': [{'test': {'template': 'test.jinja'}}],
+                },
+            },
+            'output': [{'stdout': {'formatter': {'format': 'plain'}}}],
+        },
+    )
+    assert config == canonical
+
+
+def test_load_conflicting_dotted_keys() -> None:
+    """Conflicting spellings raise with the key path in reason."""
+    with pytest.raises(ConfigurationLoadError) as exc:
+        load(path=CONFLICTING_DOTTED_KEYS_CONFIG_PATH, params={})
+
+    assert 'output[0].stdout.formatter.format' in exc.value.context['reason']
