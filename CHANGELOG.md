@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## Unreleased
+
+### 🐛 Bug Fixes
+
+- **Stopping the app no longer hangs when a log or MCP stream is open** — pressing Ctrl+C while a generator's live log view or a connected MCP client is streaming now shuts the app down in well under a second, instead of waiting out the graceful-shutdown timeout and printing cancellation errors on exit
+
 ## 2.6.0 (2026-06-11)
 
 ### 🚀 New Features
