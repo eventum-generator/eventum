@@ -272,6 +272,11 @@ class App:
 
         """
         from eventum.server.main import build_server_app
+        from eventum.server.shutdown import reset_sse_drain
+
+        # Clear any sticky shutdown flag left by a previous in-process
+        # run (e.g. a SIGHUP restart) so fresh SSE streams stay open.
+        reset_sse_drain()
 
         server_app = build_server_app(
             enabled_services={
@@ -356,12 +361,19 @@ class App:
     def _stop_server(self) -> None:
         """Stop application server.
 
-        Requests graceful shutdown. If the server does not stop within
-        the timeout window, forces exit so long-lived connections (e.g.
-        streaming WebSockets) cannot block termination indefinitely.
+        Signals SSE streams to drain and requests graceful shutdown. If
+        the server does not stop within the timeout window, forces exit
+        so long-lived connections cannot block termination indefinitely.
         """
         if self._server is None:
             return
+
+        from eventum.server.shutdown import request_sse_drain
+
+        # Drain MCP SSE streams up front: uvicorn waits for connections
+        # before running lifespan shutdown, so without this an open SSE
+        # stream blocks until the graceful-shutdown timeout expires.
+        request_sse_drain()
 
         self._server.should_exit = True
 
