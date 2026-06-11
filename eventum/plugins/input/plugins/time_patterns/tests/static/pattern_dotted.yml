@@ -1,0 +1,14 @@
+label: Time pattern 1
+oscillator.start: "now"
+oscillator.end: +1s
+oscillator:
+  period: 0.1
+  unit: seconds
+multiplier.ratio: 10000
+randomizer:
+  deviation: 0.1
+  direction: mixed
+spreader.distribution: beta
+spreader.parameters:
+  a: 5
+  b: 5

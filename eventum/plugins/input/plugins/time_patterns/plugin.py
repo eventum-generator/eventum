@@ -30,6 +30,7 @@ from eventum.plugins.input.utils.time_utils import (
     skip_periods,
     to_naive,
 )
+from eventum.utils.dotted_keys import DottedKeyError, expand_dotted_keys
 
 if TYPE_CHECKING:
     from eventum.plugins.input.protocols import (
@@ -371,6 +372,7 @@ class TimePatternsInputPlugin(
                 with resolved_pattern_path.open() as f:
                     time_pattern_obj = yaml.load(f, yaml.SafeLoader)
 
+                time_pattern_obj = expand_dotted_keys(time_pattern_obj)
                 time_pattern = TimePatternConfig.model_validate(
                     obj=time_pattern_obj,
                 )
@@ -383,7 +385,7 @@ class TimePatternsInputPlugin(
                         'reason': str(e),
                     },
                 ) from None
-            except yaml.error.YAMLError as e:
+            except (yaml.error.YAMLError, DottedKeyError) as e:
                 msg = 'Failed to parse time pattern configuration'
                 raise PluginConfigurationError(
                     msg,

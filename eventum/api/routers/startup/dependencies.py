@@ -20,6 +20,7 @@ from eventum.app.startup.mapping import (
     RawEntriesValidationError,
     StartupEntryMapper,
 )
+from eventum.utils.dotted_keys import DottedKeyError, expand_dotted_keys
 
 type StartupGeneratorParametersListRaw = list[dict]
 
@@ -71,6 +72,14 @@ async def get_startup_generator_parameters_list(
     parsed_object = await asyncio.to_thread(
         lambda: yaml.load(content, Loader=yaml.SafeLoader),
     )
+
+    try:
+        parsed_object = expand_dotted_keys(parsed_object)
+    except DottedKeyError as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f'Startup file structure is invalid: {e}',
+        ) from None
 
     if not isinstance(parsed_object, list):
         raise HTTPException(

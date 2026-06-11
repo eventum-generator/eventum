@@ -9,7 +9,6 @@ from typing import Literal, NoReturn
 import click
 import structlog
 import yaml
-from flatten_dict import unflatten  # type: ignore[import-untyped]
 from pydantic import ValidationError
 from setproctitle import setproctitle
 
@@ -25,6 +24,7 @@ from eventum.cli.splash_screen import SPLASH_SCREEN
 from eventum.core.generator import Generator
 from eventum.core.parameters import GeneratorParameters
 from eventum.security.manage import SECURITY_SETTINGS
+from eventum.utils.dotted_keys import DottedKeyError, expand_dotted_keys
 from eventum.utils.validation_prettier import prettify_validation_errors
 
 setproctitle('eventum')
@@ -52,7 +52,8 @@ def _start_app_instance(config: str) -> App:
         with config_path.open() as f:
             try:
                 data = yaml.load(f, Loader=yaml.SafeLoader)
-            except yaml.error.YAMLError as e:
+                data = expand_dotted_keys(data)
+            except (yaml.error.YAMLError, DottedKeyError) as e:
                 click.echo(
                     f'Error: Failed to parse configuration YAML content: {e}',
                     err=True,
@@ -64,8 +65,6 @@ def _start_app_instance(config: str) -> App:
             err=True,
         )
         sys.exit(1)
-
-    data = unflatten(data, splitter='dot')
 
     try:
         settings = Settings.model_validate(data)
