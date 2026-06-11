@@ -1,3 +1,4 @@
+import threading
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -119,3 +120,61 @@ def test_get_generator_property(manager, fake_params):
         manager.add(fake_params)
 
     assert manager.generator_ids == ['gen1']
+
+
+@patch('eventum.app.manager.Generator')
+def test_concurrent_add_same_id_adds_once(_):
+    manager = GeneratorManager()
+    params = FakeParams('dup')
+    errors: list[Exception] = []
+    lock = threading.Lock()
+    barrier = threading.Barrier(2)
+
+    def worker():
+        barrier.wait()
+        try:
+            manager.add(params)
+        except ManagingError as e:
+            with lock:
+                errors.append(e)
+
+    threads = [threading.Thread(target=worker) for _ in range(2)]
+    for t in threads:
+        t.start()
+    for t in threads:
+        t.join()
+
+    assert manager.generator_ids == ['dup']
+    assert len(errors) == 1
+
+
+@patch('eventum.app.manager.Generator')
+def test_concurrent_remove_same_id_removes_once(_):
+    manager = GeneratorManager()
+    manager.add(FakeParams('dup'))
+    errors: list[Exception] = []
+    lock = threading.Lock()
+    barrier = threading.Barrier(2)
+
+    def worker():
+        barrier.wait()
+        try:
+            manager.remove('dup')
+        except ManagingError as e:
+            with lock:
+                errors.append(e)
+
+    threads = [threading.Thread(target=worker) for _ in range(2)]
+    for t in threads:
+        t.start()
+    for t in threads:
+        t.join()
+
+    assert manager.generator_ids == []
+    assert len(errors) == 1
+
+
+def test_get_generator_missing_raises():
+    manager = GeneratorManager()
+    with pytest.raises(ManagingError):
+        manager.get_generator('absent')

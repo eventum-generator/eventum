@@ -6,6 +6,7 @@ from typing import Any
 import yaml
 
 from eventum.app.startup.exceptions import StartupError
+from eventum.utils.dotted_keys import DottedKeyError, expand_dotted_keys
 
 
 class StartupFile:
@@ -99,7 +100,8 @@ class StartupFile:
     def _parse(self, content: str) -> list[dict]:
         try:
             parsed = yaml.safe_load(content)
-        except yaml.YAMLError as e:
+            parsed = expand_dotted_keys(parsed)
+        except (yaml.YAMLError, DottedKeyError) as e:
             msg = 'Startup file is not valid YAML'
             raise self._build_error(msg, reason=str(e)) from None
 

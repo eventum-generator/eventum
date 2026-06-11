@@ -11,7 +11,7 @@ from string import (
 
 import pytest
 
-import eventum.plugins.event.plugins.template.modules.rand as rand
+from eventum.plugins.event.plugins.template.modules import rand
 
 
 # ---- General Random Functions ----
@@ -158,10 +158,162 @@ def test_string_hex():
     assert all(c in '0123456789abcdef' for c in result)
 
 
+# ---- String Pattern ----
+def test_string_pattern_empty():
+    assert rand.string.pattern('') == ''
+
+
+def test_string_pattern_literal_only():
+    assert rand.string.pattern('hello') == 'hello'
+
+
+def test_string_pattern_lowercase_letter():
+    result = rand.string.pattern('%a')
+    assert len(result) == 1
+    assert result in ascii_lowercase
+
+
+def test_string_pattern_uppercase_letter():
+    result = rand.string.pattern('%A')
+    assert len(result) == 1
+    assert result in ascii_uppercase
+
+
+def test_string_pattern_any_letter():
+    result = rand.string.pattern('%l{20}')
+    assert len(result) == 20
+    assert all(c in ascii_letters for c in result)
+
+
+def test_string_pattern_digit():
+    result = rand.string.pattern('%d{10}')
+    assert len(result) == 10
+    assert all(c in digits for c in result)
+
+
+def test_string_pattern_non_zero_digit():
+    result = rand.string.pattern('%n{100}')
+    assert len(result) == 100
+    assert all(c in '123456789' for c in result)
+
+
+def test_string_pattern_hex_lower():
+    result = rand.string.pattern('%h{16}')
+    assert len(result) == 16
+    assert all(c in '0123456789abcdef' for c in result)
+
+
+def test_string_pattern_hex_upper():
+    result = rand.string.pattern('%H{16}')
+    assert len(result) == 16
+    assert all(c in '0123456789ABCDEF' for c in result)
+
+
+def test_string_pattern_punctuation():
+    result = rand.string.pattern('%p{10}')
+    assert len(result) == 10
+    assert all(c in punctuation for c in result)
+
+
+def test_string_pattern_word():
+    result = rand.string.pattern('%w{30}')
+    assert len(result) == 30
+    assert all(c in ascii_letters + digits for c in result)
+
+
+def test_string_pattern_escaped_percent():
+    assert rand.string.pattern('%%') == '%'
+
+
+def test_string_pattern_escaped_percent_repeated():
+    assert rand.string.pattern('%%{4}') == '%%%%'
+
+
+def test_string_pattern_mixed():
+    result = rand.string.pattern('ID-%A{2}%d{4}')
+    assert len(result) == 9
+    assert result.startswith('ID-')
+    assert all(c in ascii_uppercase for c in result[3:5])
+    assert all(c in digits for c in result[5:])
+
+
+def test_string_pattern_zero_count():
+    assert rand.string.pattern('a%d{0}b') == 'ab'
+
+
+def test_string_pattern_literal_braces():
+    result = rand.string.pattern('{3}')
+    assert result == '{3}'
+
+
+def test_string_pattern_literal_braces_after_text():
+    result = rand.string.pattern('size={5}')
+    assert result == 'size={5}'
+
+
+def test_string_pattern_no_repeat_emits_one():
+    result = rand.string.pattern('%a%A%d')
+    assert len(result) == 3
+    assert result[0] in ascii_lowercase
+    assert result[1] in ascii_uppercase
+    assert result[2] in digits
+
+
+def test_string_pattern_trailing_percent_raises():
+    with pytest.raises(ValueError, match='trailing'):
+        rand.string.pattern('abc%')
+
+
+def test_string_pattern_unknown_specifier_raises():
+    with pytest.raises(ValueError, match='unknown format specifier'):
+        rand.string.pattern('%z')
+
+
+def test_string_pattern_unclosed_brace_raises():
+    with pytest.raises(ValueError, match='unclosed'):
+        rand.string.pattern('%a{5')
+
+
+def test_string_pattern_non_numeric_count_raises():
+    with pytest.raises(ValueError, match='invalid repeat count'):
+        rand.string.pattern('%a{abc}')
+
+
+def test_string_pattern_negative_count_raises():
+    with pytest.raises(ValueError, match='invalid repeat count'):
+        rand.string.pattern('%a{-3}')
+
+
+def test_string_pattern_empty_count_raises():
+    with pytest.raises(ValueError, match='invalid repeat count'):
+        rand.string.pattern('%a{}')
+
+
 # ---- Network Namespace ----
 def test_ip_v4():
     ip = rand.network.ip_v4()
     assert isinstance(ipaddress.ip_address(ip), ipaddress.IPv4Address)
+
+
+def test_ip_v4_private():
+    private_nets = [
+        ipaddress.IPv4Network('10.0.0.0/8'),
+        ipaddress.IPv4Network('172.16.0.0/12'),
+        ipaddress.IPv4Network('192.168.0.0/16'),
+    ]
+    seen_nets: set[int] = set()
+    for _ in range(200):
+        ip = rand.network.ip_v4_private()
+        addr = ipaddress.IPv4Address(ip)
+        matched = next(
+            (i for i, net in enumerate(private_nets) if addr in net),
+            None,
+        )
+        assert matched is not None, f'{ip} not in any RFC 1918 range'
+        seen_nets.add(matched)
+    assert seen_nets == {0, 1, 2}, (
+        f'expected all three ranges to be sampled, got {seen_nets}'
+    )
 
 
 def test_ip_v4_private_a():
@@ -214,10 +366,77 @@ def test_ip_v4_public():
     assert isinstance(ipaddress.ip_address(ip), ipaddress.IPv4Address)
 
 
+def test_ip_v6():
+    ip = rand.network.ip_v6()
+    assert isinstance(ipaddress.ip_address(ip), ipaddress.IPv6Address)
+
+
+def test_ip_v6_global():
+    ip = rand.network.ip_v6_global()
+    assert ipaddress.IPv6Address(ip) in ipaddress.IPv6Network('2000::/3')
+
+
+def test_ip_v6_link_local():
+    ip = rand.network.ip_v6_link_local()
+    assert ipaddress.IPv6Address(ip) in ipaddress.IPv6Network('fe80::/10')
+
+
+def test_ip_v6_ula():
+    ip = rand.network.ip_v6_ula()
+    assert ipaddress.IPv6Address(ip) in ipaddress.IPv6Network('fc00::/7')
+
+
 def test_mac():
     mac = rand.network.mac()
     assert len(mac.split(':')) == 6
     assert all(0 <= int(x, 16) <= 255 for x in mac.split(':'))
+
+
+def test_mac_with_oui():
+    mac = rand.network.mac(oui='00:50:56')
+    parts = mac.split(':')
+    assert len(parts) == 6
+    assert parts[:3] == ['00', '50', '56']
+    assert all(0 <= int(x, 16) <= 255 for x in parts[3:])
+
+
+def test_mac_oui_accepts_dashes():
+    mac = rand.network.mac(oui='aa-bb-cc')
+    assert mac.startswith('aa:bb:cc:')
+
+
+def test_mac_oui_invalid():
+    for bad in ('', '00:50', '00:50:56:78', 'gg:50:56', '0:50:56', 'xyz'):
+        with pytest.raises(ValueError, match='invalid OUI prefix'):
+            rand.network.mac(oui=bad)
+
+
+def test_mac_with_vendor():
+    mac = rand.network.mac(vendor='dell')
+    prefix = ':'.join(mac.split(':')[:3])
+    assert prefix in {
+        '00:14:22',
+        '18:03:73',
+        '34:17:eb',
+        'b0:83:fe',
+        'f8:db:88',
+    }
+
+
+def test_mac_vendor_case_insensitive():
+    mac = rand.network.mac(vendor='VMware')
+    prefix = ':'.join(mac.split(':')[:3])
+    assert prefix in {'00:05:69', '00:0c:29', '00:1c:14', '00:50:56'}
+
+
+def test_mac_unknown_vendor():
+    with pytest.raises(ValueError, match='unknown vendor'):
+        rand.network.mac(vendor='nosuchvendor')
+
+
+def test_mac_oui_and_vendor_mutually_exclusive():
+    with pytest.raises(ValueError, match='mutually exclusive'):
+        rand.network.mac(oui='00:50:56', vendor='vmware')
 
 
 # ---- Crypto Namespace ----
@@ -228,6 +447,12 @@ def test_uuid4():
 def test_md5():
     result = rand.crypto.md5()
     assert len(result) == 32
+    assert all(c in '0123456789abcdef' for c in result)
+
+
+def test_sha1():
+    result = rand.crypto.sha1()
+    assert len(result) == 40
     assert all(c in '0123456789abcdef' for c in result)
 
 

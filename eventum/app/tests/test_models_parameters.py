@@ -9,6 +9,7 @@ from eventum.app.models.parameters.log import LogParameters
 from eventum.app.models.parameters.path import PathParameters
 from eventum.app.models.parameters.server import (
     AuthParameters,
+    MCPParameters,
     ServerParameters,
     SSLParameters,
 )
@@ -184,6 +185,11 @@ def test_server_parameters_port_one_passes():
     assert params.port == 1
 
 
+def test_server_parameters_includes_mcp_defaults() -> None:
+    """ServerParameters exposes nested MCP defaults."""
+    assert ServerParameters().mcp.enabled is False
+
+
 # --- LogParameters ---
 
 
@@ -224,3 +230,43 @@ def test_log_parameters_backups_zero_raises():
 def test_log_parameters_backups_one_passes():
     params = LogParameters(backups=1)
     assert params.backups == 1
+
+
+# --- MCPParameters ---
+
+
+def test_mcp_parameters_defaults() -> None:
+    """Defaults: disabled, read-only, /mcp path, no host allowlist."""
+    params = MCPParameters()
+    assert params.enabled is False
+    assert params.allow_write is False
+    assert params.path == '/mcp'
+    assert params.allowed_hosts == []
+
+
+def test_mcp_parameters_path_requires_leading_slash() -> None:
+    """A path without a leading slash is rejected."""
+    with pytest.raises(ValidationError, match='start with'):
+        MCPParameters(path='mcp')
+
+
+def test_mcp_parameters_path_rejects_trailing_slash() -> None:
+    """A non-root path with a trailing slash is rejected."""
+    with pytest.raises(ValidationError, match='not end with'):
+        MCPParameters(path='/mcp/')
+
+
+def test_mcp_parameters_root_path_allowed() -> None:
+    """The root path '/' is allowed."""
+    assert MCPParameters(path='/').path == '/'
+
+
+def test_mcp_parameters_custom_path() -> None:
+    """A custom mount path is accepted."""
+    assert MCPParameters(path='/agent').path == '/agent'
+
+
+def test_mcp_parameters_rejects_unknown_field() -> None:
+    """Unknown fields are forbidden."""
+    with pytest.raises(ValidationError):
+        MCPParameters(unknown=True)  # type: ignore[call-arg]

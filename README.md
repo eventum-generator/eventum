@@ -11,6 +11,10 @@
 </p>
 
 <p align="center">
+  Realistic synthetic events for testing, demos, and pipelines — streamed live or generated in bulk.
+</p>
+
+<p align="center">
   <a href="https://github.com/eventum-generator/eventum/actions/workflows/ci.yml"><img src="https://github.com/eventum-generator/eventum/actions/workflows/ci.yml/badge.svg" alt="CI" /></a>
   <a href="https://codecov.io/gh/eventum-generator/eventum"><img src="https://codecov.io/gh/eventum-generator/eventum/graph/badge.svg" alt="Coverage" /></a>
   <a href="https://pypi.org/project/eventum-generator"><img src="https://img.shields.io/pypi/v/eventum-generator?color=3873a3" alt="PyPI" /></a>

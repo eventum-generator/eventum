@@ -1,6 +1,7 @@
 """Rand module."""
 
 import datetime as dt
+import functools
 import ipaddress
 import random
 import uuid
@@ -15,6 +16,142 @@ from string import (
 from typing import TypeVar, overload
 
 T = TypeVar('T')
+
+_HEX_LOWER = digits + 'abcdef'
+_HEX_UPPER = digits + 'ABCDEF'
+_WORD = ascii_letters + digits
+_NON_ZERO_DIGITS = '123456789'
+
+_PATTERN_CHARSETS: dict[str, str] = {
+    'a': ascii_lowercase,
+    'A': ascii_uppercase,
+    'l': ascii_letters,
+    'd': digits,
+    'n': _NON_ZERO_DIGITS,
+    'h': _HEX_LOWER,
+    'H': _HEX_UPPER,
+    'p': punctuation,
+    'w': _WORD,
+}
+
+# OUI prefixes per vendor. Each value is a tuple of 3-byte prefixes
+# expressed in lowercase colon notation. Source: public IEEE OUI
+# assignments, sampled to give a few prefixes per vendor.
+_VENDOR_OUIS: dict[str, tuple[str, ...]] = {
+    'apple': ('00:03:93', '00:1f:f3', '04:0c:ce', '6c:96:cf', 'f0:b4:79'),
+    'aruba': ('00:0b:86', '00:1a:1e', '20:4c:03', '94:b4:0f'),
+    'broadcom': ('00:0a:f7', '00:10:18', '00:1b:e9', 'd4:01:29'),
+    'cisco': ('00:00:0c', '00:01:42', '00:1b:54', '00:24:97', 'a4:6c:2a'),
+    'dell': ('00:14:22', '18:03:73', '34:17:eb', 'b0:83:fe', 'f8:db:88'),
+    'fortinet': ('00:09:0f', '04:d5:90', '90:6c:ac', 'e0:23:ff'),
+    'hp': ('00:01:e6', '00:08:83', '00:0e:7f', '3c:d9:2b', '94:18:82'),
+    'huawei': ('00:18:82', '00:1e:10', '04:25:c5', '20:f3:a3', '38:bc:01'),
+    'ibm': ('00:01:e1', '00:09:6b', '00:14:5e', '00:17:ef', '00:21:5e'),
+    'intel': ('00:03:47', '00:07:e9', '00:13:02', 'a0:36:9f', 'e8:b1:fc'),
+    'juniper': ('00:05:85', '00:12:1e', '00:14:f6', '00:17:cb', '00:1f:12'),
+    'lenovo': ('00:21:cc', '54:e1:ad', 'a0:51:0b', 'cc:07:e4', 'e8:6f:38'),
+    'microsoft': ('00:03:ff', '00:15:5d', '00:50:f2', '28:18:78', '60:45:bd'),
+    'mikrotik': ('00:0c:42', '4c:5e:0c', '6c:3b:6b', 'b8:69:f4'),
+    'netgear': ('00:09:5b', '00:14:6c', '00:1b:2f', '20:e5:2a', '4c:60:de'),
+    'paloalto': ('00:1b:17', 'b4:0c:25'),
+    'samsung': ('00:07:ab', '00:23:39', '08:08:c2', '34:23:ba', 'f0:08:f1'),
+    'tplink': ('00:1d:0f', '14:cc:20', '50:c7:bf', '98:da:c4', 'd8:0d:17'),
+    'ubiquiti': ('00:15:6d', '04:18:d6', '24:5a:4c', '74:ac:b9', 'fc:ec:da'),
+    'vmware': ('00:05:69', '00:0c:29', '00:1c:14', '00:50:56'),
+}
+
+
+@functools.lru_cache(maxsize=256)
+def _parse_oui(oui: str) -> tuple[int, int, int]:
+    """Parse a 3-byte OUI prefix into a tuple of integers.
+
+    Accepts ``aa:bb:cc`` and ``aa-bb-cc`` (case-insensitive). Each
+    octet must be exactly two hex digits. Raises ``ValueError`` for
+    any other shape. Cached because callers may invoke ``mac()`` on
+    the hot path with the same prefix repeatedly.
+    """
+    parts = oui.replace('-', ':').split(':')
+    if len(parts) != 3 or not all(len(p) == 2 for p in parts):  # noqa: PLR2004
+        msg = f'invalid OUI prefix: {oui!r}'
+        raise ValueError(msg)
+    try:
+        a, b, c = (int(p, 16) for p in parts)
+    except ValueError:
+        msg = f'invalid OUI prefix: {oui!r}'
+        raise ValueError(msg) from None
+    return a, b, c
+
+
+def _parse_brace_count(format_string: str, start: int) -> tuple[int, int]:
+    """Parse a ``{N}`` block at `start` (the ``{`` position).
+
+    Returns ``(count, next_index)``. Raises ``ValueError`` for an
+    unclosed brace or a non-numeric count.
+    """
+    end = format_string.find('}', start + 1)
+    if end == -1:
+        msg = "unclosed '{' in pattern"
+        raise ValueError(msg)
+    count_str = format_string[start + 1 : end]
+    if not count_str.isdigit():
+        msg = f'invalid repeat count: {count_str!r}'
+        raise ValueError(msg)
+    return int(count_str), end + 1
+
+
+@functools.lru_cache(maxsize=256)
+def _compile_pattern(format_string: str) -> tuple[tuple, ...]:
+    """Parse a pattern string into a tuple of tokens.
+
+    Each token is either ``('lit', text)`` for verbatim text or
+    ``('spec', charset, count)`` for a random-character segment.
+    Results are cached so repeated calls with the same pattern
+    skip re-parsing.
+    """
+    tokens: list[tuple] = []
+    literal_buf: list[str] = []
+    i = 0
+    n = len(format_string)
+
+    while i < n:
+        c = format_string[i]
+        if c != '%':
+            literal_buf.append(c)
+            i += 1
+            continue
+
+        i += 1
+        if i >= n:
+            msg = (
+                "incomplete format specifier at end of pattern (trailing '%')"
+            )
+            raise ValueError(msg)
+
+        spec = format_string[i]
+        i += 1
+
+        count = 1
+        if i < n and format_string[i] == '{':
+            count, i = _parse_brace_count(format_string, i)
+
+        if spec == '%':
+            literal_buf.append('%' * count)
+            continue
+
+        charset = _PATTERN_CHARSETS.get(spec)
+        if charset is None:
+            msg = f'unknown format specifier: %{spec}'
+            raise ValueError(msg)
+
+        if literal_buf:
+            tokens.append(('lit', ''.join(literal_buf)))
+            literal_buf.clear()
+        tokens.append(('spec', charset, count))
+
+    if literal_buf:
+        tokens.append(('lit', ''.join(literal_buf)))
+
+    return tuple(tokens)
 
 
 def shuffle(items: Sequence[T]) -> list[T] | str:
@@ -230,8 +367,41 @@ class string:  # noqa: N801
         """Return string of specified `size` that contains random hex
         characters.
         """
-        hexdigits = digits + 'abcdef'
-        return ''.join(random.choices(hexdigits, k=size))
+        return ''.join(random.choices(_HEX_LOWER, k=size))
+
+    @staticmethod
+    def pattern(format_string: str) -> str:
+        """Return random string built from a printf-like pattern.
+
+        Format specifiers:
+
+        - ``%a`` lowercase letter (a-z)
+        - ``%A`` uppercase letter (A-Z)
+        - ``%l`` any letter (a-zA-Z)
+        - ``%d`` digit (0-9)
+        - ``%n`` non-zero digit (1-9)
+        - ``%h`` lowercase hex (0-9a-f)
+        - ``%H`` uppercase hex (0-9A-F)
+        - ``%p`` ASCII punctuation
+        - ``%w`` word character (a-zA-Z0-9)
+        - ``%%`` literal ``%``
+
+        Append ``{N}`` to a specifier to emit ``N`` random characters
+        from its set instead of one. Other characters in the pattern
+        are emitted as-is.
+
+        Example::
+
+            pattern('%A{3}-%d{4}')  # 'ABC-1234'
+        """
+        parts: list[str] = []
+        for token in _compile_pattern(format_string):
+            if token[0] == 'lit':
+                parts.append(token[1])
+            else:
+                _, charset, count = token
+                parts.append(''.join(random.choices(charset, k=count)))
+        return ''.join(parts)
 
 
 class network:  # noqa: N801
@@ -241,6 +411,25 @@ class network:  # noqa: N801
     def ip_v4() -> str:
         """Return random IPv4 address."""
         return '.'.join(str(random.randint(0, 255)) for _ in range(4))
+
+    @staticmethod
+    def ip_v4_private() -> str:
+        """Return random private IPv4 address (RFC 1918, any class)."""
+        private_ranges = [
+            ('10.0.0.0', '10.255.255.255'),
+            ('172.16.0.0', '172.31.255.255'),
+            ('192.168.0.0', '192.168.255.255'),
+        ]
+        start, end = random.choices(
+            population=private_ranges,
+            weights=[5, 2, 5],
+            k=1,
+        ).pop()
+        ipv4_int = random.randint(
+            int(ipaddress.IPv4Address(start)),
+            int(ipaddress.IPv4Address(end)),
+        )
+        return str(ipaddress.IPv4Address(ipv4_int))
 
     @staticmethod
     def ip_v4_private_a() -> str:
@@ -319,11 +508,68 @@ class network:  # noqa: N801
         return str(net.network_address + offset)
 
     @staticmethod
-    def mac() -> str:
-        """Return random MAC address."""
-        mac = [random.randint(0x00, 0xFF) for _ in range(6)]
+    def ip_v6() -> str:
+        """Return random IPv6 address."""
+        return str(ipaddress.IPv6Address(random.getrandbits(128)))
 
-        return ':'.join(f'{x:02x}' for x in mac)
+    @staticmethod
+    def ip_v6_global() -> str:
+        """Return random global unicast IPv6 address (2000::/3)."""
+        net = ipaddress.IPv6Network('2000::/3')
+        offset = random.randint(0, net.num_addresses - 1)
+        return str(ipaddress.IPv6Address(int(net.network_address) + offset))
+
+    @staticmethod
+    def ip_v6_link_local() -> str:
+        """Return random link-local IPv6 address (fe80::/10)."""
+        net = ipaddress.IPv6Network('fe80::/10')
+        offset = random.randint(0, net.num_addresses - 1)
+        return str(ipaddress.IPv6Address(int(net.network_address) + offset))
+
+    @staticmethod
+    def ip_v6_ula() -> str:
+        """Return random unique local IPv6 address (fc00::/7)."""
+        net = ipaddress.IPv6Network('fc00::/7')
+        offset = random.randint(0, net.num_addresses - 1)
+        return str(ipaddress.IPv6Address(int(net.network_address) + offset))
+
+    @staticmethod
+    def mac(
+        *,
+        oui: str | None = None,
+        vendor: str | None = None,
+    ) -> str:
+        """Return random MAC address.
+
+        Without arguments, all six bytes are random. With `oui`, the
+        given 3-byte prefix is reused and only the last three bytes
+        vary; `oui` accepts ``aa:bb:cc`` or ``aa-bb-cc``. With
+        `vendor`, the prefix is picked at random from a built-in OUI
+        table for that vendor (case-insensitive lookup). Pass at
+        most one of `oui` or `vendor`.
+
+        Raises ``ValueError`` for an invalid `oui`, an unknown
+        `vendor`, or both arguments at once.
+        """
+        if oui is not None and vendor is not None:
+            msg = "'oui' and 'vendor' are mutually exclusive"
+            raise ValueError(msg)
+
+        if vendor is not None:
+            ouis = _VENDOR_OUIS.get(vendor.lower())
+            if ouis is None:
+                msg = f'unknown vendor: {vendor!r}'
+                raise ValueError(msg)
+            oui = random.choice(ouis)
+
+        if oui is not None:
+            prefix = _parse_oui(oui)
+            suffix = (random.randint(0, 0xFF) for _ in range(3))
+            octets = (*prefix, *suffix)
+        else:
+            octets = tuple(random.randint(0, 0xFF) for _ in range(6))
+
+        return ':'.join(f'{x:02x}' for x in octets)
 
 
 class crypto:  # noqa: N801
@@ -338,6 +584,11 @@ class crypto:  # noqa: N801
     def md5() -> str:
         """Return random MD5 hash."""
         return f'{random.getrandbits(128):032x}'
+
+    @staticmethod
+    def sha1() -> str:
+        """Return random SHA-1 hash."""
+        return f'{random.getrandbits(160):040x}'
 
     @staticmethod
     def sha256() -> str:

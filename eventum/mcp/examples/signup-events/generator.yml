@@ -1,0 +1,30 @@
+# Signup-events generator - a worked Eventum example.
+#
+# One JSON signup event per tick, with user fields drawn from a CSV
+# sample. Shows a CSV sample with a header and named-column access in
+# the template (samples.users.pick().<column>).
+
+input:
+  - cron:
+      expression: "* * * * * *"
+      count: 3
+
+event:
+  template:
+    mode: chance
+    samples:
+      users:
+        type: csv
+        source: samples/users.csv
+        header: true
+    templates:
+      - signup:
+          template: templates/signup.json.jinja
+          chance: 1
+
+output:
+  - file:
+      path: output/events.json
+      write_mode: overwrite
+      formatter:
+        format: json

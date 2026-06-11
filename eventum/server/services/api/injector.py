@@ -7,6 +7,7 @@ from eventum.api.main import build_api_app
 from eventum.app.hooks import InstanceHooks
 from eventum.app.manager import GeneratorManager
 from eventum.app.models.settings import Settings
+from eventum.app.startup import Startup
 from eventum.server.exceptions import ServiceBuildingError
 
 
@@ -15,6 +16,7 @@ def inject_service(
     generator_manager: GeneratorManager,
     settings: Settings,
     instance_hooks: InstanceHooks,
+    startup: Startup,
 ) -> None:
     """Inject service to server app.
 
@@ -32,6 +34,9 @@ def inject_service(
     instance_hooks : InstanceHooks
         Instance hooks.
 
+    startup : Startup
+        Shared startup-config service.
+
     Raises
     ------
     ServiceBuildingError
@@ -43,6 +48,7 @@ def inject_service(
             generator_manager=generator_manager,
             settings=settings,
             instance_hooks=instance_hooks,
+            startup=startup,
         )
     except APISchemaGenerationError as e:
         raise ServiceBuildingError(str(e), context=e.context) from e

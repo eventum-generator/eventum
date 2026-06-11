@@ -27,3 +27,5 @@ Adding a new context variable or module function to the template plugin requires
 
 - `globals.ts` under `ui/src/pages/ProjectPage/common/EditorTab/FileEditor/completions/` - Jinja autocomplete.
 - `../docs/content/docs/plugins/event/template/` - user-facing docs.
+
+A **new top-level module namespace** (a new file under `modules/`) must be surfaced in `eventum/plugins/event/plugins/template/reference.py`, which the MCP `eventum://templating/reference` resource introspects. New helpers added to an *existing* namespace appear there automatically.

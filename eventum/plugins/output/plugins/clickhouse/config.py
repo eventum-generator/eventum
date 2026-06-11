@@ -83,6 +83,12 @@ class ClickhouseOutputPluginConfig(OutputPluginConfig, frozen=True):
     proxy_url : HttpUrl | None, default=None
         HTTP(S) proxy address.
 
+    pool_maxsize : int, default=32
+        Maximum number of HTTP connections kept in the underlying
+        connection pool toward the ClickHouse host. Raise this value
+        together with `generation.max_concurrency` to avoid the pool
+        discarding connections under bursts of concurrent writes.
+
     input_format : ClickhouseInputFormat, default='JSONEachRow'
         ClickHouse input format for inserting, documentation:
         https://clickhouse.com/docs/en/interfaces/formats
@@ -123,6 +129,7 @@ class ClickhouseOutputPluginConfig(OutputPluginConfig, frozen=True):
     server_host_name: str | None = Field(default=None, min_length=1)
     tls_mode: Literal['proxy', 'strict', 'mutual'] | None = Field(default=None)
     proxy_url: HttpUrl | None = Field(default=None)
+    pool_maxsize: int = Field(default=32, ge=1)
     input_format: ClickhouseInputFormat = Field(
         default='JSONEachRow',
         validate_default=True,

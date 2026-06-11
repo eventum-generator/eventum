@@ -16,6 +16,7 @@ from eventum.cli.service_manager import (
     ServicePaths,
     ServiceStatus,
 )
+from eventum.utils.dotted_keys import DottedKeyError, expand_dotted_keys
 
 
 def _default_config_dir(*, user_mode: bool) -> Path:
@@ -312,9 +313,12 @@ def _extract_log_dir(
     try:
         with svc_status.config_file.open() as f:
             data = yaml.load(f, Loader=yaml.SafeLoader)
-        if isinstance(data, dict) and 'path.logs' in data:
-            return Path(data['path.logs'])
-    except OSError, yaml.error.YAMLError:
+        data = expand_dotted_keys(data)
+        if isinstance(data, dict):
+            path_params = data.get('path')
+            if isinstance(path_params, dict) and 'logs' in path_params:
+                return Path(path_params['logs'])
+    except OSError, yaml.error.YAMLError, DottedKeyError:
         click.echo(
             f'Warning: Could not read {svc_status.config_file}, '
             'log directory will not be purged.',

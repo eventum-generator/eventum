@@ -1,0 +1,28 @@
+# Audit-backfill generator - a worked Eventum example.
+#
+# A finite batch of audit events at explicit past timestamps. Shows the
+# timestamps input plugin (an explicit, bounded list) - the pattern for
+# backfilling a historical range instead of streaming live.
+
+input:
+  - timestamps:
+      source:
+        - "2026-03-01T08:00:00"
+        - "2026-03-01T08:05:00"
+        - "2026-03-01T08:10:00"
+        - "2026-03-01T08:15:00"
+
+event:
+  template:
+    mode: chance
+    templates:
+      - audit:
+          template: templates/audit.json.jinja
+          chance: 1
+
+output:
+  - file:
+      path: output/audit.json
+      write_mode: overwrite
+      formatter:
+        format: json

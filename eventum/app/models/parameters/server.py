@@ -87,6 +87,48 @@ class AuthParameters(BaseModel, extra='forbid', frozen=True):
     password: str = Field(default='eventum', min_length=1)
 
 
+class MCPParameters(BaseModel, extra='forbid', frozen=True):
+    """MCP server service parameters.
+
+    Attributes
+    ----------
+    enabled : bool, default=False
+        Whether to mount the MCP server over HTTP.
+
+    allow_write : bool, default=False
+        Whether MCP write tools are permitted over HTTP. Enabling this
+        lets a connected agent write and preview generators, and some
+        plugins execute code on the host (the template plugin runs
+        Python, a script plugin runs a provided file) - keep it off
+        unless the network and agent are trusted.
+
+    path : str, default='/mcp'
+        Mount path for the MCP HTTP endpoint.
+
+    allowed_hosts : list[str], default=[]
+        Allowed Host header values for DNS-rebinding protection. Empty
+        disables the check (suitable behind a trusted reverse proxy);
+        a non-empty list enables it and rejects other Host headers.
+
+    """
+
+    enabled: bool = Field(default=False)
+    allow_write: bool = Field(default=False)
+    path: str = Field(default='/mcp', min_length=1)
+    allowed_hosts: list[str] = Field(default_factory=list)
+
+    @field_validator('path')
+    @classmethod
+    def validate_path(cls, v: str) -> str:  # noqa: D102
+        if not v.startswith('/'):
+            msg = 'Path must start with "/"'
+            raise ValueError(msg)
+        if len(v) > 1 and v.endswith('/'):
+            msg = 'Path must not end with "/"'
+            raise ValueError(msg)
+        return v
+
+
 class ServerParameters(BaseModel, extra='forbid', frozen=True):
     """Server parameters.
 
@@ -110,6 +152,9 @@ class ServerParameters(BaseModel, extra='forbid', frozen=True):
     auth : AuthParameters
         Auth parameters.
 
+    mcp : MCPParameters
+        MCP service parameters.
+
     """
 
     ui_enabled: bool = Field(default=True)
@@ -118,3 +163,4 @@ class ServerParameters(BaseModel, extra='forbid', frozen=True):
     port: int = Field(default=9474, ge=1)
     ssl: SSLParameters = Field(default_factory=lambda: SSLParameters())
     auth: AuthParameters = Field(default_factory=lambda: AuthParameters())
+    mcp: MCPParameters = Field(default_factory=lambda: MCPParameters())

@@ -1,0 +1,28 @@
+# Latency-metrics generator - a worked Eventum example.
+#
+# A statsd-style latency line per tick over a fixed time range. Shows a
+# linspace input (evenly spaced timestamps between two bounds) and the
+# template output formatter, where the formatter template wraps the raw
+# event value via the `event` variable.
+
+input:
+  - linspace:
+      start: "2026-01-01T00:00:00"
+      end: "2026-01-01T00:10:00"
+      count: 60
+
+event:
+  template:
+    mode: chance
+    templates:
+      - latency:
+          template: templates/latency.jinja
+          chance: 1
+
+output:
+  - file:
+      path: output/metrics.txt
+      write_mode: overwrite
+      formatter:
+        format: template
+        template: "app.request.latency:{{ event }}|ms"

@@ -44,14 +44,18 @@ Present the plan and wait for approval. Do not widen scope beyond what the issue
 
 ### 3. Branch
 
-Create the feature branch (git-flow convention, off `develop`):
+Work happens in an isolated git worktree - several agents may run in parallel on the same repo, so the main checkout cannot be touched. Create the worktree off the current `develop` (fetch first to pick up new commits):
 
 ```bash
-git switch develop && git pull
-git switch -c feat/<short-slug>
+git fetch origin develop
+git worktree add -b feat/<short-slug> .claude/worktrees/<short-slug> origin/develop
+cd .claude/worktrees/<short-slug>
+git branch --unset-upstream
 ```
 
-Skip if already on a feature branch created for this issue.
+The `--unset-upstream` is mandatory - basing on `origin/develop` makes git treat develop as the tracked branch, which would route a later `git push` to develop. Clear it now so the first `git push -u origin feat/<short-slug>` sets the correct upstream.
+
+Stay in that worktree for all subsequent steps. Skip if the worktree for this issue already exists - just `cd` into it.
 
 ### 4. Implement
 
@@ -98,8 +102,9 @@ Skip this check when the work was delegated to `new-docs-page` - that skill runs
 On user approval (commits and pushes require an explicit ask):
 
 1. Commit using conventional commits.
-2. Push the branch and open a PR targeting `develop` with referencing original issue in the body.
+2. Push the branch with `git push -u origin feat/<short-slug>` and open a PR targeting `develop` with referencing original issue in the body.
 3. Report the PR URL. User will close PR and issue manually.
+4. Worktree stays in `.claude/worktrees/<short-slug>` for follow-up review fixes. Remove it only on the user's explicit ask: `git worktree remove .claude/worktrees/<short-slug>` from the main checkout.
 
 ## Notes
 

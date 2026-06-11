@@ -1,0 +1,10 @@
+{%- set row = samples.users.pick() -%}
+{
+  "@timestamp": "{{ timestamp.isoformat() }}",
+  "event": {"action": "signup"},
+  "user": {
+    "id": {{ row.id }},
+    "plan": "{{ row.plan }}",
+    "country": "{{ row.country }}"
+  }
+}

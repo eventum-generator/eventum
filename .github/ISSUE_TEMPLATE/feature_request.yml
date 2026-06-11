@@ -1,0 +1,55 @@
+name: Feature request
+description: Suggest an idea or improvement
+title: "[Feature]: "
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for suggesting an improvement. For open-ended ideas, consider starting a [Discussion](https://github.com/orgs/eventum-generator/discussions) first.
+  - type: checkboxes
+    id: preflight
+    attributes:
+      label: Preliminary checks
+      options:
+        - label: I searched existing issues and discussions and did not find a duplicate.
+          required: true
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem
+      description: What problem are you trying to solve? What is the use case?
+    validations:
+      required: true
+  - type: textarea
+    id: solution
+    attributes:
+      label: Proposed solution
+      description: Describe what you would like to happen.
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+      description: Other approaches or workarounds you have considered.
+    validations:
+      required: false
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      description: Which part of Eventum does this relate to?
+      multiple: true
+      options:
+        - Input plugin
+        - Event plugin
+        - Output plugin
+        - Core / generation engine
+        - HTTP API
+        - Studio UI
+        - CLI
+        - Documentation
+        - Other
+    validations:
+      required: false

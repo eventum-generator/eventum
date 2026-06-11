@@ -60,6 +60,7 @@ dependencies = [
     "jinja2>=3.1.6",
     "keyring>=25.7.0",
     "keyrings-cryptfile>=1.3.9",
+    "mcp>=1.27.2,<1.28",
     "mimesis>=19.0.0",
     "msgspec>=0.20.0",
     "numpy>=2.4.2",
@@ -181,6 +182,9 @@ exclude = ["**/tests/**"]
 "eventum/api/routers/**/routes.py" = [
     "D103",     # undocumented-public-function
     "FAST003"   # fast-api-unused-path-parameter
+]
+"**/tests/**" = [
+    "S101",     # assert - required in pytest tests
 ]
 
 [tool.ruff.format]

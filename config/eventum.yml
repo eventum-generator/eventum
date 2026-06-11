@@ -52,6 +52,34 @@ server.auth.user: eventum
 # Optional, default is "eventum"
 server.auth.password: eventum
 
+
+# MCP parameters
+
+# Whether to mount the MCP server over HTTP
+# Optional, default is false
+server.mcp.enabled: false
+
+# Whether MCP write tools are permitted over HTTP.
+# WARNING: enabling this lets a connected agent write and preview
+# generators, and some plugins execute code on the host (the template
+# plugin runs Python, a script plugin runs a provided file). Only
+# enable it on a trusted network with a trusted agent.
+# Optional, default is false
+server.mcp.allow_write: false
+
+# Mount path for the MCP HTTP endpoint
+# Optional, default is "/mcp"
+server.mcp.path: "/mcp"
+
+# Allowed Host header values for DNS-rebinding protection.
+# Empty disables the check (use behind a trusted reverse proxy); a
+# non-empty list enables it and rejects other Host headers. Allowed
+# Origin header values are derived from this list (http/https per
+# host), so same-host browser requests pass while foreign origins
+# are rejected.
+# Optional, default is []
+server.mcp.allowed_hosts: []
+
 # =========================== Generation Parameters ===========================
 
 # Time zone for generating timestamps
