@@ -11,14 +11,13 @@ from fastapi import (
     HTTPException,
     Query,
     WebSocket,
-    WebSocketDisconnect,
     WebSocketException,
     status,
 )
 
 from eventum.api.dependencies.app import InstanceHooksDep, SettingsDep
 from eventum.api.routers.instance.models import InstanceInfo
-from eventum.api.utils.file_streaming import stream_file
+from eventum.api.utils.log_streaming import stream_log_file_to_websocket
 from eventum.api.utils.websocket_annotations import (
     AsyncAPIMessage,
     Receives,
@@ -162,15 +161,8 @@ async def stream_main_logs(
             reason='Log file does not exist',
         )
 
-    try:
-        async for content in stream_file(path=path, end_offset=end_offset):
-            try:
-                await websocket.send_text(content)
-            except WebSocketDisconnect:
-                break
-    except OSError as e:
-        if websocket.client_state.name == 'CONNECTED':
-            raise WebSocketException(
-                code=status.WS_1011_INTERNAL_ERROR,
-                reason=f'Failed to read log file due to OS error: {e}',
-            ) from None
+    await stream_log_file_to_websocket(
+        websocket=websocket,
+        path=path,
+        end_offset=end_offset,
+    )
