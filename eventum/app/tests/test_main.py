@@ -1,24 +1,27 @@
 """Tests for App."""
 
+import socket
 from pathlib import Path
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, patch
 
 import pytest
 
 from eventum.app.hooks import InstanceHooks
-from eventum.app.main import App
+from eventum.app.main import App, AppError
 from eventum.app.models.parameters.log import LogParameters
 from eventum.app.models.parameters.path import PathParameters
-from eventum.app.models.parameters.server import ServerParameters
+from eventum.app.models.parameters.server import (
+    MCPParameters,
+    ServerParameters,
+)
 from eventum.app.models.settings import Settings
 from eventum.core.parameters import GenerationParameters
 
 
-@pytest.fixture
-def settings(tmp_path: Path) -> Settings:
-    """Build a minimal valid Settings for tests."""
+def _make_settings(tmp_path: Path, server: ServerParameters) -> Settings:
+    """Build a minimal valid Settings rooted under tmp_path."""
     return Settings(
-        server=ServerParameters(),
+        server=server,
         generation=GenerationParameters(),
         log=LogParameters(),
         path=PathParameters(
@@ -30,8 +33,7 @@ def settings(tmp_path: Path) -> Settings:
     )
 
 
-@pytest.fixture
-def instance_hooks(settings: Settings) -> InstanceHooks:
+def _make_hooks(settings: Settings) -> InstanceHooks:
     """Build a no-op InstanceHooks for tests."""
     return InstanceHooks(
         get_settings_file_path=lambda: settings.path.startup,
@@ -40,10 +42,81 @@ def instance_hooks(settings: Settings) -> InstanceHooks:
     )
 
 
+def _make_mcp_only_app(tmp_path: Path) -> App:
+    """Build an App with only the MCP service enabled."""
+    (tmp_path / 'startup.yml').write_text('[]')
+    settings = _make_settings(
+        tmp_path,
+        ServerParameters(
+            api_enabled=False,
+            ui_enabled=False,
+            mcp=MCPParameters(enabled=True),
+        ),
+    )
+    return App(settings=settings, instance_hooks=_make_hooks(settings))
+
+
+@pytest.fixture
+def settings(tmp_path: Path) -> Settings:
+    """Build a minimal valid Settings for tests."""
+    return _make_settings(tmp_path, ServerParameters())
+
+
+@pytest.fixture
+def instance_hooks(settings: Settings) -> InstanceHooks:
+    """Build a no-op InstanceHooks for tests."""
+    return _make_hooks(settings)
+
+
 @pytest.fixture
 def app(settings: Settings, instance_hooks: InstanceHooks) -> App:
     """Build an App instance for tests."""
     return App(settings=settings, instance_hooks=instance_hooks)
+
+
+def test_start_starts_server_when_only_mcp_enabled(tmp_path: Path) -> None:
+    """The server must start when MCP is the only enabled service."""
+    app = _make_mcp_only_app(tmp_path)
+
+    with (
+        patch('eventum.server.main.build_server_app') as mock_build,
+        patch('eventum.app.main.uvicorn') as mock_uvicorn,
+    ):
+        app.start()
+        try:
+            mock_build.assert_called_once()
+            enabled = mock_build.call_args.kwargs['enabled_services']
+            assert enabled == {'api': False, 'ui': False, 'mcp': True}
+            mock_uvicorn.Server.assert_called_once()
+        finally:
+            app.stop()
+
+
+def test_stop_stops_server_when_only_mcp_enabled(tmp_path: Path) -> None:
+    """stop() must stop the server when only MCP is enabled."""
+    app = _make_mcp_only_app(tmp_path)
+
+    with patch.object(App, '_stop_server') as mock_stop:
+        app.stop()
+
+    mock_stop.assert_called_once()
+
+
+def test_start_skips_server_when_no_service_enabled(
+    tmp_path: Path,
+) -> None:
+    """No server starts when api, ui, and mcp are all disabled."""
+    (tmp_path / 'startup.yml').write_text('[]')
+    settings = _make_settings(
+        tmp_path,
+        ServerParameters(api_enabled=False, ui_enabled=False),
+    )
+    app = App(settings=settings, instance_hooks=_make_hooks(settings))
+
+    with patch.object(App, '_start_server') as mock_start:
+        app.start()
+
+    mock_start.assert_not_called()
 
 
 def test_stop_server_noop_when_server_not_started(app: App) -> None:
@@ -68,8 +141,8 @@ def test_stop_server_graceful_when_thread_exits_in_time(app: App) -> None:
 
     app._stop_server()  # noqa: SLF001
 
-    assert server.should_exit is True  # noqa: S101
-    assert server.force_exit is False  # noqa: S101
+    assert server.should_exit is True
+    assert server.force_exit is False
     thread.join.assert_called_once_with(timeout=App.SERVER_SHUTDOWN_TIMEOUT)
 
 
@@ -90,14 +163,113 @@ def test_stop_server_forces_exit_when_thread_hangs(app: App) -> None:
 
     app._stop_server()  # noqa: SLF001
 
-    assert server.should_exit is True  # noqa: S101
-    assert server.force_exit is True  # noqa: S101
-    assert thread.join.call_count == 2  # noqa: S101, PLR2004
+    assert server.should_exit is True
+    assert server.force_exit is True
+    assert thread.join.call_count == 2  # noqa: PLR2004
     thread.join.assert_any_call(timeout=App.SERVER_SHUTDOWN_TIMEOUT)
     thread.join.assert_any_call()
 
 
 def test_server_shutdown_timeout_is_positive_int() -> None:
     """The shutdown timeout must be a positive int (uvicorn type)."""
-    assert isinstance(App.SERVER_SHUTDOWN_TIMEOUT, int)  # noqa: S101
-    assert App.SERVER_SHUTDOWN_TIMEOUT >= 1  # noqa: S101
+    assert isinstance(App.SERVER_SHUTDOWN_TIMEOUT, int)
+    assert App.SERVER_SHUTDOWN_TIMEOUT >= 1
+
+
+async def _asgi_stub(scope, receive, send) -> None:  # noqa: ANN001
+    """Minimal ASGI app for binding a real uvicorn server."""
+    if scope['type'] == 'lifespan':
+        while True:
+            message = await receive()
+            if message['type'] == 'lifespan.startup':
+                await send({'type': 'lifespan.startup.complete'})
+            elif message['type'] == 'lifespan.shutdown':
+                await send({'type': 'lifespan.shutdown.complete'})
+                return
+
+
+def test_start_raises_when_address_is_in_use(tmp_path: Path) -> None:
+    """A failed server bind must raise AppError instead of leaving
+    the app hanging with a dead server thread, and must stop the
+    already-started generators.
+    """
+    blocker = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    blocker.bind(('127.0.0.1', 0))
+    blocker.listen(1)
+    port = blocker.getsockname()[1]
+
+    (tmp_path / 'startup.yml').write_text('[]')
+    settings = _make_settings(
+        tmp_path,
+        ServerParameters(
+            host='127.0.0.1',
+            port=port,
+            api_enabled=False,
+            ui_enabled=False,
+            mcp=MCPParameters(enabled=True),
+        ),
+    )
+    app = App(settings=settings, instance_hooks=_make_hooks(settings))
+
+    try:
+        with (
+            patch(
+                'eventum.server.main.build_server_app',
+                return_value=_asgi_stub,
+            ),
+            patch.object(App, '_stop_generators') as mock_stop_gens,
+            pytest.raises(AppError, match='Server failed to start'),
+        ):
+            app.start()
+    finally:
+        blocker.close()
+
+    mock_stop_gens.assert_called_once()
+
+
+def test_run_server_terminates_app_on_unexpected_death(
+    settings: Settings,
+) -> None:
+    """A server dying after successful startup must trigger the
+    terminate hook so the app stops instead of running headless.
+    """
+    terminate = MagicMock()
+    hooks = InstanceHooks(
+        get_settings_file_path=lambda: settings.path.startup,
+        terminate=terminate,
+        restart=lambda: None,
+    )
+    app = App(settings=settings, instance_hooks=hooks)
+
+    server = MagicMock()
+    server.started = True
+    server.should_exit = False
+    server.run.side_effect = SystemExit(1)
+    app._server = server  # noqa: SLF001
+
+    app._run_server()  # noqa: SLF001
+
+    terminate.assert_called_once()
+
+
+def test_run_server_no_terminate_on_graceful_stop(
+    settings: Settings,
+    instance_hooks: InstanceHooks,
+) -> None:
+    """A server stopped via should_exit must not trigger terminate."""
+    terminate = MagicMock()
+    hooks = InstanceHooks(
+        get_settings_file_path=instance_hooks['get_settings_file_path'],
+        terminate=terminate,
+        restart=instance_hooks['restart'],
+    )
+    app = App(settings=settings, instance_hooks=hooks)
+
+    server = MagicMock()
+    server.started = True
+    server.should_exit = True
+    app._server = server  # noqa: SLF001
+
+    app._run_server()  # noqa: SLF001
+
+    terminate.assert_not_called()

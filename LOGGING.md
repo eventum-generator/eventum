@@ -289,3 +289,26 @@
         <td>str</td>
     </tr>
 </table>
+
+## MCP
+
+<table>
+    <th>Name</th>
+    <th>Description</th>
+    <th>Data type</th>
+    <tr>
+        <td>mcp_tool</td>
+        <td>Name of the invoked MCP tool</td>
+        <td>str</td>
+    </tr>
+    <tr>
+        <td>mcp_transport</td>
+        <td>MCP transport in use: `stdio` or `http`</td>
+        <td>str</td>
+    </tr>
+    <tr>
+        <td>read_only</td>
+        <td>Whether the MCP server refuses write tools</td>
+        <td>bool</td>
+    </tr>
+</table>

@@ -1,0 +1,29 @@
+# Web access-log generator - a worked Eventum example.
+#
+# One JSON access-log event per tick: a random client IP, an HTTP
+# method, a path drawn from a sample, its status code, and a response
+# size. Copy it as a starting point for your own generator.
+
+input:
+  - cron:
+      expression: "* * * * * *"
+      count: 5
+
+event:
+  template:
+    mode: chance
+    samples:
+      paths:
+        type: json
+        source: samples/paths.json
+    templates:
+      - access:
+          template: templates/access.json.jinja
+          chance: 1
+
+output:
+  - file:
+      path: output/events.json
+      write_mode: overwrite
+      formatter:
+        format: json

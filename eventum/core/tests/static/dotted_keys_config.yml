@@ -1,0 +1,16 @@
+input:
+  - cron:
+      expression: "*/5 * * * *"
+      count: 1
+
+event:
+  template.mode: all
+  template:
+    params: {}
+    samples: {}
+    templates:
+      - test.template: "test.jinja"
+
+output:
+  - stdout:
+      formatter.format: plain

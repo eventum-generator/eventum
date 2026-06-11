@@ -1,0 +1,17 @@
+label: Conflicting time pattern
+oscillator.start: "now"
+oscillator:
+  start: "2024-01-01T00:00:00.000Z"
+  end: +1s
+  period: 0.1
+  unit: seconds
+multiplier:
+  ratio: 10000
+randomizer:
+  deviation: 0.1
+  direction: mixed
+spreader:
+  distribution: beta
+  parameters:
+    a: 5
+    b: 5

@@ -134,6 +134,11 @@ class Sample:
             return self._rows[key]
         return self._dataset[key]
 
+    @property
+    def columns(self) -> list[str]:
+        """Return the sample's column names in order."""
+        return list(self._field_map)
+
     def where(self, **conditions: Any) -> Sample:
         """Return a sample of rows matching all equality conditions.
 

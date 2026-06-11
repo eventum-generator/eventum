@@ -39,6 +39,7 @@ def build_api_app(
     generator_manager: GeneratorManager,
     settings: Settings,
     instance_hooks: InstanceHooks,
+    startup: Startup | None = None,
 ) -> FastAPI:
     """Build FastAPI application.
 
@@ -52,6 +53,10 @@ def build_api_app(
 
     instance_hooks : InstanceHooks
         Instance hooks.
+
+    startup : Startup | None, default None
+        Shared startup-config service. When omitted, a new instance is
+        created from settings.
 
     Returns
     -------
@@ -89,10 +94,14 @@ def build_api_app(
     app.state.generator_manager = generator_manager
     app.state.settings = settings
     app.state.instance_hooks = instance_hooks
-    app.state.startup = Startup(
-        file_path=settings.path.startup,
-        generators_dir=settings.path.generators_dir,
-        generation_parameters=settings.generation,
+    app.state.startup = (
+        startup
+        if startup is not None
+        else Startup(
+            file_path=settings.path.startup,
+            generators_dir=settings.path.generators_dir,
+            generation_parameters=settings.generation,
+        )
     )
 
     logger.debug('Connecting routers')

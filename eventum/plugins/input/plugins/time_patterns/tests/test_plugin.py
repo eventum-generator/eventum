@@ -65,3 +65,39 @@ def test_time_pattern_invalid_config():
         TimePatternsInputPlugin(
             config=config, params={'id': 1, 'timezone': ZoneInfo('UTC')}
         )
+
+
+def test_time_pattern_dotted_keys_config():
+    params = {'id': 1, 'timezone': ZoneInfo('UTC')}
+
+    dotted_plugin = TimePatternsInputPlugin(
+        config=TimePatternsInputPluginConfig(
+            patterns=[STATIC_FILES_DIR / 'pattern_dotted.yml'],
+        ),
+        params=params,
+    )
+    canonical_plugin = TimePatternsInputPlugin(
+        config=TimePatternsInputPluginConfig(
+            patterns=[STATIC_FILES_DIR / 'pattern1.yml'],
+        ),
+        params=params,
+    )
+
+    dotted_config = dotted_plugin._time_patterns[0].config
+    canonical_config = canonical_plugin._time_patterns[0].config
+    assert dotted_config == canonical_config
+
+
+def test_time_pattern_conflicting_dotted_keys_config():
+    config = TimePatternsInputPluginConfig(
+        patterns=[
+            STATIC_FILES_DIR / 'pattern_conflicting.yml',
+        ]
+    )
+
+    with pytest.raises(PluginConfigurationError) as exc:
+        TimePatternsInputPlugin(
+            config=config, params={'id': 1, 'timezone': ZoneInfo('UTC')}
+        )
+
+    assert 'oscillator.start' in exc.value.context['reason']

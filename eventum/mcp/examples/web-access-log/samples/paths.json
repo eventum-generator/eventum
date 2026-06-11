@@ -1,0 +1,7 @@
+[
+  {"path": "/", "status": 200},
+  {"path": "/login", "status": 200},
+  {"path": "/api/v1/users", "status": 200},
+  {"path": "/admin", "status": 403},
+  {"path": "/missing", "status": 404}
+]

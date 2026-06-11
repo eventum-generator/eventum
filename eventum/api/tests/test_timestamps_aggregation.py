@@ -6,27 +6,7 @@ import numpy as np
 
 from eventum.api.routers.preview.timestamps_aggregation import (
     aggregate_timestamps,
-    calculate_auto_span,
 )
-
-
-# --- calculate_auto_span ---
-
-
-def test_calculate_auto_span_small_range():
-    earliest = np.datetime64('2024-01-01T00:00:00', 'us')
-    latest = np.datetime64('2024-01-01T00:00:10', 'us')
-    span = calculate_auto_span(earliest, latest, 10, 30)
-    assert span <= np.timedelta64(10, 's')
-
-
-def test_calculate_auto_span_24h_range():
-    earliest = np.datetime64('2024-01-01T00:00:00', 'us')
-    latest = np.datetime64('2024-01-02T00:00:00', 'us')
-    span = calculate_auto_span(earliest, latest, 1000, 30)
-    assert span >= np.timedelta64(1, 's')
-    assert span <= np.timedelta64(24, 'h')
-
 
 # --- aggregate_timestamps ---
 

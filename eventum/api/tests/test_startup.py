@@ -7,6 +7,9 @@ import yaml
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
+from eventum.api.routers.startup.dependencies import (
+    StartupGeneratorsParametersListDep,
+)
 from eventum.api.routers.startup.routes import router
 from eventum.app.models.parameters.log import LogParameters
 from eventum.app.models.parameters.path import PathParameters
@@ -184,3 +187,60 @@ def test_delete_startup_entry_not_found(
     _write_startup(tmp_settings, [_gen_entry('gen1')])
     response = client.delete('/startup/missing')
     assert response.status_code == 404  # noqa: S101, PLR2004
+
+
+# --- startup parameters dependency (scenarios router) ---
+
+
+def _probe_client(tmp_settings: Settings) -> TestClient:
+    """Build a client with a probe route using the dependency."""
+    app = FastAPI()
+    app.state.settings = tmp_settings
+
+    @app.get('/probe')
+    async def probe(
+        data: StartupGeneratorsParametersListDep,
+    ) -> dict:
+        params_list, raw = data
+        return {
+            'batch_size': params_list.root[0].batch.size,
+            'raw': raw,
+        }
+
+    return TestClient(app)
+
+
+def test_startup_dependency_expands_dotted_keys(
+    tmp_settings: Settings,
+) -> None:
+    """Dotted keys in entries expand for model and raw views."""
+    tmp_settings.path.startup.write_text(
+        '- id: gen-1\n  path: gen-1/generator.yml\n  batch.size: 5\n',
+    )
+
+    with _probe_client(tmp_settings) as client:
+        response = client.get('/probe')
+
+    assert response.status_code == 200  # noqa: S101, PLR2004
+    data = response.json()
+    assert data['batch_size'] == 5  # noqa: S101, PLR2004
+    assert data['raw'][0]['batch'] == {'size': 5}  # noqa: S101
+
+
+def test_startup_dependency_conflicting_dotted_keys(
+    tmp_settings: Settings,
+) -> None:
+    """Conflicting spellings yield 500 naming the key path."""
+    tmp_settings.path.startup.write_text(
+        '- id: gen-1\n'
+        '  path: gen-1/generator.yml\n'
+        '  batch.size: 5\n'
+        '  batch:\n'
+        '    size: 6\n',
+    )
+
+    with _probe_client(tmp_settings) as client:
+        response = client.get('/probe')
+
+    assert response.status_code == 500  # noqa: S101, PLR2004
+    assert '[0].batch.size' in response.json()['detail']  # noqa: S101

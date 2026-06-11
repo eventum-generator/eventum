@@ -1,18 +1,14 @@
 """Authorization dependencies."""
 
-import base64
-import secrets
 from typing import Annotated
 
 from fastapi import Depends, HTTPException, Request, WebSocket, status
-from fastapi.security import HTTPBasic
 from fastapi.security.utils import get_authorization_scheme_param
 
 from eventum.api.dependencies.app import SettingsDep
 from eventum.api.utils.response_description import set_responses
 from eventum.app.models.settings import Settings
-
-security = HTTPBasic()
+from eventum.security.auth import verify_basic_credentials
 
 type _SessionID = str
 type _Username = str
@@ -100,26 +96,19 @@ def check_auth(
     if auth_header is not None:
         scheme, param = get_authorization_scheme_param(auth_header)
 
-        if scheme != 'Basic':
+        if scheme.lower() != 'basic':
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail=f'{scheme} authorization is not supported',
             )
 
-        decoded = base64.b64decode(param).decode()
-        username, _, password = decoded.partition(':')
-
-        is_correct_username = secrets.compare_digest(
-            username.encode(),
-            settings.server.auth.user.encode(),
+        username = verify_basic_credentials(
+            param,
+            settings.server.auth.user,
+            settings.server.auth.password,
         )
 
-        is_correct_password = secrets.compare_digest(
-            password.encode(),
-            settings.server.auth.password.encode(),
-        )
-
-        if not (is_correct_username and is_correct_password):
+        if username is None:
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail='Incorrect username or password',
