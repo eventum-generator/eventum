@@ -1,12 +1,13 @@
 """Tests for App."""
 
+import socket
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import pytest
 
 from eventum.app.hooks import InstanceHooks
-from eventum.app.main import App
+from eventum.app.main import App, AppError
 from eventum.app.models.parameters.log import LogParameters
 from eventum.app.models.parameters.path import PathParameters
 from eventum.app.models.parameters.server import (
@@ -173,3 +174,102 @@ def test_server_shutdown_timeout_is_positive_int() -> None:
     """The shutdown timeout must be a positive int (uvicorn type)."""
     assert isinstance(App.SERVER_SHUTDOWN_TIMEOUT, int)
     assert App.SERVER_SHUTDOWN_TIMEOUT >= 1
+
+
+async def _asgi_stub(scope, receive, send) -> None:  # noqa: ANN001
+    """Minimal ASGI app for binding a real uvicorn server."""
+    if scope['type'] == 'lifespan':
+        while True:
+            message = await receive()
+            if message['type'] == 'lifespan.startup':
+                await send({'type': 'lifespan.startup.complete'})
+            elif message['type'] == 'lifespan.shutdown':
+                await send({'type': 'lifespan.shutdown.complete'})
+                return
+
+
+def test_start_raises_when_address_is_in_use(tmp_path: Path) -> None:
+    """A failed server bind must raise AppError instead of leaving
+    the app hanging with a dead server thread, and must stop the
+    already-started generators.
+    """
+    blocker = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    blocker.bind(('127.0.0.1', 0))
+    blocker.listen(1)
+    port = blocker.getsockname()[1]
+
+    (tmp_path / 'startup.yml').write_text('[]')
+    settings = _make_settings(
+        tmp_path,
+        ServerParameters(
+            host='127.0.0.1',
+            port=port,
+            api_enabled=False,
+            ui_enabled=False,
+            mcp=MCPParameters(enabled=True),
+        ),
+    )
+    app = App(settings=settings, instance_hooks=_make_hooks(settings))
+
+    try:
+        with (
+            patch(
+                'eventum.server.main.build_server_app',
+                return_value=_asgi_stub,
+            ),
+            patch.object(App, '_stop_generators') as mock_stop_gens,
+            pytest.raises(AppError, match='Server failed to start'),
+        ):
+            app.start()
+    finally:
+        blocker.close()
+
+    mock_stop_gens.assert_called_once()
+
+
+def test_run_server_terminates_app_on_unexpected_death(
+    settings: Settings,
+) -> None:
+    """A server dying after successful startup must trigger the
+    terminate hook so the app stops instead of running headless.
+    """
+    terminate = MagicMock()
+    hooks = InstanceHooks(
+        get_settings_file_path=lambda: settings.path.startup,
+        terminate=terminate,
+        restart=lambda: None,
+    )
+    app = App(settings=settings, instance_hooks=hooks)
+
+    server = MagicMock()
+    server.started = True
+    server.should_exit = False
+    server.run.side_effect = SystemExit(1)
+    app._server = server  # noqa: SLF001
+
+    app._run_server()  # noqa: SLF001
+
+    terminate.assert_called_once()
+
+
+def test_run_server_no_terminate_on_graceful_stop(
+    settings: Settings,
+    instance_hooks: InstanceHooks,
+) -> None:
+    """A server stopped via should_exit must not trigger terminate."""
+    terminate = MagicMock()
+    hooks = InstanceHooks(
+        get_settings_file_path=instance_hooks['get_settings_file_path'],
+        terminate=terminate,
+        restart=instance_hooks['restart'],
+    )
+    app = App(settings=settings, instance_hooks=hooks)
+
+    server = MagicMock()
+    server.started = True
+    server.should_exit = True
+    app._server = server  # noqa: SLF001
+
+    app._run_server()  # noqa: SLF001
+
+    terminate.assert_not_called()

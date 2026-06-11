@@ -1,6 +1,7 @@
 """Main application definition."""
 
 import ssl
+import time
 from threading import Thread
 
 import structlog
@@ -28,6 +29,7 @@ class App:
     """Main application."""
 
     SERVER_SHUTDOWN_TIMEOUT = 10
+    SERVER_STARTUP_TIMEOUT = 30
 
     def __init__(
         self,
@@ -99,7 +101,13 @@ class App:
             try:
                 self._start_server()
             except ServiceBuildingError as e:
+                logger.info('Stopping generators')
+                self._stop_generators()
                 raise AppError(str(e), context=e.context) from e
+            except AppError:
+                logger.info('Stopping generators')
+                self._stop_generators()
+                raise
 
     def stop(self) -> None:
         """Stop the app."""
@@ -227,17 +235,28 @@ class App:
         self._manager.bulk_stop(generator_ids)
 
     def _run_server(self) -> None:
-        """Run server with handling possible errors."""
+        """Run server with handling possible errors.
+
+        If the server stops on its own after a successful startup,
+        terminates the instance via the hook so the app does not keep
+        running without its server.
+        """
         if self._server is None:
             return
 
         try:
             self._server.run()
+        except SystemExit as e:
+            logger.error('Server exited prematurely', reason=str(e))
         except Exception as e:
             logger.exception(
                 'Unexpected error occurred during server execution',
                 reason=str(e),
             )
+
+        if self._server.started and not self._server.should_exit:
+            logger.error('Server stopped unexpectedly, stopping the app')
+            self._instance_hooks['terminate']()
 
     def _start_server(self) -> None:
         """Start application server.
@@ -246,6 +265,10 @@ class App:
         ------
         ServiceBuildingError
             If some of the service fails to build.
+
+        AppError
+            If the server fails to start (e.g. the address is
+            already in use).
 
         """
         from eventum.server.main import build_server_app
@@ -289,6 +312,46 @@ class App:
             ),
         )
         self._server_thread.start()
+        self._wait_server_startup()
+
+    def _wait_server_startup(self) -> None:
+        """Wait until the server is started or fails to start.
+
+        Returns once the server reports successful startup. If the
+        startup takes longer than ``SERVER_STARTUP_TIMEOUT``, gives
+        up waiting with a warning and lets the server continue in
+        the background.
+
+        Raises
+        ------
+        AppError
+            If the server thread exits before the server reports
+            successful startup (e.g. the address is already in
+            use).
+
+        """
+        deadline = time.monotonic() + self.SERVER_STARTUP_TIMEOUT
+
+        while time.monotonic() < deadline:
+            if self._server is not None and self._server.started:
+                return
+
+            if not self._server_thread.is_alive():
+                msg = 'Server failed to start'
+                raise AppError(
+                    msg,
+                    context={
+                        'host': self._settings.server.host,
+                        'port': self._settings.server.port,
+                    },
+                )
+
+            time.sleep(0.05)
+
+        logger.warning(
+            'Server did not report startup within the timeout',
+            timeout=self.SERVER_STARTUP_TIMEOUT,
+        )
 
     def _stop_server(self) -> None:
         """Stop application server.

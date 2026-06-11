@@ -18,6 +18,7 @@ All notable changes to this project will be documented in this file.
 
 ### 🐛 Bug Fixes
 
+- **Failed server startup no longer hangs the app** — when the server cannot start (e.g. the port is already in use), `eventum run` now stops the generators and exits with a clear `Server failed to start` error instead of running headless until interrupted; a server that dies after a successful startup now shuts the whole app down instead of leaving it running without a server
 - **Dot-separated config keys work at any depth, in every YAML file** — previously only the top level of `eventum.yml` understood dotted keys, so a nested spelling like `server: {mcp.enabled: true}` was rejected with `extra inputs are not permitted`. Now `eventum.yml`, generator configs, `startup.yml`, and time-pattern files all accept dotted keys at any nesting level, both spellings can be mixed and are deep-merged, and defining the same key twice fails with the exact conflicting path
 
 ## 2.5.0 (2026-05-14)
