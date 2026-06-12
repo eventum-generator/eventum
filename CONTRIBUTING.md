@@ -22,7 +22,6 @@ Eventum is developed across several repositories in the [eventum-generator](http
 | [website](https://github.com/eventum-generator/website) | Project website source |
 | [content-packs](https://github.com/eventum-generator/content-packs) | Ready-to-use generators for SIEM data sources (ECS-compatible) |
 | [dependency-patterns](https://github.com/eventum-generator/dependency-patterns) | Collection of data dependency patterns with validation queries |
-| [utils](https://github.com/eventum-generator/utils) | Helper utilities for Eventum |
 
 ## Questions and discussions
 
