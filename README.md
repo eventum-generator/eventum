@@ -44,7 +44,7 @@ Eventum produces synthetic events and delivers them anywhere — in real time or
 </p>
 
 <p align="center">
-  <img src="https://raw.githubusercontent.com/eventum-generator/eventum/master/.github/assets/studio_dark.png" alt="Eventum Studio — event debugger" width="680" />
+  <img src="https://raw.githubusercontent.com/eventum-generator/eventum/master/.github/assets/demo.gif" alt="Eventum CLI generating events in live mode" width="680" />
 </p>
 
 ## Highlights
@@ -55,6 +55,7 @@ Eventum produces synthetic events and delivers them anywhere — in real time or
 - **Two modes** — stream events in real time at their scheduled timestamps, or generate everything as fast as possible
 - **Built-in web UI** — [Eventum Studio](https://eventum.run) for visual editing, event preview, and monitoring
 - **REST API** — start, stop, and manage generators programmatically
+- **MCP server** — manage generators and author configurations from AI assistants via the Model Context Protocol
 - **Encrypted secrets** — credentials stored securely via an encrypted keyring
 - **Docker ready** — multi-stage builds, runs anywhere
 
@@ -96,7 +97,7 @@ output:
 **Run**
 
 ```bash
-eventum generate --path generator.yml --live-mode
+eventum generate --path generator.yml --id demo
 ```
 
 ```
@@ -119,6 +120,14 @@ eventum run -c eventum.yml
 ```
 
 Starts on port **9474** with **Eventum Studio** (web UI), **REST API**, and **multi-generator orchestration** — each generator runs independently with its own schedule, templates, and outputs.
+
+## Eventum Studio
+
+**Eventum Studio** is the web UI included in application mode: edit generator configurations and templates, preview rendered events, and monitor running generators.
+
+<p align="center">
+  <img src="https://raw.githubusercontent.com/eventum-generator/eventum/master/.github/assets/studio_dark.png" alt="Eventum Studio — event debugger" width="680" />
+</p>
 
 ## Documentation
 
