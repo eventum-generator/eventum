@@ -11,6 +11,19 @@ By participating you agree to abide by our [Code of Conduct](CODE_OF_CONDUCT.md)
 - Share or improve ready-to-use generators (content packs).
 - Fix bugs or implement features and open a pull request.
 
+## Project repositories
+
+Eventum is developed across several repositories in the [eventum-generator](https://github.com/eventum-generator) organization. This repository is the main one; pick the matching repository when reporting issues or contributing changes.
+
+| Repository | Description |
+|:-----------|:------------|
+| [eventum](https://github.com/eventum-generator/eventum) | Core platform - plugin-based pipeline engine, REST API, web UI, CLI |
+| [docs](https://github.com/eventum-generator/docs) | Documentation site source, published at [eventum.run](https://eventum.run) |
+| [website](https://github.com/eventum-generator/website) | Project website source |
+| [content-packs](https://github.com/eventum-generator/content-packs) | Ready-to-use generators for SIEM data sources (ECS-compatible) |
+| [dependency-patterns](https://github.com/eventum-generator/dependency-patterns) | Collection of data dependency patterns with validation queries |
+| [utils](https://github.com/eventum-generator/utils) | Helper utilities for Eventum |
+
 ## Questions and discussions
 
 For usage questions, ideas, and open-ended discussion, use [GitHub Discussions](https://github.com/orgs/eventum-generator/discussions) rather than the issue tracker. Issues are reserved for actionable bug reports and feature requests.
