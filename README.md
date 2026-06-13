@@ -45,12 +45,6 @@ Eventum produces synthetic events and delivers them anywhere — in real time or
 </p>
 
 <p align="center">
-  <a href="https://app.arcade.software/share/QjQVk47rN7AJd5Eft38x">
-    <img src="https://raw.githubusercontent.com/eventum-generator/eventum/master/.github/assets/arcade-tutorial.png" alt="Interactive tutorial — build your first generator" width="700" />
-  </a>
-</p>
-
-<p align="center">
   <a href="https://app.arcade.software/share/QjQVk47rN7AJd5Eft38x"><strong>▶ Launch the interactive tutorial</strong></a>
 </p>
 
