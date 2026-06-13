@@ -34,7 +34,7 @@ classifiers = [
     "Intended Audience :: Developers",
     "Intended Audience :: Information Technology",
     "License :: OSI Approved :: Apache Software License",
-    "Operating System :: OS Independent",
+    "Operating System :: POSIX :: Linux",
     "Topic :: Software Development :: Testing",
     "Topic :: Software Development :: Testing :: Mocking",
     "Topic :: Software Development :: Testing :: Traffic Generation",
