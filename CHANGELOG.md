@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## Unreleased
+
+### 🐛 Bug Fixes
+
+- **Recreating a deleted project no longer shows the old project's settings** — creating a project with the same name as a deleted one now starts from a clean configuration; previously its plugin tabs could still display the deleted project's settings
+
 ## 2.6.0 (2026-06-11)
 
 ### 🚀 New Features
