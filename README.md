@@ -38,7 +38,7 @@
 
 ---
 
-Eventum produces synthetic events and delivers them anywhere — in real time or in batch. Generate a continuous stream of logs for your SIEM, seed a staging database with realistic data, or stress-test a pipeline with high-throughput traffic. Define everything in YAML, no code required.
+Eventum produces synthetic events and delivers them anywhere — in real time or in batch. Generate a continuous stream of logs for your SIEM, seed a staging database with realistic data, or stress-test a pipeline with high-throughput traffic.
 
 <p align="center">
   <img src="https://raw.githubusercontent.com/eventum-generator/eventum/master/.github/assets/pipeline.svg" alt="Input → Event → Output pipeline" width="680" />
