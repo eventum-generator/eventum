@@ -36,8 +36,8 @@ export const ServerParametersSection: FC<ServerParametersSectionProps> = ({
               tooltip="Eventum API is used for external app control and for serving web interface"
             />
           }
-          {...form.getInputProps('api_enabled', { type: 'checkbox' })}
-          key={form.key('api_enabled')}
+          {...form.getInputProps('api.enabled', { type: 'checkbox' })}
+          key={form.key('api.enabled')}
         />
         <Switch
           label={
@@ -46,8 +46,8 @@ export const ServerParametersSection: FC<ServerParametersSectionProps> = ({
               tooltip="Whether to enable web interface service that you are currently use"
             />
           }
-          {...form.getInputProps('ui_enabled', { type: 'checkbox' })}
-          key={form.key('ui_enabled')}
+          {...form.getInputProps('ui.enabled', { type: 'checkbox' })}
+          key={form.key('ui.enabled')}
         />
       </Group>
 
@@ -55,7 +55,7 @@ export const ServerParametersSection: FC<ServerParametersSectionProps> = ({
         variant="default"
         icon={<Box c="orange" component={IconAlertTriangle}></Box>}
         title="Disabling API"
-        hidden={form.getValues().api_enabled}
+        hidden={form.getValues().api?.enabled}
       >
         Web interface will not be functional after disabling API.
       </Alert>
@@ -70,8 +70,8 @@ export const ServerParametersSection: FC<ServerParametersSectionProps> = ({
           placeholder="hostname or IP"
           disabled={
             !(
-              form.getValues().api_enabled === true ||
-              form.getValues().ui_enabled === true
+              form.getValues().api?.enabled === true ||
+              form.getValues().ui?.enabled === true
             )
           }
           {...form.getInputProps('host')}
@@ -90,8 +90,8 @@ export const ServerParametersSection: FC<ServerParametersSectionProps> = ({
           max={65_535}
           disabled={
             !(
-              form.getValues().api_enabled === true ||
-              form.getValues().ui_enabled === true
+              form.getValues().api?.enabled === true ||
+              form.getValues().ui?.enabled === true
             )
           }
           {...form.getInputProps('port')}
@@ -106,8 +106,8 @@ export const ServerParametersSection: FC<ServerParametersSectionProps> = ({
         label="Enable SSL"
         disabled={
           !(
-            form.getValues().api_enabled === true ||
-            form.getValues().ui_enabled === true
+            form.getValues().api?.enabled === true ||
+            form.getValues().ui?.enabled === true
           )
         }
         {...form.getInputProps('ssl.enabled', {
@@ -134,8 +134,8 @@ export const ServerParametersSection: FC<ServerParametersSectionProps> = ({
               <Radio
                 disabled={
                   !(
-                    form.getValues().api_enabled === true ||
-                    form.getValues().ui_enabled === true
+                    form.getValues().api?.enabled === true ||
+                    form.getValues().ui?.enabled === true
                   ) || !form.getValues().ssl?.enabled
                 }
                 value="none"
@@ -154,8 +154,8 @@ export const ServerParametersSection: FC<ServerParametersSectionProps> = ({
               <Radio
                 disabled={
                   !(
-                    form.getValues().api_enabled === true ||
-                    form.getValues().ui_enabled === true
+                    form.getValues().api?.enabled === true ||
+                    form.getValues().ui?.enabled === true
                   ) || !form.getValues().ssl?.enabled
                 }
                 value="optional"
@@ -174,8 +174,8 @@ export const ServerParametersSection: FC<ServerParametersSectionProps> = ({
               <Radio
                 disabled={
                   !(
-                    form.getValues().api_enabled === true ||
-                    form.getValues().ui_enabled === true
+                    form.getValues().api?.enabled === true ||
+                    form.getValues().ui?.enabled === true
                   ) || !form.getValues().ssl?.enabled
                 }
                 value="required"
@@ -195,8 +195,8 @@ export const ServerParametersSection: FC<ServerParametersSectionProps> = ({
         placeholder="/path/to/ca-cert.pem"
         disabled={
           !(
-            form.getValues().api_enabled === true ||
-            form.getValues().ui_enabled === true
+            form.getValues().api?.enabled === true ||
+            form.getValues().ui?.enabled === true
           ) || !form.getValues().ssl?.enabled
         }
         {...form.getInputProps('ssl.ca_cert')}
@@ -212,8 +212,8 @@ export const ServerParametersSection: FC<ServerParametersSectionProps> = ({
         placeholder="/path/to/cert.pem"
         disabled={
           !(
-            form.getValues().api_enabled === true ||
-            form.getValues().ui_enabled === true
+            form.getValues().api?.enabled === true ||
+            form.getValues().ui?.enabled === true
           ) || !form.getValues().ssl?.enabled
         }
         {...form.getInputProps('ssl.cert')}
@@ -229,8 +229,8 @@ export const ServerParametersSection: FC<ServerParametersSectionProps> = ({
         placeholder="/path/to/key.pem"
         disabled={
           !(
-            form.getValues().api_enabled === true ||
-            form.getValues().ui_enabled === true
+            form.getValues().api?.enabled === true ||
+            form.getValues().ui?.enabled === true
           ) || !form.getValues().ssl?.enabled
         }
         {...form.getInputProps('ssl.cert_key')}
@@ -250,8 +250,8 @@ export const ServerParametersSection: FC<ServerParametersSectionProps> = ({
           }
           disabled={
             !(
-              form.getValues().api_enabled === true ||
-              form.getValues().ui_enabled === true
+              form.getValues().api?.enabled === true ||
+              form.getValues().ui?.enabled === true
             )
           }
           {...form.getInputProps('auth.user')}
@@ -266,8 +266,8 @@ export const ServerParametersSection: FC<ServerParametersSectionProps> = ({
           }
           disabled={
             !(
-              form.getValues().api_enabled === true ||
-              form.getValues().ui_enabled === true
+              form.getValues().api?.enabled === true ||
+              form.getValues().ui?.enabled === true
             )
           }
           {...form.getInputProps('auth.password')}

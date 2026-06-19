@@ -3,6 +3,7 @@
 import os
 import signal
 import sys
+import warnings
 from pathlib import Path
 from typing import Literal, NoReturn
 
@@ -66,18 +67,24 @@ def _start_app_instance(config: str) -> App:
         )
         sys.exit(1)
 
-    try:
-        settings = Settings.model_validate(data)
-    except ValidationError as e:
-        click.echo(
-            (
-                'Error: Failed to validate settings:'
-                + os.linesep
-                + prettify_validation_errors(e.errors(), sep=os.linesep)
-            ),
-            err=True,
-        )
-        sys.exit(1)
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter('always', DeprecationWarning)
+        try:
+            settings = Settings.model_validate(data)
+        except ValidationError as e:
+            click.echo(
+                (
+                    'Error: Failed to validate settings:'
+                    + os.linesep
+                    + prettify_validation_errors(e.errors(), sep=os.linesep)
+                ),
+                err=True,
+            )
+            sys.exit(1)
+
+    for warning in caught:
+        if issubclass(warning.category, DeprecationWarning):
+            click.echo(f'Warning: {warning.message}', err=True)
 
     # Since current function can be called many times, we should clear logconf
     logconf.clear()

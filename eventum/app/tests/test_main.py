@@ -13,8 +13,10 @@ from eventum.app.main import App, AppError
 from eventum.app.models.parameters.log import LogParameters
 from eventum.app.models.parameters.path import PathParameters
 from eventum.app.models.parameters.server import (
+    APIParameters,
     MCPParameters,
     ServerParameters,
+    UIParameters,
 )
 from eventum.app.models.settings import Settings
 from eventum.core.parameters import GenerationParameters
@@ -50,8 +52,8 @@ def _make_mcp_only_app(tmp_path: Path) -> App:
     settings = _make_settings(
         tmp_path,
         ServerParameters(
-            api_enabled=False,
-            ui_enabled=False,
+            ui=UIParameters(enabled=False),
+            api=APIParameters(enabled=False),
             mcp=MCPParameters(enabled=True),
         ),
     )
@@ -121,7 +123,10 @@ def test_start_skips_server_when_no_service_enabled(
     (tmp_path / 'startup.yml').write_text('[]')
     settings = _make_settings(
         tmp_path,
-        ServerParameters(api_enabled=False, ui_enabled=False),
+        ServerParameters(
+            ui=UIParameters(enabled=False),
+            api=APIParameters(enabled=False),
+        ),
     )
     app = App(settings=settings, instance_hooks=_make_hooks(settings))
 
@@ -216,8 +221,8 @@ def test_start_raises_when_address_is_in_use(tmp_path: Path) -> None:
         ServerParameters(
             host='127.0.0.1',
             port=port,
-            api_enabled=False,
-            ui_enabled=False,
+            ui=UIParameters(enabled=False),
+            api=APIParameters(enabled=False),
             mcp=MCPParameters(enabled=True),
         ),
     )

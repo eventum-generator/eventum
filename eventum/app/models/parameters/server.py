@@ -1,7 +1,8 @@
 """Server parameters."""
 
+import warnings
 from pathlib import Path
-from typing import Literal, Self
+from typing import Any, Literal, Self
 
 from pydantic import BaseModel, Field, field_validator, model_validator
 
@@ -129,16 +130,42 @@ class MCPParameters(BaseModel, extra='forbid', frozen=True):
         return v
 
 
+class UIParameters(BaseModel, extra='forbid', frozen=True):
+    """Web UI service parameters.
+
+    Attributes
+    ----------
+    enabled : bool, default=True
+        Whether to enable the web UI.
+
+    """
+
+    enabled: bool = Field(default=True)
+
+
+class APIParameters(BaseModel, extra='forbid', frozen=True):
+    """REST API service parameters.
+
+    Attributes
+    ----------
+    enabled : bool, default=True
+        Whether to enable the REST API.
+
+    """
+
+    enabled: bool = Field(default=True)
+
+
 class ServerParameters(BaseModel, extra='forbid', frozen=True):
     """Server parameters.
 
     Attributes
     ----------
-    ui_enabled : bool, default = True
-        Whether to enable web UI.
+    ui : UIParameters
+        Web UI service parameters.
 
-    api_enabled : bool, default = True
-        Whether to enable REST API.
+    api : APIParameters
+        REST API service parameters.
 
     host : str, default='0.0.0.0'
         Bind address for server process.
@@ -155,12 +182,52 @@ class ServerParameters(BaseModel, extra='forbid', frozen=True):
     mcp : MCPParameters
         MCP service parameters.
 
+    Notes
+    -----
+    The flat `ui_enabled` and `api_enabled` keys are deprecated
+    aliases for `ui.enabled` and `api.enabled` and will be removed
+    in version 2.8. They still work but emit a deprecation warning
+    and cannot be combined with their nested counterparts.
+
     """
 
-    ui_enabled: bool = Field(default=True)
-    api_enabled: bool = Field(default=True)
+    ui: UIParameters = Field(default_factory=lambda: UIParameters())
+    api: APIParameters = Field(default_factory=lambda: APIParameters())
     host: str = Field(default='0.0.0.0', min_length=1)  # noqa: S104
     port: int = Field(default=9474, ge=1)
     ssl: SSLParameters = Field(default_factory=lambda: SSLParameters())
     auth: AuthParameters = Field(default_factory=lambda: AuthParameters())
     mcp: MCPParameters = Field(default_factory=lambda: MCPParameters())
+
+    @model_validator(mode='before')
+    @classmethod
+    def _migrate_deprecated_toggles(cls, data: Any) -> Any:
+        """Fold deprecated flat service toggles into nested sections."""
+        if not isinstance(data, dict):
+            return data
+
+        migrated = dict(data)
+        for old_key, new_key in (
+            ('ui_enabled', 'ui'),
+            ('api_enabled', 'api'),
+        ):
+            if old_key not in migrated:
+                continue
+
+            if new_key in migrated:
+                msg = (
+                    f'`server.{old_key}` is deprecated and cannot be '
+                    f'combined with `server.{new_key}`; use '
+                    f'`server.{new_key}.enabled` instead'
+                )
+                raise ValueError(msg)
+
+            warnings.warn(
+                f'`server.{old_key}` is deprecated and will be removed '
+                f'in version 2.8; use `server.{new_key}.enabled` instead',
+                DeprecationWarning,
+                stacklevel=2,
+            )
+            migrated[new_key] = {'enabled': migrated.pop(old_key)}
+
+        return migrated
