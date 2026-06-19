@@ -1,8 +1,3 @@
----
-paths:
-  - "eventum/api/**"
----
-
 # API Development Rules
 
 ## Entry point

@@ -1,8 +1,3 @@
----
-paths:
-  - "eventum/ui/src/**/*.{ts,tsx}"
----
-
 # UI Rules
 
 Eventum Studio is a React + TypeScript SPA built on Mantine, react-query, Zod, and Vite.

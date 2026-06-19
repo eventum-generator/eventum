@@ -1,8 +1,3 @@
----
-paths:
-  - "eventum/core/**"
----
-
 # Core Rules
 
 ## Configuration models

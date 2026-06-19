@@ -1,8 +1,3 @@
----
-paths:
-  - "eventum/**/*.py"
----
-
 # Logging Rules
 
 Eventum logs through `structlog` over stdlib. Output is split into streams:

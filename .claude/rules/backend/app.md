@@ -1,8 +1,3 @@
----
-paths:
-  - "eventum/app/**"
----
-
 # App Rules
 
 ## Configuration models

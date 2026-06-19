@@ -1,8 +1,3 @@
----
-paths:
-  - "../content-packs/generators/**/templates/**/*.jinja"
----
-
 # Template Plugin Rules
 
 The template event plugin renders events from Jinja2 templates per timestamp. All existing content-pack generators use it.

@@ -1,8 +1,3 @@
----
-paths:
-  - "eventum/plugins/input/**/*.py"
----
-
 # Input Plugin Rules
 
 Input plugins generate timestamps that drive event generation. The framework pulls chunks from the plugin by requesting a size, and the plugin yields numpy arrays until it exhausts.

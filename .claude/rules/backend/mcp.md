@@ -1,8 +1,3 @@
----
-paths:
-  - "eventum/mcp/**/*.py"
----
-
 # MCP Adapter Rules
 
 `eventum/mcp/` is a transport-only driver adapter (peer to `api/`,
