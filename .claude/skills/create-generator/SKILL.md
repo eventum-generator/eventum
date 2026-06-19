@@ -100,7 +100,7 @@ Write the generator's README to the spec in `.claude/rules/content/generators.md
 
 Two additions specific to this skill:
 - The Sample output event must be a real event copied from `output/events.json` before the cleanup step below. Not a hand-written sample.
-- The Parameters table lists top-level `params` / `secrets` only. `event.template.params` is internal and does not appear there.
+- The README Parameters section documents user-facing knobs in two subsections: **Event Parameters** - the `event.template.params` constants a user edits in-file (hostnames, versions, provider suffixes, ...), listed with defaults; and **Output Parameters** - the top-level `${params}` / `${secrets}` placeholders for pointing output at a backend (e.g. OpenSearch host and credentials), shown as the override pattern while the shipped `generator.yml` keeps file output so it runs out of the box. Internal template logic (inline constants, distribution parameters) is not listed.
 
 After the README is written, delete `output/` and `reference/`. They are test artifacts, not committed.
 
