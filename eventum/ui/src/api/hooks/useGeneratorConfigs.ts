@@ -1,4 +1,5 @@
 import {
+  QueryClient,
   UseQueryResult,
   useMutation,
   useQuery,
@@ -30,11 +31,23 @@ const GENERATOR_CONFIG_DIRS_QUERY_KEY = ['generator-config-dirs'];
 const GENERATOR_CONFIG_DIRS_EXTENDED_QUERY_KEY = [
   'generator-config-dirs-extended',
 ];
+const GENERATOR_CONFIG_DIR_FILES_QUERY_KEY = ['generator-config-dir-files'];
 
 const GENERATOR_CONFIG_DIRS_COMMON_QUERY_KEYS = [
   GENERATOR_CONFIG_DIRS_QUERY_KEY,
   GENERATOR_CONFIG_DIRS_EXTENDED_QUERY_KEY,
 ];
+
+// Per-project config and file-tree caches are keyed by name and outlive
+// the project; drop them so a new project reusing the name starts clean.
+function dropProjectQueries(queryClient: QueryClient, name: string) {
+  queryClient.removeQueries({
+    queryKey: [...GENERATOR_CONFIG_DIRS_QUERY_KEY, name],
+  });
+  queryClient.removeQueries({
+    queryKey: [...GENERATOR_CONFIG_DIR_FILES_QUERY_KEY, name],
+  });
+}
 
 export function useGeneratorDirs(
   extended: false
@@ -72,7 +85,9 @@ export function useCreateGeneratorConfigMutation() {
   return useMutation({
     mutationFn: ({ name, config }: { name: string; config: GeneratorConfig }) =>
       createGeneratorConfig(name, config),
-    onSuccess: async () => {
+    onSuccess: async (_, { name }) => {
+      dropProjectQueries(queryClient, name);
+
       await Promise.all(
         GENERATOR_CONFIG_DIRS_COMMON_QUERY_KEYS.map((key) =>
           queryClient.invalidateQueries({ queryKey: key, exact: true })
@@ -102,7 +117,9 @@ export function useDeleteGeneratorConfigMutation() {
 
   return useMutation({
     mutationFn: ({ name }: { name: string }) => deleteGeneratorConfig(name),
-    onSuccess: async () => {
+    onSuccess: async (_, { name }) => {
+      dropProjectQueries(queryClient, name);
+
       await Promise.all(
         GENERATOR_CONFIG_DIRS_COMMON_QUERY_KEYS.map((key) =>
           queryClient.invalidateQueries({ queryKey: key, exact: true })
@@ -117,8 +134,6 @@ export function useGeneratorConfigPathMutation() {
     mutationFn: ({ name }: { name: string }) => getGeneratorConfigPath(name),
   });
 }
-
-const GENERATOR_CONFIG_DIR_FILES_QUERY_KEY = ['generator-config-dir-files'];
 
 export function useGeneratorFileTree(name: string) {
   return useQuery({

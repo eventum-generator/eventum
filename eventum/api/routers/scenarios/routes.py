@@ -9,7 +9,6 @@ import structlog
 import yaml
 from fastapi import APIRouter, Body, HTTPException, status
 from fastapi import Path as FastApiPath
-from jinja2 import TemplateSyntaxError
 
 from eventum.api.dependencies.app import SettingsDep
 from eventum.api.routers.generator_configs.globals_detector import (
@@ -31,12 +30,53 @@ from eventum.api.routers.startup.dependencies import (
     get_startup_generator_parameters_list,
 )
 from eventum.api.utils.response_description import merge_responses
+from eventum.app.workspace import WorkspaceError, resolve_generator_dir
 from eventum.plugins.event.plugins.template.plugin import TemplateEventPlugin
 from eventum.utils.json_utils import normalize_types
 
 logger = structlog.stdlib.get_logger()
 
 router = APIRouter()
+
+_TEMPLATE_SUFFIXES = ('.j2', '.jinja')
+
+
+def _collect_globals_usage(generator_dir: Path) -> GlobalsUsage:
+    """Scan a generator directory for Jinja2 templates and detect
+    globals usage across all of them.
+
+    Walks the directory tree once, reads each template, and runs AST
+    detection. Performs blocking filesystem IO and CPU-bound parsing,
+    so it must run in a worker thread to avoid blocking the event
+    loop.
+
+    Parameters
+    ----------
+    generator_dir : Path
+        Resolved generator directory to scan.
+
+    Returns
+    -------
+    GlobalsUsage
+        Merged writes, reads, and warnings from all templates.
+
+    """
+    usage = GlobalsUsage()
+
+    for filepath in generator_dir.rglob('*'):
+        if filepath.suffix not in _TEMPLATE_SUFFIXES or not filepath.is_file():
+            continue
+
+        rel_path = str(filepath.relative_to(generator_dir))
+        try:
+            source = filepath.read_text(encoding='utf-8')
+        except OSError:
+            logger.warning('Failed to read template file', path=str(filepath))
+            continue
+
+        usage.merge(detect_globals_usage(source, rel_path))
+
+    return usage
 
 
 @router.get(
@@ -266,42 +306,25 @@ async def get_generator_globals_usage(
     ],
     settings: SettingsDep,
 ) -> GlobalsUsageResponse:
-    generator_dir = (settings.path.generators_dir / generator_name).resolve()
-
-    if not generator_dir.is_relative_to(settings.path.generators_dir):
+    try:
+        generator_dir = resolve_generator_dir(
+            settings.path.generators_dir, generator_name
+        )
+    except WorkspaceError:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail=(
                 'Accessing directories outside generators_dir is not allowed'
             ),
-        )
+        ) from None
 
     if not generator_dir.is_dir():
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f'Generator configuration not found: {generator_name}',
         )
-    usage = GlobalsUsage()
 
-    template_files: list[tuple[Path, str]] = []
-    for pattern in ('**/*.j2', '**/*.jinja'):
-        for filepath in generator_dir.glob(pattern):
-            if filepath.is_file():
-                rel_path = str(filepath.relative_to(generator_dir))
-                template_files.append((filepath, rel_path))
-
-    for filepath, rel_path in template_files:
-        try:
-            async with aiofiles.open(filepath, encoding='utf-8') as f:
-                source = await f.read()
-            template_usage = await asyncio.to_thread(
-                detect_globals_usage, source, rel_path
-            )
-            usage.merge(template_usage)
-        except OSError:
-            logger.warning('Failed to read template file', path=str(filepath))
-        except TemplateSyntaxError:
-            logger.warning('Failed to parse template file', path=str(filepath))
+    usage = await asyncio.to_thread(_collect_globals_usage, generator_dir)
 
     return GlobalsUsageResponse(
         writes=[
