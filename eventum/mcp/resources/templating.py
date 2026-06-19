@@ -14,7 +14,11 @@ from eventum.plugins.event.plugins.template.reference import (
 _INTRO = (
     'The API the template plugin exposes inside Eventum event '
     'templates (Jinja) - the objects you call when authoring template '
-    'files. Signatures omit `self`.'
+    'files. Signatures omit `self`. The `module` namespace imports any '
+    'installed Python module (`module.<name>`), not only the bundled '
+    '`rand`, `faker`, and `mimesis`. Templates also enable the Jinja '
+    '`do` and `loopcontrols` extensions (`{% do %}`, `{% break %}`, '
+    '`{% continue %}`).'
 )
 
 
@@ -44,8 +48,9 @@ def register(mcp: FastMCP) -> None:
         'eventum://templating/reference',
         name='Template context reference',
         description=(
-            "The template plugin's in-template API: module.rand.*, "
-            'samples.*, dispatch, state, and the event fields. Read '
+            "The template plugin's in-template API: the `module` "
+            'importer (any Python package), module.rand.*, samples.*, '
+            'dispatch, subprocess, state, and the event fields. Read '
             'this before writing template files.'
         ),
         mime_type='text/markdown',

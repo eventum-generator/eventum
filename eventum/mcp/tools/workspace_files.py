@@ -454,7 +454,10 @@ def register(
         the server is read-only without touching the filesystem. Name
         the config file ``generator.yml`` unless this server is
         configured with another config filename - validate, preview,
-        and run load that filename.
+        and run load that filename. For a large CSV or JSON sample,
+        prefer an out-of-band upload (the REST file API over HTTP, or
+        a direct disk write when running locally) and reference it
+        from the config; passing big content here is slow.
 
         Parameters
         ----------
