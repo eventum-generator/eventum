@@ -1,11 +1,12 @@
 """Programmatic description of the template Jinja context surface.
 
 Introspects the live helper objects (the ``rand`` module and the
-``Sample``, ``Dispatcher``, ``State`` and ``MultiThreadState``
-classes) so the description cannot drift from the code: a new helper
-added to an existing namespace surfaces here with no extra step.
-Non-introspectable entries (external libraries, user-provided dicts,
-the event fields) are described in prose.
+``Sample``, ``Dispatcher``, ``State``, ``MultiThreadState`` and
+``SubprocessRunner`` classes) so the description cannot drift from
+the code: a new helper added to an existing namespace surfaces here
+with no extra step. Non-introspectable entries (the generic
+``module`` importer, external libraries, user-provided dicts, the
+event fields) are described in prose.
 """
 
 import inspect
@@ -17,6 +18,9 @@ from eventum.plugins.event.plugins.template.sample_reader import Sample
 from eventum.plugins.event.plugins.template.state import (
     MultiThreadState,
     State,
+)
+from eventum.plugins.event.plugins.template.subprocess_runner import (
+    SubprocessRunner,
 )
 
 
@@ -93,14 +97,28 @@ def build_context_reference() -> ContextReference:
     Returns
     -------
     ContextReference
-        Every namespace available to event templates: ``module.rand``
-        and its sub-namespaces, ``samples.<name>``, ``dispatch``, the
+        Every namespace available to event templates: the generic
+        ``module`` importer, ``module.rand`` and its sub-namespaces,
+        ``samples.<name>``, ``dispatch``, ``subprocess``, the
         ``locals``/``shared``/``globals`` state objects, and described
         entries (``module.faker``/``module.mimesis``, ``params``,
         ``vars``, ``timestamp``, ``tags``).
 
     """
     namespaces: list[Namespace] = []
+
+    namespaces.append(
+        Namespace(
+            'module',
+            'Import any Python module by name: module.<name> (also '
+            'module[name]). Resolves a bundled template module first '
+            '(rand, faker, mimesis), otherwise any package installed '
+            'in the environment (e.g. module.json, module.hashlib, '
+            'module.datetime). The bundled modules listed below are '
+            'not the whole set.',
+            (),
+        )
+    )
 
     namespaces.append(
         Namespace(
@@ -132,6 +150,14 @@ def build_context_reference() -> ContextReference:
             'dispatch',
             'Per-event control-flow signals.',
             _helpers(Dispatcher, Dispatcher.__module__),
+        )
+    )
+
+    namespaces.append(
+        Namespace(
+            'subprocess',
+            'Run shell commands from a template and read their output.',
+            _helpers(SubprocessRunner, SubprocessRunner.__module__),
         )
     )
 

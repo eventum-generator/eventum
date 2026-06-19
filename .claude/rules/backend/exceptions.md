@@ -1,8 +1,3 @@
----
-paths:
-  - "eventum/**/*.py"
----
-
 # Exception Rules
 
 `ContextualError` (`eventum/exceptions.py`) - base exception with required `context: dict` kwarg.

@@ -1,8 +1,9 @@
 """Tests for instance API router."""
 
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
 
 import pytest
+import yaml
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
@@ -17,7 +18,7 @@ from eventum.app.models.settings import Settings
 from eventum.core.parameters import GenerationParameters
 
 
-@pytest.fixture()
+@pytest.fixture
 def tmp_settings(tmp_path):
     return Settings(
         server=ServerParameters(
@@ -34,7 +35,7 @@ def tmp_settings(tmp_path):
     )
 
 
-@pytest.fixture()
+@pytest.fixture
 def hooks(tmp_path):
     return {
         'get_settings_file_path': lambda: tmp_path / 'settings.yml',
@@ -43,7 +44,7 @@ def hooks(tmp_path):
     }
 
 
-@pytest.fixture()
+@pytest.fixture
 def client(tmp_settings, hooks):
     app = FastAPI()
     app.state.settings = tmp_settings
@@ -87,6 +88,27 @@ def test_update_settings(client, tmp_settings, tmp_path):
     assert response.status_code == 200
     settings_file = tmp_path / 'settings.yml'
     assert settings_file.exists()
+
+
+def test_update_settings_preserves_mcp(client, tmp_settings, tmp_path):
+    new_settings = tmp_settings.model_dump(mode='json')
+    new_settings['server']['mcp'] = {
+        'enabled': True,
+        'allow_write': True,
+        'path': '/custom-mcp',
+        'allowed_hosts': ['eventum.example'],
+    }
+    response = client.put('/instance/settings', json=new_settings)
+    assert response.status_code == 200
+
+    settings_file = tmp_path / 'settings.yml'
+    written = yaml.safe_load(settings_file.read_text())
+    assert written['server']['mcp'] == {
+        'enabled': True,
+        'allow_write': True,
+        'path': '/custom-mcp',
+        'allowed_hosts': ['eventum.example'],
+    }
 
 
 def test_update_settings_hook_error(client, hooks, tmp_settings):

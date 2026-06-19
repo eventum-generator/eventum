@@ -59,6 +59,24 @@ export const APIParametersSchema = z.object({
   enabled: z.boolean().optional(),
 });
 
+export const MCPParametersSchema = z.object({
+  enabled: z.boolean().optional(),
+  allow_write: z.boolean().optional(),
+  path: z.preprocess(
+    emptyToUndefined,
+    z
+      .string()
+      .min(1)
+      .refine((v) => v.startsWith('/'), 'Path must start with "/"')
+      .refine(
+        (v) => v.length === 1 || !v.endsWith('/'),
+        'Path must not end with "/"'
+      )
+      .optional()
+  ),
+  allowed_hosts: z.array(z.string()).optional(),
+});
+
 export const ServerParametersSchema = z.object({
   ui: UIParametersSchema.optional(),
   api: APIParametersSchema.optional(),
@@ -69,6 +87,7 @@ export const ServerParametersSchema = z.object({
   ),
   ssl: SSLParametersSchema.optional(),
   auth: AuthParametersSchema.optional(),
+  mcp: MCPParametersSchema.optional(),
 });
 export type ServerParameters = z.infer<typeof ServerParametersSchema>;
 

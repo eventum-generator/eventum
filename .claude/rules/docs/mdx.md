@@ -1,10 +1,3 @@
----
-paths:
-  - "../docs/content/docs/**/*.mdx"
-  - "../docs/app/**/*.mdx"
-  - "../docs/**/meta.json"
----
-
 # MDX Documentation Rules
 
 The docs site is Next.js + Fumadocs, static-exported to https://eventum.run. Technical content lives in `../docs/content/docs/` (Fumadocs MDX collections); top-level pages in `../docs/app/` (Next.js routes). Blog posts have their own rules described in `blog.md`.

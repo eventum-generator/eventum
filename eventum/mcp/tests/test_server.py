@@ -175,3 +175,33 @@ def test_stdio_has_no_live_ops_prompt(ctx: FileAuthoringContext) -> None:
     server = build_server(ctx, transport='stdio')
     names = {p.name for p in anyio.run(server.list_prompts)}
     assert 'live_ops' not in names
+
+
+def test_live_server_instructions_mention_rest_api(
+    live_ctx: ServerLiveContext,
+) -> None:
+    """The HTTP live server points the agent at the REST API."""
+    server = build_server(live_ctx, transport='http', live=True)
+    instructions = server.instructions or ''
+    assert 'REST API' in instructions
+    assert '/api/openapi.json' in instructions
+
+
+def test_stdio_instructions_omit_rest_api(
+    ctx: FileAuthoringContext,
+) -> None:
+    """The stdio server does not advertise a REST API fallback."""
+    server = build_server(ctx, transport='stdio')
+    instructions = server.instructions or ''
+    assert '/api/openapi.json' not in instructions
+
+
+def test_write_generator_file_warns_about_large_samples(
+    ctx: FileAuthoringContext,
+) -> None:
+    """The write tool steers large samples to an out-of-band upload."""
+    server = build_server(ctx, transport='stdio')
+    tools = anyio.run(server.list_tools)
+    tool = next(t for t in tools if t.name == 'write_generator_file')
+    description = tool.description or ''
+    assert 'out-of-band' in description

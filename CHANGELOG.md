@@ -7,10 +7,15 @@ All notable changes to this project will be documented in this file.
 ### 🚀 New Features
 
 - **Nested `server.ui` and `server.api` config sections** — the web UI and REST API toggles now live under `server.ui.enabled` and `server.api.enabled`, matching the `server.mcp` layout. The flat `server.ui_enabled` and `server.api_enabled` keys still work but are deprecated, print a notice at startup, and will be removed in version 2.8; combining a flat key with its nested form is rejected
+- **Clone an instance in Studio** — the instance row menu now has a **Clone** action that creates a new instance from an existing one, reusing its project and all parameters; you only choose a name for the clone
 
 ### 🐛 Bug Fixes
 
+- **MCP agents get the fast path for large samples and a fuller picture of Eventum** — building a generator over MCP no longer pushes large CSV/JSON samples through the slow `write_generator_file` tool: the agent is guided to upload them via the REST file API (over HTTP) or write them straight to disk (when running locally). The agent is also told that event templates can import any installed Python package — not only `rand`/`faker`/`mimesis` — and run shell commands via `subprocess`, that the running server exposes a REST API with an OpenAPI schema to fall back on when no MCP tool fits, and how live/sample run modes and scenarios work
 - **Recreating a deleted project no longer shows the old project's settings** — creating a project with the same name as a deleted one now starts from a clean configuration; previously its plugin tabs could still display the deleted project's settings
+- **MCP settings are now editable in the Studio Settings page** — the Server parameters section gained MCP controls (enable the HTTP server, allow write tools, mount path, allowed hosts); previously these were configurable only by editing `eventum.yml`, and saving settings from Studio silently reset any existing MCP configuration to defaults
+- **Opening a scenario with many instances no longer times out** — scenarios with several generators now open reliably; previously the page could hang and fail after about ten seconds while loading each instance's global-state usage
+- **Stopping the app no longer hangs when a log or MCP stream is open** — pressing Ctrl+C while a generator's live log view or a connected MCP client is streaming now shuts the app down in well under a second, instead of waiting out the graceful-shutdown timeout and printing cancellation errors on exit
 
 ## 2.6.0 (2026-06-11)
 

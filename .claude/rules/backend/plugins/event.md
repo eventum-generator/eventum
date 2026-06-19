@@ -1,8 +1,3 @@
----
-paths:
-  - "eventum/plugins/event/**/*.py"
----
-
 # Event Plugin Rules
 
 Event plugins turn a timestamp into zero or more event strings. Pipeline executor calls `_produce` per timestamp and forwards the returned list to the output stage.
