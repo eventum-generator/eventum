@@ -7,6 +7,7 @@ import {
   Radio,
   Stack,
   Switch,
+  TagsInput,
   Text,
   TextInput,
   Tooltip,
@@ -281,6 +282,69 @@ export const ServerParametersSection: FC<ServerParametersSectionProps> = ({
         Username and password are parameters in configuration file that stored
         in <b>plain text</b>.
       </Alert>
+
+      <Text size="sm" fw="bold" mt="md">
+        MCP
+      </Text>
+      <Group>
+        <Switch
+          label={
+            <LabelWithTooltip
+              label="Enable MCP server"
+              tooltip="Mount the MCP server over HTTP so connected agents can manage Eventum"
+            />
+          }
+          {...form.getInputProps('mcp.enabled', { type: 'checkbox' })}
+          key={form.key('mcp.enabled')}
+        />
+        <Switch
+          label={
+            <LabelWithTooltip
+              label="Allow write tools"
+              tooltip="Permit MCP write tools over HTTP. A connected agent can write and preview generators, and some plugins execute code on the host"
+            />
+          }
+          disabled={!form.getValues().mcp?.enabled}
+          {...form.getInputProps('mcp.allow_write', { type: 'checkbox' })}
+          key={form.key('mcp.allow_write')}
+        />
+      </Group>
+      <Alert
+        variant="default"
+        icon={<Box c="orange" component={IconAlertTriangle} />}
+        title="Write tools enabled"
+        hidden={!form.getValues().mcp?.allow_write}
+      >
+        A connected agent can write and preview generators, and some plugins
+        execute code on the host. Enable only on trusted networks with trusted
+        agents.
+      </Alert>
+      <TextInput
+        label={
+          <LabelWithTooltip
+            label="Mount path"
+            tooltip="Mount path for the MCP HTTP endpoint"
+          />
+        }
+        placeholder="/mcp"
+        disabled={!form.getValues().mcp?.enabled}
+        {...form.getInputProps('mcp.path')}
+        key={form.key('mcp.path')}
+      />
+      <TagsInput
+        label={
+          <LabelWithTooltip
+            label="Allowed hosts"
+            tooltip="Allowed Host header values for DNS-rebinding protection. Leave empty to disable the check (suitable behind a trusted reverse proxy)"
+          />
+        }
+        placeholder="Press Enter to submit a host"
+        disabled={!form.getValues().mcp?.enabled}
+        {...form.getInputProps('mcp.allowed_hosts')}
+        value={form.getValues().mcp?.allowed_hosts ?? []}
+        onChange={(value) => form.setFieldValue('mcp.allowed_hosts', value)}
+        key={form.key('mcp.allowed_hosts')}
+      />
     </Stack>
   );
 };
