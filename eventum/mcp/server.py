@@ -38,6 +38,14 @@ _INSTRUCTIONS = (
     'user to the eventum-keyring CLI to add or read a value.'
 )
 
+_REST_API_NOTE = (
+    'This server also exposes a REST API at `/api` (OpenAPI schema at '
+    '`/api/openapi.json`, Swagger UI at `/api/swagger`) behind the same '
+    'credentials as this MCP endpoint. When an operation has no MCP '
+    'tool - for example uploading a large sample file - read that '
+    'schema and call the REST API directly.'
+)
+
 
 def build_server(
     context: AuthoringContext,
@@ -67,10 +75,14 @@ def build_server(
         workspace, validate/preview, and run tools; the
         templating-reference, generator-schema, examples, and
         workspace-configs resources; the authoring prompts; and,
-        when ``live`` is set, the live generator-management tools.
+        when ``live`` is set, the live generator-management tools and
+        REST-API-fallback guidance in the server instructions.
 
     """
-    mcp = FastMCP('eventum', instructions=_INSTRUCTIONS)
+    instructions = (
+        f'{_INSTRUCTIONS} {_REST_API_NOTE}' if live else _INSTRUCTIONS
+    )
+    mcp = FastMCP('eventum', instructions=instructions)
     mcp._mcp_server.version = _eventum_version  # noqa: SLF001
 
     discovery.register(mcp, context, transport=transport)

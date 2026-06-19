@@ -17,12 +17,13 @@ for realistic peaks, `linspace`/`timestamps` for a fixed or past \
 range, `static` for a fixed batch at start time, `http` for \
 request-driven ticks.
    - Event (content): pick the family. `template` renders Jinja - read \
-`eventum://templating/reference` for the in-template API (samples, \
-`module.rand`/`faker`/`mimesis`, `locals`/`shared`/`globals` state, \
-`dispatch`). `replay` re-emits lines from an existing log file. \
-`script` runs an existing Python file - MCP file tools cannot write \
-`.py`, so pick it only when the script is already on disk; otherwise \
-prefer `template`.
+`eventum://templating/reference` for the in-template API: `samples`, \
+`module.<name>` (imports any installed Python package; \
+`rand`/`faker`/`mimesis` are bundled), `subprocess`, \
+`locals`/`shared`/`globals` state, and `dispatch`. `replay` re-emits \
+lines from an existing log file. `script` runs an existing Python file \
+- MCP file tools cannot write `.py`, so pick it only when the script \
+is already on disk; otherwise prefer `template`.
    - Output (delivery): `stdout`/`file` for local sinks, \
 `http`/`tcp`/`udp`/`kafka` to push to a pipeline, \
 `clickhouse`/`opensearch` to index into a datastore; pick a formatter \
@@ -38,7 +39,13 @@ drifting values. Inspect any data files with `describe_sample`.
 the generator directory: `generator.yml`, plus `templates/` and \
 `samples/` for a template generator. A `replay` generator just points \
 at its log file; a `script` generator points at an existing Python \
-file - `.py` is not writable over MCP.
+file - `.py` is not writable over MCP. For a large CSV or JSON \
+sample, do not pass it through `write_generator_file` (carrying big \
+content this way is slow): over HTTP, once the generator exists, \
+upload it with the server's REST file API (`POST \
+/api/generator-configs/{name}/file/{filepath}`, multipart field \
+`content`); running locally, write it straight into the generator's \
+`samples/` directory. Then reference it from the config.
 5. Validate with `validate_generator` and fix until it passes.
 6. Preview before finishing: `preview_timestamps` for the timing \
 shape, then `preview_events` for real rendered events. For a past \
