@@ -1,8 +1,3 @@
----
-paths:
-  - "eventum/plugins/**/*.py"
----
-
 # Plugin Rules
 
 Common rules for all plugin types. Type-specific plugin contracts live in `.claude/rules/backend/plugins/{input,event,output}.md` and are auto-loaded when working under `eventum/plugins/<type>/`.

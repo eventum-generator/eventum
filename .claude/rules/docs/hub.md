@@ -1,8 +1,3 @@
----
-paths:
-  - "../docs/lib/hub-data/**/*.ts"
----
-
 # Hub Rules
 
 The Hub is a catalog of content-pack generators at `/hub`. Entries are TypeScript data files under `../docs/lib/hub-data/` - the UI reads them at build time.
