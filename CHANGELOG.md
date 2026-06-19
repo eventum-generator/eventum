@@ -4,6 +4,10 @@ All notable changes to this project will be documented in this file.
 
 ## Unreleased
 
+### 🚀 New Features
+
+- **Clone an instance in Studio** — the instance row menu now has a **Clone** action that creates a new instance from an existing one, reusing its project and all parameters; you only choose a name for the clone
+
 ### 🐛 Bug Fixes
 
 - **MCP agents get the fast path for large samples and a fuller picture of Eventum** — building a generator over MCP no longer pushes large CSV/JSON samples through the slow `write_generator_file` tool: the agent is guided to upload them via the REST file API (over HTTP) or write them straight to disk (when running locally). The agent is also told that event templates can import any installed Python package — not only `rand`/`faker`/`mimesis` — and run shell commands via `subprocess`, that the running server exposes a REST API with an OpenAPI schema to fall back on when no MCP tool fits, and how live/sample run modes and scenarios work

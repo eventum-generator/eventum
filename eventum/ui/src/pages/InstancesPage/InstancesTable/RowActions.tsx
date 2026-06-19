@@ -2,6 +2,7 @@ import { Menu, Text } from '@mantine/core';
 import { modals } from '@mantine/modals';
 import { notifications } from '@mantine/notifications';
 import {
+  IconCopy,
   IconEdit,
   IconGauge,
   IconLogs,
@@ -12,6 +13,7 @@ import {
 import { FC, ReactNode } from 'react';
 import { useNavigate } from 'react-router-dom';
 
+import { CloneInstanceModal } from '../CloneInstanceModal';
 import { MetricsModal } from './MetricsModal';
 import {
   useDeleteGeneratorMutation,
@@ -30,12 +32,14 @@ interface RowActionsProps {
   target: ReactNode;
   instanceId: string;
   instanceStatus: GeneratorStatus;
+  existingInstanceIds: string[];
 }
 
 export const RowActions: FC<RowActionsProps> = ({
   target,
   instanceId,
   instanceStatus,
+  existingInstanceIds,
 }) => {
   const navigate = useNavigate();
   const startGenerator = useStartGeneratorMutation();
@@ -46,6 +50,19 @@ export const RowActions: FC<RowActionsProps> = ({
 
   function handleEdit() {
     void navigate(`${ROUTE_PATHS.INSTANCES}/${instanceId}`);
+  }
+
+  function handleClone() {
+    modals.open({
+      title: 'Clone instance',
+      children: (
+        <CloneInstanceModal
+          sourceInstanceId={instanceId}
+          existingInstanceIds={existingInstanceIds}
+        />
+      ),
+      size: 'lg',
+    });
   }
 
   function handleShowMetrics() {
@@ -197,6 +214,9 @@ export const RowActions: FC<RowActionsProps> = ({
       <Menu.Dropdown>
         <Menu.Item leftSection={<IconEdit size={14} />} onClick={handleEdit}>
           Edit
+        </Menu.Item>
+        <Menu.Item leftSection={<IconCopy size={14} />} onClick={handleClone}>
+          Clone
         </Menu.Item>
 
         <Menu.Divider />
