@@ -51,9 +51,17 @@ export const AuthParametersSchema = z.object({
   password: z.preprocess(emptyToUndefined, z.string().min(1).optional()),
 });
 
+export const UIParametersSchema = z.object({
+  enabled: z.boolean().optional(),
+});
+
+export const APIParametersSchema = z.object({
+  enabled: z.boolean().optional(),
+});
+
 export const ServerParametersSchema = z.object({
-  ui_enabled: z.boolean().optional(),
-  api_enabled: z.boolean().optional(),
+  ui: UIParametersSchema.optional(),
+  api: APIParametersSchema.optional(),
   host: z.preprocess(emptyToUndefined, z.string().min(1).optional()),
   port: z.preprocess(
     emptyToUndefined,
