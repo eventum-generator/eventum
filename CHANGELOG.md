@@ -6,7 +6,7 @@ All notable changes to this project will be documented in this file.
 
 ### 🚀 New Features
 
-- **Nested `server.ui` and `server.api` config sections** — the web UI and REST API toggles now live under `server.ui.enabled` and `server.api.enabled`, matching the `server.mcp` layout. The flat `server.ui_enabled` and `server.api_enabled` keys still work but are deprecated and print a notice at startup; combining a flat key with its nested form is rejected
+- **Nested `server.ui` and `server.api` config sections** — the web UI and REST API toggles now live under `server.ui.enabled` and `server.api.enabled`, matching the `server.mcp` layout. The flat `server.ui_enabled` and `server.api_enabled` keys still work but are deprecated, print a notice at startup, and will be removed in version 2.8; combining a flat key with its nested form is rejected
 
 ### 🐛 Bug Fixes
 

@@ -185,9 +185,9 @@ class ServerParameters(BaseModel, extra='forbid', frozen=True):
     Notes
     -----
     The flat `ui_enabled` and `api_enabled` keys are deprecated
-    aliases for `ui.enabled` and `api.enabled`. They still work but
-    emit a deprecation warning and cannot be combined with their
-    nested counterparts.
+    aliases for `ui.enabled` and `api.enabled` and will be removed
+    in version 2.8. They still work but emit a deprecation warning
+    and cannot be combined with their nested counterparts.
 
     """
 
@@ -223,8 +223,8 @@ class ServerParameters(BaseModel, extra='forbid', frozen=True):
                 raise ValueError(msg)
 
             warnings.warn(
-                f'`server.{old_key}` is deprecated; use '
-                f'`server.{new_key}.enabled` instead',
+                f'`server.{old_key}` is deprecated and will be removed '
+                f'in version 2.8; use `server.{new_key}.enabled` instead',
                 DeprecationWarning,
                 stacklevel=2,
             )
