@@ -4,6 +4,10 @@ All notable changes to this project will be documented in this file.
 
 ## Unreleased
 
+### 🚀 New Features
+
+- **Nested `server.ui` and `server.api` config sections** — the web UI and REST API toggles now live under `server.ui.enabled` and `server.api.enabled`, matching the `server.mcp` layout. The flat `server.ui_enabled` and `server.api_enabled` keys still work but are deprecated and print a notice at startup; combining a flat key with its nested form is rejected
+
 ### 🐛 Bug Fixes
 
 - **Recreating a deleted project no longer shows the old project's settings** — creating a project with the same name as a deleted one now starts from a clean configuration; previously its plugin tabs could still display the deleted project's settings

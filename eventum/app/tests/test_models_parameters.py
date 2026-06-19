@@ -8,10 +8,12 @@ from pydantic import ValidationError
 from eventum.app.models.parameters.log import LogParameters
 from eventum.app.models.parameters.path import PathParameters
 from eventum.app.models.parameters.server import (
+    APIParameters,
     AuthParameters,
     MCPParameters,
     ServerParameters,
     SSLParameters,
+    UIParameters,
 )
 
 # --- PathParameters ---
@@ -171,8 +173,8 @@ def test_server_parameters_defaults():
     params = ServerParameters()
     assert params.port == 9474
     assert params.host == '0.0.0.0'
-    assert params.ui_enabled is True
-    assert params.api_enabled is True
+    assert params.ui.enabled is True
+    assert params.api.enabled is True
 
 
 def test_server_parameters_port_zero_raises():
@@ -188,6 +190,56 @@ def test_server_parameters_port_one_passes():
 def test_server_parameters_includes_mcp_defaults() -> None:
     """ServerParameters exposes nested MCP defaults."""
     assert ServerParameters().mcp.enabled is False
+
+
+def test_ui_parameters_default_enabled() -> None:
+    """UIParameters is enabled by default."""
+    assert UIParameters().enabled is True
+
+
+def test_api_parameters_default_enabled() -> None:
+    """APIParameters is enabled by default."""
+    assert APIParameters().enabled is True
+
+
+def test_server_parameters_nested_toggles() -> None:
+    """Nested UI and API sections drive the service toggles."""
+    params = ServerParameters(
+        ui=UIParameters(enabled=False),
+        api=APIParameters(enabled=False),
+    )
+    assert params.ui.enabled is False
+    assert params.api.enabled is False
+
+
+def test_server_parameters_ui_enabled_alias_maps_to_nested() -> None:
+    """Deprecated `ui_enabled` folds into `ui.enabled` with a warning."""
+    with pytest.warns(DeprecationWarning, match='ui_enabled'):
+        params = ServerParameters.model_validate({'ui_enabled': False})
+    assert params.ui.enabled is False
+
+
+def test_server_parameters_api_enabled_alias_maps_to_nested() -> None:
+    """Deprecated `api_enabled` folds into `api.enabled` with a warning."""
+    with pytest.warns(DeprecationWarning, match='api_enabled'):
+        params = ServerParameters.model_validate({'api_enabled': False})
+    assert params.api.enabled is False
+
+
+def test_server_parameters_ui_alias_conflict_raises() -> None:
+    """Setting both `ui_enabled` and `ui` together is rejected."""
+    with pytest.raises(ValidationError, match='deprecated'):
+        ServerParameters.model_validate(
+            {'ui_enabled': True, 'ui': {'enabled': False}},
+        )
+
+
+def test_server_parameters_api_alias_conflict_raises() -> None:
+    """Setting both `api_enabled` and `api` together is rejected."""
+    with pytest.raises(ValidationError, match='deprecated'):
+        ServerParameters.model_validate(
+            {'api_enabled': True, 'api': {'enabled': False}},
+        )
 
 
 # --- LogParameters ---

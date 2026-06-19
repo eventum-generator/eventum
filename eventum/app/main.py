@@ -73,7 +73,7 @@ class App:
     def _server_enabled(self) -> bool:
         """Whether any server-hosted service is enabled."""
         server = self._settings.server
-        return server.api_enabled or server.ui_enabled or server.mcp.enabled
+        return server.api.enabled or server.ui.enabled or server.mcp.enabled
 
     def start(self) -> None:
         """Start the app.
@@ -275,8 +275,8 @@ class App:
 
         server_app = build_server_app(
             enabled_services={
-                'api': self._settings.server.api_enabled,
-                'ui': self._settings.server.ui_enabled,
+                'api': self._settings.server.api.enabled,
+                'ui': self._settings.server.ui.enabled,
                 'mcp': self._settings.server.mcp.enabled,
             },
             generator_manager=self._manager,

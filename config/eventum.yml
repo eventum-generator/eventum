@@ -4,11 +4,11 @@
 
 # Whether to enable web UI
 # Optional, default is true
-server.ui_enabled: true
+server.ui.enabled: true
 
 # Whether to enable REST API
 # Optional, default is true
-server.api_enabled: true
+server.api.enabled: true
 
 # Bind address
 # Optional, default is "0.0.0.0"

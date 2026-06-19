@@ -27,6 +27,8 @@ CONFLICTING_SERVER_SECTION = (
     'server:\n  mcp.enabled: true\n  mcp:\n    enabled: false\n'
 )
 
+DEPRECATED_TOGGLE_SECTION = 'server:\n  ui_enabled: false\n'
+
 
 def _write_config(
     tmp_path: Path,
@@ -94,3 +96,22 @@ def test_start_app_instance_conflicting_dotted_keys(
     captured = capsys.readouterr()
     assert 'Failed to parse configuration YAML content' in captured.err
     assert 'server.mcp.enabled' in captured.err
+
+
+def test_start_app_instance_warns_on_deprecated_toggle(
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture,
+) -> None:
+    """Deprecated `ui_enabled` loads but prints a deprecation notice."""
+    config_path = _write_config(
+        tmp_path,
+        DEPRECATED_TOGGLE_SECTION,
+        'deprecated.yml',
+    )
+
+    settings = _start_app(config_path)
+
+    assert settings.server.ui.enabled is False
+    captured = capsys.readouterr()
+    assert 'server.ui_enabled' in captured.err
+    assert 'deprecated' in captured.err
