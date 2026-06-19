@@ -134,8 +134,11 @@ export const columns = [
   }),
   columnHelper.display({
     id: 'actions',
-    cell: ({ row }) => {
+    cell: ({ row, table }) => {
       const original = row.original;
+      const existingInstanceIds = table.options.data.map(
+        (instance) => instance.id
+      );
       return (
         <RowActions
           target={
@@ -145,6 +148,7 @@ export const columns = [
           }
           instanceId={original.id}
           instanceStatus={original.status}
+          existingInstanceIds={existingInstanceIds}
         />
       );
     },
