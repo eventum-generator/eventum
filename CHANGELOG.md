@@ -7,6 +7,7 @@ All notable changes to this project will be documented in this file.
 ### 🐛 Bug Fixes
 
 - **Recreating a deleted project no longer shows the old project's settings** — creating a project with the same name as a deleted one now starts from a clean configuration; previously its plugin tabs could still display the deleted project's settings
+- **Opening a scenario with many instances no longer times out** — scenarios with several generators now open reliably; previously the page could hang and fail after about ten seconds while loading each instance's global-state usage
 
 ## 2.6.0 (2026-06-11)
 
