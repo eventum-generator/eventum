@@ -1,10 +1,12 @@
 """Tests for App."""
 
 import socket
+from collections.abc import Iterator
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import pytest
+from sse_starlette.sse import AppStatus
 
 from eventum.app.hooks import InstanceHooks
 from eventum.app.main import App, AppError
@@ -72,6 +74,16 @@ def instance_hooks(settings: Settings) -> InstanceHooks:
 def app(settings: Settings, instance_hooks: InstanceHooks) -> App:
     """Build an App instance for tests."""
     return App(settings=settings, instance_hooks=instance_hooks)
+
+
+@pytest.fixture(autouse=True)
+def _restore_sse_drain_flag() -> Iterator[None]:
+    """Keep the SSE drain flag from leaking between tests."""
+    original = AppStatus.should_exit
+    try:
+        yield
+    finally:
+        AppStatus.should_exit = original
 
 
 def test_start_starts_server_when_only_mcp_enabled(tmp_path: Path) -> None:
@@ -273,3 +285,35 @@ def test_run_server_no_terminate_on_graceful_stop(
     app._run_server()  # noqa: SLF001
 
     terminate.assert_not_called()
+
+
+def test_stop_server_requests_sse_drain(app: App) -> None:
+    """Stopping the server signals SSE streams to drain."""
+    server = MagicMock()
+    server.should_exit = False
+    thread = MagicMock()
+    thread.is_alive.side_effect = [True, False]
+
+    app._server = server  # noqa: SLF001
+    app._server_thread = thread  # noqa: SLF001
+    AppStatus.should_exit = False
+
+    app._stop_server()  # noqa: SLF001
+
+    assert AppStatus.should_exit is True
+
+
+def test_start_server_resets_sse_drain(tmp_path: Path) -> None:
+    """Starting the server clears a sticky drain flag."""
+    app = _make_mcp_only_app(tmp_path)
+    AppStatus.should_exit = True
+
+    with (
+        patch('eventum.server.main.build_server_app'),
+        patch('eventum.app.main.uvicorn'),
+    ):
+        app.start()
+        try:
+            assert AppStatus.should_exit is False
+        finally:
+            app.stop()
