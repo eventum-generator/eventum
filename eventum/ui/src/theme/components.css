@@ -127,3 +127,47 @@
   scrollbar-width: thin;
   scrollbar-color: var(--ev-border-strong) transparent;
 }
+
+/* --- Polish pass --- */
+
+/* Headings: tighter tracking across the app */
+.mantine-Title-root {
+  letter-spacing: -0.02em;
+}
+
+/* Active nav: accent left rail alongside the soft background */
+.mantine-NavLink-root[data-active] {
+  position: relative;
+}
+.mantine-NavLink-root[data-active]::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 6px;
+  bottom: 6px;
+  width: 3px;
+  border-radius: 0 3px 3px 0;
+  background: var(--ev-accent);
+}
+
+/* Sidebar group headers (NavLinks with children carry aria-expanded):
+   light muted micro-labels so the actual items lead. */
+.mantine-NavLink-root[aria-expanded] .mantine-NavLink-label {
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--ev-faint);
+}
+
+/* Icon buttons: subtle hover surface */
+.mantine-ActionIcon-root[data-variant='subtle']:hover,
+.mantine-ActionIcon-root[data-variant='transparent']:hover {
+  background-color: var(--ev-surface-2);
+}
+
+/* Uniform panel depth: bordered surfaces get the soft shadow */
+.mantine-Paper-root[data-with-border],
+.mantine-Card-root[data-with-border] {
+  box-shadow: var(--ev-shadow);
+}
