@@ -73,3 +73,51 @@
 @media (prefers-reduced-motion: reduce) {
   @keyframes ev-pulse { 0%,100% { box-shadow: none; } }
 }
+
+/* Sidebar / nav */
+.mantine-NavLink-root {
+  border-radius: 8px;
+}
+.mantine-NavLink-root[data-active] {
+  background-color: var(--ev-accent-soft);
+  color: var(--ev-text);
+}
+.mantine-AppShell-navbar,
+.mantine-AppShell-header {
+  background-color: var(--ev-surface);
+  border-color: var(--ev-border);
+}
+
+/* Menus / dropdowns */
+.mantine-Menu-dropdown {
+  background-color: var(--ev-surface);
+  border: 1px solid var(--ev-border);
+  border-radius: 12px;
+  box-shadow: var(--ev-shadow);
+}
+.mantine-Menu-item:hover {
+  background-color: var(--ev-surface-2);
+}
+
+/* Modal */
+.mantine-Modal-content,
+.mantine-Modal-header {
+  background-color: var(--ev-surface);
+}
+
+/* Tabs */
+.mantine-Tabs-tab[data-active] {
+  border-color: var(--ev-accent);
+}
+
+/* Alerts keep semantic colors; align neutral default */
+.mantine-Alert-root[data-variant='default'] {
+  background-color: var(--ev-surface-2);
+  border: 1px solid var(--ev-border);
+}
+
+/* Scrollbars */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--ev-border-strong) transparent;
+}
