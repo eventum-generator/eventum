@@ -42,3 +42,25 @@
 :where(*):focus-visible {
   outline-color: var(--ev-accent);
 }
+
+/* Tables */
+.mantine-Table-thead .mantine-Table-th {
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--ev-faint);
+  border-bottom: 1px solid var(--ev-border);
+  padding: 11px 16px;
+}
+.mantine-Table-tbody .mantine-Table-td {
+  border-bottom: 1px solid var(--ev-border);
+  padding: 13px 16px;
+  color: var(--ev-text);
+}
+.mantine-Table-tbody .mantine-Table-tr:hover .mantine-Table-td {
+  background-color: var(--ev-surface-2);
+}
+.mantine-Table-tbody .mantine-Table-tr:last-of-type .mantine-Table-td {
+  border-bottom: 0;
+}
