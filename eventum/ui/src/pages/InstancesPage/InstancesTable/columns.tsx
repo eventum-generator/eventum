@@ -1,15 +1,15 @@
-import { ActionIcon, Checkbox, Group, Indicator, Text } from '@mantine/core';
+import { ActionIcon, Checkbox } from '@mantine/core';
 import { IconDotsVertical } from '@tabler/icons-react';
 import { createColumnHelper } from '@tanstack/react-table';
 import { formatDistanceToNow } from 'date-fns';
 import { dirname } from 'pathe';
 
 import { RowActions } from './RowActions';
-import { describeInstanceStatus } from './common/instance-status';
 import {
   GeneratorStatus,
   GeneratorsInfo,
 } from '@/api/routes/generators/schemas';
+import { StatusPill } from '@/components/ui/StatusPill';
 
 const columnHelper = createColumnHelper<GeneratorsInfo[number]>();
 
@@ -90,23 +90,7 @@ export const columns = [
 
       return rankInstanceStatus(rowValueA) - rankInstanceStatus(rowValueB);
     },
-    cell: (info) => {
-      const status = info.getValue();
-
-      const { text, color, processing } = describeInstanceStatus(status);
-
-      return (
-        <Group gap="sm" align="center">
-          <Indicator
-            color={color}
-            size={8}
-            position="middle-center"
-            processing={processing}
-          />
-          <Text size="sm">{text}</Text>
-        </Group>
-      );
-    },
+    cell: (info) => <StatusPill status={info.getValue()} />,
   }),
   columnHelper.accessor('start_time', {
     header: 'Last start time',

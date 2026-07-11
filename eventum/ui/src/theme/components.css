@@ -64,3 +64,12 @@
 .mantine-Table-tbody .mantine-Table-tr:last-of-type .mantine-Table-td {
   border-bottom: 0;
 }
+
+@keyframes ev-pulse {
+  0% { box-shadow: 0 0 0 0 var(--ev-good-soft); }
+  70% { box-shadow: 0 0 0 5px transparent; }
+  100% { box-shadow: 0 0 0 0 transparent; }
+}
+@media (prefers-reduced-motion: reduce) {
+  @keyframes ev-pulse { 0%,100% { box-shadow: none; } }
+}
