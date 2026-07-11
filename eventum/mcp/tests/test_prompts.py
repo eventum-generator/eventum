@@ -53,4 +53,5 @@ def test_live_ops_covers_modes_and_scenarios() -> None:
     assert 'live mode' in text
     assert 'sample mode' in text
     assert 'scenarios' in text
-    assert 'REST scenarios API' in text
+    assert 'list_scenarios' in text
+    assert 'update_settings' in text

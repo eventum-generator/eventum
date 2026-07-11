@@ -120,6 +120,24 @@ _EXPECTED_LIVE_TOOLS = {
     'unregister_generator',
     'get_generator_logs',
     'list_startup_generators',
+    'list_scenarios',
+    'get_scenario',
+    'add_generator_to_scenario',
+    'remove_generator_from_scenario',
+    'delete_scenario',
+    'get_global_state',
+    'get_global_state_key',
+    'set_global_state',
+    'delete_global_state_key',
+    'clear_global_state',
+    'update_settings',
+    'stop_instance',
+    'restart_instance',
+}
+
+_EXPECTED_LIVE_RESOURCES = {
+    'eventum://instance/info',
+    'eventum://instance/settings',
 }
 
 
@@ -134,6 +152,8 @@ def live_ctx(tmp_path: Path) -> ServerLiveContext:
         generation=MagicMock(),
         logs_dir=tmp_path,
         log_format='plain',
+        settings=MagicMock(),
+        hooks=MagicMock(),
     )
 
 
@@ -153,6 +173,22 @@ def test_live_server_registers_live_tools(
     names = {t.name for t in anyio.run(server.list_tools)}
     assert names >= _EXPECTED_LIVE_TOOLS
     assert names >= _EXPECTED_TOOLS
+
+
+def test_live_server_registers_instance_resources(
+    live_ctx: ServerLiveContext,
+) -> None:
+    """The HTTP live server adds the instance info/settings resources."""
+    server = build_server(live_ctx, transport='http', live=True)
+    uris = {str(r.uri) for r in anyio.run(server.list_resources)}
+    assert uris >= _EXPECTED_LIVE_RESOURCES
+
+
+def test_stdio_has_no_instance_resources(ctx: FileAuthoringContext) -> None:
+    """The stdio server exposes no instance resources."""
+    server = build_server(ctx, transport='stdio')
+    uris = {str(r.uri) for r in anyio.run(server.list_resources)}
+    assert uris.isdisjoint(_EXPECTED_LIVE_RESOURCES)
 
 
 def test_live_requires_live_context(ctx: FileAuthoringContext) -> None:

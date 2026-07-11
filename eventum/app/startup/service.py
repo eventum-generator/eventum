@@ -6,6 +6,8 @@ from contextlib import contextmanager
 from pathlib import Path
 
 from eventum.app.startup.exceptions import (
+    ScenarioConflictError,
+    ScenarioNotFoundError,
     StartupConflictError,
     StartupError,
     StartupNotFoundError,
@@ -204,6 +206,158 @@ class Startup:
             raw[:] = [entry for entry in raw if entry['id'] not in targets]
             return deleted
 
+    def list_scenarios(self) -> list[str]:
+        """List the distinct scenario names across all entries.
+
+        Returns
+        -------
+        list[str]
+            Sorted, de-duplicated scenario names.
+
+        Raises
+        ------
+        StartupError
+            If the file cannot be read, parsed, or validated.
+
+        """
+        with self._lock:
+            params_list = self._parse(self._file.read())
+
+        names: set[str] = set()
+        for params in params_list.root:
+            names.update(params.scenarios)
+        return sorted(names)
+
+    def get_scenario_generators(self, scenario: str) -> list[str]:
+        """List ids of generators tagged with a scenario, in file order.
+
+        Parameters
+        ----------
+        scenario : str
+            Scenario name.
+
+        Returns
+        -------
+        list[str]
+            Ids of generators carrying the tag; empty if none do.
+
+        Raises
+        ------
+        StartupError
+            If the file cannot be read, parsed, or validated.
+
+        """
+        with self._lock:
+            params_list = self._parse(self._file.read())
+
+        return [
+            params.id
+            for params in params_list.root
+            if scenario in params.scenarios
+        ]
+
+    def tag_scenario(self, id: str, scenario: str) -> None:
+        """Add a scenario tag to one generator entry.
+
+        Parameters
+        ----------
+        id : str
+            Generator id to tag.
+
+        scenario : str
+            Scenario name to add.
+
+        Raises
+        ------
+        StartupError
+            If the file cannot be read, parsed, validated, or written.
+
+        StartupNotFoundError
+            If no entry with the provided id exists.
+
+        ScenarioConflictError
+            If the entry already carries the tag.
+
+        """
+        with self._mutating() as raw:
+            entry = raw[self._require_index(raw, id)]
+            scenarios = entry.get('scenarios', [])
+            if scenario in scenarios:
+                raise self._build_scenario_conflict_error(id, scenario)
+            scenarios.append(scenario)
+            entry['scenarios'] = scenarios
+
+    def untag_scenario(self, id: str, scenario: str) -> None:
+        """Remove a scenario tag from one generator entry.
+
+        Parameters
+        ----------
+        id : str
+            Generator id to untag.
+
+        scenario : str
+            Scenario name to remove.
+
+        Raises
+        ------
+        StartupError
+            If the file cannot be read, parsed, validated, or written.
+
+        ScenarioNotFoundError
+            If the entry does not exist or does not carry the tag.
+
+        """
+        with self._mutating() as raw:
+            index = self._find_index(raw, id)
+            entry = raw[index] if index is not None else None
+            if entry is None or scenario not in entry.get('scenarios', []):
+                raise self._build_membership_not_found_error(id, scenario)
+            self._drop_scenario(entry, scenario)
+
+    def delete_scenario(self, scenario: str) -> list[str]:
+        """Remove a scenario tag from every entry that carries it.
+
+        Parameters
+        ----------
+        scenario : str
+            Scenario name to remove everywhere.
+
+        Returns
+        -------
+        list[str]
+            Ids of generators that were untagged, in file order.
+
+        Raises
+        ------
+        StartupError
+            If the file cannot be read, parsed, validated, or written.
+
+        ScenarioNotFoundError
+            If no entry carries the tag.
+
+        """
+        with self._mutating() as raw:
+            affected: list[str] = []
+            for entry in raw:
+                if scenario in entry.get('scenarios', []):
+                    affected.append(entry['id'])
+                    self._drop_scenario(entry, scenario)
+
+            # Raising discards the in-place edits: _mutating skips the
+            # write when the block raises.
+            if not affected:
+                raise self._build_scenario_not_found_error(scenario)
+            return affected
+
+    @staticmethod
+    def _drop_scenario(entry: dict, scenario: str) -> None:
+        """Remove a scenario from a raw entry, dropping an empty list."""
+        remaining = [s for s in entry.get('scenarios', []) if s != scenario]
+        if remaining:
+            entry['scenarios'] = remaining
+        else:
+            entry.pop('scenarios', None)
+
     @contextmanager
     def _mutating(self) -> Iterator[list[dict]]:
         """Read, validate, yield raw entries, atomically write on exit.
@@ -257,3 +411,31 @@ class Startup:
         """Build a StartupConflictError for the given id."""
         msg = 'Generator is already present in the startup file'
         return StartupConflictError(msg, context={'value': id})
+
+    @staticmethod
+    def _build_scenario_conflict_error(
+        id: str, scenario: str
+    ) -> ScenarioConflictError:
+        """Build a ScenarioConflictError for an already-tagged entry."""
+        msg = 'Generator already belongs to this scenario'
+        return ScenarioConflictError(
+            msg, context={'value': id, 'name': scenario}
+        )
+
+    @staticmethod
+    def _build_membership_not_found_error(
+        id: str, scenario: str
+    ) -> ScenarioNotFoundError:
+        """Build a ScenarioNotFoundError for a missing membership."""
+        msg = 'Generator does not belong to this scenario'
+        return ScenarioNotFoundError(
+            msg, context={'value': id, 'name': scenario}
+        )
+
+    @staticmethod
+    def _build_scenario_not_found_error(
+        scenario: str,
+    ) -> ScenarioNotFoundError:
+        """Build a ScenarioNotFoundError for an absent scenario."""
+        msg = 'Scenario is not present in the startup file'
+        return ScenarioNotFoundError(msg, context={'name': scenario})
