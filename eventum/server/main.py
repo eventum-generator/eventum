@@ -90,7 +90,9 @@ def build_server_app(
             inject_service as inject_mcp_service,
         )
 
-        inject_mcp_service(app, generator_manager, settings, startup)
+        inject_mcp_service(
+            app, generator_manager, settings, startup, instance_hooks
+        )
 
     # The UI service registers an SPA catch-all route, so it must be
     # injected last: routes and mounts registered after it would be

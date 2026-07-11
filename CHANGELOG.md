@@ -8,6 +8,7 @@ All notable changes to this project will be documented in this file.
 
 - **Nested `server.ui` and `server.api` config sections** — the web UI and REST API toggles now live under `server.ui.enabled` and `server.api.enabled`, matching the `server.mcp` layout. The flat `server.ui_enabled` and `server.api_enabled` keys still work but are deprecated, print a notice at startup, and will be removed in version 2.8; combining a flat key with its nested form is rejected
 - **Clone an instance in Studio** — the instance row menu now has a **Clone** action that creates a new instance from an existing one, reusing its project and all parameters; you only choose a name for the clone
+- **MCP tools for scenarios, settings, and instance control** — over HTTP an agent can now manage **scenarios** (list them, inspect a scenario's generators, add or remove a generator, delete a scenario), read and edit the shared **global state** (get the whole state or one key, set, delete a key, clear), read **host/runtime info** and the running **settings** (auth credentials redacted, absolute paths shortened), patch the **settings** file, and **stop** or **restart** the instance. All write tools stay gated behind `server.mcp.allow_write`; auth credentials cannot be changed over MCP, settings updates apply on the next restart, and stopping or restarting ends the agent's own connection since the server runs inside the instance
 
 ### 🐛 Bug Fixes
 

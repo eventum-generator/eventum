@@ -36,7 +36,7 @@ def test_inject_mounts_and_registers_lifespan(
     settings = mcp_settings
     app = _make_app(settings)
 
-    inject_service(app, MagicMock(), settings, MagicMock())
+    inject_service(app, MagicMock(), settings, MagicMock(), MagicMock())
 
     assert len(app.state.lifespan_cms) == 1
     mounts = [r for r in app.routes if isinstance(r, Mount)]
@@ -47,7 +47,7 @@ def test_inject_redirects_slashless_path(mcp_settings: Settings) -> None:
     """The configured slashless path redirects to the mount root."""
     app = _make_app(mcp_settings)
 
-    inject_service(app, MagicMock(), mcp_settings, MagicMock())
+    inject_service(app, MagicMock(), mcp_settings, MagicMock(), MagicMock())
 
     client = TestClient(app)
     response = client.post('/mcp', follow_redirects=False)
@@ -68,7 +68,7 @@ def test_inject_threads_config_filename_into_context(
     with patch(
         'eventum.server.services.mcp.injector.build_server',
     ) as mock_build:
-        inject_service(app, MagicMock(), settings, MagicMock())
+        inject_service(app, MagicMock(), settings, MagicMock(), MagicMock())
 
     context = mock_build.call_args.args[0]
     assert context.config_filename == 'custom.yml'
@@ -83,7 +83,9 @@ def test_inject_disables_protection_without_hosts(
     with patch(
         'eventum.server.services.mcp.injector.build_server',
     ) as mock_build:
-        inject_service(app, MagicMock(), mcp_settings, MagicMock())
+        inject_service(
+            app, MagicMock(), mcp_settings, MagicMock(), MagicMock()
+        )
 
     security = mock_build.return_value.settings.transport_security
     assert security.enable_dns_rebinding_protection is False
@@ -109,7 +111,7 @@ def test_inject_derives_origins_from_allowed_hosts(
     with patch(
         'eventum.server.services.mcp.injector.build_server',
     ) as mock_build:
-        inject_service(app, MagicMock(), settings, MagicMock())
+        inject_service(app, MagicMock(), settings, MagicMock(), MagicMock())
 
     security = mock_build.return_value.settings.transport_security
     assert security.enable_dns_rebinding_protection is True

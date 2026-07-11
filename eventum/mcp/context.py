@@ -8,7 +8,9 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Literal, Protocol, runtime_checkable
 
+from eventum.app.hooks import InstanceHooks
 from eventum.app.manager import GeneratorManager
+from eventum.app.models.settings import Settings
 from eventum.app.startup import Startup
 from eventum.core.parameters import GenerationParameters
 
@@ -83,6 +85,16 @@ class LiveContext(AuthoringContext, Protocol):
         """Log file format - selects the log file extension."""
         ...
 
+    @property
+    def settings(self) -> Settings:
+        """The running instance settings (a snapshot at injection)."""
+        ...
+
+    @property
+    def hooks(self) -> InstanceHooks:
+        """Hooks controlling the running instance (settings/lifecycle)."""
+        ...
+
 
 @dataclass(frozen=True)
 class ServerLiveContext:
@@ -95,6 +107,8 @@ class ServerLiveContext:
     generation: GenerationParameters
     logs_dir: Path
     log_format: Literal['plain', 'json']
+    settings: Settings
+    hooks: InstanceHooks
     config_filename: str = 'generator.yml'
 
     def is_live_managed(self, generator_id: str) -> bool:

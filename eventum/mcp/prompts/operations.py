@@ -27,14 +27,24 @@ from the registered execution settings (`live_mode`); override it with \
 the `execution` argument of `register_generator`. For a quick bounded \
 sample without registering, use `run_generator`.
 
-Scenarios and shared state. Generators coordinate at runtime through \
-`globals` state; group related ones into named scenarios for \
-coordinated lifecycle and global-state flow. Scenarios live in the \
-`scenarios` field of the startup file (or the Studio UI); there is no \
-MCP tool for them - manage them through the REST scenarios API (see the \
-OpenAPI schema) or Studio.
+Scenarios and shared state. Group related generators into named \
+scenarios: `list_scenarios` and `get_scenario` inspect them, while \
+`add_generator_to_scenario`, `remove_generator_from_scenario`, and \
+`delete_scenario` edit the tags in the startup file. Generators also \
+coordinate at runtime through shared `globals` state: read it with \
+`get_global_state` / `get_global_state_key`, edit it with \
+`set_global_state`, `delete_global_state_key`, and `clear_global_state`.
 
-Write tools (register, start, stop, unregister, delete, file writes) \
+Instance and settings. `eventum://instance/info` reports host and \
+runtime metrics; `eventum://instance/settings` shows the running \
+settings with credentials redacted and paths shortened. \
+`update_settings` patches the settings file and applies on the next \
+restart, so follow it with `restart_instance` to take effect; \
+`stop_instance` halts the instance. Both lifecycle tools end this MCP \
+connection, since the server runs inside the instance.
+
+Write tools (register, start, stop, unregister, delete, file writes, \
+scenario and global-state edits, settings updates, instance control) \
 require the server to allow writes; when it does not, they fail and \
 only the read tools work.
 """

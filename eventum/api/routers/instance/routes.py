@@ -3,8 +3,6 @@
 import asyncio
 from typing import Annotated
 
-import aiofiles
-import yaml
 from fastapi import (
     APIRouter,
     Body,
@@ -23,7 +21,7 @@ from eventum.api.utils.websocket_annotations import (
     Receives,
     Rejects,
 )
-from eventum.app.models.settings import Settings
+from eventum.app.models.settings import Settings, write_settings
 from eventum.logging.file_paths import construct_main_logfile_path
 
 router = APIRouter()
@@ -71,16 +69,8 @@ async def update_settings(
             detail=f'Error occurred during settings file path resolution: {e}',
         ) from None
 
-    content = await asyncio.to_thread(
-        lambda: yaml.dump(
-            settings.model_dump(mode='json', exclude_unset=True),
-            sort_keys=False,
-        ),
-    )
-
     try:
-        async with aiofiles.open(path, 'w') as f:
-            await f.write(content)
+        await asyncio.to_thread(write_settings, settings, path)
     except OSError as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,

@@ -35,8 +35,9 @@ from eventum.server.main import build_server_app
 from eventum.server.services.ui import injector as ui_injector
 from eventum.server.services.ui import routes as ui_routes
 
-# 16 authoring tools + 9 live-management tools.
-_EXPECTED_TOOL_COUNT = 25
+# 16 authoring tools + 9 live-management + 5 scenario + 5 global-state
+# + 3 instance-control tools.
+_EXPECTED_TOOL_COUNT = 38
 _STARTUP_TIMEOUT = 20.0
 _POLL_INTERVAL = 0.05
 
