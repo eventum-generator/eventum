@@ -28,7 +28,9 @@ _INSTRUCTIONS = (
     'template-context reference, the generator schema, and worked '
     'examples, then write, validate, preview, and run generators. Over '
     'HTTP it also manages running generators - register, start, stop, '
-    'unregister, and read their logs. Write tools are gated on a '
+    'unregister, and read their logs - groups them into scenarios, '
+    'reads and edits the shared global state, and reads or updates the '
+    'instance settings and lifecycle. Write tools are gated on a '
     'writable server: the HTTP mount is read-only unless '
     '`server.mcp.allow_write` is enabled, and the stdio server is '
     'writable unless started with `--read-only`. Tool failures '
@@ -75,8 +77,10 @@ def build_server(
         workspace, validate/preview, and run tools; the
         templating-reference, generator-schema, examples, and
         workspace-configs resources; the authoring prompts; and,
-        when ``live`` is set, the live generator-management tools and
-        REST-API-fallback guidance in the server instructions.
+        when ``live`` is set, the live generator-management, scenario,
+        global-state, and instance-control tools; the instance
+        info/settings resources; and REST-API-fallback guidance in the
+        server instructions.
 
     """
     instructions = (
@@ -103,12 +107,20 @@ def build_server(
     if live:
         from eventum.mcp.context import LiveContext
         from eventum.mcp.prompts import operations as operations_prompts
+        from eventum.mcp.resources import instance as instance_resource
+        from eventum.mcp.tools import global_state as global_state_tools
+        from eventum.mcp.tools import instance as instance_tools
         from eventum.mcp.tools import live as live_tools
+        from eventum.mcp.tools import scenarios as scenario_tools
 
         if not isinstance(context, LiveContext):
             msg = 'live mode requires a LiveContext'
             raise TypeError(msg)
         live_tools.register(mcp, context, transport=transport)
+        scenario_tools.register(mcp, context, transport=transport)
+        global_state_tools.register(mcp, context, transport=transport)
+        instance_tools.register(mcp, context, transport=transport)
+        instance_resource.register(mcp, context)
         operations_prompts.register(mcp)
 
     return mcp

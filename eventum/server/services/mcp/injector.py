@@ -12,6 +12,7 @@ from mcp.server.transport_security import TransportSecuritySettings
 from starlette.requests import Request
 from starlette.responses import RedirectResponse
 
+from eventum.app.hooks import InstanceHooks
 from eventum.app.manager import GeneratorManager
 from eventum.app.models.settings import Settings
 from eventum.app.startup import Startup
@@ -26,6 +27,7 @@ def inject_service(
     generator_manager: GeneratorManager,
     settings: Settings,
     startup: Startup,
+    instance_hooks: InstanceHooks,
 ) -> None:
     """Mount the MCP Streamable-HTTP app onto the server app.
 
@@ -46,6 +48,10 @@ def inject_service(
         Shared startup-config service, used by ``register_generator``
         to persist generators.
 
+    instance_hooks : InstanceHooks
+        Hooks for the running instance, exposed to the settings and
+        instance-control tools.
+
     Raises
     ------
     ServiceBuildingError
@@ -61,6 +67,8 @@ def inject_service(
             generation=settings.generation,
             logs_dir=settings.path.logs,
             log_format=settings.log.format,
+            settings=settings,
+            hooks=instance_hooks,
             config_filename=str(settings.path.generator_config_filename),
         )
         mcp = build_server(context, transport='http', live=True)
