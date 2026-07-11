@@ -46,7 +46,15 @@ const primaryColorTuple: MantineColorsTuple = [
 
 const theme = createTheme({
   autoContrast: true,
-  fontFamily: 'Montserrat, sans-serif',
+  fontFamily:
+    "'Inter Variable', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif",
+  fontFamilyMonospace:
+    "ui-monospace, 'Cascadia Code', 'SF Mono', 'JetBrains Mono', Menlo, Consolas, monospace",
+  headings: {
+    fontFamily:
+      "'Inter Variable', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif",
+    fontWeight: '650',
+  },
   defaultRadius: 'md',
   cursorType: 'pointer',
   colors: {

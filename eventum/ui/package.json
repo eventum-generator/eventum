@@ -20,6 +20,7 @@
     "@codemirror/lint": "^6.9.5",
     "@codemirror/state": "^6.5.3",
     "@codemirror/view": "^6.39.4",
+    "@fontsource-variable/inter": "^5.2.8",
     "@headless-tree/core": "^1.6.1",
     "@headless-tree/react": "^1.6.1",
     "@icons-pack/react-simple-icons": "^13.11.1",
