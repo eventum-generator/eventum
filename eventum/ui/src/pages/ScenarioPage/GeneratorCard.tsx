@@ -13,10 +13,10 @@ import {
 } from '@mantine/core';
 import { modals } from '@mantine/modals';
 import {
+  IconArrowLeft,
+  IconArrowRight,
   IconChevronDown,
   IconChevronRight,
-  IconArrowRight,
-  IconArrowLeft,
   IconDotsVertical,
   IconExternalLink,
   IconFile,
@@ -28,7 +28,7 @@ import {
 } from '@tabler/icons-react';
 import { dirname } from 'pathe';
 import { FC, useMemo, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 
 import { TemplatePreviewModal } from './TemplatePreviewModal';
 import {
@@ -37,10 +37,10 @@ import {
   useUpdateGeneratorStatus,
 } from '@/api/hooks/useGenerators';
 import { streamGeneratorLogs } from '@/api/routes/generators';
-import { LogsModal } from '@/components/modals/LogsModal';
-import { MetricsModal } from '@/pages/InstancesPage/InstancesTable/MetricsModal';
 import { GeneratorStatus } from '@/api/routes/generators/schemas';
 import { GlobalsUsage } from '@/api/routes/scenarios/schemas';
+import { LogsModal } from '@/components/modals/LogsModal';
+import { MetricsModal } from '@/pages/InstancesPage/InstancesTable/MetricsModal';
 import { describeInstanceStatus } from '@/pages/InstancesPage/InstancesTable/common/instance-status';
 import { ROUTE_PATHS } from '@/routing/paths';
 import {
@@ -57,7 +57,11 @@ export interface GeneratorCardProps {
   onToggleExpand?: () => void;
   onRemove: () => void;
   onHover?: (nodeId: string | null) => void;
-  onHighlightEdge?: (generatorId: string, keyName: string, direction?: 'write' | 'read') => void;
+  onHighlightEdge?: (
+    generatorId: string,
+    keyName: string,
+    direction?: 'write' | 'read'
+  ) => void;
 }
 
 export const GeneratorCard: FC<GeneratorCardProps> = ({
@@ -71,19 +75,23 @@ export const GeneratorCard: FC<GeneratorCardProps> = ({
   onHover,
   onHighlightEdge,
 }) => {
-  const navigate = useNavigate();
   const [internalExpanded, setInternalExpanded] = useState(false);
   const [previewTemplate, setPreviewTemplate] = useState<string | null>(null);
 
   // Use external expand state if provided, otherwise fall back to internal
   const expanded = externalExpanded ?? internalExpanded;
-  const toggleExpand = onToggleExpand ?? (() => setInternalExpanded((prev) => !prev));
+  const toggleExpand =
+    onToggleExpand ?? (() => setInternalExpanded((prev) => !prev));
 
   const startMutation = useStartGeneratorMutation();
   const stopMutation = useStopGeneratorMutation();
   const updateStatus = useUpdateGeneratorStatus();
 
-  const GLOBALS_ROW_STYLE = { cursor: 'default', borderRadius: 4, padding: '2px 4px 2px 22px' } as const;
+  const GLOBALS_ROW_STYLE = {
+    cursor: 'default',
+    borderRadius: 4,
+    padding: '2px 4px 2px 22px',
+  } as const;
 
   const projectName = dirname(generatorPath);
   const isActive = status?.is_running ?? false;
@@ -128,7 +136,10 @@ export const GeneratorCard: FC<GeneratorCardProps> = ({
       { id: generatorId },
       {
         onSuccess: () =>
-          showSuccessNotification('Success', `Instance "${generatorId}" started`),
+          showSuccessNotification(
+            'Success',
+            `Instance "${generatorId}" started`
+          ),
         onError: (error) =>
           showErrorNotification('Failed to start instance', error),
       }
@@ -150,7 +161,10 @@ export const GeneratorCard: FC<GeneratorCardProps> = ({
       { id: generatorId },
       {
         onSuccess: () =>
-          showSuccessNotification('Success', `Instance "${generatorId}" stopped`),
+          showSuccessNotification(
+            'Success',
+            `Instance "${generatorId}" stopped`
+          ),
         onError: (error) =>
           showErrorNotification('Failed to stop instance', error),
       }
@@ -226,60 +240,62 @@ export const GeneratorCard: FC<GeneratorCardProps> = ({
                 <IconDotsVertical size={20} />
               </ActionIcon>
             </Menu.Target>
-          <Menu.Dropdown>
-            {isActive || isTransitioning ? (
+            <Menu.Dropdown>
+              {isActive || isTransitioning ? (
+                <Menu.Item
+                  leftSection={<IconPlayerStop size={14} />}
+                  onClick={handleStop}
+                  disabled={stopMutation.isPending}
+                >
+                  Stop
+                </Menu.Item>
+              ) : (
+                <Menu.Item
+                  leftSection={<IconPlayerPlay size={14} />}
+                  onClick={handleStart}
+                  disabled={startMutation.isPending}
+                >
+                  Start
+                </Menu.Item>
+              )}
+              <Menu.Divider />
               <Menu.Item
-                leftSection={<IconPlayerStop size={14} />}
-                onClick={handleStop}
-                disabled={stopMutation.isPending}
+                leftSection={<IconGauge size={14} />}
+                onClick={handleShowMetrics}
+                disabled={!isActive}
               >
-                Stop
+                Show metrics
               </Menu.Item>
-            ) : (
               <Menu.Item
-                leftSection={<IconPlayerPlay size={14} />}
-                onClick={handleStart}
-                disabled={startMutation.isPending}
+                leftSection={<IconLogs size={14} />}
+                onClick={handleShowLogs}
               >
-                Start
+                Show logs
               </Menu.Item>
-            )}
-            <Menu.Divider />
-            <Menu.Item
-              leftSection={<IconGauge size={14} />}
-              onClick={handleShowMetrics}
-              disabled={!isActive}
-            >
-              Show metrics
-            </Menu.Item>
-            <Menu.Item
-              leftSection={<IconLogs size={14} />}
-              onClick={handleShowLogs}
-            >
-              Show logs
-            </Menu.Item>
-            <Menu.Divider />
-            <Menu.Item
-              leftSection={<IconExternalLink size={14} />}
-              onClick={() => void navigate(`${ROUTE_PATHS.INSTANCES}/${generatorId}`)}
-            >
-              Edit instance
-            </Menu.Item>
-            <Menu.Item
-              leftSection={<IconExternalLink size={14} />}
-              onClick={() => void navigate(`${ROUTE_PATHS.PROJECTS}/${projectName}`)}
-            >
-              Go to project
-            </Menu.Item>
-            <Menu.Divider />
-            <Menu.Item
-              color="red"
-              leftSection={<IconTrash size={14} />}
-              onClick={onRemove}
-            >
-              Remove
-            </Menu.Item>
-          </Menu.Dropdown>
+              <Menu.Divider />
+              <Menu.Item
+                component={Link}
+                to={`${ROUTE_PATHS.INSTANCES}/${generatorId}`}
+                leftSection={<IconExternalLink size={14} />}
+              >
+                Edit instance
+              </Menu.Item>
+              <Menu.Item
+                component={Link}
+                to={`${ROUTE_PATHS.PROJECTS}/${projectName}`}
+                leftSection={<IconExternalLink size={14} />}
+              >
+                Go to project
+              </Menu.Item>
+              <Menu.Divider />
+              <Menu.Item
+                color="red"
+                leftSection={<IconTrash size={14} />}
+                onClick={onRemove}
+              >
+                Remove
+              </Menu.Item>
+            </Menu.Dropdown>
           </Menu>
         </Group>
       </UnstyledButton>
@@ -316,12 +332,18 @@ export const GeneratorCard: FC<GeneratorCardProps> = ({
                   gap={4}
                   wrap="nowrap"
                   style={GLOBALS_ROW_STYLE}
-                  onMouseEnter={() => onHighlightEdge?.(generatorId, key, 'write')}
+                  onMouseEnter={() =>
+                    onHighlightEdge?.(generatorId, key, 'write')
+                  }
                   onMouseLeave={() => onHighlightEdge?.('', '')}
                 >
                   <IconArrowRight size={12} style={{ flexShrink: 0 }} />
-                  <Text size="xs" ff="monospace">{key}</Text>
-                  <Text size="xs" c="dimmed">(write)</Text>
+                  <Text size="xs" ff="monospace">
+                    {key}
+                  </Text>
+                  <Text size="xs" c="dimmed">
+                    (write)
+                  </Text>
                 </Group>
               ))}
               {usage.reads.map((key) => (
@@ -330,12 +352,18 @@ export const GeneratorCard: FC<GeneratorCardProps> = ({
                   gap={4}
                   wrap="nowrap"
                   style={GLOBALS_ROW_STYLE}
-                  onMouseEnter={() => onHighlightEdge?.(generatorId, key, 'read')}
+                  onMouseEnter={() =>
+                    onHighlightEdge?.(generatorId, key, 'read')
+                  }
                   onMouseLeave={() => onHighlightEdge?.('', '')}
                 >
                   <IconArrowLeft size={12} style={{ flexShrink: 0 }} />
-                  <Text size="xs" ff="monospace">{key}</Text>
-                  <Text size="xs" c="dimmed">(read)</Text>
+                  <Text size="xs" ff="monospace">
+                    {key}
+                  </Text>
+                  <Text size="xs" c="dimmed">
+                    (read)
+                  </Text>
                 </Group>
               ))}
             </Stack>

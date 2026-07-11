@@ -6,12 +6,33 @@
   --mantine-color-blue-text: var(--mantine-color-blue-6) !important;
   --mantine-color-orange-text: var(--mantine-color-orange-5) !important;
   --mantine-color-green-text: var(--mantine-color-green-6) !important;
+
+  /* Recess the page canvas so raised surfaces (Paper, Card) stand out. */
+  --mantine-color-body: var(--mantine-color-gray-0);
 }
 
 :root[data-mantine-color-scheme='dark'] {
   --mantine-color-red-text: var(--mantine-color-red-5) !important;
   --mantine-color-green-text: var(--mantine-color-green-5) !important;
   --mantine-color-primary-text: var(--mantine-color-primary-3) !important;
+
+  /* Recess the page canvas so raised surfaces (Paper, Card) stand out. */
+  --mantine-color-body: var(--mantine-color-dark-8);
+}
+
+/*
+ * Paper and Card default to --mantine-color-body, which made panels blend
+ * into the page. Give them the raised surface color so they read as elevated
+ * above the recessed canvas set above.
+ */
+[data-mantine-color-scheme='light'] .mantine-Paper-root,
+[data-mantine-color-scheme='light'] .mantine-Card-root {
+  background-color: var(--mantine-color-white);
+}
+
+[data-mantine-color-scheme='dark'] .mantine-Paper-root,
+[data-mantine-color-scheme='dark'] .mantine-Card-root {
+  background-color: var(--mantine-color-dark-6);
 }
 
 h4 {

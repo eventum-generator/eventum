@@ -8,6 +8,10 @@ All notable changes to this project will be documented in this file.
 
 - **Nested `server.ui` and `server.api` config sections** — the web UI and REST API toggles now live under `server.ui.enabled` and `server.api.enabled`, matching the `server.mcp` layout. The flat `server.ui_enabled` and `server.api_enabled` keys still work but are deprecated, print a notice at startup, and will be removed in version 2.8; combining a flat key with its nested form is rejected
 - **Clone an instance in Studio** — the instance row menu now has a **Clone** action that creates a new instance from an existing one, reusing its project and all parameters; you only choose a name for the clone
+- **Open a record by clicking its name** — project, instance, and scenario names in the tables are now links: left-click opens the record, middle-click or Ctrl/Cmd-click opens it in a new browser tab. Selecting the name text no longer opens the record, so names stay copyable
+- **Links across Studio open in a new tab on middle-click** — the sidebar, breadcrumbs, home action cards, recent projects, and in-page navigation links are now real links, so middle-click and Ctrl/Cmd-click open a new browser tab instead of doing nothing
+- **Clickable breadcrumbs** — each breadcrumb segment now links to its page; the current page and any segment that has no page stay plain text
+- **Close an editor tab with middle-click** — middle-clicking a file tab in the project editor closes it, with the same unsaved-changes prompt as the close button
 
 ### 🐛 Bug Fixes
 
@@ -16,6 +20,7 @@ All notable changes to this project will be documented in this file.
 - **MCP settings are now editable in the Studio Settings page** — the Server parameters section gained MCP controls (enable the HTTP server, allow write tools, mount path, allowed hosts); previously these were configurable only by editing `eventum.yml`, and saving settings from Studio silently reset any existing MCP configuration to defaults
 - **Opening a scenario with many instances no longer times out** — scenarios with several generators now open reliably; previously the page could hang and fail after about ten seconds while loading each instance's global-state usage
 - **Stopping the app no longer hangs when a log or MCP stream is open** — pressing Ctrl+C while a generator's live log view or a connected MCP client is streaming now shuts the app down in well under a second, instead of waiting out the graceful-shutdown timeout and printing cancellation errors on exit
+- **Panels no longer blend into the background** — Paper and Card surfaces now sit on a slightly recessed page canvas in both light and dark themes, so panels read as raised instead of sharing the background color
 
 ## 2.6.0 (2026-06-11)
 

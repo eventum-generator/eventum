@@ -22,13 +22,13 @@ import {
   IconPlus,
 } from '@tabler/icons-react';
 import { useCallback, useMemo, useState } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { Link, useParams } from 'react-router-dom';
 
 import { AddGeneratorModal } from './AddGeneratorModal';
 import { DataFlowDiagram } from './DataFlowDiagram';
-import { collectGlobalKeys } from './globals-usage';
 import { GeneratorCard } from './GeneratorCard';
 import { GlobalStatePanel } from './GlobalStatePanel';
+import { collectGlobalKeys } from './globals-usage';
 import { useHighlightState } from './useHighlightState';
 import { useScenarioBulkActions } from './useScenarioBulkActions';
 import {
@@ -55,9 +55,9 @@ export default function ScenarioPage() {
     scenarioName: string;
   }>();
   const scenarioName = decodeURIComponent(rawScenarioName ?? '');
-  const navigate = useNavigate();
 
-  const { highlightedNodeId, highlightedEdgeId, highlightNode, highlightEdge } = useHighlightState();
+  const { highlightedNodeId, highlightedEdgeId, highlightNode, highlightEdge } =
+    useHighlightState();
   const [expandedCardId, setExpandedCardId] = useState<string | null>(null);
 
   const {
@@ -86,7 +86,10 @@ export default function ScenarioPage() {
     [scenarioEntries]
   );
 
-  const globalsUsageQueries = useMultiGlobalsUsage(scenarioName, scenarioGeneratorIds);
+  const globalsUsageQueries = useMultiGlobalsUsage(
+    scenarioName,
+    scenarioGeneratorIds
+  );
 
   const globalsUsageMap = useMemo(() => {
     const map = new Map<string, (typeof globalsUsageQueries)[number]['data']>();
@@ -106,36 +109,42 @@ export default function ScenarioPage() {
 
   const hasGlobalKeys = useMemo(
     () => collectGlobalKeys(globalsUsageMap).length > 0,
-    [globalsUsageMap],
+    [globalsUsageMap]
   );
 
   const { bulkStart, bulkStop } = useScenarioBulkActions(scenarioGeneratorIds);
   const updateStatus = useUpdateGeneratorStatus();
   const removeFromScenario = useRemoveGeneratorFromScenarioMutation();
 
-  const handleRemoveGenerator = useCallback((entry: StartupGeneratorParameters) => {
-    modals.openConfirmModal({
-      title: 'Remove from scenario',
-      children: (
-        <Text size="sm">
-          Remove <b>{entry.id}</b> from scenario <b>{scenarioName}</b>? The
-          instance will not be deleted.
-        </Text>
-      ),
-      labels: { cancel: 'Cancel', confirm: 'Remove' },
-      onConfirm: () => {
-        removeFromScenario.mutate(
-          { name: scenarioName, generatorId: entry.id },
-          {
-            onSuccess: () =>
-              showSuccessNotification('Success', 'Instance removed from scenario'),
-            onError: (error) =>
-              showErrorNotification('Failed to remove instance', error),
-          },
-        );
-      },
-    });
-  }, [scenarioName, removeFromScenario]);
+  const handleRemoveGenerator = useCallback(
+    (entry: StartupGeneratorParameters) => {
+      modals.openConfirmModal({
+        title: 'Remove from scenario',
+        children: (
+          <Text size="sm">
+            Remove <b>{entry.id}</b> from scenario <b>{scenarioName}</b>? The
+            instance will not be deleted.
+          </Text>
+        ),
+        labels: { cancel: 'Cancel', confirm: 'Remove' },
+        onConfirm: () => {
+          removeFromScenario.mutate(
+            { name: scenarioName, generatorId: entry.id },
+            {
+              onSuccess: () =>
+                showSuccessNotification(
+                  'Success',
+                  'Instance removed from scenario'
+                ),
+              onError: (error) =>
+                showErrorNotification('Failed to remove instance', error),
+            }
+          );
+        },
+      });
+    },
+    [scenarioName, removeFromScenario]
+  );
 
   function handleStartAll() {
     for (const id of scenarioGeneratorIds) {
@@ -156,9 +165,10 @@ export default function ScenarioPage() {
     bulkStart.mutate(
       { ids: scenarioGeneratorIds },
       {
-        onSuccess: () => showSuccessNotification('Success', 'All scenario instances started'),
+        onSuccess: () =>
+          showSuccessNotification('Success', 'All scenario instances started'),
         onError: (e) => showErrorNotification('Failed to start instances', e),
-      },
+      }
     );
   }
 
@@ -181,9 +191,10 @@ export default function ScenarioPage() {
     bulkStop.mutate(
       { ids: scenarioGeneratorIds },
       {
-        onSuccess: () => showSuccessNotification('Success', 'All scenario instances stopped'),
+        onSuccess: () =>
+          showSuccessNotification('Success', 'All scenario instances stopped'),
         onError: (e) => showErrorNotification('Failed to stop instances', e),
-      },
+      }
     );
   }
 
@@ -197,10 +208,16 @@ export default function ScenarioPage() {
 
   function handleDiagramInstanceClick(instanceId: string) {
     setExpandedCardId(instanceId);
-    document.querySelector(`#instance-card-${CSS.escape(instanceId)}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    document
+      .querySelector(`#instance-card-${CSS.escape(instanceId)}`)
+      ?.scrollIntoView({ behavior: 'smooth', block: 'center' });
   }
 
-  function handleHighlightEdge(generatorId: string, keyName: string, direction?: 'write' | 'read') {
+  function handleHighlightEdge(
+    generatorId: string,
+    keyName: string,
+    direction?: 'write' | 'read'
+  ) {
     if (generatorId && keyName) {
       const prefix = direction ?? 'write';
       highlightEdge(`${prefix}-${generatorId}-${keyName}`);
@@ -247,7 +264,8 @@ export default function ScenarioPage() {
           <Button
             variant="default"
             leftSection={<IconArrowLeft size={16} />}
-            onClick={() => void navigate(ROUTE_PATHS.SCENARIOS)}
+            component={Link}
+            to={ROUTE_PATHS.SCENARIOS}
           >
             Back
           </Button>
@@ -259,7 +277,9 @@ export default function ScenarioPage() {
               <Group justify="space-between" align="center">
                 <Group gap="xs">
                   <IconPlayerPlay size={18} />
-                  <Title order={5} fw="normal">Instances</Title>
+                  <Title order={5} fw="normal">
+                    Instances
+                  </Title>
                 </Group>
                 <Button
                   variant="default"
@@ -299,10 +319,13 @@ export default function ScenarioPage() {
                       <Group gap="sm" align="center">
                         <Group gap="xs">
                           <IconPlayerPlay size={18} />
-                          <Title order={5} fw="normal">Instances</Title>
+                          <Title order={5} fw="normal">
+                            Instances
+                          </Title>
                         </Group>
                         <Text size="xs" c="dimmed">
-                          {scenarioEntries.length} instance{scenarioEntries.length !== 1 ? 's' : ''}
+                          {scenarioEntries.length} instance
+                          {scenarioEntries.length !== 1 ? 's' : ''}
                         </Text>
                       </Group>
                       <Group gap="xs">

@@ -23,7 +23,7 @@ import {
 } from '@tabler/icons-react';
 import isEqual from 'lodash/isEqual';
 import { useEffect, useMemo, useState } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { Link, useNavigate, useParams } from 'react-router-dom';
 
 import { EventPluginTab } from './EventPluginTab';
 import { InputPluginsTab } from './InputPluginsTab';
@@ -135,7 +135,7 @@ export default function ProjectPage() {
         >
           {generatorConfigError.message}
           <ShowErrorDetailsAnchor error={generatorConfigError} prependDot />
-          <Anchor onClick={() => void navigate(ROUTE_PATHS.PROJECTS)}>
+          <Anchor component={Link} to={ROUTE_PATHS.PROJECTS}>
             <Text size="sm" ta="end">
               ← Go Back
             </Text>
