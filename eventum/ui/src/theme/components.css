@@ -72,12 +72,23 @@
 }
 
 @keyframes ev-pulse {
-  0% { box-shadow: 0 0 0 0 var(--ev-good-soft); }
-  70% { box-shadow: 0 0 0 5px transparent; }
-  100% { box-shadow: 0 0 0 0 transparent; }
+  0% {
+    box-shadow: 0 0 0 0 var(--ev-good-soft);
+  }
+  70% {
+    box-shadow: 0 0 0 5px transparent;
+  }
+  100% {
+    box-shadow: 0 0 0 0 transparent;
+  }
 }
 @media (prefers-reduced-motion: reduce) {
-  @keyframes ev-pulse { 0%,100% { box-shadow: none; } }
+  @keyframes ev-pulse {
+    0%,
+    100% {
+      box-shadow: none;
+    }
+  }
 }
 
 /* Sidebar / nav */
@@ -150,9 +161,9 @@
   background: var(--ev-accent);
 }
 
-/* Sidebar group headers (NavLinks with children carry aria-expanded):
+/* Sidebar group headers (NavLinks with children carry data-expanded):
    light muted micro-labels so the actual items lead. */
-.mantine-NavLink-root[aria-expanded] .mantine-NavLink-label {
+.mantine-NavLink-root[data-expanded] .mantine-NavLink-label {
   text-transform: uppercase;
   letter-spacing: 0.06em;
   font-size: 11px;
