@@ -21,7 +21,6 @@ All notable changes to this project will be documented in this file.
 - **MCP settings are now editable in the Studio Settings page** — the Server parameters section gained MCP controls (enable the HTTP server, allow write tools, mount path, allowed hosts); previously these were configurable only by editing `eventum.yml`, and saving settings from Studio silently reset any existing MCP configuration to defaults
 - **Opening a scenario with many instances no longer times out** — scenarios with several generators now open reliably; previously the page could hang and fail after about ten seconds while loading each instance's global-state usage
 - **Stopping the app no longer hangs when a log or MCP stream is open** — pressing Ctrl+C while a generator's live log view or a connected MCP client is streaming now shuts the app down in well under a second, instead of waiting out the graceful-shutdown timeout and printing cancellation errors on exit
-- **Panels no longer blend into the background** — Paper and Card surfaces now sit on a slightly recessed page canvas in both light and dark themes, so panels read as raised instead of sharing the background color
 
 ## 2.6.0 (2026-06-11)
 
