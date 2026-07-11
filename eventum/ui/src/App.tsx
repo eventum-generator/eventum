@@ -20,6 +20,7 @@ import '@mantine/code-highlight/styles.css';
 import '@mantine/notifications/styles.css';
 import '@mantine/charts/styles.css';
 import 'mantine-contextmenu/styles.layer.css';
+import '@/theme/tokens.css';
 import '@/index.css';
 
 import { ModalsProvider } from '@mantine/modals';
