@@ -44,7 +44,13 @@
 }
 
 /* Tables */
+/* Header sits on the panel surface, not the near-black --mantine-color-body
+   (which Mantine uses as the sticky-header background by default). */
+.mantine-Table-thead {
+  background-color: var(--ev-surface);
+}
 .mantine-Table-thead .mantine-Table-th {
+  background-color: var(--ev-surface);
   text-transform: uppercase;
   letter-spacing: 0.06em;
   font-size: 11px;

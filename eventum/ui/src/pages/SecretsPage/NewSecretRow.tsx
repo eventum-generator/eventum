@@ -71,6 +71,7 @@ export const NewSecretRow: FC = () => {
           <PasswordInput
             placeholder="secret value"
             {...form.getInputProps('value')}
+            size="sm"
           />
         </form>
       </Table.Td>
