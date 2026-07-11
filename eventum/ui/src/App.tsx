@@ -59,6 +59,7 @@ const theme = createTheme({
   },
   defaultRadius: 'md',
   cursorType: 'pointer',
+  focusRing: 'auto',
   colors: {
     primary: primaryColorTuple,
   },

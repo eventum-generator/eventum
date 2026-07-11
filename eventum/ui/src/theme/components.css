@@ -11,3 +11,34 @@
 .mantine-Card-root[data-with-border] {
   border-color: var(--ev-border);
 }
+
+/* Inputs (TextInput, Select, NumberInput, PasswordInput, Textarea, etc.
+   all render .mantine-Input-input) */
+.mantine-Input-input {
+  background-color: var(--ev-surface-2);
+  border-color: var(--ev-border);
+  border-radius: 9px;
+}
+.mantine-Input-input:focus,
+.mantine-Input-input:focus-within {
+  border-color: var(--ev-accent);
+}
+
+/* Buttons */
+.mantine-Button-root {
+  border-radius: 9px;
+  font-weight: 600;
+}
+.mantine-Button-root[data-variant='default'] {
+  background-color: var(--ev-surface);
+  border-color: var(--ev-border);
+  color: var(--ev-text);
+}
+.mantine-Button-root[data-variant='default']:hover {
+  border-color: var(--ev-border-strong);
+}
+
+/* Focus ring accent everywhere */
+:where(*):focus-visible {
+  outline-color: var(--ev-accent);
+}
