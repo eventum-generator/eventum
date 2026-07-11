@@ -22,6 +22,7 @@ import '@mantine/charts/styles.css';
 import 'mantine-contextmenu/styles.layer.css';
 import '@/theme/tokens.css';
 import '@/index.css';
+import '@/theme/components.css';
 
 import { ModalsProvider } from '@mantine/modals';
 import { Notifications } from '@mantine/notifications';

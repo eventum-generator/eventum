@@ -1,0 +1,13 @@
+/* Global chrome restyle - targets Mantine stable classes, driven by tokens.
+   Loaded after @mantine/core/styles.css so equal-specificity rules win. */
+
+/* Raised surfaces over the recessed canvas */
+.mantine-Paper-root,
+.mantine-Card-root {
+  background-color: var(--ev-surface);
+  border-color: var(--ev-border);
+}
+.mantine-Paper-root[data-with-border],
+.mantine-Card-root[data-with-border] {
+  border-color: var(--ev-border);
+}
