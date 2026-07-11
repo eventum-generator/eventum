@@ -1,3 +1,1 @@
-declare module '@fontsource-variable/inter' {
-  export {};
-}
+declare module '@fontsource-variable/inter';
