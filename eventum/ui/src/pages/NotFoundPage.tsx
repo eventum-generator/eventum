@@ -1,16 +1,11 @@
 import { Button, Center, Container, Title } from '@mantine/core';
-import { useNavigate } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 
 import NotFoundSvg from '@/assets/notFound.svg?react';
 import PageIllustration from '@/components/ui/PageIllustration';
+import { ROUTE_PATHS } from '@/routing/paths';
 
 export default function NotFound() {
-  const navigate = useNavigate();
-
-  const handleClick = async () => {
-    await navigate('/');
-  };
-
   return (
     <Center
       h="100vh"
@@ -23,7 +18,7 @@ export default function NotFound() {
         <Title order={2} mb="md">
           Page Not Found
         </Title>
-        <Button size="md" onClick={() => void handleClick()}>
+        <Button size="md" component={Link} to={ROUTE_PATHS.ROOT}>
           Go Back
         </Button>
       </Container>

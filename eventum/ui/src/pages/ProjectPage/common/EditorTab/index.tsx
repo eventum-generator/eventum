@@ -115,6 +115,32 @@ export const EditorTab: FC = () => {
     });
   }
 
+  function requestCloseFile(item: ItemInstance<FileNode>) {
+    const itemId = item.getId();
+    const hasUnsavedChanges =
+      itemId in savedStatuses &&
+      !savedStatuses[itemId] &&
+      filesList.includes(itemId);
+
+    if (hasUnsavedChanges) {
+      modals.openConfirmModal({
+        title: 'Unsaved changes',
+        children: (
+          <Text size="sm">
+            All unsaved changes in <b>{itemId}</b> will be lost. Do you want to
+            continue?
+          </Text>
+        ),
+        labels: { confirm: 'Confirm', cancel: 'Cancel' },
+        onConfirm: () => {
+          handleCloseFile(item);
+        },
+      });
+    } else {
+      handleCloseFile(item);
+    }
+  }
+
   return (
     <Stack>
       {isFileTreeLoading && (
@@ -143,7 +169,22 @@ export const EditorTab: FC = () => {
                   data={openedItems.map((item) => ({
                     label: (
                       <Center>
-                        <Group gap="4px" wrap="nowrap">
+                        <Group
+                          gap="4px"
+                          wrap="nowrap"
+                          onMouseDown={(event) => {
+                            // Suppress the browser middle-click autoscroll.
+                            if (event.button === 1) {
+                              event.preventDefault();
+                            }
+                          }}
+                          onAuxClick={(event) => {
+                            if (event.button === 1) {
+                              event.preventDefault();
+                              requestCloseFile(item);
+                            }
+                          }}
+                        >
                           <FileNodeItemIcon item={item} />
                           <span>
                             {filesList.includes(item.getId()) ? (
@@ -164,33 +205,7 @@ export const EditorTab: FC = () => {
                             variant="subtle"
                             size="sm"
                             bdrs="sm"
-                            onClick={() => {
-                              if (
-                                item.getId() in savedStatuses &&
-                                !savedStatuses[item.getId()] &&
-                                filesList.includes(item.getId())
-                              ) {
-                                modals.openConfirmModal({
-                                  title: 'Unsaved changes',
-                                  children: (
-                                    <Text size="sm">
-                                      All unsaved changes in{' '}
-                                      <b>{item.getId()}</b> will be lost. Do you
-                                      want to continue?
-                                    </Text>
-                                  ),
-                                  labels: {
-                                    confirm: 'Confirm',
-                                    cancel: 'Cancel',
-                                  },
-                                  onConfirm: () => {
-                                    handleCloseFile(item);
-                                  },
-                                });
-                              } else {
-                                handleCloseFile(item);
-                              }
-                            }}
+                            onClick={() => requestCloseFile(item)}
                           >
                             <IconX size={16} />
                           </ActionIcon>

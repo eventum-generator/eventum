@@ -8,7 +8,7 @@ import {
   IconTransform,
 } from '@tabler/icons-react';
 import { FC, ReactNode } from 'react';
-import { generatePath, useNavigate } from 'react-router-dom';
+import { Link, generatePath, useNavigate } from 'react-router-dom';
 
 import { CreateProjectModal } from '@/pages/ProjectsPage/CreateProjectModal';
 import { ROUTE_PATHS } from '@/routing/paths';
@@ -19,6 +19,7 @@ interface ActionCardProps {
   description: string;
   onClick?: () => void;
   href?: string;
+  to?: string;
 }
 
 const iconProps = {
@@ -28,52 +29,93 @@ const iconProps = {
   style: { flexShrink: 0 },
 } as const;
 
+const cardHoverStyles = {
+  root: {
+    '&:hover': {
+      borderColor: 'var(--mantine-primary-color-filled)',
+    },
+  },
+} as const;
+
 const ActionCard: FC<ActionCardProps> = ({
   icon,
   title,
   description,
   onClick,
   href,
+  to,
 }) => {
+  const content = (
+    <Stack gap="sm">
+      <Group gap="sm" wrap="nowrap">
+        {icon}
+        <Text size="sm" fw={600}>
+          {title}
+        </Text>
+      </Group>
+      <Text size="sm" c="dimmed" lh={1.5}>
+        {description}
+      </Text>
+    </Stack>
+  );
+
+  const baseStyle = {
+    cursor: 'pointer',
+    transition: 'border-color 150ms ease',
+  };
+  const linkStyle = {
+    ...baseStyle,
+    textDecoration: 'none',
+    color: 'inherit',
+  };
+
+  if (to !== undefined) {
+    return (
+      <Paper
+        withBorder
+        p="lg"
+        radius="md"
+        h="100%"
+        style={linkStyle}
+        styles={cardHoverStyles}
+        component={Link}
+        to={to}
+      >
+        {content}
+      </Paper>
+    );
+  }
+
+  if (href !== undefined) {
+    return (
+      <Paper
+        withBorder
+        p="lg"
+        radius="md"
+        h="100%"
+        style={linkStyle}
+        styles={cardHoverStyles}
+        component="a"
+        href={href}
+        target="_blank"
+        rel="noopener noreferrer"
+      >
+        {content}
+      </Paper>
+    );
+  }
+
   return (
     <Paper
       withBorder
       p="lg"
       radius="md"
       h="100%"
-      style={{
-        cursor: 'pointer',
-        transition: 'border-color 150ms ease',
-        ...(href ? { textDecoration: 'none', color: 'inherit' } : {}),
-      }}
-      styles={{
-        root: {
-          '&:hover': {
-            borderColor: 'var(--mantine-primary-color-filled)',
-          },
-        },
-      }}
+      style={baseStyle}
+      styles={cardHoverStyles}
       onClick={onClick}
-      {...(href
-        ? {
-            component: 'a' as const,
-            href,
-            target: '_blank',
-            rel: 'noopener noreferrer',
-          }
-        : {})}
     >
-      <Stack gap="sm">
-        <Group gap="sm" wrap="nowrap">
-          {icon}
-          <Text size="sm" fw={600}>
-            {title}
-          </Text>
-        </Group>
-        <Text size="sm" c="dimmed" lh={1.5}>
-          {description}
-        </Text>
-      </Stack>
+      {content}
     </Paper>
   );
 };
@@ -82,9 +124,7 @@ interface ActionsGridProps {
   existingProjectNames: string[];
 }
 
-export const ActionsGrid: FC<ActionsGridProps> = ({
-  existingProjectNames,
-}) => {
+export const ActionsGrid: FC<ActionsGridProps> = ({ existingProjectNames }) => {
   const navigate = useNavigate();
 
   return (
@@ -128,19 +168,19 @@ export const ActionsGrid: FC<ActionsGridProps> = ({
           icon={<IconFolder {...iconProps} />}
           title="Projects"
           description="All your generator projects in one place. Open any project to visually design its complete plugin pipeline."
-          onClick={() => void navigate(ROUTE_PATHS.PROJECTS)}
+          to={ROUTE_PATHS.PROJECTS}
         />
         <ActionCard
           icon={<IconPlayerPlay {...iconProps} />}
           title="Instances"
           description="See what's running right now. Each instance shows live performance metrics, structured logs, and full lifecycle controls."
-          onClick={() => void navigate(ROUTE_PATHS.INSTANCES)}
+          to={ROUTE_PATHS.INSTANCES}
         />
         <ActionCard
           icon={<IconTransform {...iconProps} />}
           title="Scenarios"
           description="Orchestrate multi-generator workflows — coordinate instances with global state and unified lifecycle controls."
-          onClick={() => void navigate(ROUTE_PATHS.SCENARIOS)}
+          to={ROUTE_PATHS.SCENARIOS}
         />
       </SimpleGrid>
     </Stack>
