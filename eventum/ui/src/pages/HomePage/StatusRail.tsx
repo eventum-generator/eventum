@@ -1,6 +1,5 @@
 import {
   Anchor,
-  Box,
   Group,
   Paper,
   Stack,
@@ -15,8 +14,8 @@ import {
   GeneratorStats,
   GeneratorsInfo,
 } from '@/api/routes/generators/schemas';
+import { InstanceStatusSummary } from '@/components/ui/InstanceStatusSummary';
 import { StatusPill } from '@/components/ui/StatusPill';
-import { summarizeInstanceStatuses } from '@/components/ui/statusPalette';
 import { ROUTE_PATHS } from '@/routing/paths';
 
 function formatUptime(seconds: number): string {
@@ -30,35 +29,6 @@ function formatUptime(seconds: number): string {
   return `${s}s`;
 }
 
-const Dot: FC<{ color: string }> = ({ color }) => (
-  <Box
-    style={{
-      width: 8,
-      height: 8,
-      borderRadius: '50%',
-      background: color,
-      flexShrink: 0,
-    }}
-  />
-);
-
-/** One status breakdown chip: coloured dot, bold count, dimmed label. */
-const Breakdown: FC<{ count: number; label: string; color: string }> = ({
-  count,
-  label,
-  color,
-}) => (
-  <Group gap={7} wrap="nowrap" align="center">
-    <Dot color={color} />
-    <Text size="sm" c="dimmed">
-      <Text span fw={700} style={{ color: 'var(--ev-text)' }}>
-        {count}
-      </Text>{' '}
-      {label}
-    </Text>
-  </Group>
-);
-
 interface StatusRailProps {
   generators: GeneratorsInfo;
   generatorsStats: GeneratorStats[];
@@ -69,7 +39,6 @@ export const StatusRail: FC<StatusRailProps> = ({
   generatorsStats,
 }) => {
   const total = generators.length;
-  const buckets = summarizeInstanceStatuses(generators.map((g) => g.status));
 
   const uptimeById = new Map(generatorsStats.map((s) => [s.id, s.uptime]));
 
@@ -109,16 +78,9 @@ export const StatusRail: FC<StatusRailProps> = ({
               </Text>
             </Group>
             {total > 0 && (
-              <Group gap="lg" wrap="wrap">
-                {buckets.map((b) => (
-                  <Breakdown
-                    key={b.key}
-                    count={b.count}
-                    label={b.label}
-                    color={b.color}
-                  />
-                ))}
-              </Group>
+              <InstanceStatusSummary
+                statuses={generators.map((g) => g.status)}
+              />
             )}
           </Group>
         </Paper>

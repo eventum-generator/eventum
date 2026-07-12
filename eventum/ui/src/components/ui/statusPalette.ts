@@ -59,57 +59,49 @@ export function statusDotColor(status: GeneratorStatus): string {
   return VARIANT_STYLE[statusVariant(status)].dot;
 }
 
-export type StatusBucket = 'active' | 'finished' | 'inactive' | 'failed';
+export type StatusLeaf = 'active' | 'finished' | 'failed' | 'idle';
 
-/** Coarse lifecycle bucket for the status summaries. Transitional states
- *  (starting/stopping) count as active; ended states split into finished
- *  (success) and failed; everything else is inactive. */
-export function instanceStatusBucket(status: GeneratorStatus): StatusBucket {
+/** Coarse lifecycle leaf. Transitional states (starting/stopping) count as
+ *  active; ended states split into finished (success) and failed; a generator
+ *  that has never ended and is not running is idle. finished + failed + idle
+ *  together form the "inactive" (not-running) total. */
+export function instanceStatusLeaf(status: GeneratorStatus): StatusLeaf {
   if (status.is_running || status.is_initializing || status.is_stopping) {
     return 'active';
   }
   if (status.is_ended_up) {
     return status.is_ended_up_successfully ? 'finished' : 'failed';
   }
-  return 'inactive';
+  return 'idle';
 }
 
-export interface StatusBucketSummary {
-  key: StatusBucket;
-  label: string;
-  count: number;
-  /** Dot color: the bucket's semantic color when non-empty, faint at zero. */
-  color: string;
+export interface InstanceStatusCounts {
+  total: number;
+  active: number;
+  /** Not-running total: finished + failed + idle. */
+  inactive: number;
+  finished: number;
+  failed: number;
+  idle: number;
 }
 
-const BUCKET_ORDER: { key: StatusBucket; label: string; color: string }[] = [
-  { key: 'active', label: 'active', color: 'var(--ev-good)' },
-  { key: 'finished', label: 'finished', color: 'var(--ev-done-dot)' },
-  { key: 'inactive', label: 'inactive', color: 'var(--ev-muted)' },
-  { key: 'failed', label: 'failed', color: 'var(--ev-bad)' },
-];
-
-/** Count instances into the four display buckets, in display order, each with
- *  its dot color (faint when empty). Single source for the Home and Monitoring
- *  status summaries. */
+/** Count instances into the status summary shared by the Home rail and the
+ *  Monitoring header: active vs inactive, with the inactive breakdown. */
 export function summarizeInstanceStatuses(
   statuses: GeneratorStatus[]
-): StatusBucketSummary[] {
-  const counts: Record<StatusBucket, number> = {
-    active: 0,
-    finished: 0,
-    inactive: 0,
-    failed: 0,
-  };
+): InstanceStatusCounts {
+  const counts = { active: 0, finished: 0, failed: 0, idle: 0 };
 
   for (const status of statuses) {
-    counts[instanceStatusBucket(status)] += 1;
+    counts[instanceStatusLeaf(status)] += 1;
   }
 
-  return BUCKET_ORDER.map((bucket) => ({
-    key: bucket.key,
-    label: bucket.label,
-    count: counts[bucket.key],
-    color: counts[bucket.key] > 0 ? bucket.color : 'var(--ev-faint)',
-  }));
+  return {
+    total: statuses.length,
+    active: counts.active,
+    inactive: counts.finished + counts.failed + counts.idle,
+    finished: counts.finished,
+    failed: counts.failed,
+    idle: counts.idle,
+  };
 }
