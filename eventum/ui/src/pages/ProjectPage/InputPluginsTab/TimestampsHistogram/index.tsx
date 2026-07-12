@@ -1,18 +1,27 @@
+import { CodeHighlight } from '@mantine/code-highlight';
 import {
+  Badge,
   Button,
-  Group,
+  Input,
+  MultiSelect,
   NumberInput,
-  SegmentedControl,
   Select,
-  Stack,
   Switch,
   TextInput,
 } from '@mantine/core';
 import { useForm } from '@mantine/form';
 import { notifications } from '@mantine/notifications';
+import { IconChartHistogram } from '@tabler/icons-react';
 import { FC, memo, useState } from 'react';
 
 import { useProjectName } from '../../hooks/useProjectName';
+import {
+  ToolBody,
+  ToolEmpty,
+  ToolPane,
+  ToolShell,
+  ToolSpacer,
+} from '../../studio/panels/console/primitives';
 import Visualization from './Visualization';
 import { useGenerateTimestampsMutation } from '@/api/hooks/usePreview';
 import { InputPluginsNamedConfig } from '@/api/routes/generator-configs/schemas';
@@ -21,11 +30,9 @@ import { LabelWithTooltip } from '@/components/ui/LabelWithTooltip';
 import { ShowErrorDetailsAnchor } from '@/components/ui/ShowErrorDetailsAnchor';
 
 interface TimestampsHistogramProps {
-  getSelectedPluginIndex: () => number;
+  pluginNames: string[];
   getInputPluginsConfig: () => InputPluginsNamedConfig;
 }
-
-type HistogramVisualizationMode = 'selectedPlugin' | 'allPlugins';
 
 const VALID_SPAN_PATTERN = /^[-+]?(\d+d)?(\d+h)?(\d+m)?(\d+s)?$/;
 
@@ -65,16 +72,35 @@ export type HistogramSeries = {
   color: string;
 }[];
 
+/** Labels a list of plugin names, disambiguating repeats of the same type
+ *  with a per-name occurrence number (`timer #1`, `timer #2`); a type that
+ *  appears once keeps its plain name. */
+function labelNames(names: string[]): string[] {
+  const seen: Record<string, number> = {};
+  return names.map((name) => {
+    const total = names.filter((other) => other === name).length;
+    seen[name] = (seen[name] ?? 0) + 1;
+    return total > 1 ? `${name} #${seen[name]}` : name;
+  });
+}
+
 const TimestampsHistogram: FC<TimestampsHistogramProps> = ({
-  getSelectedPluginIndex,
+  pluginNames,
   getInputPluginsConfig,
 }) => {
   const { projectName } = useProjectName();
-  const [visualizationMode, setVisualizationMode] =
-    useState<HistogramVisualizationMode>('selectedPlugin');
+  // Empty selection means "all plugins" - one control covers both the
+  // multi-select and the all case.
+  const [selected, setSelected] = useState<string[]>([]);
   const [totalCount, setTotalCount] = useState(0);
+  const [hasRun, setHasRun] = useState(false);
 
   const generateTimestamp = useGenerateTimestampsMutation();
+
+  const pluginOptions = labelNames(pluginNames).map((label, index) => ({
+    value: String(index),
+    label,
+  }));
 
   const form = useForm<
     Omit<
@@ -118,10 +144,17 @@ const TimestampsHistogram: FC<TimestampsHistogramProps> = ({
   const [timestampsList, setTimestampsList] = useState('No timestamps');
 
   function handleGenerateTimestamp(values: typeof form.values) {
-    let pluginsConfig = getInputPluginsConfig();
+    const allConfigs = getInputPluginsConfig();
 
-    if (visualizationMode !== 'allPlugins') {
-      pluginsConfig = [pluginsConfig[getSelectedPluginIndex()]!];
+    let pluginsConfig = allConfigs;
+    if (selected.length > 0) {
+      const subset = selected
+        .map((index) => allConfigs[Number(index)])
+        .filter((config) => config !== undefined);
+
+      if (subset.length > 0) {
+        pluginsConfig = subset;
+      }
     }
 
     generateTimestamp.mutate(
@@ -136,10 +169,8 @@ const TimestampsHistogram: FC<TimestampsHistogramProps> = ({
       {
         onSuccess: (value) => {
           const groups = Object.keys(value.span_counts);
-          const groupNames = pluginsConfig.map((item, index, items) =>
-            items.length > 1
-              ? `${Object.keys(item)[0]!} #${index + 1}`
-              : Object.keys(item)[0]!
+          const groupNames = labelNames(
+            pluginsConfig.map((item) => Object.keys(item)[0]!)
           );
 
           const data: HistogramData = value.span_edges.map((edge, index) => {
@@ -179,6 +210,8 @@ const TimestampsHistogram: FC<TimestampsHistogramProps> = ({
                 )
               : JSON.stringify(value.timestamps, undefined, 2)
           );
+
+          setHasRun(true);
         },
         onError: (error) => {
           notifications.show({
@@ -197,32 +230,59 @@ const TimestampsHistogram: FC<TimestampsHistogramProps> = ({
   }
 
   return (
-    <Stack gap="xs">
-      <form onSubmit={form.onSubmit(handleGenerateTimestamp)}>
-        <Stack gap="xs">
-          <Group grow align="start" h="65px">
+    <form
+      onSubmit={form.onSubmit(handleGenerateTimestamp)}
+      style={{ display: 'contents' }}
+    >
+      <ToolShell
+        toolbar={
+          <>
+            <MultiSelect
+              size="xs"
+              w={260}
+              label={
+                <LabelWithTooltip
+                  label="Plugins"
+                  tooltip="Input plugins to generate timestamps for. Leave empty to include all; select several to combine them."
+                />
+              }
+              data={pluginOptions}
+              value={selected}
+              onChange={setSelected}
+              placeholder={selected.length === 0 ? 'All plugins' : ''}
+              clearable
+              searchable
+              hidePickedOptions
+              styles={{ input: { maxHeight: 92, overflowY: 'auto' } }}
+            />
             <NumberInput
+              size="xs"
+              w={100}
               min={1}
               allowDecimal={false}
               label={
                 <LabelWithTooltip
-                  label="Number of timestamps"
+                  label="Count"
                   tooltip="Limit of generated timestamps that are shown on histogram"
                 />
               }
               {...form.getInputProps('size', { type: 'input' })}
             />
             <TextInput
+              size="xs"
+              w={130}
               label={
                 <LabelWithTooltip
                   label="Time span"
                   tooltip="Duration of each histogram bin, default is auto calculated"
                 />
               }
-              placeholder="span (e.g. 30s, 5m, 1h)"
+              placeholder="auto (30s, 5m)"
               {...form.getInputProps('span', { type: 'input' })}
             />
             <Select
+              size="xs"
+              w={140}
               label={
                 <LabelWithTooltip
                   label="Timezone"
@@ -235,47 +295,71 @@ const TimestampsHistogram: FC<TimestampsHistogramProps> = ({
               placeholder="zone name"
               {...form.getInputProps('timezone', { type: 'input' })}
             />
-          </Group>
-
-          <Group justify="space-between">
-            <Group>
-              <SegmentedControl
-                value={visualizationMode}
-                onChange={setVisualizationMode as (value: string) => void}
-                data={[
-                  { label: 'Selected plugin', value: 'selectedPlugin' },
-                  { label: 'All plugins', value: 'allPlugins' },
-                ]}
-              />
-
-              <Switch
-                label={
-                  <LabelWithTooltip
-                    label="Skip past timestamps"
-                    tooltip="Start histogram from first non past timestamp"
-                  />
-                }
-                {...form.getInputProps('skipPast', { type: 'checkbox' })}
-              />
-            </Group>
+            <Input.Wrapper
+              size="xs"
+              label={
+                <LabelWithTooltip
+                  label="Skip past"
+                  tooltip="Start histogram from first non past timestamp"
+                />
+              }
+            >
+              <div className="tool-switch-slot">
+                <Switch
+                  size="xs"
+                  {...form.getInputProps('skipPast', { type: 'checkbox' })}
+                />
+              </div>
+            </Input.Wrapper>
+            <ToolSpacer />
             <Button
-              variant="default"
+              size="xs"
+              className="tool-ctl"
               type="submit"
               loading={generateTimestamp.isPending}
             >
               Generate
             </Button>
-          </Group>
-        </Stack>
-      </form>
-
-      <Visualization
-        histogramData={histogramData}
-        histogramSeries={histogramSeries}
-        totalCount={totalCount}
-        timestampsList={timestampsList}
-      />
-    </Stack>
+          </>
+        }
+      >
+        {hasRun ? (
+          <ToolBody>
+            <ToolPane
+              title="Distribution"
+              grow={3}
+              fill
+              actions={
+                <Badge variant="light" size="sm">
+                  {totalCount} total
+                </Badge>
+              }
+            >
+              <div className="tool-chart">
+                <Visualization
+                  histogramData={histogramData}
+                  histogramSeries={histogramSeries}
+                />
+              </div>
+            </ToolPane>
+            <ToolPane title="Timestamps" grow={1}>
+              <CodeHighlight
+                code={timestampsList}
+                language="json"
+                withCopyButton
+              />
+            </ToolPane>
+          </ToolBody>
+        ) : (
+          <ToolBody empty>
+            <ToolEmpty icon={<IconChartHistogram size={28} />}>
+              Configure the parameters and run to preview the timestamp
+              distribution and the generated timestamps.
+            </ToolEmpty>
+          </ToolBody>
+        )}
+      </ToolShell>
+    </form>
   );
 };
 

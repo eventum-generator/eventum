@@ -1,0 +1,532 @@
+/* Generator studio - docked IDE layout. Fills the app main area and scrolls
+   inside its panels, never the page. Chrome is driven by --ev-* tokens. */
+
+.studio {
+  --studio-gap: 8px;
+  height: calc(100dvh - 60px - 2 * var(--mantine-spacing-md, 16px));
+  display: flex;
+  flex-direction: column;
+  gap: var(--studio-gap);
+  min-height: 0;
+}
+
+/* Command bar */
+.studio-commandbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  flex: 0 0 auto;
+}
+
+/* Body row: explorer | center | inspector */
+.studio-body {
+  flex: 1 1 auto;
+  display: flex;
+  gap: var(--studio-gap);
+  min-height: 0;
+}
+
+/* A docked panel: raised surface, own header, own scroll */
+.studio-panel {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  min-width: 0;
+  background-color: var(--ev-surface);
+  border: 1px solid var(--ev-border);
+  border-radius: var(--ev-radius);
+  box-shadow: var(--ev-shadow);
+  overflow: hidden;
+}
+
+.studio-panel-header {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 7px 10px 7px 12px;
+  border-bottom: 1px solid var(--ev-border);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--ev-faint);
+  user-select: none;
+}
+
+.studio-panel-body {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: auto;
+}
+
+.studio-panel-body-pad {
+  padding: 10px;
+}
+
+/* Center column: editor over console */
+.studio-center {
+  flex: 1 1 auto;
+  display: flex;
+  flex-direction: column;
+  gap: var(--studio-gap);
+  min-width: 0;
+  min-height: 0;
+}
+
+.studio-editor {
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+/* Explorer / inspector fixed-ish docks */
+.studio-explorer {
+  flex: 0 0 auto;
+}
+.studio-inspector {
+  flex: 0 0 auto;
+}
+
+/* Resize handles */
+.studio-resizer {
+  flex: 0 0 auto;
+  position: relative;
+  background: transparent;
+  z-index: 2;
+}
+.studio-resizer-col {
+  width: 5px;
+  margin: 0 -3px;
+  cursor: col-resize;
+}
+.studio-resizer-row {
+  height: 5px;
+  margin: -3px 0;
+  cursor: row-resize;
+}
+.studio-resizer::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: 3px;
+  transition: background-color 0.12s ease;
+}
+.studio-resizer-col::after {
+  left: 2px;
+  right: 2px;
+}
+.studio-resizer-row::after {
+  top: 2px;
+  bottom: 2px;
+}
+.studio-resizer:hover::after,
+.studio-resizer[data-dragging='true']::after {
+  background-color: var(--ev-accent);
+}
+
+/* Editor open-file tab strip */
+.studio-tabstrip {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: stretch;
+  gap: 2px;
+  padding: 4px 6px 0;
+  overflow-x: auto;
+  scrollbar-width: none;
+  border-bottom: 1px solid var(--ev-border);
+}
+.studio-tabstrip::-webkit-scrollbar {
+  display: none;
+}
+.studio-tab {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 8px 6px 10px;
+  border: 1px solid transparent;
+  border-bottom: none;
+  border-radius: 8px 8px 0 0;
+  font-size: 12.5px;
+  color: var(--ev-muted);
+  white-space: nowrap;
+  cursor: pointer;
+  max-width: 240px;
+}
+.studio-tab:hover {
+  background-color: var(--ev-surface-2);
+}
+.studio-tab[data-active='true'] {
+  background-color: var(--ev-surface-2);
+  border-color: var(--ev-border);
+  color: var(--ev-text);
+}
+.studio-tab-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  padding: 0;
+  background: none;
+  border: none;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+.studio-tab-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.studio-tab-name[data-missing='true'] {
+  text-decoration: line-through;
+  color: var(--ev-faint);
+}
+
+/* Pipeline strip in the command bar */
+.studio-pipeline {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+.studio-stage {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 12px;
+  border: 1px solid var(--ev-border);
+  background-color: var(--ev-surface);
+  color: var(--ev-muted);
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 600;
+}
+.studio-stage {
+  border-radius: 9px;
+}
+.studio-stage:hover:not([data-active='true']) {
+  border-color: var(--ev-border-strong);
+  color: var(--ev-text);
+}
+.studio-stage[data-active='true'] {
+  background-color: var(--ev-accent-soft);
+  color: var(--ev-text);
+  border-color: var(--ev-accent);
+}
+.studio-stage-idx {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  font-size: 11px;
+  background-color: var(--ev-surface-2);
+  color: var(--ev-faint);
+}
+.studio-stage[data-active='true'] .studio-stage-idx {
+  background-color: var(--ev-accent);
+  color: #fff;
+}
+.studio-stage-arrow {
+  color: var(--ev-faint);
+  padding: 0 2px;
+}
+
+/* Editor surface: opened files stacked, only the active one shown */
+.studio-editor-surface {
+  flex: 1 1 auto;
+  min-height: 0;
+  position: relative;
+}
+.studio-editor-file {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+}
+.studio-editor-file .cm-theme,
+.studio-editor-file .cm-editor {
+  height: 100%;
+}
+.studio-editor-file .cm-scroller {
+  overflow: auto;
+}
+
+/* Collapsed console: keep only its header bar */
+.studio-console[data-collapsed='true'] .studio-panel-body {
+  display: none;
+}
+
+/* The file tree must fill the panel so there is a drop zone below the last
+   item - required for dropping / reparenting to the root level (headless-tree
+   bottom hotspot). Flex the whole chain (body -> FileTree wrapper -> tree). */
+.studio-explorer-body {
+  display: flex;
+  flex-direction: column;
+}
+.studio-explorer-body > * {
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+/* File tree drag-and-drop indicator line (positioned by getDragLineStyle) */
+.tree {
+  position: relative;
+  flex: 1 1 auto;
+  min-height: 0;
+}
+.dragline {
+  height: 2px;
+  margin-top: -1px;
+  border-radius: 2px;
+  background-color: var(--ev-accent);
+  pointer-events: none;
+}
+.dragline::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: -3px;
+  height: 4px;
+  width: 4px;
+  border: 2px solid var(--ev-accent);
+  border-radius: 99px;
+  background: var(--ev-surface);
+}
+
+/* Console body hosts a single filling tool; the tool's panes scroll, not
+   the body. */
+.studio-console-body {
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+/* ---- Console tool grammar: toolbar over a filling result surface ---- */
+.tool {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+.tool-toolbar {
+  --tool-label-offset: 21px;
+  flex: 0 0 auto;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: 10px 12px;
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--ev-border);
+}
+.tool-toolbar-spacer {
+  flex: 1 1 auto;
+}
+/* Label-less controls (switch, status, run buttons) drop to the input row so
+   they align with labelled fields, while the toolbar stays top-aligned - a
+   growing field (tags) then expands downward, not upward. */
+.tool-ctl {
+  margin-top: var(--tool-label-offset);
+}
+/* Hosts a switch under a top label so it lines up on the input row like the
+   labelled fields beside it. */
+.tool-switch-slot {
+  display: flex;
+  align-items: center;
+  min-height: var(--input-height-xs, 30px);
+}
+
+/* Multi-value pills (MultiSelect / TagsInput) in a toolbar read too small at
+   Mantine's xs size (10px) - bump to the field font size. */
+.tool-toolbar .mantine-Pill-root,
+.tool-pane .mantine-Pill-root {
+  font-size: var(--mantine-font-size-xs);
+}
+
+/* Result surface: fills remaining height, lays panes side by side. Panes
+   own the scroll; the surface scrolls horizontally only if too narrow. */
+.tool-body {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  gap: 12px;
+  padding: 12px;
+  overflow-x: auto;
+  overflow-y: hidden;
+}
+.tool-body-empty {
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}
+
+/* A recessed pane inside the result surface */
+.tool-pane {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 0;
+  min-width: 260px;
+  min-height: 0;
+  background-color: var(--ev-surface-2);
+  border: 1px solid var(--ev-border);
+  border-radius: var(--ev-radius);
+  overflow: hidden;
+}
+.tool-pane-header {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  min-height: 34px;
+  padding: 5px 10px;
+  border-bottom: 1px solid var(--ev-border);
+}
+.tool-pane-title {
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  font-size: 10.5px;
+  font-weight: 600;
+  color: var(--ev-faint);
+  white-space: nowrap;
+}
+.tool-pane-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+/* Default: a scrolling block. Robust vertical scroll for long content
+   (timestamps, event/error lists, state tables). */
+.tool-pane-body {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: auto;
+}
+.tool-pane-body[data-pad='true'] {
+  padding: 10px;
+}
+/* Fill variant: a flex column that clips, for a single height-filling child
+   (a chart) instead of a scrolling list. */
+.tool-pane-body[data-fill='true'] {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  padding: 0;
+}
+
+/* Stacked code / content blocks inside a pane */
+.tool-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+/* Code blocks read as distinct wells over the pane surface (the pane is
+   --ev-surface-2, the well recedes to --ev-surface) with a clear border, so
+   stacked events / errors / results don't merge into the background. */
+.tool-pane .mantine-Code-root,
+.tool-pane .mantine-CodeHighlight-root {
+  border: 1px solid var(--ev-border-strong);
+  border-radius: 8px;
+}
+:root[data-mantine-color-scheme='dark'] .tool-pane .mantine-Code-root,
+:root[data-mantine-color-scheme='dark'] .tool-pane .mantine-CodeHighlight-code,
+:root[data-mantine-color-scheme='dark'] .tool-pane .mantine-CodeHighlight-pre,
+:root[data-mantine-color-scheme='dark']
+  .tool-pane
+  .mantine-CodeHighlight-controls {
+  background-color: var(--ev-surface);
+}
+:root[data-mantine-color-scheme='light'] .tool-pane .mantine-Code-root {
+  background-color: var(--ev-surface);
+}
+/* Wrap long lines (tracebacks, formatted payloads) instead of scrolling the
+   block sideways. */
+.tool-pane .mantine-Code-root {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+/* Segmented controls inside a pane recede to --ev-surface so their track does
+   not merge with the pane (--ev-surface-2); the active chip rises back up. */
+.tool-pane .mantine-SegmentedControl-root {
+  background-color: var(--ev-surface);
+  border: 1px solid var(--ev-border);
+}
+.tool-pane .mantine-SegmentedControl-indicator {
+  background-color: var(--ev-surface-2);
+}
+
+/* Select clear button: Mantine sets `background: var(--input-bg)` inline, so
+   it renders as a filled grey box. Override to transparent (inline style needs
+   !important), faint on hover. */
+.tool-toolbar .mantine-InputClearButton-root,
+.tool-pane .mantine-InputClearButton-root {
+  background: transparent !important;
+}
+.tool-toolbar .mantine-InputClearButton-root:hover,
+.tool-pane .mantine-InputClearButton-root:hover {
+  background: var(--ev-border-strong) !important;
+}
+
+/* Chart fills its pane edge-to-edge */
+.tool-chart {
+  flex: 1 1 auto;
+  min-height: 0;
+  padding: 10px 10px 6px;
+}
+
+/* Stage panes stay mounted; only the active one is shown, so each tool keeps
+   its state (debugger session, generated data, form input) across switches. */
+.stage-pane {
+  display: none;
+  flex: 1 1 auto;
+  min-height: 0;
+  min-width: 0;
+}
+.stage-pane[data-active='true'] {
+  display: flex;
+  flex-direction: column;
+}
+
+/* Plugin lifecycle status indicator (event debugger toolbar) */
+.tool-status-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background-color: var(--ev-faint);
+  flex: 0 0 auto;
+}
+.tool-status-dot[data-on='true'] {
+  background-color: var(--ev-good);
+  box-shadow: 0 0 0 3px var(--ev-good-soft);
+}
+
+/* Centered empty / prompt state */
+.tool-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  width: 100%;
+  height: 100%;
+}
+.tool-empty-icon {
+  color: var(--ev-faint);
+  opacity: 0.7;
+}
+
+/* Inspector sections */
+.studio-inspector-section + .studio-inspector-section {
+  border-top: 1px solid var(--ev-border);
+}
+.studio-inspector-section-title {
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--ev-faint);
+}

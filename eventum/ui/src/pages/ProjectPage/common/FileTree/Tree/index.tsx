@@ -10,7 +10,7 @@ import { Box, Stack, Text } from '@mantine/core';
 import { modals } from '@mantine/modals';
 import { notifications } from '@mantine/notifications';
 import { dirname, join } from 'pathe';
-import { FC, useEffect } from 'react';
+import { CSSProperties, FC, useEffect } from 'react';
 
 import { TreeItem } from './TreeItem';
 import {
@@ -136,8 +136,12 @@ export const Tree: FC<TreeProps> = ({ fileTreeLookup }) => {
     initialState: {},
     rootItemId: '',
     getItemName: (item) => item.getItemData().name,
-    isItemFolder: (item) => item.getItemData().is_dir,
+    // The root item ('') has no data entry in the lookup, so treat it as a
+    // folder explicitly - otherwise headless-tree rejects drops onto the root
+    // level (reparenting a nested item back out to the top).
+    isItemFolder: (item) => item.getId() === '' || item.getItemData().is_dir,
     openOnDropDelay: 500,
+    canReorder: true,
     indent: 20,
     dataLoader: {
       getItem: (itemId) =>
@@ -160,13 +164,20 @@ export const Tree: FC<TreeProps> = ({ fileTreeLookup }) => {
       handleMoveFile(source, destination);
     },
     onDrop: (items, target) => {
-      const destination = target.item.getId();
+      const targetId = target.item.getId();
+      const isRoot = targetId === '';
+
+      // Only reparent into folders (or the project root); never onto a file.
+      if (!isRoot && !target.item.isFolder()) {
+        return;
+      }
+
+      const destination = isRoot ? '.' : targetId;
 
       for (const item of items) {
         const source = item.getId();
-        const sourceDirectory = dirname(source);
 
-        if (sourceDirectory === destination) {
+        if (dirname(source) === destination) {
           continue;
         }
 
@@ -231,21 +242,37 @@ export const Tree: FC<TreeProps> = ({ fileTreeLookup }) => {
   }, [tree, fileTreeLookup]);
 
   return (
-    <Stack {...tree.getContainerProps()} className="tree" gap="0">
-      {tree.getItems().map((item) => (
-        <Box
-          {...item.getProps()}
-          key={item.getId()}
-          ml={`${item.getItemMeta().level * 10}px`}
-        >
-          <TreeItem
-            item={item}
-            onCreateDir={handleCreateDir}
-            onCreateFile={handleCreateEmptyFile}
-            onDeleteFile={handleDeleteFile}
-          />
-        </Box>
-      ))}
+    <Stack
+      {...tree.getContainerProps()}
+      className="tree"
+      gap="0"
+      pos="relative"
+    >
+      {tree.getItems().map((item) => {
+        const itemProps = item.getProps();
+        const itemStyle = itemProps.style as CSSProperties | undefined;
+        // Indent via paddingLeft matched to `indent` (not margin) so the item
+        // box left edge stays at the container edge - headless-tree derives the
+        // drop level from that, which the drag-to-root gesture depends on.
+        return (
+          <Box
+            {...itemProps}
+            key={item.getId()}
+            style={{
+              ...itemStyle,
+              paddingLeft: `${item.getItemMeta().level * 20}px`,
+            }}
+          >
+            <TreeItem
+              item={item}
+              onCreateDir={handleCreateDir}
+              onCreateFile={handleCreateEmptyFile}
+              onDeleteFile={handleDeleteFile}
+            />
+          </Box>
+        );
+      })}
+      <div style={tree.getDragLineStyle()} className="dragline" />
     </Stack>
   );
 };

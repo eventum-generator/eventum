@@ -1,7 +1,12 @@
-import { Alert, Box, Center, Group, Select, Stack, Text } from '@mantine/core';
-import { IconAlertTriangle } from '@tabler/icons-react';
+import { Select } from '@mantine/core';
 import { FC, useState } from 'react';
 
+import {
+  ToolBody,
+  ToolEmpty,
+  ToolPane,
+  ToolShell,
+} from '../../../../studio/panels/console/primitives';
 import { useGetPluginConfig } from '../../../hooks/useGetPluginConfig';
 import { TemplateState } from './TemplateState';
 import {
@@ -65,9 +70,11 @@ export const StateTab: FC = () => {
   const clearGlobalState = useClearTemplateEventPluginGlobalStateMutation();
 
   return (
-    <Stack gap="xs">
-      <Group>
+    <ToolShell
+      toolbar={
         <Select
+          size="xs"
+          w={240}
           label={
             <LabelWithTooltip
               label="Template"
@@ -81,31 +88,85 @@ export const StateTab: FC = () => {
           value={selectedTemplate}
           onChange={setSelectedTemplate}
         />
-      </Group>
+      }
+    >
+      <ToolBody>
+        <ToolPane>
+          {selectedTemplate === null ? (
+            <ToolEmpty>Select a template to inspect its local state.</ToolEmpty>
+          ) : (
+            <TemplateState
+              stateName="Local state"
+              data={localState.data}
+              isLoading={localState.isLoading}
+              isError={localState.isError}
+              error={localState.error}
+              isSuccess={localState.isSuccess}
+              refetch={() => void localState.refetch()}
+              onUpdateKey={(key, value) => {
+                updateLocalState.mutate(
+                  {
+                    name: projectName,
+                    templateAlias: selectedTemplate,
+                    state: { [key]: value },
+                  },
+                  {
+                    onSuccess: () =>
+                      showSuccessNotification(
+                        'Updated',
+                        `Key "${key}" updated`
+                      ),
+                    onError: (e) =>
+                      showErrorNotification('Failed to update key', e),
+                  }
+                );
+              }}
+              onDeleteKey={(key) => {
+                deleteLocalStateKey.mutate(
+                  {
+                    name: projectName,
+                    templateAlias: selectedTemplate,
+                    key,
+                  },
+                  {
+                    onSuccess: () =>
+                      showSuccessNotification(
+                        'Deleted',
+                        `Key "${key}" removed`
+                      ),
+                    onError: (e) =>
+                      showErrorNotification('Failed to delete key', e),
+                  }
+                );
+              }}
+              onClear={() => {
+                clearLocalState.mutate(
+                  { name: projectName, templateAlias: selectedTemplate },
+                  {
+                    onSuccess: () =>
+                      showSuccessNotification('Cleared', 'Local state cleared'),
+                    onError: (e) =>
+                      showErrorNotification('Failed to clear state', e),
+                  }
+                );
+              }}
+              isClearPending={clearLocalState.isPending}
+            />
+          )}
+        </ToolPane>
 
-      <Group align="start" grow gap="xs">
-        {selectedTemplate === null ? (
-          <Center mih="100px">
-            <Text size="sm" c="gray.6">
-              Select template to display its local state
-            </Text>
-          </Center>
-        ) : (
+        <ToolPane>
           <TemplateState
-            stateName="Local state"
-            data={localState.data}
-            isLoading={localState.isLoading}
-            isError={localState.isError}
-            error={localState.error}
-            isSuccess={localState.isSuccess}
-            refetch={() => void localState.refetch()}
+            stateName="Shared state"
+            data={sharedState.data}
+            isLoading={sharedState.isLoading}
+            isError={sharedState.isError}
+            error={sharedState.error}
+            isSuccess={sharedState.isSuccess}
+            refetch={() => void sharedState.refetch()}
             onUpdateKey={(key, value) => {
-              updateLocalState.mutate(
-                {
-                  name: projectName,
-                  templateAlias: selectedTemplate,
-                  state: { [key]: value },
-                },
+              updateSharedState.mutate(
+                { name: projectName, state: { [key]: value } },
                 {
                   onSuccess: () =>
                     showSuccessNotification('Updated', `Key "${key}" updated`),
@@ -115,12 +176,8 @@ export const StateTab: FC = () => {
               );
             }}
             onDeleteKey={(key) => {
-              deleteLocalStateKey.mutate(
-                {
-                  name: projectName,
-                  templateAlias: selectedTemplate,
-                  key,
-                },
+              deleteSharedStateKey.mutate(
+                { name: projectName, key },
                 {
                   onSuccess: () =>
                     showSuccessNotification('Deleted', `Key "${key}" removed`),
@@ -130,116 +187,68 @@ export const StateTab: FC = () => {
               );
             }}
             onClear={() => {
-              clearLocalState.mutate(
-                { name: projectName, templateAlias: selectedTemplate },
+              clearSharedState.mutate(
+                { name: projectName },
                 {
                   onSuccess: () =>
-                    showSuccessNotification('Cleared', 'Local state cleared'),
+                    showSuccessNotification('Cleared', 'Shared state cleared'),
                   onError: (e) =>
                     showErrorNotification('Failed to clear state', e),
                 }
               );
             }}
-            isClearPending={clearLocalState.isPending}
+            isClearPending={clearSharedState.isPending}
           />
-        )}
+        </ToolPane>
 
-        <TemplateState
-          stateName="Shared state"
-          data={sharedState.data}
-          isLoading={sharedState.isLoading}
-          isError={sharedState.isError}
-          error={sharedState.error}
-          isSuccess={sharedState.isSuccess}
-          refetch={() => void sharedState.refetch()}
-          onUpdateKey={(key, value) => {
-            updateSharedState.mutate(
-              { name: projectName, state: { [key]: value } },
-              {
-                onSuccess: () =>
-                  showSuccessNotification('Updated', `Key "${key}" updated`),
-                onError: (e) =>
-                  showErrorNotification('Failed to update key', e),
-              }
-            );
-          }}
-          onDeleteKey={(key) => {
-            deleteSharedStateKey.mutate(
-              { name: projectName, key },
-              {
-                onSuccess: () =>
-                  showSuccessNotification('Deleted', `Key "${key}" removed`),
-                onError: (e) =>
-                  showErrorNotification('Failed to delete key', e),
-              }
-            );
-          }}
-          onClear={() => {
-            clearSharedState.mutate(
-              { name: projectName },
-              {
-                onSuccess: () =>
-                  showSuccessNotification('Cleared', 'Shared state cleared'),
-                onError: (e) =>
-                  showErrorNotification('Failed to clear state', e),
-              }
-            );
-          }}
-          isClearPending={clearSharedState.isPending}
-        />
-      </Group>
-
-      <TemplateState
-        stateName="Global state"
-        data={globalState.data}
-        isLoading={globalState.isLoading}
-        isError={globalState.isError}
-        error={globalState.error}
-        isSuccess={globalState.isSuccess}
-        refetch={() => void globalState.refetch()}
-        onUpdateKey={(key, value) => {
-          updateGlobalState.mutate(
-            { name: projectName, state: { [key]: value } },
-            {
-              onSuccess: () =>
-                showSuccessNotification('Updated', `Key "${key}" updated`),
-              onError: (e) =>
-                showErrorNotification('Failed to update key', e),
-            }
-          );
-        }}
-        onDeleteKey={(key) => {
-          deleteGlobalStateKey.mutate(
-            { name: projectName, key },
-            {
-              onSuccess: () =>
-                showSuccessNotification('Deleted', `Key "${key}" removed`),
-              onError: (e) =>
-                showErrorNotification('Failed to delete key', e),
-            }
-          );
-        }}
-        onClear={() => {
-          clearGlobalState.mutate(
-            { name: projectName },
-            {
-              onSuccess: () =>
-                showSuccessNotification('Cleared', 'Global state cleared'),
-              onError: (e) =>
-                showErrorNotification('Failed to clear state', e),
-            }
-          );
-        }}
-        isClearPending={clearGlobalState.isPending}
-      />
-      <Alert
-        variant="default"
-        icon={<Box c="orange" component={IconAlertTriangle} />}
-        title="Global state"
-      >
-        Updating global state will affect all currently running generator
-        instances.
-      </Alert>
-    </Stack>
+        <ToolPane>
+          <TemplateState
+            stateName="Global state"
+            data={globalState.data}
+            isLoading={globalState.isLoading}
+            isError={globalState.isError}
+            error={globalState.error}
+            isSuccess={globalState.isSuccess}
+            refetch={() => void globalState.refetch()}
+            onUpdateKey={(key, value) => {
+              updateGlobalState.mutate(
+                { name: projectName, state: { [key]: value } },
+                {
+                  onSuccess: () =>
+                    showSuccessNotification('Updated', `Key "${key}" updated`),
+                  onError: (e) =>
+                    showErrorNotification('Failed to update key', e),
+                }
+              );
+            }}
+            onDeleteKey={(key) => {
+              deleteGlobalStateKey.mutate(
+                { name: projectName, key },
+                {
+                  onSuccess: () =>
+                    showSuccessNotification('Deleted', `Key "${key}" removed`),
+                  onError: (e) =>
+                    showErrorNotification('Failed to delete key', e),
+                }
+              );
+            }}
+            onClear={() => {
+              clearGlobalState.mutate(
+                { name: projectName },
+                {
+                  onSuccess: () =>
+                    showSuccessNotification('Cleared', 'Global state cleared'),
+                  onError: (e) =>
+                    showErrorNotification('Failed to clear state', e),
+                }
+              );
+            }}
+            isClearPending={clearGlobalState.isPending}
+            warningTitle="Shared across generators"
+            warningMessage="Updating global state affects all currently running generator instances."
+          />
+        </ToolPane>
+      </ToolBody>
+    </ToolShell>
   );
 };
