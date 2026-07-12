@@ -58,3 +58,58 @@ export function statusVariant(status: GeneratorStatus): Variant {
 export function statusDotColor(status: GeneratorStatus): string {
   return VARIANT_STYLE[statusVariant(status)].dot;
 }
+
+export type StatusBucket = 'active' | 'finished' | 'inactive' | 'failed';
+
+/** Coarse lifecycle bucket for the status summaries. Transitional states
+ *  (starting/stopping) count as active; ended states split into finished
+ *  (success) and failed; everything else is inactive. */
+export function instanceStatusBucket(status: GeneratorStatus): StatusBucket {
+  if (status.is_running || status.is_initializing || status.is_stopping) {
+    return 'active';
+  }
+  if (status.is_ended_up) {
+    return status.is_ended_up_successfully ? 'finished' : 'failed';
+  }
+  return 'inactive';
+}
+
+export interface StatusBucketSummary {
+  key: StatusBucket;
+  label: string;
+  count: number;
+  /** Dot color: the bucket's semantic color when non-empty, faint at zero. */
+  color: string;
+}
+
+const BUCKET_ORDER: { key: StatusBucket; label: string; color: string }[] = [
+  { key: 'active', label: 'active', color: 'var(--ev-good)' },
+  { key: 'finished', label: 'finished', color: 'var(--ev-done-dot)' },
+  { key: 'inactive', label: 'inactive', color: 'var(--ev-muted)' },
+  { key: 'failed', label: 'failed', color: 'var(--ev-bad)' },
+];
+
+/** Count instances into the four display buckets, in display order, each with
+ *  its dot color (faint when empty). Single source for the Home and Monitoring
+ *  status summaries. */
+export function summarizeInstanceStatuses(
+  statuses: GeneratorStatus[]
+): StatusBucketSummary[] {
+  const counts: Record<StatusBucket, number> = {
+    active: 0,
+    finished: 0,
+    inactive: 0,
+    failed: 0,
+  };
+
+  for (const status of statuses) {
+    counts[instanceStatusBucket(status)] += 1;
+  }
+
+  return BUCKET_ORDER.map((bucket) => ({
+    key: bucket.key,
+    label: bucket.label,
+    count: counts[bucket.key],
+    color: counts[bucket.key] > 0 ? bucket.color : 'var(--ev-faint)',
+  }));
+}

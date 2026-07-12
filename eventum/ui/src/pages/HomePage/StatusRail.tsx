@@ -16,6 +16,7 @@ import {
   GeneratorsInfo,
 } from '@/api/routes/generators/schemas';
 import { StatusPill } from '@/components/ui/StatusPill';
+import { summarizeInstanceStatuses } from '@/components/ui/statusPalette';
 import { ROUTE_PATHS } from '@/routing/paths';
 
 function formatUptime(seconds: number): string {
@@ -68,15 +69,7 @@ export const StatusRail: FC<StatusRailProps> = ({
   generatorsStats,
 }) => {
   const total = generators.length;
-  const active = generators.filter((g) => g.status.is_running).length;
-  const failed = generators.filter(
-    (g) => g.status.is_ended_up && !g.status.is_ended_up_successfully
-  ).length;
-  const inactive = generators.filter(
-    (g) =>
-      !g.status.is_running &&
-      (!g.status.is_ended_up || g.status.is_ended_up_successfully)
-  ).length;
+  const buckets = summarizeInstanceStatuses(generators.map((g) => g.status));
 
   const uptimeById = new Map(generatorsStats.map((s) => [s.id, s.uptime]));
 
@@ -117,21 +110,14 @@ export const StatusRail: FC<StatusRailProps> = ({
             </Group>
             {total > 0 && (
               <Group gap="lg" wrap="wrap">
-                <Breakdown
-                  count={active}
-                  label="active"
-                  color={active > 0 ? 'var(--ev-good)' : 'var(--ev-faint)'}
-                />
-                <Breakdown
-                  count={inactive}
-                  label="inactive"
-                  color="var(--ev-muted)"
-                />
-                <Breakdown
-                  count={failed}
-                  label="failed"
-                  color={failed > 0 ? 'var(--ev-bad)' : 'var(--ev-faint)'}
-                />
+                {buckets.map((b) => (
+                  <Breakdown
+                    key={b.key}
+                    count={b.count}
+                    label={b.label}
+                    color={b.color}
+                  />
+                ))}
               </Group>
             )}
           </Group>
