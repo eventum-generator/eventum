@@ -82,10 +82,14 @@ export function useDeleteGeneratorMutation() {
   });
 }
 
-export function useGeneratorStatus(id: string) {
+export function useGeneratorStatus(
+  id: string,
+  options?: { refetchInterval?: number | false }
+) {
   return useQuery({
     queryKey: [...GENERATORS_QUERY_KEY, id, 'status'],
     queryFn: () => getGeneratorStatus(id),
+    refetchInterval: options?.refetchInterval,
   });
 }
 
@@ -200,4 +204,3 @@ export function useUpdateGeneratorStatus() {
     },
   });
 }
-

@@ -40,8 +40,8 @@ import { streamGeneratorLogs } from '@/api/routes/generators';
 import { GeneratorStatus } from '@/api/routes/generators/schemas';
 import { GlobalsUsage } from '@/api/routes/scenarios/schemas';
 import { LogsModal } from '@/components/modals/LogsModal';
-import { MetricsModal } from '@/pages/InstancesPage/InstancesTable/MetricsModal';
 import { describeInstanceStatus } from '@/pages/InstancesPage/InstancesTable/common/instance-status';
+import { InstanceMetrics } from '@/pages/InstancesPage/InstancesTable/metrics/InstanceMetrics';
 import { ROUTE_PATHS } from '@/routing/paths';
 import {
   showErrorNotification,
@@ -174,7 +174,7 @@ export const GeneratorCard: FC<GeneratorCardProps> = ({
   function handleShowMetrics() {
     modals.open({
       title: 'Instance metrics',
-      children: <MetricsModal instanceId={generatorId} />,
+      children: <InstanceMetrics instanceId={generatorId} />,
       size: 'xl',
     });
   }

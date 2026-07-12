@@ -1,11 +1,4 @@
-import {
-  Alert,
-  Box,
-  Center,
-  Container,
-  Loader,
-  Stack,
-} from '@mantine/core';
+import { Alert, Box, Center, Container, Loader, Stack } from '@mantine/core';
 import {
   IconAlertSquareRounded,
   IconInfoSquareRounded,
@@ -13,17 +6,22 @@ import {
 import { ReactFlowProvider } from '@xyflow/react';
 import { FC, useEffect, useRef } from 'react';
 
-import { PipelineGraph } from './metrics/PipelineGraph';
-import { SummaryBar } from './metrics/SummaryBar';
+import { PipelineGraph } from './PipelineGraph';
+import { SummaryBar } from './SummaryBar';
 import { APIError } from '@/api/errors';
 import { useGeneratorStats } from '@/api/hooks/useGenerators';
 import { ShowErrorDetailsAnchor } from '@/components/ui/ShowErrorDetailsAnchor';
 
-interface MetricsModalProps {
+interface InstanceMetricsProps {
   instanceId: string;
 }
 
-export const MetricsModal: FC<MetricsModalProps> = ({ instanceId }) => {
+/**
+ * Live per-plugin metrics for one instance: a summary bar over a pipeline
+ * graph, polled while mounted. Shared by the instances-table quick-action
+ * modal and the instance page Metrics tab.
+ */
+export const InstanceMetrics: FC<InstanceMetricsProps> = ({ instanceId }) => {
   const {
     data: stats,
     isLoading: isStatsLoading,
@@ -67,21 +65,15 @@ export const MetricsModal: FC<MetricsModalProps> = ({ instanceId }) => {
   }
 
   if (isStatsError) {
-    if (
-      statsError instanceof APIError &&
-      statsError.response?.status === 400
-    ) {
+    if (statsError instanceof APIError && statsError.response?.status === 400) {
       return (
         <Container size="md">
           <Alert
             variant="default"
-            icon={
-              <Box c="blue" component={IconInfoSquareRounded} />
-            }
+            icon={<Box c="blue" component={IconInfoSquareRounded} />}
             title="Instance is not running"
           >
-            The generator has stopped. Start it again to see live
-            metrics.
+            The generator has stopped. Start it again to see live metrics.
           </Alert>
         </Container>
       );
@@ -91,9 +83,7 @@ export const MetricsModal: FC<MetricsModalProps> = ({ instanceId }) => {
       <Container size="md">
         <Alert
           variant="default"
-          icon={
-            <Box c="red" component={IconAlertSquareRounded} />
-          }
+          icon={<Box c="red" component={IconAlertSquareRounded} />}
           title="Failed to load instance stats"
         >
           {statsError.message}

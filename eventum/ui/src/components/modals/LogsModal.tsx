@@ -8,9 +8,13 @@ import { cmTheme } from '@/theme/codemirror';
 
 interface LogsModalProps {
   getWebSocket: () => WebSocket;
+  height?: string;
 }
 
-export const LogsModal: FC<LogsModalProps> = ({ getWebSocket }) => {
+export const LogsModal: FC<LogsModalProps> = ({
+  getWebSocket,
+  height = '75vh',
+}) => {
   const { colorScheme } = useMantineColorScheme();
 
   const [editorView, setEditorView] = useState<EditorView>();
@@ -63,7 +67,7 @@ export const LogsModal: FC<LogsModalProps> = ({ getWebSocket }) => {
   return (
     <Stack>
       <CodeMirror
-        height="75vh"
+        height={height}
         theme={cmTheme(colorScheme)}
         editable={false}
         extensions={[

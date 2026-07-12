@@ -14,7 +14,7 @@ import { FC, ReactNode } from 'react';
 import { Link } from 'react-router-dom';
 
 import { CloneInstanceModal } from '../CloneInstanceModal';
-import { MetricsModal } from './MetricsModal';
+import { InstanceMetrics } from './metrics/InstanceMetrics';
 import {
   useDeleteGeneratorMutation,
   useStartGeneratorMutation,
@@ -63,7 +63,7 @@ export const RowActions: FC<RowActionsProps> = ({
   function handleShowMetrics() {
     modals.open({
       title: `Instance metrics`,
-      children: <MetricsModal instanceId={instanceId} />,
+      children: <InstanceMetrics instanceId={instanceId} />,
       size: '70vw',
     });
   }
