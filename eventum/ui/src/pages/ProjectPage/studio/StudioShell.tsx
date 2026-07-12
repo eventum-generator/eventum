@@ -1,6 +1,11 @@
-import { Alert, Button, Text } from '@mantine/core';
-import { IconAlertTriangle, IconRefresh } from '@tabler/icons-react';
+import { Alert, Button, Group, Text } from '@mantine/core';
+import {
+  IconAlertTriangle,
+  IconArrowLeft,
+  IconRefresh,
+} from '@tabler/icons-react';
 import { CSSProperties, FC, useState } from 'react';
+import { Link } from 'react-router-dom';
 
 import { CommandBar } from './CommandBar';
 import { useStudioShell } from './context';
@@ -11,6 +16,7 @@ import { InspectorPanel } from './panels/InspectorPanel';
 import './studio.css';
 import { useResizable } from './useResizable';
 import { ShowErrorDetailsAnchor } from '@/components/ui/ShowErrorDetailsAnchor';
+import { ROUTE_PATHS } from '@/routing/paths';
 
 type ConsoleState = 'normal' | 'collapsed' | 'maximized';
 
@@ -38,11 +44,17 @@ export const StudioShell: FC = () => {
     return (
       <div className="studio">
         <Alert
-          color="red"
-          variant="light"
-          radius={0}
+          variant="default"
           icon={<IconAlertTriangle size={18} />}
           title="Generator configuration is invalid"
+          styles={{
+            root: {
+              backgroundColor: 'var(--ev-bad-soft)',
+              borderRadius: 'var(--ev-radius)',
+            },
+            icon: { color: 'var(--ev-bad)' },
+            title: { color: 'var(--ev-bad)' },
+          }}
         >
           <Text size="sm">
             The generator config could not be loaded, so the pipeline, inspector
@@ -50,15 +62,25 @@ export const StudioShell: FC = () => {
             below, save it (Ctrl/Cmd+S), then reload.
             <ShowErrorDetailsAnchor error={configError} prependDot />
           </Text>
-          <Button
-            mt="sm"
-            size="xs"
-            variant="default"
-            leftSection={<IconRefresh size={14} />}
-            onClick={reloadConfig}
-          >
-            Reload project
-          </Button>
+          <Group mt="sm" gap="xs">
+            <Button
+              size="xs"
+              variant="default"
+              leftSection={<IconRefresh size={14} />}
+              onClick={reloadConfig}
+            >
+              Reload project
+            </Button>
+            <Button
+              size="xs"
+              variant="subtle"
+              component={Link}
+              to={ROUTE_PATHS.PROJECTS}
+              leftSection={<IconArrowLeft size={14} />}
+            >
+              Back to projects
+            </Button>
+          </Group>
         </Alert>
 
         <div className="studio-body">

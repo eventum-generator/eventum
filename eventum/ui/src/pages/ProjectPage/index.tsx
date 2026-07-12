@@ -52,6 +52,7 @@ export default function ProjectPage() {
         <ProjectNameProvider initialProjectName={projectName}>
           <FileTreeProvider>
             <StudioProvider
+              key="recovery"
               serverConfig={null}
               configError={error}
               onReloadConfig={() => void refetchConfig()}
@@ -86,7 +87,7 @@ export default function ProjectPage() {
     return (
       <ProjectNameProvider initialProjectName={projectName}>
         <FileTreeProvider>
-          <StudioProvider serverConfig={generatorConfig}>
+          <StudioProvider key="ready" serverConfig={generatorConfig}>
             <StudioShell />
           </StudioProvider>
         </FileTreeProvider>
