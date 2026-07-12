@@ -54,23 +54,23 @@ export const StudioShell: FC = () => {
             below, save it (Ctrl/Cmd+S), then reload.
             <ShowErrorDetailsAnchor error={configError} prependDot />
           </Text>
-          <Group mt="sm" gap="xs">
+          <Group mt="md" gap="sm">
             <Button
-              size="xs"
-              variant="default"
-              leftSection={<IconRefresh size={14} />}
-              onClick={reloadConfig}
-            >
-              Reload project
-            </Button>
-            <Button
-              size="xs"
+              size="sm"
               variant="subtle"
               component={Link}
               to={ROUTE_PATHS.PROJECTS}
-              leftSection={<IconArrowLeft size={14} />}
+              leftSection={<IconArrowLeft size={16} />}
             >
               Back to projects
+            </Button>
+            <Button
+              size="sm"
+              variant="default"
+              leftSection={<IconRefresh size={16} />}
+              onClick={reloadConfig}
+            >
+              Reload project
             </Button>
           </Group>
         </Alert>
