@@ -1,4 +1,4 @@
-import { Alert, Button, Group, Text } from '@mantine/core';
+import { Alert, Box, Button, Group, Text } from '@mantine/core';
 import {
   IconAlertTriangle,
   IconArrowLeft,
@@ -45,16 +45,8 @@ export const StudioShell: FC = () => {
       <div className="studio">
         <Alert
           variant="default"
-          icon={<IconAlertTriangle size={18} />}
+          icon={<Box c="red" component={IconAlertTriangle} />}
           title="Generator configuration is invalid"
-          styles={{
-            root: {
-              backgroundColor: 'var(--ev-bad-soft)',
-              borderRadius: 'var(--ev-radius)',
-            },
-            icon: { color: 'var(--ev-bad)' },
-            title: { color: 'var(--ev-bad)' },
-          }}
         >
           <Text size="sm">
             The generator config could not be loaded, so the pipeline, inspector
