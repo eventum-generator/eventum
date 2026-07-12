@@ -105,14 +105,18 @@
   border-color: var(--ev-border);
 }
 
-/* Menus / dropdowns */
-.mantine-Menu-dropdown {
+/* Floating panels: menus, select/tags dropdowns, popovers - one surface */
+.mantine-Menu-dropdown,
+.mantine-Combobox-dropdown,
+.mantine-Popover-dropdown {
   background-color: var(--ev-surface);
   border: 1px solid var(--ev-border);
   border-radius: 12px;
   box-shadow: var(--ev-shadow);
 }
-.mantine-Menu-item:hover {
+.mantine-Menu-item:hover,
+.mantine-Combobox-option:hover,
+.mantine-Combobox-option[data-combobox-selected] {
   background-color: var(--ev-surface-2);
 }
 
@@ -181,4 +185,86 @@
 .mantine-Paper-root[data-with-border],
 .mantine-Card-root[data-with-border] {
   box-shadow: var(--ev-shadow);
+}
+
+/* --- Native control surfaces (replace Mantine's default greys) --- */
+
+/* Default-variant icon buttons: match default Button chrome */
+.mantine-ActionIcon-root[data-variant='default'] {
+  background-color: var(--ev-surface);
+  border-color: var(--ev-border);
+  color: var(--ev-text);
+}
+.mantine-ActionIcon-root[data-variant='default']:hover {
+  background-color: var(--ev-surface-2);
+  border-color: var(--ev-border-strong);
+}
+
+/* Segmented control: inset track, delineated active chip */
+.mantine-SegmentedControl-root {
+  background-color: var(--ev-surface-2);
+}
+.mantine-SegmentedControl-indicator {
+  background-color: var(--ev-surface);
+  box-shadow: inset 0 0 0 1px var(--ev-border);
+}
+
+/* Default badges (e.g. instance chips) */
+.mantine-Badge-root[data-variant='default'] {
+  background-color: var(--ev-surface-2);
+  border-color: var(--ev-border);
+  color: var(--ev-text);
+}
+/* Badges rendered as links (instance chips): brighten border on hover */
+a.mantine-Badge-root:hover {
+  border-color: var(--ev-border-strong);
+}
+
+/* Pagination: inactive controls on the panel surface, active keeps accent */
+.mantine-Pagination-control:not([data-active]) {
+  background-color: var(--ev-surface);
+  border-color: var(--ev-border);
+  color: var(--ev-text);
+}
+
+/* Checkbox / radio / switch off-state tracks */
+.mantine-Checkbox-input:not(:checked),
+.mantine-Radio-radio:not(:checked) {
+  background-color: var(--ev-surface-2);
+  border-color: var(--ev-border);
+}
+.mantine-Switch-track:not([data-checked]) {
+  background-color: var(--ev-surface-2);
+  border-color: var(--ev-border);
+}
+
+/* Disabled inputs keep their own surface (so they don't blend into the
+   panel) and signal state through dimmed text + cursor, not Mantine's grey */
+.mantine-Input-input:disabled,
+.mantine-Input-input[data-disabled] {
+  background-color: var(--ev-surface-2);
+  color: var(--ev-faint);
+  cursor: not-allowed;
+}
+
+/* Disabled buttons / icon buttons: dim on native tokens, not Mantine grey */
+.mantine-Button-root:disabled,
+.mantine-Button-root[data-disabled] {
+  background-color: var(--ev-surface-2);
+  border-color: var(--ev-border);
+  color: var(--ev-faint);
+}
+.mantine-ActionIcon-root:disabled,
+.mantine-ActionIcon-root[data-disabled] {
+  background-color: transparent;
+  color: var(--ev-faint);
+}
+
+/* Code blocks (shiki): keep the VSCode Dark+ syntax but drop the default grey
+   box for our raised surface, so snippets match the CodeMirror editor. Dark
+   only - the light code scheme is left unchanged. */
+:root[data-mantine-color-scheme='dark'] .mantine-CodeHighlight-code,
+:root[data-mantine-color-scheme='dark'] .mantine-CodeHighlight-pre,
+:root[data-mantine-color-scheme='dark'] .mantine-CodeHighlight-controls {
+  background-color: var(--ev-surface-2);
 }

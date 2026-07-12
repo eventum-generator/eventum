@@ -14,7 +14,6 @@ import {
 } from '@mantine/core';
 import { notifications } from '@mantine/notifications';
 import { IconAlertSquareRounded } from '@tabler/icons-react';
-import { vscodeDark, vscodeLight } from '@uiw/codemirror-theme-vscode';
 import CodeMirror from '@uiw/react-codemirror';
 import { FC, useEffect, useState } from 'react';
 
@@ -25,6 +24,7 @@ import {
 } from '@/api/hooks/useGeneratorConfigs';
 import { ShowErrorDetailsAnchor } from '@/components/ui/ShowErrorDetailsAnchor';
 import { useProjectName } from '@/pages/ProjectPage/hooks/useProjectName';
+import { cmTheme } from '@/theme/codemirror';
 
 export interface FileEditorProps {
   filePath: string;
@@ -147,7 +147,7 @@ export const FileEditor: FC<FileEditorProps> = ({ filePath, setSaved }) => {
           }}
           height="65vh"
           extensions={extensions}
-          theme={colorScheme === 'dark' ? vscodeDark : vscodeLight}
+          theme={cmTheme(colorScheme)}
         />
       </Stack>
     );

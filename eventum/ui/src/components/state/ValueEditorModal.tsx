@@ -1,11 +1,11 @@
 import { json, jsonParseLinter } from '@codemirror/lang-json';
 import { linter } from '@codemirror/lint';
-import { Button, Group, Modal, Stack, Text } from '@mantine/core';
-import { useMantineColorScheme } from '@mantine/core';
+import { Button, Group, Modal, Stack, Text , useMantineColorScheme } from '@mantine/core';
 import { IconEdit } from '@tabler/icons-react';
-import { vscodeDark, vscodeLight } from '@uiw/codemirror-theme-vscode';
 import CodeMirror from '@uiw/react-codemirror';
 import { useEffect, useMemo, useState } from 'react';
+
+import { cmTheme } from '@/theme/codemirror';
 
 export interface ValueEditorModalProps {
   opened: boolean;
@@ -74,7 +74,7 @@ export function ValueEditorModal({
           value={jsonValue}
           onChange={handleChange}
           extensions={extensions}
-          theme={colorScheme === 'dark' ? vscodeDark : vscodeLight}
+          theme={cmTheme(colorScheme)}
           height="75vh"
           basicSetup={{
             lineNumbers: true,
