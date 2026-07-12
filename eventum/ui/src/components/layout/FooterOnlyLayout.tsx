@@ -25,7 +25,7 @@ export default function FooterOnlyLayout({
       <AppShell.Footer bd="0">
         <Group justify="space-between" mx="50px" my="20px">
           <Text c="dimmed" size="sm">
-            © {new Date().getFullYear()} Eventum Project.{' '}
+            © {new Date().getFullYear()} Eventum Generator.{' '}
             <Anchor
               href={LINKS.LICENSE}
               c="dimmed"

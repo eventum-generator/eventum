@@ -1,6 +1,6 @@
-import { Button, Group, Image, Title } from '@mantine/core';
+import { Anchor, Button, Group, Image, Title } from '@mantine/core';
 import { modals } from '@mantine/modals';
-import { IconPlus, IconSearch } from '@tabler/icons-react';
+import { IconExternalLink, IconPlus } from '@tabler/icons-react';
 import { FC } from 'react';
 import { generatePath, useNavigate } from 'react-router-dom';
 
@@ -39,20 +39,21 @@ export const TopBand: FC<TopBandProps> = ({ existingProjectNames }) => {
         </Title>
       </Group>
 
-      <Group gap="sm">
+      <Group gap="lg" align="center" wrap="nowrap">
         <Button leftSection={<IconPlus size={18} />} onClick={openNewProject}>
           New project
         </Button>
-        <Button
-          variant="default"
-          leftSection={<IconSearch size={18} />}
-          component="a"
+        <Anchor
           href="https://eventum.run/hub"
           target="_blank"
           rel="noopener noreferrer"
+          size="sm"
+          fw={500}
+          style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}
         >
           Browse Hub
-        </Button>
+          <IconExternalLink size={15} stroke={1.75} />
+        </Anchor>
       </Group>
     </Group>
   );

@@ -1,22 +1,15 @@
 import {
   Anchor,
+  Box,
   Group,
   Paper,
-  SimpleGrid,
   Stack,
   Text,
   UnstyledButton,
 } from '@mantine/core';
-import {
-  Icon,
-  IconAlertTriangle,
-  IconBox,
-  IconPlayerPause,
-  IconPlayerPlay,
-} from '@tabler/icons-react';
 import { dirname } from 'pathe';
 import { FC } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 
 import {
   GeneratorStats,
@@ -36,6 +29,35 @@ function formatUptime(seconds: number): string {
   return `${s}s`;
 }
 
+const Dot: FC<{ color: string }> = ({ color }) => (
+  <Box
+    style={{
+      width: 8,
+      height: 8,
+      borderRadius: '50%',
+      background: color,
+      flexShrink: 0,
+    }}
+  />
+);
+
+/** One status breakdown chip: coloured dot, bold count, dimmed label. */
+const Breakdown: FC<{ count: number; label: string; color: string }> = ({
+  count,
+  label,
+  color,
+}) => (
+  <Group gap={7} wrap="nowrap" align="center">
+    <Dot color={color} />
+    <Text size="sm" c="dimmed">
+      <Text span fw={700} style={{ color: 'var(--ev-text)' }}>
+        {count}
+      </Text>{' '}
+      {label}
+    </Text>
+  </Group>
+);
+
 interface StatusRailProps {
   generators: GeneratorsInfo;
   generatorsStats: GeneratorStats[];
@@ -45,8 +67,6 @@ export const StatusRail: FC<StatusRailProps> = ({
   generators,
   generatorsStats,
 }) => {
-  const navigate = useNavigate();
-
   const total = generators.length;
   const active = generators.filter((g) => g.status.is_running).length;
   const failed = generators.filter(
@@ -57,33 +77,6 @@ export const StatusRail: FC<StatusRailProps> = ({
       !g.status.is_running &&
       (!g.status.is_ended_up || g.status.is_ended_up_successfully)
   ).length;
-
-  const stats: {
-    label: string;
-    value: number;
-    color: string;
-    icon: Icon;
-  }[] = [
-    { label: 'Total', value: total, color: 'var(--ev-text)', icon: IconBox },
-    {
-      label: 'Active',
-      value: active,
-      color: active > 0 ? 'var(--ev-good)' : 'var(--ev-muted)',
-      icon: IconPlayerPlay,
-    },
-    {
-      label: 'Inactive',
-      value: inactive,
-      color: 'var(--ev-muted)',
-      icon: IconPlayerPause,
-    },
-    {
-      label: 'Failed',
-      value: failed,
-      color: failed > 0 ? 'var(--ev-bad)' : 'var(--ev-muted)',
-      icon: IconAlertTriangle,
-    },
-  ];
 
   const uptimeById = new Map(generatorsStats.map((s) => [s.id, s.uptime]));
 
@@ -101,39 +94,47 @@ export const StatusRail: FC<StatusRailProps> = ({
           <Text size="xs" tt="uppercase" lts="1.5px" fw={600} c="dimmed">
             Instances
           </Text>
-          <Anchor
-            size="xs"
-            style={{ cursor: 'pointer' }}
-            onClick={() => void navigate(ROUTE_PATHS.MONITORING)}
-          >
+          <Anchor size="xs" component={Link} to={ROUTE_PATHS.MONITORING}>
             Monitoring
           </Anchor>
         </Group>
         <Paper withBorder radius="md" p="lg">
-          <Stack gap="md">
-            <SimpleGrid cols={2} spacing="lg">
-              {stats.map((s) => (
-                <Stack key={s.label} gap={4}>
-                  <Text fz="1.75rem" fw={700} lh={1} style={{ color: s.color }}>
-                    {s.value}
-                  </Text>
-                  <Group gap={6} wrap="nowrap">
-                    <s.icon
-                      size={15}
-                      stroke={1.5}
-                      style={{ color: s.color, flexShrink: 0 }}
-                    />
-                    <Text size="xs" c="dimmed">
-                      {s.label}
-                    </Text>
-                  </Group>
-                </Stack>
-              ))}
-            </SimpleGrid>
-            <Text size="xs" c="dimmed">
-              {total > 0 ? `${active} of ${total} running` : 'No instances'}
-            </Text>
-          </Stack>
+          <Group justify="space-between" wrap="wrap" gap="md" align="center">
+            <Group align="baseline" gap={8} wrap="nowrap">
+              <Text
+                fw={700}
+                lh={1}
+                style={{
+                  fontSize: '2.25rem',
+                  fontVariantNumeric: 'tabular-nums',
+                }}
+              >
+                {total}
+              </Text>
+              <Text size="sm" c="dimmed">
+                {total === 1 ? 'instance' : 'instances'}
+              </Text>
+            </Group>
+            {total > 0 && (
+              <Group gap="lg" wrap="wrap">
+                <Breakdown
+                  count={active}
+                  label="active"
+                  color={active > 0 ? 'var(--ev-good)' : 'var(--ev-faint)'}
+                />
+                <Breakdown
+                  count={inactive}
+                  label="inactive"
+                  color="var(--ev-muted)"
+                />
+                <Breakdown
+                  count={failed}
+                  label="failed"
+                  color={failed > 0 ? 'var(--ev-bad)' : 'var(--ev-faint)'}
+                />
+              </Group>
+            )}
+          </Group>
         </Paper>
       </Stack>
 
@@ -159,8 +160,13 @@ export const StatusRail: FC<StatusRailProps> = ({
                 return (
                   <UnstyledButton
                     key={g.id}
+                    component={Link}
+                    to={`${ROUTE_PATHS.INSTANCES}/${g.id}`}
                     p="xs"
-                    style={{ borderRadius: 'var(--mantine-radius-sm)' }}
+                    style={{
+                      borderRadius: 'var(--mantine-radius-sm)',
+                      color: 'inherit',
+                    }}
                     styles={{
                       root: {
                         '&:hover': {
@@ -168,9 +174,6 @@ export const StatusRail: FC<StatusRailProps> = ({
                         },
                       },
                     }}
-                    onClick={() =>
-                      void navigate(`${ROUTE_PATHS.INSTANCES}/${g.id}`)
-                    }
                   >
                     <Group gap="sm" justify="space-between" wrap="nowrap">
                       <Stack gap={0} style={{ minWidth: 0 }}>

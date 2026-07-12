@@ -6,7 +6,7 @@ import {
   IconTransform,
 } from '@tabler/icons-react';
 import { FC } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 
 import { ROUTE_PATHS } from '@/routing/paths';
 
@@ -32,8 +32,6 @@ const TILES: { icon: Icon; title: string; caption: string; path: string }[] = [
 ];
 
 export const ExploreNav: FC = () => {
-  const navigate = useNavigate();
-
   return (
     <Stack gap="xs">
       <Text size="xs" tt="uppercase" lts="1.5px" fw={600} c="dimmed">
@@ -43,10 +41,17 @@ export const ExploreNav: FC = () => {
         {TILES.map((tile) => (
           <Paper
             key={tile.title}
+            component={Link}
+            to={tile.path}
             withBorder
             radius="md"
             p="md"
-            style={{ cursor: 'pointer', transition: 'border-color 150ms ease' }}
+            style={{
+              cursor: 'pointer',
+              transition: 'border-color 150ms ease',
+              color: 'inherit',
+              textDecoration: 'none',
+            }}
             styles={{
               root: {
                 '&:hover': {
@@ -54,7 +59,6 @@ export const ExploreNav: FC = () => {
                 },
               },
             }}
-            onClick={() => void navigate(tile.path)}
           >
             <Group gap="sm" wrap="nowrap">
               <tile.icon

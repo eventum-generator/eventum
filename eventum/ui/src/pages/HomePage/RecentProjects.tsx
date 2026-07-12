@@ -3,7 +3,7 @@ import { IconFolder } from '@tabler/icons-react';
 import bytes from 'bytes';
 import { formatDistanceToNow } from 'date-fns';
 import { FC } from 'react';
-import { generatePath, useNavigate } from 'react-router-dom';
+import { Link, generatePath } from 'react-router-dom';
 
 import { GeneratorDirsExtendedInfo } from '@/api/routes/generator-configs/schemas';
 import { ROUTE_PATHS } from '@/routing/paths';
@@ -13,8 +13,6 @@ interface RecentProjectsProps {
 }
 
 export const RecentProjects: FC<RecentProjectsProps> = ({ generatorDirs }) => {
-  const navigate = useNavigate();
-
   const projects = [...generatorDirs]
     .sort((a, b) => {
       if (a.last_modified !== null && b.last_modified !== null) {
@@ -52,8 +50,15 @@ export const RecentProjects: FC<RecentProjectsProps> = ({ generatorDirs }) => {
               return (
                 <UnstyledButton
                   key={project.name}
+                  component={Link}
+                  to={generatePath(ROUTE_PATHS.PROJECT, {
+                    projectName: project.name,
+                  })}
                   p="xs"
-                  style={{ borderRadius: 'var(--mantine-radius-sm)' }}
+                  style={{
+                    borderRadius: 'var(--mantine-radius-sm)',
+                    color: 'inherit',
+                  }}
                   styles={{
                     root: {
                       '&:hover': {
@@ -61,13 +66,6 @@ export const RecentProjects: FC<RecentProjectsProps> = ({ generatorDirs }) => {
                       },
                     },
                   }}
-                  onClick={() =>
-                    void navigate(
-                      generatePath(ROUTE_PATHS.PROJECT, {
-                        projectName: project.name,
-                      })
-                    )
-                  }
                 >
                   <Group gap="sm" justify="space-between" wrap="nowrap">
                     <Group gap="sm" wrap="nowrap" style={{ minWidth: 0 }}>
