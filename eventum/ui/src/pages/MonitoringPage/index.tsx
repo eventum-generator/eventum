@@ -10,10 +10,7 @@ import { ResourceTiles } from './ResourceTiles';
 import { ThroughputChart } from './ThroughputChart';
 import { useMetricsHistory } from './history';
 import { aggregateFlow } from './metrics';
-import {
-  useGenerators,
-  useRunningGeneratorsStats,
-} from '@/api/hooks/useGenerators';
+import { useRunningGeneratorsStats } from '@/api/hooks/useGenerators';
 import { useInstanceInfo } from '@/api/hooks/useInstance';
 import { PageTitle } from '@/components/ui/PageTitle';
 import { ShowErrorDetailsAnchor } from '@/components/ui/ShowErrorDetailsAnchor';
@@ -27,7 +24,6 @@ export default function MonitoringPage() {
     isLoading: isInfoLoading,
     refetch: refetchInfo,
   } = useInstanceInfo();
-  const { refetch: refetchGenerators } = useGenerators();
   const {
     data: generatorsStats,
     dataUpdatedAt: statsUpdatedAt,
@@ -38,7 +34,6 @@ export default function MonitoringPage() {
   useEffect(() => {
     const interval = setInterval(() => {
       void refetchInfo();
-      void refetchGenerators();
       void refetchStats();
     }, 5000);
 
