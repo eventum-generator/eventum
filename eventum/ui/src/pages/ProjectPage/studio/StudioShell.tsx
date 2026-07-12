@@ -1,11 +1,6 @@
-import { Alert, Box, Button, Group, Text } from '@mantine/core';
-import {
-  IconAlertTriangle,
-  IconArrowLeft,
-  IconRefresh,
-} from '@tabler/icons-react';
+import { Alert, Box, Text } from '@mantine/core';
+import { IconAlertTriangle } from '@tabler/icons-react';
 import { CSSProperties, FC, useState } from 'react';
-import { Link } from 'react-router-dom';
 
 import { CommandBar } from './CommandBar';
 import { useStudioShell } from './context';
@@ -16,7 +11,6 @@ import { InspectorPanel } from './panels/InspectorPanel';
 import './studio.css';
 import { useResizable } from './useResizable';
 import { ShowErrorDetailsAnchor } from '@/components/ui/ShowErrorDetailsAnchor';
-import { ROUTE_PATHS } from '@/routing/paths';
 
 type ConsoleState = 'normal' | 'collapsed' | 'maximized';
 
@@ -35,14 +29,15 @@ export const StudioShell: FC = () => {
     invert: true,
   });
   const [consoleState, setConsoleState] = useState<ConsoleState>('normal');
-  const { configError, reloadConfig } = useStudioShell();
+  const { configError } = useStudioShell();
 
   // Recovery mode: the config could not be parsed, so the pipeline, inspector
-  // and console are unavailable. Keep the file editor so the user can fix the
-  // config file that locked them out.
+  // and console are unavailable. Keep the command bar (Back + Reload) and the
+  // file editor so the user can fix the config file that locked them out.
   if (configError) {
     return (
       <div className="studio">
+        <CommandBar />
         <Alert
           variant="default"
           icon={<Box c="red" component={IconAlertTriangle} />}
@@ -54,25 +49,6 @@ export const StudioShell: FC = () => {
             below, save it (Ctrl/Cmd+S), then reload.
             <ShowErrorDetailsAnchor error={configError} prependDot />
           </Text>
-          <Group mt="md" gap="sm">
-            <Button
-              size="sm"
-              variant="subtle"
-              component={Link}
-              to={ROUTE_PATHS.PROJECTS}
-              leftSection={<IconArrowLeft size={16} />}
-            >
-              Back to projects
-            </Button>
-            <Button
-              size="sm"
-              variant="default"
-              leftSection={<IconRefresh size={16} />}
-              onClick={reloadConfig}
-            >
-              Reload project
-            </Button>
-          </Group>
         </Alert>
 
         <div className="studio-body">

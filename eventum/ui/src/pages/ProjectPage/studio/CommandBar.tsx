@@ -1,6 +1,10 @@
 import { ActionIcon, Badge, Button, Group, Text, Title } from '@mantine/core';
 import { modals } from '@mantine/modals';
-import { IconArrowLeft, IconDeviceFloppy } from '@tabler/icons-react';
+import {
+  IconArrowLeft,
+  IconDeviceFloppy,
+  IconRefresh,
+} from '@tabler/icons-react';
 import { FC } from 'react';
 import { useNavigate } from 'react-router-dom';
 
@@ -10,7 +14,8 @@ import { ROUTE_PATHS } from '@/routing/paths';
 
 export const CommandBar: FC = () => {
   const navigate = useNavigate();
-  const { projectName, dirtyFileIds, saveFile } = useStudioShell();
+  const { projectName, dirtyFileIds, saveFile, configError, reloadConfig } =
+    useStudioShell();
   const { isConfigDirty, saveConfig, isSavingConfig } = useStudioConfig();
 
   const dirtyFiles = dirtyFileIds.length;
@@ -65,26 +70,37 @@ export const CommandBar: FC = () => {
         </Group>
       </Group>
 
-      <PipelineStrip />
+      {!configError && <PipelineStrip />}
 
       <Group gap="xs" wrap="nowrap">
-        {anyDirty && (
-          <Badge size="sm" variant="light" color="yellow">
-            {isConfigDirty && dirtyFiles > 0
-              ? `config + ${dirtyFiles} file${dirtyFiles > 1 ? 's' : ''}`
-              : isConfigDirty
-                ? 'config'
-                : `${dirtyFiles} file${dirtyFiles > 1 ? 's' : ''}`}
-          </Badge>
+        {configError ? (
+          <Button
+            leftSection={<IconRefresh size={16} />}
+            onClick={reloadConfig}
+          >
+            Reload
+          </Button>
+        ) : (
+          <>
+            {anyDirty && (
+              <Badge size="sm" variant="light" color="yellow">
+                {isConfigDirty && dirtyFiles > 0
+                  ? `config + ${dirtyFiles} file${dirtyFiles > 1 ? 's' : ''}`
+                  : isConfigDirty
+                    ? 'config'
+                    : `${dirtyFiles} file${dirtyFiles > 1 ? 's' : ''}`}
+              </Badge>
+            )}
+            <Button
+              leftSection={<IconDeviceFloppy size={16} />}
+              disabled={!anyDirty}
+              loading={isSavingConfig}
+              onClick={handleSaveAll}
+            >
+              Save
+            </Button>
+          </>
         )}
-        <Button
-          leftSection={<IconDeviceFloppy size={16} />}
-          disabled={!anyDirty}
-          loading={isSavingConfig}
-          onClick={handleSaveAll}
-        >
-          Save
-        </Button>
       </Group>
     </div>
   );
