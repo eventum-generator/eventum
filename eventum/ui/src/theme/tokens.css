@@ -17,7 +17,13 @@
   --ev-good-soft: rgba(26, 127, 55, 0.12);
   --ev-warn-soft: rgba(154, 103, 0, 0.12);
   --ev-bad-soft: rgba(207, 34, 46, 0.1);
-  --ev-shadow: 0 1px 2px rgba(12, 12, 30, 0.04), 0 8px 24px -16px rgba(12, 12, 30, 0.18);
+  /* "done" - terminal success at rest: a dark, unlit green (like a
+     switched-off green LED), distinct from the lit "good" green. */
+  --ev-done-bg: #cbd8ce;
+  --ev-done-fg: #14401f;
+  --ev-done-dot: #14401f;
+  --ev-shadow:
+    0 1px 2px rgba(12, 12, 30, 0.04), 0 8px 24px -16px rgba(12, 12, 30, 0.18);
   --ev-radius: 10px;
 
   --mantine-color-body: var(--ev-bg);
@@ -41,7 +47,13 @@
   --ev-good-soft: rgba(63, 185, 80, 0.14);
   --ev-warn-soft: rgba(210, 153, 34, 0.14);
   --ev-bad-soft: rgba(248, 81, 73, 0.14);
-  --ev-shadow: 0 1px 2px rgba(0, 0, 0, 0.4), 0 12px 32px -16px rgba(0, 0, 0, 0.6);
+  /* "done" - terminal success at rest: a dark, unlit green (like a
+     switched-off green LED), distinct from the lit "good" green. */
+  --ev-done-bg: #0d2012;
+  --ev-done-fg: #4f8c63;
+  --ev-done-dot: #164523;
+  --ev-shadow:
+    0 1px 2px rgba(0, 0, 0, 0.4), 0 12px 32px -16px rgba(0, 0, 0, 0.6);
   --ev-radius: 10px;
 
   --mantine-color-body: var(--ev-bg);

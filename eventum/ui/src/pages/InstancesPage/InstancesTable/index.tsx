@@ -26,16 +26,18 @@ import {
   getSortedRowModel,
   useReactTable,
 } from '@tanstack/react-table';
-import { FC, useEffect, useState } from 'react';
+import { FC, useEffect, useMemo, useState } from 'react';
 
 import { columns } from './columns';
 import { GeneratorsInfo } from '@/api/routes/generators/schemas';
+
+export type StatusMode = 'all' | 'running' | 'inactive';
 
 interface InstancesTableProps {
   data: GeneratorsInfo;
   instancesFilter?: string;
   projectNameFilter?: string;
-  runningOnlyFilter?: boolean;
+  statusMode?: StatusMode;
   rowSelection: RowSelectionState;
   onRowSelectionChange: React.Dispatch<React.SetStateAction<RowSelectionState>>;
 }
@@ -44,7 +46,7 @@ export const InstancesTable: FC<InstancesTableProps> = ({
   data,
   projectNameFilter = '',
   instancesFilter = '',
-  runningOnlyFilter = false,
+  statusMode = 'all',
   rowSelection,
   onRowSelectionChange,
 }) => {
@@ -57,9 +59,28 @@ export const InstancesTable: FC<InstancesTableProps> = ({
     pageSize: 15,
   });
 
+  // Status filtering runs here rather than through a column filter so it
+  // stays out of columns.tsx. "running" keeps live and transitioning
+  // instances; "inactive" keeps the rest (idle, finished, failed).
+  const statusFilteredData = useMemo(() => {
+    if (statusMode === 'all') {
+      return data;
+    }
+
+    return data.filter((instance) => {
+      const isLive =
+        instance.status.is_running ||
+        instance.status.is_initializing ||
+        instance.status.is_stopping;
+
+      return statusMode === 'running' ? isLive : !isLive;
+    });
+  }, [data, statusMode]);
+
   const table = useReactTable({
-    data,
+    data: statusFilteredData,
     columns,
+    getRowId: (instance) => instance.id,
     state: { sorting, columnFilters, pagination, rowSelection },
     onSortingChange: setSorting,
     onColumnFiltersChange: setColumnFilters,
@@ -75,8 +96,7 @@ export const InstancesTable: FC<InstancesTableProps> = ({
   useEffect(() => {
     table.getColumn('id')?.setFilterValue(instancesFilter);
     table.getColumn('path')?.setFilterValue(projectNameFilter);
-    table.getColumn('status')?.setFilterValue(runningOnlyFilter);
-  }, [instancesFilter, projectNameFilter, runningOnlyFilter, table]);
+  }, [instancesFilter, projectNameFilter, table]);
 
   return (
     <Stack>
@@ -152,16 +172,16 @@ export const InstancesTable: FC<InstancesTableProps> = ({
             ))}
           </Table.Tbody>
         </Table>
-        {data.length === 0 && (
-          <Center mt="sm">
-            <Text size="sm" c="gray.6">
-              No instances
+        {table.getFilteredRowModel().rows.length === 0 && (
+          <Center mt="xs">
+            <Text size="sm" c="dimmed">
+              No instances match your filters
             </Text>
           </Center>
         )}
       </Paper>
 
-      {data.length > 0 && (
+      {table.getFilteredRowModel().rows.length > 0 && (
         <Group w="100%" justify="end" gap="lg">
           <Text size="sm" c="gray.6">
             Showing{' '}
@@ -184,8 +204,9 @@ export const InstancesTable: FC<InstancesTableProps> = ({
             <Select
               data={['10', '15', '25', '50', '100']}
               size="sm"
-              w="60px"
+              w={68}
               variant="unstyled"
+              styles={{ input: { textAlign: 'center' } }}
               value={table.getState().pagination.pageSize.toString()}
               onChange={(value) =>
                 table.setPageSize(Number.parseInt(value ?? '15'))
