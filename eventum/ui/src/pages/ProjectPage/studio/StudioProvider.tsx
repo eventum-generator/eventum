@@ -37,15 +37,30 @@ import { EventPluginName } from '@/api/routes/generator-configs/schemas/plugins/
 import { ShowErrorDetailsAnchor } from '@/components/ui/ShowErrorDetailsAnchor';
 
 interface StudioProviderProps {
-  serverConfig: GeneratorConfig;
+  // Null when the generator config could not be loaded/parsed; paired with
+  // `configError` it drives recovery mode (file editor only).
+  serverConfig: GeneratorConfig | null;
+  configError?: Error | null;
+  onReloadConfig?: () => void;
   children: ReactNode;
 }
 
 const pluginNames = (plugins: Record<string, unknown>[]): string[] =>
   plugins.map((plugin) => Object.keys(plugin)[0]!);
 
+// A structurally-valid but empty config, used only to satisfy the config
+// context type while in recovery mode. It is never persisted - saveConfig is
+// gated whenever `configError` is set.
+const EMPTY_CONFIG: GeneratorConfig = {
+  input: [],
+  event: { template: PLUGIN_DEFAULT_CONFIGS.event.template },
+  output: [],
+};
+
 export const StudioProvider: FC<StudioProviderProps> = ({
   serverConfig,
+  configError = null,
+  onReloadConfig,
   children,
 }) => {
   const { projectName } = useProjectName();
@@ -53,30 +68,30 @@ export const StudioProvider: FC<StudioProviderProps> = ({
 
   // --- Pipeline stage config (mirrors the former per-tab state) ---
   const [inputConfig, setInputConfig] = useState<InputPluginsNamedConfig>(
-    serverConfig.input
+    serverConfig?.input ?? []
   );
   const [eventConfig, setEventConfig] = useState<EventPluginNamedConfig[]>(
-    serverConfig.event ? [serverConfig.event] : []
+    serverConfig?.event ? [serverConfig.event] : []
   );
   const [outputConfig, setOutputConfig] = useState<OutputPluginsNamedConfig>(
-    serverConfig.output
+    serverConfig?.output ?? []
   );
   const [inputSelected, setInputSelected] = useState(0);
   const [outputSelected, setOutputSelected] = useState(0);
 
   const config = useMemo<GeneratorConfig>(
     () => ({
-      ...serverConfig,
+      ...(serverConfig ?? EMPTY_CONFIG),
       input: inputConfig,
-      event: eventConfig[0]!,
+      event: eventConfig[0] ?? EMPTY_CONFIG.event,
       output: outputConfig,
     }),
     [serverConfig, inputConfig, eventConfig, outputConfig]
   );
 
   const isConfigDirty = useMemo(
-    () => !isEqual(serverConfig, config),
-    [serverConfig, config]
+    () => !configError && !isEqual(serverConfig, config),
+    [configError, serverConfig, config]
   );
 
   // Stable getters for memoized consoles (preserve the ref pattern).
@@ -172,6 +187,12 @@ export const StudioProvider: FC<StudioProviderProps> = ({
 
   const updateConfig = useUpdateGeneratorConfigMutation();
   const saveConfig = useCallback(() => {
+    // Never write the config in recovery mode: the in-memory config is a
+    // placeholder and would overwrite the user's broken (but real) file.
+    if (configError) {
+      return;
+    }
+
     updateConfig.mutate(
       { name: projectName, config },
       {
@@ -194,7 +215,7 @@ export const StudioProvider: FC<StudioProviderProps> = ({
           }),
       }
     );
-  }, [updateConfig, projectName, config]);
+  }, [updateConfig, projectName, config, configError]);
 
   const configValue = useMemo<StudioConfigValue>(
     () => ({
@@ -296,6 +317,10 @@ export const StudioProvider: FC<StudioProviderProps> = ({
     [savedStatuses]
   );
 
+  const reloadConfig = useCallback(() => {
+    onReloadConfig?.();
+  }, [onReloadConfig]);
+
   const shellValue = useMemo<StudioShellValue>(
     () => ({
       projectName,
@@ -311,6 +336,8 @@ export const StudioProvider: FC<StudioProviderProps> = ({
       unregisterSaver,
       saveFile,
       dirtyFileIds,
+      configError,
+      reloadConfig,
     }),
     [
       projectName,
@@ -325,6 +352,8 @@ export const StudioProvider: FC<StudioProviderProps> = ({
       unregisterSaver,
       saveFile,
       dirtyFileIds,
+      configError,
+      reloadConfig,
     ]
   );
 

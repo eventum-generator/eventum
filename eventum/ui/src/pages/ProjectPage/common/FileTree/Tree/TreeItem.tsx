@@ -20,6 +20,9 @@ import { FileNode } from '@/api/routes/generator-configs/schemas';
 
 interface TreeItemProps {
   item: ItemInstance<FileNode>;
+  // The root config file is required to open the project, so it must not be
+  // renamed or deleted from the tree.
+  isConfigFile?: boolean;
   onCreateDir: (dirpath: string) => void;
   onCreateFile: (filepath: string) => void;
   onDeleteFile: (filepath: string) => void;
@@ -27,6 +30,7 @@ interface TreeItemProps {
 
 export const TreeItem: FC<TreeItemProps> = ({
   item,
+  isConfigFile = false,
   onCreateDir,
   onCreateFile,
   onDeleteFile,
@@ -109,44 +113,49 @@ export const TreeItem: FC<TreeItemProps> = ({
                   ),
                 }),
             },
-            {
-              key: 'rename',
-              title: (
-                <NavLink
-                  label="Rename"
-                  bdrs="6px"
-                  p="1px 4px 1px 4px"
-                  leftSection={<IconCursorText size={16} />}
-                  rightSection={<Kbd size="xs">F2</Kbd>}
-                />
-              ),
-              onClick: item.startRenaming,
-            },
-            {
-              key: 'delete',
-              title: (
-                <NavLink
-                  label="Delete"
-                  bdrs="6px"
-                  p="1px 4px 1px 4px"
-                  leftSection={<IconTrash size={16} />}
-                  rightSection={<Kbd size="xs">Del</Kbd>}
-                />
-              ),
-              onClick: () => {
-                modals.openConfirmModal({
-                  title: 'Deleting file',
-                  children: (
-                    <Text size="sm">
-                      File &quot;<b>{item.getId()}</b>&quot; will be deleted. Do
-                      you want to continue?
-                    </Text>
-                  ),
-                  labels: { confirm: 'Confirm', cancel: 'Cancel' },
-                  onConfirm: () => onDeleteFile(item.getId()),
-                });
-              },
-            },
+            // The config file cannot be renamed or deleted from the tree.
+            ...(isConfigFile
+              ? []
+              : [
+                  {
+                    key: 'rename',
+                    title: (
+                      <NavLink
+                        label="Rename"
+                        bdrs="6px"
+                        p="1px 4px 1px 4px"
+                        leftSection={<IconCursorText size={16} />}
+                        rightSection={<Kbd size="xs">F2</Kbd>}
+                      />
+                    ),
+                    onClick: item.startRenaming,
+                  },
+                  {
+                    key: 'delete',
+                    title: (
+                      <NavLink
+                        label="Delete"
+                        bdrs="6px"
+                        p="1px 4px 1px 4px"
+                        leftSection={<IconTrash size={16} />}
+                        rightSection={<Kbd size="xs">Del</Kbd>}
+                      />
+                    ),
+                    onClick: () => {
+                      modals.openConfirmModal({
+                        title: 'Deleting file',
+                        children: (
+                          <Text size="sm">
+                            File &quot;<b>{item.getId()}</b>&quot; will be
+                            deleted. Do you want to continue?
+                          </Text>
+                        ),
+                        labels: { confirm: 'Confirm', cancel: 'Cancel' },
+                        onConfirm: () => onDeleteFile(item.getId()),
+                      });
+                    },
+                  },
+                ]),
           ],
           {
             styles: {

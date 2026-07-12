@@ -204,6 +204,12 @@ export function usePutGeneratorFileMutation() {
         queryKey: [...GENERATOR_CONFIG_DIR_FILES_QUERY_KEY, name],
         exact: true,
       });
+      // Re-validate the parsed config: editing a file (the config file in
+      // particular) may fix a broken config - leaving recovery mode - or
+      // break a valid one, so the studio reflects the file's real state.
+      await queryClient.invalidateQueries({
+        queryKey: [...GENERATOR_CONFIG_DIRS_QUERY_KEY, name],
+      });
     },
   });
 }

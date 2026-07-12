@@ -70,6 +70,10 @@ export interface StudioShellValue {
   unregisterSaver: (id: string) => void;
   saveFile: (id: string) => void;
   dirtyFileIds: string[];
+  // Set when the generator config could not be parsed/loaded; the shell
+  // enters recovery mode (file editor only). `reloadConfig` re-fetches it.
+  configError: Error | null;
+  reloadConfig: () => void;
 }
 
 export const StudioConfigContext = createContext<StudioConfigValue | undefined>(

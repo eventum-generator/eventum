@@ -19,6 +19,7 @@ import {
   useMoveGeneratorFileMutation,
   useUploadGeneratorFileMutation,
 } from '@/api/hooks/useGeneratorConfigs';
+import { useInstanceSettings } from '@/api/hooks/useInstance';
 import { createFileTreeLookup } from '@/api/routes/generator-configs/modules/file-tree';
 import { FileNode } from '@/api/routes/generator-configs/schemas';
 import { ShowErrorDetailsAnchor } from '@/components/ui/ShowErrorDetailsAnchor';
@@ -38,6 +39,18 @@ export const Tree: FC<TreeProps> = ({ fileTreeLookup }) => {
   const uploadFile = useUploadGeneratorFileMutation();
   const createDir = useCreateGeneratorDirectoryMutation();
   const deleteFile = useDeleteGeneratorFileMutation();
+
+  const { data: instanceSettings } = useInstanceSettings();
+  const configFilename =
+    instanceSettings?.path.generator_config_filename ?? 'generator.yml';
+
+  function notifyConfigProtected() {
+    notifications.show({
+      title: 'Protected file',
+      message: `"${configFilename}" is required to open the project and cannot be renamed, moved or deleted.`,
+      color: 'yellow',
+    });
+  }
 
   function showError(error: unknown, message: string) {
     notifications.show({
@@ -142,6 +155,7 @@ export const Tree: FC<TreeProps> = ({ fileTreeLookup }) => {
     isItemFolder: (item) => item.getId() === '' || item.getItemData().is_dir,
     openOnDropDelay: 500,
     canReorder: true,
+    canDrag: (items) => items.every((item) => item.getId() !== configFilename),
     indent: 20,
     dataLoader: {
       getItem: (itemId) =>
@@ -156,6 +170,11 @@ export const Tree: FC<TreeProps> = ({ fileTreeLookup }) => {
       setSelectedItem(item);
     },
     onRename: (item, newName) => {
+      if (item.getId() === configFilename) {
+        notifyConfigProtected();
+        return;
+      }
+
       const oldName = item.getItemName();
       const directory = dirname(item.getId());
 
@@ -203,6 +222,12 @@ export const Tree: FC<TreeProps> = ({ fileTreeLookup }) => {
 
           if (items.length > 0) {
             const item = items[0]!;
+
+            if (item.getId() === configFilename) {
+              notifyConfigProtected();
+              return;
+            }
+
             modals.openConfirmModal({
               title: 'Deleting file',
               children: (
@@ -265,6 +290,7 @@ export const Tree: FC<TreeProps> = ({ fileTreeLookup }) => {
           >
             <TreeItem
               item={item}
+              isConfigFile={item.getId() === configFilename}
               onCreateDir={handleCreateDir}
               onCreateFile={handleCreateEmptyFile}
               onDeleteFile={handleDeleteFile}
