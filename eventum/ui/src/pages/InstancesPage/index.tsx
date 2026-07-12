@@ -25,7 +25,7 @@ import {
   IconX,
 } from '@tabler/icons-react';
 import { RowSelectionState } from '@tanstack/react-table';
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 
 import { CreateInstanceModal } from './CreateInstanceModal';
 import { InstancesEmptyState } from './InstancesEmptyState';
@@ -35,6 +35,7 @@ import {
   useBulkStartGeneratorMutation,
   useBulkStopGeneratorMutation,
   useGenerators,
+  useRunningGeneratorsStats,
   useUpdateGeneratorStatus,
 } from '@/api/hooks/useGenerators';
 import { useBulkDeleteGeneratorsFromStartupMutation } from '@/api/hooks/useStartup';
@@ -63,6 +64,20 @@ export default function InstancesPage() {
   const bulkDelete = useBulkDeleteGeneratorMutation();
   const bulkDeleteGeneratorsFromStartup =
     useBulkDeleteGeneratorsFromStartupMutation();
+
+  // Stats are served only for running instances; fetched once and on manual
+  // refresh (no auto-update), keyed by id for the table's Flow/Errors/Written
+  // columns. Non-running instances have no entry and render "-".
+  const { data: runningStats, refetch: refetchStats } =
+    useRunningGeneratorsStats();
+
+  const statsById = useMemo(
+    () =>
+      Object.fromEntries(
+        (runningStats ?? []).map((stats) => [stats.id, stats])
+      ),
+    [runningStats]
+  );
 
   function getInactiveInstances() {
     if (generators === undefined) {
@@ -414,6 +429,7 @@ export default function InstancesPage() {
                   onClick={() => {
                     setRefreshTurns((turns) => turns + 1);
                     void refetchGenerators();
+                    void refetchStats();
                   }}
                 >
                   <IconRefresh
@@ -435,6 +451,7 @@ export default function InstancesPage() {
             projectNameFilter={projectNameFilter}
             instancesFilter={instanceFilter}
             statusMode={statusMode}
+            statsById={statsById}
             rowSelection={rowSelection}
             onRowSelectionChange={setRowSelection}
           />

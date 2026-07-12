@@ -28,16 +28,31 @@ import {
 } from '@tanstack/react-table';
 import { FC, useEffect, useMemo, useState } from 'react';
 
-import { columns } from './columns';
-import { GeneratorsInfo } from '@/api/routes/generators/schemas';
+import { InstanceRow, columns } from './columns';
+import {
+  GeneratorStats,
+  GeneratorsInfo,
+} from '@/api/routes/generators/schemas';
 
 export type StatusMode = 'all' | 'running' | 'inactive';
+
+/** Total pipeline errors: produce, write and format failures (drops,
+ *  being intentional, are not counted). */
+function countErrors(stats: GeneratorStats): number {
+  const outputFailed = stats.output.reduce(
+    (sum, plugin) => sum + plugin.write_failed + plugin.format_failed,
+    0
+  );
+
+  return stats.event.produce_failed + outputFailed;
+}
 
 interface InstancesTableProps {
   data: GeneratorsInfo;
   instancesFilter?: string;
   projectNameFilter?: string;
   statusMode?: StatusMode;
+  statsById?: Record<string, GeneratorStats>;
   rowSelection: RowSelectionState;
   onRowSelectionChange: React.Dispatch<React.SetStateAction<RowSelectionState>>;
 }
@@ -47,6 +62,7 @@ export const InstancesTable: FC<InstancesTableProps> = ({
   projectNameFilter = '',
   instancesFilter = '',
   statusMode = 'all',
+  statsById,
   rowSelection,
   onRowSelectionChange,
 }) => {
@@ -77,8 +93,25 @@ export const InstancesTable: FC<InstancesTableProps> = ({
     });
   }, [data, statusMode]);
 
+  // Enrich each row with its runtime stats so Flow/Errors/Written are real
+  // columns (sortable). Non-running instances have no stats -> undefined.
+  const rows = useMemo<InstanceRow[]>(
+    () =>
+      statusFilteredData.map((instance) => {
+        const stats = statsById?.[instance.id];
+
+        return {
+          ...instance,
+          flow: stats ? stats.output_eps : undefined,
+          errors: stats ? countErrors(stats) : undefined,
+          written: stats ? stats.total_written : undefined,
+        };
+      }),
+    [statusFilteredData, statsById]
+  );
+
   const table = useReactTable({
-    data: statusFilteredData,
+    data: rows,
     columns,
     getRowId: (instance) => instance.id,
     state: { sorting, columnFilters, pagination, rowSelection },

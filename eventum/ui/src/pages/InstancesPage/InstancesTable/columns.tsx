@@ -1,5 +1,5 @@
-import { ActionIcon, Checkbox } from '@mantine/core';
-import { IconDotsVertical } from '@tabler/icons-react';
+import { ActionIcon, Checkbox, Text } from '@mantine/core';
+import { IconDotsVertical, IconFolder } from '@tabler/icons-react';
 import { createColumnHelper } from '@tanstack/react-table';
 import { formatDistanceToNow } from 'date-fns';
 import { dirname } from 'pathe';
@@ -13,7 +13,16 @@ import { RecordNameLink } from '@/components/ui/RecordNameLink';
 import { StatusPill } from '@/components/ui/StatusPill';
 import { ROUTE_PATHS } from '@/routing/paths';
 
-const columnHelper = createColumnHelper<GeneratorsInfo[number]>();
+// Base instance info enriched with per-instance runtime stats. Stats are
+// available only for running instances; the rest carry `undefined` and
+// render "-" (and sort last).
+export type InstanceRow = GeneratorsInfo[number] & {
+  flow: number | undefined;
+  errors: number | undefined;
+  written: number | undefined;
+};
+
+const columnHelper = createColumnHelper<InstanceRow>();
 
 function rankInstanceStatus(status: GeneratorStatus): number {
   if (status.is_initializing) return 1;
@@ -24,6 +33,17 @@ function rankInstanceStatus(status: GeneratorStatus): number {
 
   return 999;
 }
+
+const compactNumber = new Intl.NumberFormat('en', {
+  notation: 'compact',
+  maximumFractionDigits: 1,
+});
+
+const noData = (
+  <Text span c="dimmed">
+    -
+  </Text>
+);
 
 export const columns = [
   columnHelper.display({
@@ -75,7 +95,24 @@ export const columns = [
       const projectName = dirname(rowValue);
       return projectName.includes(filterValue);
     },
-    cell: (info) => dirname(info.getValue()),
+    cell: (info) => {
+      const projectName = dirname(info.getValue());
+      return (
+        <RecordNameLink to={`${ROUTE_PATHS.PROJECTS}/${projectName}`}>
+          <span
+            style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}
+            title="Go to project"
+          >
+            <IconFolder
+              size={14}
+              color="var(--ev-muted)"
+              style={{ flexShrink: 0 }}
+            />
+            {projectName}
+          </span>
+        </RecordNameLink>
+      );
+    },
   }),
   columnHelper.accessor('status', {
     header: 'Status',
@@ -98,6 +135,74 @@ export const columns = [
     },
     cell: (info) => <StatusPill status={info.getValue()} />,
   }),
+  columnHelper.accessor('flow', {
+    header: 'Flow',
+    id: 'flow',
+    enableSorting: true,
+    sortUndefined: 'last',
+    cell: (info) => {
+      const value = info.getValue();
+
+      if (value === undefined) {
+        return noData;
+      }
+
+      return (
+        <Text span style={{ fontVariantNumeric: 'tabular-nums' }}>
+          {value.toFixed(2)}
+          <Text span c="dimmed" size="xs">
+            {' '}
+            eps
+          </Text>
+        </Text>
+      );
+    },
+  }),
+  columnHelper.accessor('errors', {
+    header: 'Errors',
+    id: 'errors',
+    enableSorting: true,
+    sortUndefined: 'last',
+    cell: (info) => {
+      const value = info.getValue();
+
+      if (value === undefined) {
+        return noData;
+      }
+
+      return (
+        <Text
+          span
+          style={{
+            fontVariantNumeric: 'tabular-nums',
+            color: value > 0 ? 'var(--ev-bad)' : undefined,
+            fontWeight: value > 0 ? 600 : undefined,
+          }}
+        >
+          {compactNumber.format(value)}
+        </Text>
+      );
+    },
+  }),
+  columnHelper.accessor('written', {
+    header: 'Written',
+    id: 'written',
+    enableSorting: true,
+    sortUndefined: 'last',
+    cell: (info) => {
+      const value = info.getValue();
+
+      if (value === undefined) {
+        return noData;
+      }
+
+      return (
+        <Text span style={{ fontVariantNumeric: 'tabular-nums' }}>
+          {compactNumber.format(value)}
+        </Text>
+      );
+    },
+  }),
   columnHelper.accessor('start_time', {
     header: 'Last start time',
     id: 'start_time',
@@ -119,7 +224,7 @@ export const columns = [
       );
     },
     meta: {
-      style: { width: '20%' },
+      style: { width: '15%' },
     },
   }),
   columnHelper.display({
