@@ -1,9 +1,8 @@
-import { Alert, Container, Group, Skeleton, Stack } from '@mantine/core';
+import { Alert, Container, Skeleton, Stack } from '@mantine/core';
 import { IconAlertSquareRounded } from '@tabler/icons-react';
 import { ReactNode, useEffect } from 'react';
 
 import { ErrorsChart } from './ErrorsChart';
-import { FleetStatus } from './FleetStatus';
 import { InstanceLoad } from './InstanceLoad';
 import { NoRunningGenerators } from './NoRunningGenerators';
 import { PipelineFlow } from './PipelineFlow';
@@ -28,7 +27,7 @@ export default function MonitoringPage() {
     isLoading: isInfoLoading,
     refetch: refetchInfo,
   } = useInstanceInfo();
-  const { data: generators, refetch: refetchGenerators } = useGenerators();
+  const { refetch: refetchGenerators } = useGenerators();
   const {
     data: generatorsStats,
     dataUpdatedAt: statsUpdatedAt,
@@ -47,7 +46,6 @@ export default function MonitoringPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const gens = generators ?? [];
   const stats = generatorsStats ?? [];
 
   const { resources, flow, load, current } = useMetricsHistory({
@@ -86,10 +84,7 @@ export default function MonitoringPage() {
   return (
     <Container size="100%">
       <Stack gap="md">
-        <Group justify="space-between" align="center">
-          <PageTitle title="Monitoring" />
-          <FleetStatus generators={gens} />
-        </Group>
+        <PageTitle title="Monitoring" />
 
         {isInfoError && (
           <Alert
