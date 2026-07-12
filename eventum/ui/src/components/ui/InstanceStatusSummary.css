@@ -1,0 +1,54 @@
+/* Instance status summary as a small hierarchy tree that branches to the
+   right: the inactive total connects to its finished / failed / idle children
+   through drawn connector lines. */
+.iss {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 24px;
+}
+
+.iss-branch {
+  display: flex;
+  align-items: center;
+}
+
+/* Trunk: horizontal line from the inactive node to the children's spine. */
+.iss-trunk {
+  flex: 0 0 auto;
+  width: 16px;
+  border-top: 1.5px solid var(--ev-border-strong);
+}
+
+.iss-children {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+}
+
+.iss-child {
+  position: relative;
+  padding-left: 14px;
+}
+
+/* Horizontal stub from the spine into each child node. */
+.iss-child::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 50%;
+  width: 12px;
+  border-top: 1.5px solid var(--ev-border-strong);
+}
+
+/* Vertical spine segment linking each child to the next (the last child
+   ends the spine, so it draws none). */
+.iss-child:not(:last-child)::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 50%;
+  height: calc(100% + 7px);
+  border-left: 1.5px solid var(--ev-border-strong);
+}

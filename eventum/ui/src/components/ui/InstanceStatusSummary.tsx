@@ -1,6 +1,7 @@
 import { Box, Group, Text } from '@mantine/core';
 import { FC } from 'react';
 
+import './InstanceStatusSummary.css';
 import { summarizeInstanceStatuses } from './statusPalette';
 import { GeneratorStatus } from '@/api/routes/generators/schemas';
 
@@ -16,8 +17,8 @@ function Chip({ count, label, color, small = false }: Readonly<ChipProps>) {
     <Group gap={7} wrap="nowrap">
       <Box
         style={{
-          width: small ? 7 : 8,
-          height: small ? 7 : 8,
+          width: small ? 7 : 9,
+          height: small ? 7 : 9,
           borderRadius: '50%',
           background: color,
           flexShrink: 0,
@@ -46,10 +47,9 @@ interface InstanceStatusSummaryProps {
 }
 
 /**
- * Fleet status summary: active vs inactive at the top level, with the
- * inactive total (finished + failed + idle) broken down in parentheses.
- * Shared by the Home instances rail and the Monitoring header so they stay
- * in sync.
+ * Fleet status as a compact hierarchy tree that branches to the right: active
+ * and the inactive total on the left, with the inactive total branching into
+ * finished / failed / idle. Shared by the Home rail and the Monitoring header.
  */
 export const InstanceStatusSummary: FC<InstanceStatusSummaryProps> = ({
   statuses,
@@ -57,44 +57,46 @@ export const InstanceStatusSummary: FC<InstanceStatusSummaryProps> = ({
   const s = summarizeInstanceStatuses(statuses);
 
   return (
-    <Group gap="lg" wrap="wrap" align="center">
+    <div className="iss">
       <Chip
         count={s.active}
         label="active"
         color={dot(s.active, 'var(--ev-good)')}
       />
-
-      <Group gap="xs" wrap="nowrap" align="center">
+      <div className="iss-branch">
         <Chip
           count={s.inactive}
           label="inactive"
           color={dot(s.inactive, 'var(--ev-muted)')}
         />
-        <Text span size="sm" c="dimmed">
-          (
-        </Text>
-        <Chip
-          small
-          count={s.finished}
-          label="finished"
-          color={dot(s.finished, 'var(--ev-done-dot)')}
-        />
-        <Chip
-          small
-          count={s.failed}
-          label="failed"
-          color={dot(s.failed, 'var(--ev-bad)')}
-        />
-        <Chip
-          small
-          count={s.idle}
-          label="idle"
-          color={dot(s.idle, 'var(--ev-muted)')}
-        />
-        <Text span size="sm" c="dimmed">
-          )
-        </Text>
-      </Group>
-    </Group>
+        <span className="iss-trunk" />
+        <div className="iss-children">
+          <div className="iss-child">
+            <Chip
+              small
+              count={s.finished}
+              label="finished"
+              color={dot(s.finished, 'var(--ev-done-dot)')}
+            />
+          </div>
+          <div className="iss-child">
+            <Chip
+              small
+              count={s.failed}
+              label="failed"
+              color={dot(s.failed, 'var(--ev-bad)')}
+            />
+          </div>
+          <div className="iss-child">
+            <Chip
+              small
+              count={s.idle}
+              label="idle"
+              color={dot(s.idle, 'var(--ev-muted)')}
+            />
+          </div>
+        </div>
+      </div>
+    </div>
   );
 };
