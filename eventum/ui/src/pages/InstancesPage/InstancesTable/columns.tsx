@@ -9,7 +9,9 @@ import {
   GeneratorStatus,
   GeneratorsInfo,
 } from '@/api/routes/generators/schemas';
+import { RecordNameLink } from '@/components/ui/RecordNameLink';
 import { StatusPill } from '@/components/ui/StatusPill';
+import { ROUTE_PATHS } from '@/routing/paths';
 
 const columnHelper = createColumnHelper<GeneratorsInfo[number]>();
 
@@ -57,7 +59,11 @@ export const columns = [
     id: 'id',
     enableSorting: true,
     enableColumnFilter: true,
-    cell: (info) => info.getValue(),
+    cell: (info) => (
+      <RecordNameLink to={`${ROUTE_PATHS.INSTANCES}/${info.getValue()}`}>
+        {info.getValue()}
+      </RecordNameLink>
+    ),
   }),
   columnHelper.accessor('path', {
     header: 'Project',

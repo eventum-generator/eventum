@@ -8,6 +8,9 @@ import psutil
 from pydantic import BaseModel, Field, computed_field
 
 import eventum
+from eventum.utils.net_accounting import bytes_received, bytes_sent
+
+_PROCESS = psutil.Process()
 
 
 class InstanceInfo(BaseModel, extra='forbid', frozen=True):
@@ -93,35 +96,33 @@ class InstanceInfo(BaseModel, extra='forbid', frozen=True):
     @computed_field  # type: ignore[prop-decorator]
     @property
     def network_sent_bytes(self) -> int:
-        """Number of sent bytes using network."""
-        return psutil.net_io_counters().bytes_sent
+        """Number of bytes sent over network by this application."""
+        return bytes_sent()
 
     @computed_field  # type: ignore[prop-decorator]
     @property
     def network_received_bytes(self) -> int:
-        """Number of received bytes using network."""
-        return psutil.net_io_counters().bytes_recv
+        """Number of bytes received over network by this application."""
+        return bytes_received()
 
     # Disk IO
     @computed_field  # type: ignore[prop-decorator]
     @property
     def disk_written_bytes(self) -> int:
-        """Number of written bytes."""
-        counters = psutil.disk_io_counters()
-        if counters is None:
+        """Number of bytes written to disk by this application."""
+        try:
+            return _PROCESS.io_counters().write_bytes
+        except psutil.Error, OSError:
             return 0
-
-        return counters.write_bytes
 
     @computed_field  # type: ignore[prop-decorator]
     @property
     def disk_read_bytes(self) -> int:
-        """Number of read bytes."""
-        counters = psutil.disk_io_counters()
-        if counters is None:
+        """Number of bytes read from disk by this application."""
+        try:
+            return _PROCESS.io_counters().read_bytes
+        except psutil.Error, OSError:
             return 0
-
-        return counters.read_bytes
 
     # Time
     boot_timestamp: float = Field(

@@ -1,8 +1,8 @@
-import { ActionIcon, Box, Group, Image, Title } from '@mantine/core';
+import { ActionIcon, Anchor, Box, Group, Image, Title } from '@mantine/core';
 import { modals } from '@mantine/modals';
 import { IconMenu2 } from '@tabler/icons-react';
 import { FC } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 
 import { AboutModal } from './AboutModal';
 import { UserMenu } from './UserMenu';
@@ -21,37 +21,38 @@ export const Header: FC<HeaderProps> = ({
   onSignOut,
   onMenuClick,
 }) => {
-  const navigate = useNavigate();
-
   return (
     <Group justify="space-between" h="100%" ml="xs" mr="xl">
       <Group gap="lg">
         <ActionIcon variant="transparent" onClick={onMenuClick}>
           <IconMenu2 size={20} />
         </ActionIcon>
-        <Group
-          gap="xs"
-          onClick={() => void navigate(ROUTE_PATHS.ROOT)}
-          style={{ cursor: 'pointer' }}
+        <Anchor
+          component={Link}
+          to={ROUTE_PATHS.ROOT}
+          underline="never"
+          c="inherit"
           mr="md"
         >
-          <Box>
-            <Image
-              src="/logo.svg"
-              alt="Eventum Logo"
-              h={27}
-              w="auto"
-              fit="contain"
-              mx="auto"
-              draggable={false}
-            />
-          </Box>
-          <Box>
-            <Title fz="lg" fw="normal">
-              Eventum Studio
-            </Title>
-          </Box>
-        </Group>
+          <Group gap="xs">
+            <Box>
+              <Image
+                src="/logo.svg"
+                alt="Eventum Logo"
+                h={27}
+                w="auto"
+                fit="contain"
+                mx="auto"
+                draggable={false}
+              />
+            </Box>
+            <Box>
+              <Title fz="lg" fw="normal">
+                Eventum Studio
+              </Title>
+            </Box>
+          </Group>
+        </Anchor>
         <AppBreadcrumbs />
       </Group>
       <Group>

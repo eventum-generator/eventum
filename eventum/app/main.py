@@ -17,6 +17,7 @@ from eventum.app.startup import (
 )
 from eventum.exceptions import ContextualError
 from eventum.security.manage import SECURITY_SETTINGS
+from eventum.utils import net_accounting
 
 logger = structlog.stdlib.get_logger()
 
@@ -84,6 +85,8 @@ class App:
             If error occurs during initialization.
 
         """
+        net_accounting.install()
+
         logger.info('Loading generators list')
         generators_params = self._load_startup_generators_params()
 

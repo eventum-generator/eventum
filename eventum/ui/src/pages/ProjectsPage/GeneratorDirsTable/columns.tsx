@@ -7,6 +7,8 @@ import { formatDistanceToNow } from 'date-fns';
 import { InstanceBadges } from './InstanceBadges';
 import { RowActions } from './RowActions';
 import { GeneratorDirsExtendedInfo } from '@/api/routes/generator-configs/schemas';
+import { RecordNameLink } from '@/components/ui/RecordNameLink';
+import { ROUTE_PATHS } from '@/routing/paths';
 
 const columnHelper = createColumnHelper<GeneratorDirsExtendedInfo[number]>();
 
@@ -16,7 +18,11 @@ export const columns = [
     id: 'name',
     enableSorting: true,
     enableColumnFilter: true,
-    cell: (info) => info.getValue(),
+    cell: (info) => (
+      <RecordNameLink to={`${ROUTE_PATHS.PROJECTS}/${info.getValue()}`}>
+        {info.getValue()}
+      </RecordNameLink>
+    ),
   }),
   columnHelper.accessor('generator_ids', {
     header: 'Instances',

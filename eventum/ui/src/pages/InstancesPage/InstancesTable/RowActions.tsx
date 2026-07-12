@@ -11,7 +11,7 @@ import {
   IconTrash,
 } from '@tabler/icons-react';
 import { FC, ReactNode } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 
 import { CloneInstanceModal } from '../CloneInstanceModal';
 import { MetricsModal } from './MetricsModal';
@@ -41,16 +41,11 @@ export const RowActions: FC<RowActionsProps> = ({
   instanceStatus,
   existingInstanceIds,
 }) => {
-  const navigate = useNavigate();
   const startGenerator = useStartGeneratorMutation();
   const stopGenerator = useStopGeneratorMutation();
   const deleteGenerator = useDeleteGeneratorMutation();
   const deleteGeneratorFromStartup = useDeleteGeneratorFromStartupMutation();
   const updateGeneratorStatus = useUpdateGeneratorStatus();
-
-  function handleEdit() {
-    void navigate(`${ROUTE_PATHS.INSTANCES}/${instanceId}`);
-  }
 
   function handleClone() {
     modals.open({
@@ -212,7 +207,11 @@ export const RowActions: FC<RowActionsProps> = ({
       <Menu.Target>{target}</Menu.Target>
 
       <Menu.Dropdown>
-        <Menu.Item leftSection={<IconEdit size={14} />} onClick={handleEdit}>
+        <Menu.Item
+          component={Link}
+          to={`${ROUTE_PATHS.INSTANCES}/${instanceId}`}
+          leftSection={<IconEdit size={14} />}
+        >
           Edit
         </Menu.Item>
         <Menu.Item leftSection={<IconCopy size={14} />} onClick={handleClone}>

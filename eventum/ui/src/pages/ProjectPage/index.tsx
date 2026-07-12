@@ -8,7 +8,7 @@ import {
   Text,
 } from '@mantine/core';
 import { IconAlertSquareRounded } from '@tabler/icons-react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { Link, useParams } from 'react-router-dom';
 
 import { FileTreeProvider } from './context/FileTreeContext';
 import { ProjectNameProvider } from './context/ProjectNameContext';
@@ -20,7 +20,6 @@ import { ROUTE_PATHS } from '@/routing/paths';
 
 export default function ProjectPage() {
   const { projectName } = useParams() as { projectName: string };
-  const navigate = useNavigate();
 
   const {
     data: generatorConfig,
@@ -48,7 +47,7 @@ export default function ProjectPage() {
         >
           {error.message}
           <ShowErrorDetailsAnchor error={error} prependDot />
-          <Anchor onClick={() => void navigate(ROUTE_PATHS.PROJECTS)}>
+          <Anchor component={Link} to={ROUTE_PATHS.PROJECTS}>
             <Text size="sm" ta="end">
               &larr; Go Back
             </Text>

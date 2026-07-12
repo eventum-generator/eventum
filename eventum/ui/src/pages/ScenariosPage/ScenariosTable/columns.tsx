@@ -5,11 +5,16 @@ import { createColumnHelper } from '@tanstack/react-table';
 import { RowActions } from './RowActions';
 import { StatusBadges } from './StatusBadges';
 import { ScenarioRow } from './types';
+import { RecordNameLink } from '@/components/ui/RecordNameLink';
+import { ROUTE_PATHS } from '@/routing/paths';
 
 const columnHelper = createColumnHelper<ScenarioRow>();
 
 export function createColumns(
-  getAffectedScenarios: (scenarioName: string, generatorIds: string[]) => string[],
+  getAffectedScenarios: (
+    scenarioName: string,
+    generatorIds: string[]
+  ) => string[]
 ) {
   return [
     columnHelper.display({
@@ -41,7 +46,13 @@ export function createColumns(
       id: 'name',
       enableSorting: true,
       enableColumnFilter: true,
-      cell: (info) => info.getValue(),
+      cell: (info) => (
+        <RecordNameLink
+          to={`${ROUTE_PATHS.SCENARIOS}/${encodeURIComponent(info.getValue())}`}
+        >
+          {info.getValue()}
+        </RecordNameLink>
+      ),
     }),
     columnHelper.accessor('generatorCount', {
       header: 'Instances',
