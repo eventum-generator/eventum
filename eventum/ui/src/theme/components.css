@@ -233,7 +233,7 @@ a.mantine-Badge-root:hover {
   background-color: var(--ev-surface-2);
   border-color: var(--ev-border);
 }
-.mantine-Switch-track:not([data-checked]) {
+.mantine-Switch-input:not(:checked) + .mantine-Switch-track {
   background-color: var(--ev-surface-2);
   border-color: var(--ev-border);
 }
