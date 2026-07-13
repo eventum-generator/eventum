@@ -45,7 +45,13 @@ const REACT_FLOW_CONTROLS_CSS = `
  * Updates only node DATA via setNodes callback — positions stay untouched,
  * so ReactFlow does not recalculate edge paths and CSS animations keep running.
  */
-function NodeDataUpdater({ stats, topoKey }: { stats: GeneratorStats; topoKey: string }) {
+function NodeDataUpdater({
+  stats,
+  topoKey,
+}: {
+  stats: GeneratorStats;
+  topoKey: string;
+}) {
   const { setNodes, setEdges, fitView } = useReactFlow();
   const prevTopoRef = useRef(topoKey);
 
@@ -56,12 +62,16 @@ function NodeDataUpdater({ stats, topoKey }: { stats: GeneratorStats; topoKey: s
       prevTopoRef.current = topoKey;
       setNodes(buildNodes(stats));
       setEdges(buildEdges(stats));
-      timeoutId = setTimeout(() => fitView({ padding: FIT_PADDING }), 50);
+      timeoutId = setTimeout(() => void fitView({ padding: FIT_PADDING }), 50);
     } else {
-      setNodes((nodes) => updateNodesData(nodes as Node<PipelineNodeData>[], stats));
+      setNodes((nodes) =>
+        updateNodesData(nodes as Node<PipelineNodeData>[], stats)
+      );
     }
 
-    return () => { if (timeoutId) clearTimeout(timeoutId); };
+    return () => {
+      if (timeoutId) clearTimeout(timeoutId);
+    };
   }, [stats, topoKey, setNodes, setEdges, fitView]);
 
   return null;
@@ -71,7 +81,12 @@ interface PipelineGraphProps {
   stats: GeneratorStats;
 }
 
-export const PipelineGraph: FC<PipelineGraphProps> = ({ stats }) => {
+/**
+ * The bare ReactFlow pipeline visualisation, without any surrounding frame.
+ * Must be rendered under a ReactFlowProvider. Reused both framed (the metrics
+ * modal) and inside the instance overview's own section.
+ */
+export const PipelineFlow: FC<PipelineGraphProps> = ({ stats }) => {
   const topoKey = structureKey(stats);
   const fitIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
@@ -88,13 +103,7 @@ export const PipelineGraph: FC<PipelineGraphProps> = ({ stats }) => {
   }, []);
 
   return (
-    <Paper withBorder p="md">
-      <Group gap="xs" mb="sm">
-        <IconRoute size={18} />
-        <Title order={5} fw="normal">
-          Pipeline
-        </Title>
-      </Group>
+    <>
       <style>{REACT_FLOW_CONTROLS_CSS}</style>
       <div style={{ height: graphHeight, maxHeight: '80vh' }}>
         <ReactFlow
@@ -106,7 +115,7 @@ export const PipelineGraph: FC<PipelineGraphProps> = ({ stats }) => {
           onInit={(instance) => {
             let attempts = 0;
             fitIntervalRef.current = setInterval(() => {
-              instance.fitView({ padding: FIT_PADDING });
+              void instance.fitView({ padding: FIT_PADDING });
               if (++attempts >= 5 && fitIntervalRef.current) {
                 clearInterval(fitIntervalRef.current);
                 fitIntervalRef.current = null;
@@ -123,6 +132,22 @@ export const PipelineGraph: FC<PipelineGraphProps> = ({ stats }) => {
           <Controls showInteractive={false} position="bottom-right" />
         </ReactFlow>
       </div>
-    </Paper>
+    </>
   );
 };
+
+/**
+ * Framed pipeline graph: a titled bordered card around PipelineFlow. Used by
+ * the instances-table metrics modal.
+ */
+export const PipelineGraph: FC<PipelineGraphProps> = ({ stats }) => (
+  <Paper withBorder p="md">
+    <Group gap="xs" mb="sm">
+      <IconRoute size={18} />
+      <Title order={5} fw="normal">
+        Pipeline
+      </Title>
+    </Group>
+    <PipelineFlow stats={stats} />
+  </Paper>
+);

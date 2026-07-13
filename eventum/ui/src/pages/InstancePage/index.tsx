@@ -17,11 +17,11 @@ import {
   IconSettings,
 } from '@tabler/icons-react';
 import { zod4Resolver } from 'mantine-form-zod-resolver';
-import { dirname } from 'pathe';
 import { useEffect } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 
 import { InstanceHeader } from './InstanceHeader';
+import { useInstanceHistory } from './dashboard/useInstanceHistory';
 import { LogsTab } from './tabs/LogsTab';
 import { OverviewTab } from './tabs/OverviewTab';
 import { SettingsTab } from './tabs/SettingsTab';
@@ -94,6 +94,15 @@ export default function InstancePage() {
   } = useStartupGenerator(instanceId);
 
   const { data: allScenarios } = useScenarios();
+
+  // Poll live stats + accumulate throughput history at the page shell (not the
+  // Overview panel) so the graph keeps its points across tab switches.
+  const {
+    stats: liveStats,
+    flow,
+    inputEps,
+    outputEps,
+  } = useInstanceHistory(instanceId, status?.is_running ?? false);
 
   const form = useForm<StartupGeneratorParameters>({
     mode: 'uncontrolled',
@@ -299,7 +308,6 @@ export default function InstancePage() {
         <InstanceHeader
           instanceId={instanceId}
           status={status}
-          projectName={dirname(generatorParams.path)}
           isDirty={isDirty}
           isSaving={isSaving}
           onSave={handleSave}
@@ -343,8 +351,13 @@ export default function InstancePage() {
               status={status}
               generatorParams={generatorParams}
               liveMode={liveMode}
+              autostart={startupGeneratorParams.autostart ?? false}
               memberScenarios={memberScenarios}
               allScenarios={allScenarios ?? []}
+              stats={liveStats}
+              flow={flow}
+              inputEps={inputEps}
+              outputEps={outputEps}
             />
           </Tabs.Panel>
           <Tabs.Panel value="settings" pt="lg">

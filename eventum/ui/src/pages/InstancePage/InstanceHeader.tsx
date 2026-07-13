@@ -1,29 +1,23 @@
-import { ActionIcon, Button, Group, Stack, Text, Title } from '@mantine/core';
+import { ActionIcon, Button, Group, Text, Title } from '@mantine/core';
 import { modals } from '@mantine/modals';
 import {
   IconArrowLeft,
   IconDeviceFloppy,
-  IconFolder,
   IconPlayerPlay,
   IconPlayerStop,
   IconRefresh,
 } from '@tabler/icons-react';
-import { formatDistanceToNow } from 'date-fns';
 import { FC } from 'react';
 
-import { formatUptime } from './format';
-import { Dot } from './primitives';
+import { LiveUptime } from './primitives';
 import { useInstanceActions } from './useInstanceActions';
 import { useGenerators } from '@/api/hooks/useGenerators';
 import { GeneratorStatus } from '@/api/routes/generators/schemas';
-import { RecordNameLink } from '@/components/ui/RecordNameLink';
 import { StatusPill } from '@/components/ui/StatusPill';
-import { ROUTE_PATHS } from '@/routing/paths';
 
 interface InstanceHeaderProps {
   instanceId: string;
   status: GeneratorStatus;
-  projectName: string;
   isDirty: boolean;
   isSaving: boolean;
   onSave: () => void;
@@ -33,7 +27,6 @@ interface InstanceHeaderProps {
 export const InstanceHeader: FC<InstanceHeaderProps> = ({
   instanceId,
   status,
-  projectName,
   isDirty,
   isSaving,
   onSave,
@@ -46,13 +39,6 @@ export const InstanceHeader: FC<InstanceHeaderProps> = ({
 
   const isActive =
     status.is_running || status.is_initializing || status.is_stopping;
-
-  let runMeta: string | null = null;
-  if (startTime) {
-    runMeta = status.is_running
-      ? `Up ${formatUptime((Date.now() - Date.parse(startTime)) / 1000)}`
-      : `Last run ${formatDistanceToNow(Date.parse(startTime), { addSuffix: true })}`;
-  }
 
   function confirmRestart() {
     modals.openConfirmModal({
@@ -69,45 +55,35 @@ export const InstanceHeader: FC<InstanceHeaderProps> = ({
   }
 
   return (
-    <Group justify="space-between" align="flex-start" wrap="nowrap" gap="md">
-      <Group gap="sm" align="flex-start" wrap="nowrap" style={{ minWidth: 0 }}>
+    <Group justify="space-between" align="center" wrap="nowrap" gap="md">
+      <Group gap="sm" align="center" wrap="nowrap" style={{ minWidth: 0 }}>
         <ActionIcon
           variant="subtle"
-          color="gray"
           size="lg"
           onClick={onBack}
           title="Back to instances"
-          mt={2}
         >
-          <IconArrowLeft size={20} />
+          <IconArrowLeft size={20} color="var(--ev-muted)" />
         </ActionIcon>
-        <Stack gap={6} style={{ minWidth: 0 }}>
-          <Group gap="sm" align="center" wrap="nowrap">
-            <Title
-              order={2}
-              fz="1.5rem"
-              fw={650}
-              style={{ wordBreak: 'break-all' }}
-            >
-              {instanceId}
-            </Title>
-            <StatusPill status={status} />
-          </Group>
-          <Group gap={10} align="center" wrap="wrap" c="dimmed">
-            <RecordNameLink to={`${ROUTE_PATHS.PROJECTS}/${projectName}`}>
-              <Group gap={6} wrap="nowrap" align="center">
-                <IconFolder size={14} style={{ flexShrink: 0 }} />
-                <Text size="sm">{projectName}</Text>
-              </Group>
-            </RecordNameLink>
-            {runMeta && (
-              <>
-                <Dot />
-                <Text size="sm">{runMeta}</Text>
-              </>
-            )}
-          </Group>
-        </Stack>
+        <Title
+          order={2}
+          fz="1.5rem"
+          fw={650}
+          style={{ wordBreak: 'break-all' }}
+        >
+          {instanceId}
+        </Title>
+        <StatusPill status={status} />
+        {status.is_running && startTime && (
+          <Text
+            size="sm"
+            c="dimmed"
+            ff="monospace"
+            style={{ fontVariantNumeric: 'tabular-nums', flexShrink: 0 }}
+          >
+            up <LiveUptime startTime={Date.parse(startTime)} />
+          </Text>
+        )}
       </Group>
 
       <Group gap="xs" wrap="nowrap">

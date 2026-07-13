@@ -1,12 +1,4 @@
-import {
-  ActionIcon,
-  Button,
-  Divider,
-  Group,
-  Menu,
-  Stack,
-  Text,
-} from '@mantine/core';
+import { ActionIcon, Button, Group, Menu, Stack, Text } from '@mantine/core';
 import { IconLayersSubtract, IconPlus, IconX } from '@tabler/icons-react';
 import { FC } from 'react';
 
@@ -28,9 +20,9 @@ interface ScenariosCardProps {
 }
 
 /**
- * Scenario membership for one instance, shown as a list. Membership is shared
- * startup state, so add and remove apply immediately (the settings form never
- * touches it).
+ * Scenario membership for one instance, shown as an evenly-spaced list.
+ * Membership is shared startup state, so add and remove apply immediately
+ * (the settings form never touches it).
  */
 export const ScenariosCard: FC<ScenariosCardProps> = ({
   instanceId,
@@ -67,52 +59,46 @@ export const ScenariosCard: FC<ScenariosCardProps> = ({
   }
 
   return (
-    <Stack gap="xs">
+    <Stack gap="sm">
       {memberScenarios.length === 0 ? (
         <Text size="sm" c="dimmed">
           Not part of any scenario.
         </Text>
       ) : (
-        <Stack gap={0}>
-          {memberScenarios.map((name, i) => (
-            <div key={name}>
-              {i > 0 && <Divider />}
-              <Group justify="space-between" wrap="nowrap" gap="sm" py={8}>
-                <RecordNameLink
-                  to={`${ROUTE_PATHS.SCENARIOS}/${encodeURIComponent(name)}`}
-                >
-                  <Group gap={8} wrap="nowrap" align="center">
-                    <IconLayersSubtract size={15} style={{ flexShrink: 0 }} />
-                    <Text size="sm" fw={500} truncate>
-                      {name}
-                    </Text>
-                  </Group>
-                </RecordNameLink>
-                <ActionIcon
-                  size="sm"
-                  variant="subtle"
-                  color="gray"
-                  title="Remove from scenario"
-                  onClick={() => handleRemove(name)}
-                >
-                  <IconX size={14} />
-                </ActionIcon>
+        memberScenarios.map((name) => (
+          <Group key={name} justify="space-between" wrap="nowrap" gap="sm">
+            <RecordNameLink
+              to={`${ROUTE_PATHS.SCENARIOS}/${encodeURIComponent(name)}`}
+            >
+              <Group gap={8} wrap="nowrap" align="center">
+                <IconLayersSubtract size={16} style={{ flexShrink: 0 }} />
+                <Text size="sm" fw={500} truncate>
+                  {name}
+                </Text>
               </Group>
-            </div>
-          ))}
-        </Stack>
+            </RecordNameLink>
+            <ActionIcon
+              size="sm"
+              variant="subtle"
+              color="gray"
+              title="Remove from scenario"
+              onClick={() => handleRemove(name)}
+            >
+              <IconX size={14} color="var(--ev-muted)" />
+            </ActionIcon>
+          </Group>
+        ))
       )}
 
-      {memberScenarios.length > 0 && <Divider />}
-
-      <Menu shadow="md" width={200} position="bottom-start">
+      <Menu shadow="md" width={220} position="bottom-start">
         <Menu.Target>
           <Button
             variant="subtle"
             size="compact-sm"
-            leftSection={<IconPlus size={15} />}
+            leftSection={<IconPlus size={16} />}
             disabled={available.length === 0}
             style={{ alignSelf: 'flex-start' }}
+            mt={memberScenarios.length > 0 ? 4 : 0}
           >
             Add to scenario
           </Button>

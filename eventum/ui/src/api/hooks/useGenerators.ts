@@ -93,10 +93,11 @@ export function useGeneratorStatus(
   });
 }
 
-export function useGeneratorStats(id: string) {
+export function useGeneratorStats(id: string, options?: { enabled?: boolean }) {
   return useQuery({
     queryKey: [...GENERATORS_QUERY_KEY, id, 'stats'],
     queryFn: () => getGeneratorStats(id),
+    enabled: options?.enabled ?? true,
   });
 }
 

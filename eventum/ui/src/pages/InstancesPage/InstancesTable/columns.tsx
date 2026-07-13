@@ -40,7 +40,7 @@ const compactNumber = new Intl.NumberFormat('en', {
 });
 
 const noData = (
-  <Text span c="dimmed">
+  <Text span c="dimmed" size="sm">
     -
   </Text>
 );
@@ -144,7 +144,7 @@ export const columns = [
       }
 
       return (
-        <Text span style={{ fontVariantNumeric: 'tabular-nums' }}>
+        <Text span size="sm" style={{ fontVariantNumeric: 'tabular-nums' }}>
           {value.toFixed(2)}
           <Text span c="dimmed" size="xs">
             {' '}
@@ -169,6 +169,7 @@ export const columns = [
       return (
         <Text
           span
+          size="sm"
           style={{
             fontVariantNumeric: 'tabular-nums',
             color: value > 0 ? 'var(--ev-bad)' : undefined,
@@ -193,7 +194,7 @@ export const columns = [
       }
 
       return (
-        <Text span style={{ fontVariantNumeric: 'tabular-nums' }}>
+        <Text span size="sm" style={{ fontVariantNumeric: 'tabular-nums' }}>
           {compactNumber.format(value)}
         </Text>
       );
