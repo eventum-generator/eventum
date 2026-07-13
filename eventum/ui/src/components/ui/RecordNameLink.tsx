@@ -34,7 +34,8 @@ export const RecordNameLink: FC<RecordNameLinkProps> = ({ to, children }) => {
       to={to}
       onClick={handleClick}
       c="inherit"
-      underline="hover"
+      fz="inherit"
+      underline="never"
       style={{ userSelect: 'text' }}
     >
       {children}
