@@ -103,11 +103,7 @@ export const columns = [
             style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}
             title="Go to project"
           >
-            <IconFolder
-              size={14}
-              color="var(--ev-muted)"
-              style={{ flexShrink: 0 }}
-            />
+            <IconFolder size={14} style={{ flexShrink: 0 }} />
             {projectName}
           </span>
         </RecordNameLink>
