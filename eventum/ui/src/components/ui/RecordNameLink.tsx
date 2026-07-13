@@ -33,7 +33,7 @@ export const RecordNameLink: FC<RecordNameLinkProps> = ({ to, children }) => {
       component={Link}
       to={to}
       onClick={handleClick}
-      c="var(--ev-accent)"
+      className="ev-record-link"
       fz="inherit"
       underline="never"
       style={{ userSelect: 'text' }}

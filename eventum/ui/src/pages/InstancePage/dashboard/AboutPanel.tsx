@@ -1,4 +1,4 @@
-import { ActionIcon, Anchor, Divider, Group, Stack, Text } from '@mantine/core';
+import { ActionIcon, Divider, Group, Stack, Text } from '@mantine/core';
 import { IconExternalLink, IconFolder } from '@tabler/icons-react';
 import { formatDistanceToNow } from 'date-fns';
 import { dirname } from 'pathe';
@@ -8,6 +8,7 @@ import { Link } from 'react-router-dom';
 import { Field } from '../primitives';
 import { useGenerators } from '@/api/hooks/useGenerators';
 import { GeneratorParameters } from '@/api/routes/generators/schemas';
+import { RecordNameLink } from '@/components/ui/RecordNameLink';
 import { ResponsibleCopyButton } from '@/components/ui/ResponsibleCopyButton';
 import { ROUTE_PATHS } from '@/routing/paths';
 
@@ -31,20 +32,14 @@ export const AboutPanel: FC<AboutPanelProps> = ({
   return (
     <Stack gap="sm">
       <Field label="Project">
-        <Anchor
-          component={Link}
-          to={projectPath}
-          underline="hover"
-          c="var(--ev-accent)"
-          fz="sm"
-        >
+        <RecordNameLink to={projectPath}>
           <Group gap={6} wrap="nowrap" align="center" justify="flex-end">
             <IconFolder size={15} style={{ flexShrink: 0 }} />
             <Text fz="sm" fw={500} truncate>
               {projectName}
             </Text>
           </Group>
-        </Anchor>
+        </RecordNameLink>
       </Field>
       <Divider />
       <Field label="Configuration file">

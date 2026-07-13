@@ -268,3 +268,14 @@ a.mantine-Badge-root:hover {
 :root[data-mantine-color-scheme='dark'] .mantine-CodeHighlight-controls {
   background-color: var(--ev-surface-2);
 }
+
+/* Record / navigation links: one style everywhere. Plain text colour at rest
+   so dense tables and meta lines stay calm, highlighting to the accent on
+   hover, never underlined. `a.` beats Mantine's .mantine-Anchor-root colour. */
+a.ev-record-link {
+  color: inherit;
+  transition: color 120ms ease;
+}
+a.ev-record-link:hover {
+  color: var(--ev-accent);
+}

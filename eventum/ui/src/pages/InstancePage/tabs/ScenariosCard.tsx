@@ -108,8 +108,8 @@ export const ScenariosCard: FC<ScenariosCardProps> = ({
               <Anchor
                 component={Link}
                 to={`${ROUTE_PATHS.SCENARIOS}/${encodeURIComponent(name)}`}
-                c="inherit"
-                underline="hover"
+                className="ev-record-link"
+                underline="never"
               >
                 <Group gap={6} wrap="nowrap" align="center">
                   <IconLayersSubtract

@@ -1,12 +1,4 @@
-import {
-  ActionIcon,
-  Anchor,
-  Button,
-  Group,
-  Stack,
-  Text,
-  Title,
-} from '@mantine/core';
+import { ActionIcon, Button, Group, Stack, Text, Title } from '@mantine/core';
 import { modals } from '@mantine/modals';
 import {
   IconArrowLeft,
@@ -18,13 +10,13 @@ import {
 } from '@tabler/icons-react';
 import { formatDistanceToNow } from 'date-fns';
 import { FC } from 'react';
-import { Link } from 'react-router-dom';
 
 import { formatUptime } from './format';
 import { Dot } from './primitives';
 import { useInstanceActions } from './useInstanceActions';
 import { useGenerators } from '@/api/hooks/useGenerators';
 import { GeneratorStatus } from '@/api/routes/generators/schemas';
+import { RecordNameLink } from '@/components/ui/RecordNameLink';
 import { StatusPill } from '@/components/ui/StatusPill';
 import { ROUTE_PATHS } from '@/routing/paths';
 
@@ -102,17 +94,12 @@ export const InstanceHeader: FC<InstanceHeaderProps> = ({
             <StatusPill status={status} />
           </Group>
           <Group gap={10} align="center" wrap="wrap">
-            <Anchor
-              component={Link}
-              to={`${ROUTE_PATHS.PROJECTS}/${projectName}`}
-              c="dimmed"
-              underline="hover"
-            >
+            <RecordNameLink to={`${ROUTE_PATHS.PROJECTS}/${projectName}`}>
               <Group gap={6} wrap="nowrap" align="center">
                 <IconFolder size={15} style={{ flexShrink: 0 }} />
                 <Text size="sm">{projectName}</Text>
               </Group>
-            </Anchor>
+            </RecordNameLink>
             {runMeta && (
               <>
                 <Dot />
