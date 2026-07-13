@@ -1,49 +1,46 @@
-import { Anchor, Divider, Group, Stack, Text } from '@mantine/core';
-import { IconFolder } from '@tabler/icons-react';
+import { ActionIcon, Anchor, Divider, Group, Stack, Text } from '@mantine/core';
+import { IconExternalLink, IconFolder } from '@tabler/icons-react';
+import { formatDistanceToNow } from 'date-fns';
 import { dirname } from 'pathe';
 import { FC } from 'react';
 import { Link } from 'react-router-dom';
 
 import { Field } from '../primitives';
+import { useGenerators } from '@/api/hooks/useGenerators';
 import { GeneratorParameters } from '@/api/routes/generators/schemas';
 import { ResponsibleCopyButton } from '@/components/ui/ResponsibleCopyButton';
 import { ROUTE_PATHS } from '@/routing/paths';
 
-interface WiringCardProps {
+interface AboutPanelProps {
+  instanceId: string;
   generatorParams: GeneratorParameters;
   liveMode: boolean;
-  autostart: boolean;
 }
 
-const yesNo = (v: boolean) => (
-  <Text size="sm" fw={500}>
-    {v ? 'Yes' : 'No'}
-  </Text>
-);
-
-export const WiringCard: FC<WiringCardProps> = ({
+export const AboutPanel: FC<AboutPanelProps> = ({
+  instanceId,
   generatorParams,
   liveMode,
-  autostart,
 }) => {
   const projectName = dirname(generatorParams.path);
+  const projectPath = `${ROUTE_PATHS.PROJECTS}/${projectName}`;
+
+  const { data: generators } = useGenerators();
+  const startTime = generators?.find((g) => g.id === instanceId)?.start_time;
 
   return (
     <Stack gap="sm">
       <Field label="Project">
         <Anchor
           component={Link}
-          to={`${ROUTE_PATHS.PROJECTS}/${projectName}`}
+          to={projectPath}
           underline="hover"
-          c="inherit"
+          c="var(--ev-accent)"
+          fz="sm"
         >
           <Group gap={6} wrap="nowrap" align="center" justify="flex-end">
-            <IconFolder
-              size={15}
-              color="var(--ev-muted)"
-              style={{ flexShrink: 0 }}
-            />
-            <Text size="sm" fw={500} truncate>
+            <IconFolder size={15} style={{ flexShrink: 0 }} />
+            <Text fz="sm" fw={500} truncate>
               {projectName}
             </Text>
           </Group>
@@ -60,6 +57,15 @@ export const WiringCard: FC<WiringCardProps> = ({
             label="Copy path"
             size="sm"
           />
+          <ActionIcon
+            component={Link}
+            to={projectPath}
+            variant="default"
+            size="sm"
+            title="Open in editor"
+          >
+            <IconExternalLink size={15} />
+          </ActionIcon>
         </Group>
       </Field>
       <Divider />
@@ -69,15 +75,17 @@ export const WiringCard: FC<WiringCardProps> = ({
         </Text>
       </Field>
       <Divider />
-      <Field label="Skip past">
-        {yesNo(generatorParams.skip_past ?? false)}
-      </Field>
-      <Divider />
-      <Field label="Autostart">{yesNo(autostart)}</Field>
-      <Divider />
       <Field label="Timezone">
         <Text size="sm" fw={500}>
           {generatorParams.timezone ?? 'UTC'}
+        </Text>
+      </Field>
+      <Divider />
+      <Field label="Started">
+        <Text size="sm" fw={500}>
+          {startTime
+            ? formatDistanceToNow(Date.parse(startTime), { addSuffix: true })
+            : 'Never'}
         </Text>
       </Field>
     </Stack>

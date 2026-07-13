@@ -3,7 +3,6 @@ import {
   Anchor,
   Button,
   Group,
-  Menu,
   Stack,
   Text,
   Title,
@@ -11,40 +10,28 @@ import {
 import { modals } from '@mantine/modals';
 import {
   IconArrowLeft,
-  IconCopy,
   IconDeviceFloppy,
-  IconDotsVertical,
   IconFolder,
-  IconPlayerPlayFilled,
-  IconPlayerStopFilled,
+  IconPlayerPlay,
+  IconPlayerStop,
   IconRefresh,
-  IconTrash,
 } from '@tabler/icons-react';
+import { formatDistanceToNow } from 'date-fns';
 import { FC } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 
-import { CloneInstanceModal } from '../InstancesPage/CloneInstanceModal';
+import { formatUptime } from './format';
 import { Dot } from './primitives';
 import { useInstanceActions } from './useInstanceActions';
-import {
-  useDeleteGeneratorMutation,
-  useGenerators,
-} from '@/api/hooks/useGenerators';
-import { useDeleteGeneratorFromStartupMutation } from '@/api/hooks/useStartup';
+import { useGenerators } from '@/api/hooks/useGenerators';
 import { GeneratorStatus } from '@/api/routes/generators/schemas';
 import { StatusPill } from '@/components/ui/StatusPill';
 import { ROUTE_PATHS } from '@/routing/paths';
-import {
-  showErrorNotification,
-  showSuccessNotification,
-} from '@/utils/notifications';
 
 interface InstanceHeaderProps {
   instanceId: string;
   status: GeneratorStatus;
   projectName: string;
-  liveMode: boolean;
-  autostart: boolean;
   isDirty: boolean;
   isSaving: boolean;
   onSave: () => void;
@@ -55,74 +42,37 @@ export const InstanceHeader: FC<InstanceHeaderProps> = ({
   instanceId,
   status,
   projectName,
-  liveMode,
-  autostart,
   isDirty,
   isSaving,
   onSave,
   onBack,
 }) => {
-  const navigate = useNavigate();
   const { data: generators } = useGenerators();
+  const startTime = generators?.find((g) => g.id === instanceId)?.start_time;
   const { handleStart, handleStop, handleRestart, isStarting, isStopping } =
     useInstanceActions(instanceId);
-
-  const deleteGenerator = useDeleteGeneratorMutation();
-  const deleteGeneratorFromStartup = useDeleteGeneratorFromStartupMutation();
 
   const isActive =
     status.is_running || status.is_initializing || status.is_stopping;
 
-  function handleClone() {
-    modals.open({
-      title: 'Clone instance',
-      children: (
-        <CloneInstanceModal
-          sourceInstanceId={instanceId}
-          existingInstanceIds={(generators ?? []).map((g) => g.id)}
-        />
-      ),
-      size: 'lg',
-    });
+  let runMeta: string | null = null;
+  if (startTime) {
+    runMeta = status.is_running
+      ? `Up ${formatUptime((Date.now() - Date.parse(startTime)) / 1000)}`
+      : `Last run ${formatDistanceToNow(Date.parse(startTime), { addSuffix: true })}`;
   }
 
-  function handleDelete() {
-    deleteGenerator.mutate(
-      { id: instanceId },
-      {
-        onSuccess: () => {
-          deleteGeneratorFromStartup.mutate(
-            { id: instanceId },
-            {
-              onSuccess: () => {
-                showSuccessNotification('Success', 'Instance is deleted');
-                void navigate(ROUTE_PATHS.INSTANCES);
-              },
-              onError: (error) =>
-                showErrorNotification(
-                  'Failed to delete instance definition from startup',
-                  error
-                ),
-            }
-          );
-        },
-        onError: (error) =>
-          showErrorNotification('Failed to delete instance', error),
-      }
-    );
-  }
-
-  function confirmDelete() {
+  function confirmRestart() {
     modals.openConfirmModal({
-      title: 'Deleting instance',
+      title: 'Restart instance',
       children: (
         <Text size="sm">
-          Instance <b>{instanceId}</b> will be deleted. Do you want to continue?
+          Instance <b>{instanceId}</b> will be stopped and started again. Do you
+          want to continue?
         </Text>
       ),
-      labels: { cancel: 'Cancel', confirm: 'Confirm' },
-      confirmProps: { color: 'red' },
-      onConfirm: handleDelete,
+      labels: { cancel: 'Cancel', confirm: 'Restart' },
+      onConfirm: handleRestart,
     });
   }
 
@@ -163,15 +113,11 @@ export const InstanceHeader: FC<InstanceHeaderProps> = ({
                 <Text size="sm">{projectName}</Text>
               </Group>
             </Anchor>
-            <Dot />
-            <Text size="sm" c="dimmed">
-              {liveMode ? 'Live mode' : 'Sample mode'}
-            </Text>
-            {autostart && (
+            {runMeta && (
               <>
                 <Dot />
                 <Text size="sm" c="dimmed">
-                  Autostart
+                  {runMeta}
                 </Text>
               </>
             )}
@@ -196,7 +142,7 @@ export const InstanceHeader: FC<InstanceHeaderProps> = ({
               <Button
                 variant="default"
                 leftSection={<IconRefresh size={16} />}
-                onClick={handleRestart}
+                onClick={confirmRestart}
                 loading={isStopping || isStarting}
               >
                 Restart
@@ -204,9 +150,7 @@ export const InstanceHeader: FC<InstanceHeaderProps> = ({
             )}
             <Button
               variant="default"
-              leftSection={
-                <IconPlayerStopFilled size={15} color="var(--ev-bad)" />
-              }
+              leftSection={<IconPlayerStop size={16} />}
               onClick={handleStop}
               loading={isStopping}
               disabled={!status.is_running}
@@ -217,40 +161,13 @@ export const InstanceHeader: FC<InstanceHeaderProps> = ({
         ) : (
           <Button
             variant="default"
-            leftSection={
-              <IconPlayerPlayFilled size={15} color="var(--ev-good)" />
-            }
+            leftSection={<IconPlayerPlay size={16} />}
             onClick={handleStart}
             loading={isStarting}
           >
             Start
           </Button>
         )}
-
-        <Menu shadow="md" width={170} position="bottom-end">
-          <Menu.Target>
-            <ActionIcon variant="default" size="lg" title="More actions">
-              <IconDotsVertical size={18} />
-            </ActionIcon>
-          </Menu.Target>
-          <Menu.Dropdown>
-            <Menu.Item
-              leftSection={<IconCopy size={14} />}
-              onClick={handleClone}
-            >
-              Clone
-            </Menu.Item>
-            <Menu.Divider />
-            <Menu.Item
-              color="red"
-              leftSection={<IconTrash size={14} />}
-              onClick={confirmDelete}
-              disabled={isActive}
-            >
-              Delete
-            </Menu.Item>
-          </Menu.Dropdown>
-        </Menu>
       </Group>
     </Group>
   );

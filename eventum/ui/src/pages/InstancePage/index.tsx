@@ -12,7 +12,6 @@ import { useForm } from '@mantine/form';
 import { modals } from '@mantine/modals';
 import {
   IconAlertSquareRounded,
-  IconGauge,
   IconLayoutDashboard,
   IconLogs,
   IconSettings,
@@ -24,7 +23,6 @@ import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 
 import { InstanceHeader } from './InstanceHeader';
 import { LogsTab } from './tabs/LogsTab';
-import { MetricsTab } from './tabs/MetricsTab';
 import { OverviewTab } from './tabs/OverviewTab';
 import { SettingsTab } from './tabs/SettingsTab';
 import {
@@ -51,7 +49,7 @@ import {
   showSuccessNotification,
 } from '@/utils/notifications';
 
-const TABS = new Set(['overview', 'metrics', 'logs', 'settings']);
+const TABS = new Set(['overview', 'logs', 'settings']);
 
 export default function InstancePage() {
   const { instanceId } = useParams() as { instanceId: string };
@@ -287,7 +285,6 @@ export default function InstancePage() {
   }
 
   const liveMode = generatorParams.live_mode ?? false;
-  const autostart = startupGeneratorParams.autostart ?? false;
   const memberScenarios = startupGeneratorParams.scenarios ?? [];
   const isDirty = form.isDirty();
   const isSaving =
@@ -303,8 +300,6 @@ export default function InstancePage() {
           instanceId={instanceId}
           status={status}
           projectName={dirname(generatorParams.path)}
-          liveMode={liveMode}
-          autostart={autostart}
           isDirty={isDirty}
           isSaving={isSaving}
           onSave={handleSave}
@@ -318,9 +313,6 @@ export default function InstancePage() {
               leftSection={<IconLayoutDashboard size={16} />}
             >
               Overview
-            </Tabs.Tab>
-            <Tabs.Tab value="metrics" leftSection={<IconGauge size={16} />}>
-              Metrics
             </Tabs.Tab>
             <Tabs.Tab value="logs" leftSection={<IconLogs size={16} />}>
               Logs
@@ -351,13 +343,9 @@ export default function InstancePage() {
               status={status}
               generatorParams={generatorParams}
               liveMode={liveMode}
-              autostart={autostart}
               memberScenarios={memberScenarios}
               allScenarios={allScenarios ?? []}
             />
-          </Tabs.Panel>
-          <Tabs.Panel value="metrics" pt="lg">
-            <MetricsTab instanceId={instanceId} />
           </Tabs.Panel>
           <Tabs.Panel value="logs" pt="lg">
             <LogsTab instanceId={instanceId} />
