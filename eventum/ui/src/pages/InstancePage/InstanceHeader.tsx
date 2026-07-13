@@ -93,19 +93,17 @@ export const InstanceHeader: FC<InstanceHeaderProps> = ({
             </Title>
             <StatusPill status={status} />
           </Group>
-          <Group gap={10} align="center" wrap="wrap">
+          <Group gap={10} align="center" wrap="wrap" c="dimmed">
             <RecordNameLink to={`${ROUTE_PATHS.PROJECTS}/${projectName}`}>
               <Group gap={6} wrap="nowrap" align="center">
-                <IconFolder size={15} style={{ flexShrink: 0 }} />
+                <IconFolder size={14} style={{ flexShrink: 0 }} />
                 <Text size="sm">{projectName}</Text>
               </Group>
             </RecordNameLink>
             {runMeta && (
               <>
                 <Dot />
-                <Text size="sm" c="dimmed">
-                  {runMeta}
-                </Text>
+                <Text size="sm">{runMeta}</Text>
               </>
             )}
           </Group>

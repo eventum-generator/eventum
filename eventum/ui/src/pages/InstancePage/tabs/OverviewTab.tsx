@@ -1,5 +1,4 @@
-import { Center, Grid, Paper, Stack, Text } from '@mantine/core';
-import { IconChartLine } from '@tabler/icons-react';
+import { Grid, Stack, Text } from '@mantine/core';
 import { FC } from 'react';
 
 import { AboutPanel } from '../dashboard/AboutPanel';
@@ -20,20 +19,6 @@ interface OverviewTabProps {
   allScenarios: string[];
 }
 
-const NotRunning: FC = () => (
-  <Paper withBorder radius="md" p="xl">
-    <Center>
-      <Stack align="center" gap="xs" py="xl">
-        <IconChartLine size={32} color="var(--ev-faint)" stroke={1.5} />
-        <Text size="sm" c="dimmed" ta="center" maw={360}>
-          Instance is not running. Start it to see live throughput, failures and
-          the pipeline.
-        </Text>
-      </Stack>
-    </Center>
-  </Paper>
-);
-
 export const OverviewTab: FC<OverviewTabProps> = ({
   instanceId,
   status,
@@ -44,11 +29,15 @@ export const OverviewTab: FC<OverviewTabProps> = ({
 }) => (
   <Grid gutter="lg">
     <Grid.Col span={{ base: 12, md: 8 }}>
-      {status.is_running ? (
-        <InstanceDashboard instanceId={instanceId} />
-      ) : (
-        <NotRunning />
-      )}
+      <Section label="Pipeline">
+        {status.is_running ? (
+          <InstanceDashboard instanceId={instanceId} />
+        ) : (
+          <Text size="sm" c="dimmed">
+            Instance is not running. Start it to see live pipeline activity.
+          </Text>
+        )}
+      </Section>
     </Grid.Col>
     <Grid.Col span={{ base: 12, md: 4 }}>
       <Stack gap="xl">

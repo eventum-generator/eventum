@@ -1,15 +1,13 @@
-import { ActionIcon, Divider, Group, Stack, Text } from '@mantine/core';
-import { IconExternalLink, IconFolder } from '@tabler/icons-react';
+import { Divider, Group, Stack, Text } from '@mantine/core';
+import { IconFolder } from '@tabler/icons-react';
 import { formatDistanceToNow } from 'date-fns';
 import { dirname } from 'pathe';
 import { FC } from 'react';
-import { Link } from 'react-router-dom';
 
 import { Field } from '../primitives';
 import { useGenerators } from '@/api/hooks/useGenerators';
 import { GeneratorParameters } from '@/api/routes/generators/schemas';
 import { RecordNameLink } from '@/components/ui/RecordNameLink';
-import { ResponsibleCopyButton } from '@/components/ui/ResponsibleCopyButton';
 import { ROUTE_PATHS } from '@/routing/paths';
 
 interface AboutPanelProps {
@@ -24,7 +22,6 @@ export const AboutPanel: FC<AboutPanelProps> = ({
   liveMode,
 }) => {
   const projectName = dirname(generatorParams.path);
-  const projectPath = `${ROUTE_PATHS.PROJECTS}/${projectName}`;
 
   const { data: generators } = useGenerators();
   const startTime = generators?.find((g) => g.id === instanceId)?.start_time;
@@ -32,7 +29,7 @@ export const AboutPanel: FC<AboutPanelProps> = ({
   return (
     <Stack gap="sm">
       <Field label="Project">
-        <RecordNameLink to={projectPath}>
+        <RecordNameLink to={`${ROUTE_PATHS.PROJECTS}/${projectName}`}>
           <Group gap={6} wrap="nowrap" align="center" justify="flex-end">
             <IconFolder size={15} style={{ flexShrink: 0 }} />
             <Text fz="sm" fw={500} truncate>
@@ -40,28 +37,6 @@ export const AboutPanel: FC<AboutPanelProps> = ({
             </Text>
           </Group>
         </RecordNameLink>
-      </Field>
-      <Divider />
-      <Field label="Configuration file">
-        <Group gap={6} wrap="nowrap" align="center" justify="flex-end">
-          <Text size="sm" ff="monospace" truncate title={generatorParams.path}>
-            {generatorParams.path}
-          </Text>
-          <ResponsibleCopyButton
-            content={generatorParams.path}
-            label="Copy path"
-            size="sm"
-          />
-          <ActionIcon
-            component={Link}
-            to={projectPath}
-            variant="default"
-            size="sm"
-            title="Open in editor"
-          >
-            <IconExternalLink size={15} />
-          </ActionIcon>
-        </Group>
       </Field>
       <Divider />
       <Field label="Mode">
@@ -76,7 +51,7 @@ export const AboutPanel: FC<AboutPanelProps> = ({
         </Text>
       </Field>
       <Divider />
-      <Field label="Started">
+      <Field label="Last started">
         <Text size="sm" fw={500}>
           {startTime
             ? formatDistanceToNow(Date.parse(startTime), { addSuffix: true })

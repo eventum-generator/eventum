@@ -314,9 +314,6 @@ export default function InstancePage() {
             >
               Overview
             </Tabs.Tab>
-            <Tabs.Tab value="logs" leftSection={<IconLogs size={16} />}>
-              Logs
-            </Tabs.Tab>
             <Tabs.Tab
               value="settings"
               leftSection={<IconSettings size={16} />}
@@ -335,6 +332,9 @@ export default function InstancePage() {
             >
               Settings
             </Tabs.Tab>
+            <Tabs.Tab value="logs" leftSection={<IconLogs size={16} />}>
+              Logs
+            </Tabs.Tab>
           </Tabs.List>
 
           <Tabs.Panel value="overview" pt="lg">
@@ -347,11 +347,11 @@ export default function InstancePage() {
               allScenarios={allScenarios ?? []}
             />
           </Tabs.Panel>
-          <Tabs.Panel value="logs" pt="lg">
-            <LogsTab instanceId={instanceId} />
-          </Tabs.Panel>
           <Tabs.Panel value="settings" pt="lg">
             <SettingsTab form={form} />
+          </Tabs.Panel>
+          <Tabs.Panel value="logs" pt="lg">
+            <LogsTab instanceId={instanceId} />
           </Tabs.Panel>
         </Tabs>
       </Stack>
