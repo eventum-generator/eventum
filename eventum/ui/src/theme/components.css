@@ -305,12 +305,22 @@ a.ev-record-link:hover {
    of an even 50/50 split that reads cyan-heavy. Overrides Mantine's 2-stop
    defaultGradient for the (only) gradient-variant button. */
 .mantine-Button-root[data-variant='gradient'] {
+  /* !important beats Mantine's inline --button-bg (built from the 2-stop
+     defaultGradient). This 3-stop holds purple to 30% so cyan only trails in
+     as an accent instead of an even 50/50 split. --button-hover kept in sync
+     so hover does not revert to the 2-stop. */
   --button-bg: linear-gradient(
-    14deg,
+    12deg,
     var(--ev-grad-from) 0%,
-    var(--ev-grad-from) 30%,
-    var(--ev-grad-to) 110%
-  );
+    var(--ev-grad-from) 24%,
+    var(--ev-grad-to) 100%
+  ) !important;
+  --button-hover: linear-gradient(
+    12deg,
+    var(--ev-grad-from) 0%,
+    var(--ev-grad-from) 24%,
+    var(--ev-grad-to) 100%
+  ) !important;
 }
 .mantine-Button-root[data-variant='gradient']:hover {
   filter: brightness(1.06);
