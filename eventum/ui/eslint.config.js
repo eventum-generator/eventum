@@ -7,11 +7,15 @@ import reactPlugin from 'eslint-plugin-react';
 import reactHooks from 'eslint-plugin-react-hooks';
 import reactRefresh from 'eslint-plugin-react-refresh';
 import sonarjs from 'eslint-plugin-sonarjs';
+import storybook from 'eslint-plugin-storybook';
 import eslintPluginUnicorn from 'eslint-plugin-unicorn';
 import globals from 'globals';
 import tseslint from 'typescript-eslint';
 
 export default tseslint.config({
+  // Build output, not source - never lint it.
+  ignores: ['storybook-static/**'],
+}, {
   files: ['**/*.{ts,tsx}'],
   extends: [
     eslint.configs.recommended,
@@ -73,5 +77,20 @@ export default tseslint.config({
     react: {
       version: 'detect',
     },
+  },
+},
+// Spread as its own top-level entries (not nested in `extends`) so each
+// sub-config keeps its native `files` glob - one set of rules for
+// `**/*.stories.*`, another narrower set for `.storybook/main.*`. Folding
+// this into a single files-scoped override would override (not
+// intersect) those globs and misapply story-only rules to main.ts.
+...storybook.configs['flat/recommended'],
+{
+  files: ['**/*.stories.tsx', '.storybook/**'],
+  rules: {
+    // Story modules and Storybook config files export plain objects
+    // (meta/preview/config), not components - the fast-refresh export
+    // shape rule does not apply here.
+    'react-refresh/only-export-components': 'off',
   },
 });
