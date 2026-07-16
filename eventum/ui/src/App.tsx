@@ -6,24 +6,11 @@ import {
 } from '@mantine/code-highlight';
 import {
   MantineThemeProvider,
-  MantineColorsTuple,
   MantineProvider,
   MantineThemeOverride,
-  createTheme,
   useMantineColorScheme,
-  Checkbox,
-  Modal,
 } from '@mantine/core';
 import { ContextMenuProvider } from 'mantine-contextmenu';
-
-import '@mantine/core/styles.css';
-import '@mantine/code-highlight/styles.css';
-import '@mantine/notifications/styles.css';
-import '@mantine/charts/styles.css';
-import 'mantine-contextmenu/styles.layer.css';
-import '@/theme/tokens.css';
-import '@/index.css';
-import '@/theme/components.css';
 
 import { ModalsProvider } from '@mantine/modals';
 import { Notifications } from '@mantine/notifications';
@@ -31,60 +18,9 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { ReactQueryDevtools } from '@tanstack/react-query-devtools';
 import { RouterProvider } from 'react-router-dom';
 
+import { theme } from '@/theme';
 import { router } from '@/routing';
 import { useMemo } from 'react';
-
-const primaryColorTuple: MantineColorsTuple = [
-  '#ececff',
-  '#d4d5fd',
-  '#a7a7f5',
-  '#8282ef',
-  '#4d4de7',
-  '#3332e4',
-  '#2525e3',
-  '#1819ca',
-  '#1015b6',
-  '#0211a0',
-];
-
-const theme = createTheme({
-  autoContrast: true,
-  fontFamily:
-    "'Inter Variable', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif",
-  fontFamilyMonospace:
-    "ui-monospace, 'Cascadia Code', 'SF Mono', 'JetBrains Mono', Menlo, Consolas, monospace",
-  headings: {
-    fontFamily:
-      "'Inter Variable', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif",
-    fontWeight: '650',
-  },
-  defaultRadius: 'md',
-  cursorType: 'pointer',
-  focusRing: 'auto',
-  colors: {
-    primary: primaryColorTuple,
-  },
-  primaryColor: 'primary',
-  primaryShade: 3,
-  defaultGradient: {
-    from: '#8282ef',
-    to: '#69ced0',
-    deg: 14,
-  },
-  components: {
-    Checkbox: Checkbox.extend({
-      defaultProps: {
-        radius: 'sm',
-      },
-    }),
-    // House rule: every modal is vertically centered (Mantine defaults to top).
-    Modal: Modal.extend({
-      defaultProps: {
-        centered: true,
-      },
-    }),
-  },
-});
 
 const queryClient = new QueryClient({
   defaultOptions: {
