@@ -39,6 +39,17 @@ export default tseslint.config({
     'unicorn/prefer-switch': 'off',
     'sonarjs/no-useless-intersection': 'off',
     'sonarjs/no-nested-functions': 'off',
+    'no-restricted-syntax': [
+      'warn',
+      {
+        selector: "Literal[value=/^#(?:[0-9a-fA-F]{3,4}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})$/]",
+        message: 'Hardcoded hex colour - use a var(--ev-*) token or theme value.',
+      },
+      {
+        selector: "Literal[value=/^(?:rgba?|hsla?)\\(/]",
+        message: 'Hardcoded colour function - use a var(--ev-*) token or theme value.',
+      },
+    ],
   },
   languageOptions: {
     ecmaVersion: 2020,
