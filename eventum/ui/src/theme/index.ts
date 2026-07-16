@@ -38,7 +38,7 @@ export const theme = createTheme({
   colors: { primary: primaryColorTuple },
   primaryColor: 'primary',
   primaryShade: 3,
-  defaultGradient: { from: '#8282ef', to: '#69ced0', deg: 14 },
+  defaultGradient: { from: primaryColorTuple[3], to: 'var(--ev-cyan)', deg: 14 },
   components: {
     Checkbox: Checkbox.extend({ defaultProps: { radius: 'sm' } }),
     // House rule: every modal is vertically centered (Mantine defaults to top).
