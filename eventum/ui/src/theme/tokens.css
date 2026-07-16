@@ -1,3 +1,25 @@
+/* Scales - theme-independent, fixed. Single source for sizes. */
+:root {
+  --ev-space-1: 4px;
+  --ev-space-2: 8px;
+  --ev-space-3: 12px;
+  --ev-space-4: 16px;
+  --ev-space-5: 24px;
+  --ev-space-6: 32px;
+  --ev-space-7: 48px;
+
+  --ev-radius-sm: 6px;
+  --ev-radius-md: 10px;
+  --ev-radius-lg: 14px;
+
+  --ev-fz-xs: 12px;
+  --ev-fz-sm: 13px;
+  --ev-fz-md: 14px;
+  --ev-fz-lg: 16px;
+  --ev-fz-xl: 20px;
+  --ev-fz-2xl: 26px;
+}
+
 /* Eventum design tokens - both color schemes. Single source for the restyle. */
 :root[data-mantine-color-scheme='light'] {
   --ev-bg: #f6f6f9;
@@ -24,7 +46,7 @@
   --ev-done-dot: #14401f;
   --ev-shadow:
     0 1px 2px rgba(12, 12, 30, 0.04), 0 8px 24px -16px rgba(12, 12, 30, 0.18);
-  --ev-radius: 10px;
+  --ev-radius: var(--ev-radius-md);
 
   --mantine-color-body: var(--ev-bg);
 }
@@ -54,7 +76,7 @@
   --ev-done-dot: #164523;
   --ev-shadow:
     0 1px 2px rgba(0, 0, 0, 0.4), 0 12px 32px -16px rgba(0, 0, 0, 0.6);
-  --ev-radius: 10px;
+  --ev-radius: var(--ev-radius-md);
 
   --mantine-color-body: var(--ev-bg);
 }
