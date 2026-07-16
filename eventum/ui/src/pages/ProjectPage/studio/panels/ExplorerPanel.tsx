@@ -125,6 +125,7 @@ export const ExplorerPanel: FC<ExplorerPanelProps> = ({ style }) => {
             <ActionIcon
               variant="subtle"
               size="sm"
+              color="var(--ev-muted)"
               aria-label="New file"
               onClick={() => openCreate('file')}
             >
@@ -135,6 +136,7 @@ export const ExplorerPanel: FC<ExplorerPanelProps> = ({ style }) => {
             <ActionIcon
               variant="subtle"
               size="sm"
+              color="var(--ev-muted)"
               aria-label="New folder"
               onClick={() => openCreate('folder')}
             >
@@ -145,6 +147,7 @@ export const ExplorerPanel: FC<ExplorerPanelProps> = ({ style }) => {
             <ActionIcon
               variant="subtle"
               size="sm"
+              color="var(--ev-muted)"
               aria-label="Upload files"
               loading={uploadFile.isPending}
               onClick={() => fileInputRef.current?.click()}

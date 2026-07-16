@@ -215,9 +215,35 @@
   border-color: var(--ev-border);
   color: var(--ev-text);
 }
-/* Badges rendered as links (instance chips): brighten border on hover */
+/* Badges rendered as links (breadcrumbs, instance chips): show a pointer
+   (Mantine's root cursor:default otherwise wins over the <a> default) and
+   brighten the border on hover. */
+a.mantine-Badge-root {
+  cursor: pointer;
+}
 a.mantine-Badge-root:hover {
+  color: var(--ev-accent);
   border-color: var(--ev-border-strong);
+}
+
+/* Instance chips (Projects table): match the StatusPill pill metrics
+   (height 24, 12px text) and keep the id lowercase, so both badge families
+   read as one system - the chip stays neutral + clickable, the status pill
+   keeps its semantic colour. */
+.mantine-Badge-root.ev-instance-chip {
+  height: 24px;
+}
+.ev-instance-chip .mantine-Badge-label {
+  font-size: 12px;
+  text-transform: none;
+}
+.ev-chip-more .mantine-Badge-label {
+  color: var(--ev-muted);
+}
+
+/* Close buttons (modals, popovers) hover on our surface, not Mantine grey. */
+.mantine-CloseButton-root:hover {
+  background-color: var(--ev-surface-2);
 }
 
 /* Pagination: inactive controls on the panel surface, active keeps accent */

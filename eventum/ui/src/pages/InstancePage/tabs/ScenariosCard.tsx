@@ -1,5 +1,5 @@
 import { ActionIcon, Button, Group, Menu, Stack, Text } from '@mantine/core';
-import { IconLayersSubtract, IconPlus, IconX } from '@tabler/icons-react';
+import { IconPlus, IconTransform, IconX } from '@tabler/icons-react';
 import { FC } from 'react';
 
 import {
@@ -71,7 +71,7 @@ export const ScenariosCard: FC<ScenariosCardProps> = ({
               to={`${ROUTE_PATHS.SCENARIOS}/${encodeURIComponent(name)}`}
             >
               <Group gap={8} wrap="nowrap" align="center">
-                <IconLayersSubtract size={16} style={{ flexShrink: 0 }} />
+                <IconTransform size={16} style={{ flexShrink: 0 }} />
                 <Text size="sm" fw={500} truncate>
                   {name}
                 </Text>
@@ -107,7 +107,7 @@ export const ScenariosCard: FC<ScenariosCardProps> = ({
           {available.map((name) => (
             <Menu.Item
               key={name}
-              leftSection={<IconLayersSubtract size={14} />}
+              leftSection={<IconTransform size={14} />}
               onClick={() => handleAdd(name)}
             >
               {name}

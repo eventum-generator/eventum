@@ -61,30 +61,27 @@ export const InstanceBadges: FC<{ ids: string[] }> = ({ ids }) => {
             key={id}
             component={Link}
             to={`${ROUTE_PATHS.INSTANCES}/${id}`}
-            size="md"
+            className="ev-instance-chip"
             variant="default"
             leftSection={
               <Dot
                 color={status ? statusDotColor(status) : 'var(--ev-faint)'}
               />
             }
-            style={{ textTransform: 'initial', cursor: 'pointer' }}
           >
-            <Text size="xs">{id}</Text>
+            {id}
           </Badge>
         );
       })}
       {hidden.length > 0 && (
         <Badge
-          size="md"
+          className="ev-instance-chip ev-chip-more"
           variant="default"
           leftSection={
             hiddenHasRunning ? <Dot color="var(--ev-good)" /> : undefined
           }
         >
-          <Text size="xs" c="dimmed">
-            +{hidden.length}
-          </Text>
+          +{hidden.length}
         </Badge>
       )}
     </Group>
