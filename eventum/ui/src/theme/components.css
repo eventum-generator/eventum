@@ -299,3 +299,19 @@ a.ev-record-link {
 a.ev-record-link:hover {
   color: var(--ev-accent);
 }
+
+/* Sign-in brand gradient: theme-invariant vibrant purple->cyan (logo-like),
+   3-stop so cyan holds back to ~30% and only trails in as an accent, instead
+   of an even 50/50 split that reads cyan-heavy. Overrides Mantine's 2-stop
+   defaultGradient for the (only) gradient-variant button. */
+.mantine-Button-root[data-variant='gradient'] {
+  --button-bg: linear-gradient(
+    14deg,
+    var(--ev-grad-from) 0%,
+    var(--ev-grad-from) 30%,
+    var(--ev-grad-to) 110%
+  );
+}
+.mantine-Button-root[data-variant='gradient']:hover {
+  filter: brightness(1.06);
+}

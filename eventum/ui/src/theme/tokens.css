@@ -18,6 +18,12 @@
   --ev-fz-lg: 16px;
   --ev-fz-xl: 20px;
   --ev-fz-2xl: 26px;
+
+  /* Brand gradient (Sign In button) - theme-invariant vibrant pair, matches
+     the logo (same in both themes). Deliberately NOT the legibility-tuned
+     per-theme accent/cyan, which go muddy when blended on the light surface. */
+  --ev-grad-from: #7c7bf5;
+  --ev-grad-to: #69ced0;
 }
 
 /* Eventum design tokens - both color schemes. Single source for the restyle. */
