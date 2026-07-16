@@ -12,6 +12,7 @@ import {
   createTheme,
   useMantineColorScheme,
   Checkbox,
+  Modal,
 } from '@mantine/core';
 import { ContextMenuProvider } from 'mantine-contextmenu';
 
@@ -28,9 +29,9 @@ import { ModalsProvider } from '@mantine/modals';
 import { Notifications } from '@mantine/notifications';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { ReactQueryDevtools } from '@tanstack/react-query-devtools';
-import { BrowserRouter } from 'react-router-dom';
+import { RouterProvider } from 'react-router-dom';
 
-import AppRouter from '@/routing';
+import { router } from '@/routing';
 import { useMemo } from 'react';
 
 const primaryColorTuple: MantineColorsTuple = [
@@ -76,6 +77,12 @@ const theme = createTheme({
         radius: 'sm',
       },
     }),
+    // House rule: every modal is vertically centered (Mantine defaults to top).
+    Modal: Modal.extend({
+      defaultProps: {
+        centered: true,
+      },
+    }),
   },
 });
 
@@ -118,9 +125,7 @@ function InnerApp() {
 
   return (
     <MantineThemeProvider theme={innerTheme}>
-      <BrowserRouter>
-        <AppRouter />
-      </BrowserRouter>
+      <RouterProvider router={router} />
     </MantineThemeProvider>
   );
 }

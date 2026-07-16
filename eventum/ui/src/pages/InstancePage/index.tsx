@@ -43,6 +43,7 @@ import {
   StartupGeneratorParametersSchema,
 } from '@/api/routes/startup/schemas';
 import { ShowErrorDetailsAnchor } from '@/components/ui/ShowErrorDetailsAnchor';
+import { UnsavedChangesPrompt } from '@/components/ui/UnsavedChangesPrompt';
 import { ROUTE_PATHS } from '@/routing/paths';
 import {
   showErrorNotification,
@@ -221,22 +222,10 @@ export default function InstancePage() {
     }
   }
 
+  // Leaving with unsaved changes is guarded globally by UnsavedChangesPrompt
+  // (covers the sidebar and every other navigation, not just this button).
   function handleBack() {
-    if (form.isDirty()) {
-      modals.openConfirmModal({
-        title: 'Unsaved changes',
-        children: (
-          <Text size="sm">
-            All unsaved changes in instance <b>{instanceId}</b> will be lost. Do
-            you want to continue?
-          </Text>
-        ),
-        labels: { cancel: 'Cancel', confirm: 'Confirm' },
-        onConfirm: () => void navigate(ROUTE_PATHS.INSTANCES),
-      });
-    } else {
-      void navigate(ROUTE_PATHS.INSTANCES);
-    }
+    void navigate(ROUTE_PATHS.INSTANCES);
   }
 
   if (
@@ -305,6 +294,7 @@ export default function InstancePage() {
   return (
     <Container size="100%">
       <Stack gap="lg">
+        <UnsavedChangesPrompt when={isDirty} />
         <InstanceHeader
           instanceId={instanceId}
           status={status}
