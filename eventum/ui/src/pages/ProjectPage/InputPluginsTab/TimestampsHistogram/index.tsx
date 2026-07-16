@@ -36,6 +36,7 @@ interface TimestampsHistogramProps {
 
 const VALID_SPAN_PATTERN = /^[-+]?(\d+d)?(\d+h)?(\d+m)?(\d+s)?$/;
 
+/* eslint-disable no-restricted-syntax -- categorical histogram palette needs distinct swatches beyond the token set */
 const barColors = [
   '#8282ef',
   '#32d3c8',
@@ -61,6 +62,7 @@ const barColors = [
   '#66b7d5',
   '#49a07c',
 ];
+/* eslint-enable no-restricted-syntax */
 
 export type HistogramData = {
   timestamp: string;

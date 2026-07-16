@@ -9,7 +9,6 @@ module.exports = {
       {
         ignoreValues: ['transparent', 'currentColor', 'inherit', 'none', 'unset', 'initial'],
         disableFix: true,
-        severity: 'warning',
       },
     ],
   },

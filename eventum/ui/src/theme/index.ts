@@ -16,10 +16,12 @@ import {
   type MantineColorsTuple,
 } from '@mantine/core';
 
+/* eslint-disable no-restricted-syntax -- Mantine primary scale needs 10 concrete shades, not tokens */
 const primaryColorTuple: MantineColorsTuple = [
   '#ececff', '#d4d5fd', '#a7a7f5', '#8282ef', '#4d4de7',
   '#3332e4', '#2525e3', '#1819ca', '#1015b6', '#0211a0',
 ];
+/* eslint-enable no-restricted-syntax */
 
 export const theme = createTheme({
   autoContrast: true,

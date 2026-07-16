@@ -40,7 +40,7 @@ export default tseslint.config({
     'sonarjs/no-useless-intersection': 'off',
     'sonarjs/no-nested-functions': 'off',
     'no-restricted-syntax': [
-      'warn',
+      'error',
       {
         selector: "Literal[value=/^#(?:[0-9a-fA-F]{3,4}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})$/]",
         message: 'Hardcoded hex colour - use a var(--ev-*) token or theme value.',

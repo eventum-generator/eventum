@@ -16,6 +16,7 @@ import {
 // Categorical palette for per-instance bands. Brand hues lead; the rest are
 // distinct mid-saturation colours that stay legible on both themes. Semantic
 // red is reserved for failures and deliberately omitted.
+/* eslint-disable no-restricted-syntax -- categorical chart series needs distinct swatches beyond the token set */
 const PALETTE = [
   'var(--ev-accent)',
   'var(--ev-cyan)',
@@ -26,6 +27,7 @@ const PALETTE = [
   '#2dd4bf',
   '#fb923c',
 ];
+/* eslint-enable no-restricted-syntax */
 const FALLBACK = 'var(--ev-accent)';
 
 interface InstanceLoadProps {
