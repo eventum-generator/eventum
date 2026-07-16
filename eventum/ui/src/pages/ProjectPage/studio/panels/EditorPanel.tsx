@@ -10,6 +10,7 @@ import { useStudioShell } from '../context';
 import { useGeneratorFileTree } from '@/api/hooks/useGeneratorConfigs';
 import { flattenFileTree } from '@/api/routes/generator-configs/modules/file-tree';
 import { FileNode } from '@/api/routes/generator-configs/schemas';
+import { CONFIRM } from '@/theme/copy';
 
 const basename = (id: string): string => id.split('/').pop() ?? id;
 
@@ -60,14 +61,12 @@ export const EditorPanel: FC = () => {
     const id = item.getId();
     if (savedStatuses[id] === false && existingIds.includes(id)) {
       modals.openConfirmModal({
-        title: 'Unsaved changes',
-        children: (
-          <Text size="sm">
-            All unsaved changes in <b>{id}</b> will be lost. Do you want to
-            continue?
-          </Text>
-        ),
-        labels: { confirm: 'Confirm', cancel: 'Cancel' },
+        title: CONFIRM.closeUnsavedFile.title,
+        children: <Text size="sm">{CONFIRM.closeUnsavedFile.body(id)}</Text>,
+        labels: {
+          confirm: CONFIRM.closeUnsavedFile.confirm,
+          cancel: CONFIRM.closeUnsavedFile.cancel,
+        },
         onConfirm: () => closeItem(item),
       });
     } else {

@@ -41,6 +41,7 @@ import { FloatingPanel } from '@/components/ui/FloatingPanel';
 import { FloatingTableOfContents } from '@/components/ui/FloatingTableOfContents';
 import { PageTitle } from '@/components/ui/PageTitle';
 import { ShowErrorDetailsAnchor } from '@/components/ui/ShowErrorDetailsAnchor';
+import { CONFIRM } from '@/theme/copy';
 
 export default function SettingsPage() {
   const ServerParamsForm = useForm<ServerParameters>({
@@ -225,14 +226,15 @@ export default function SettingsPage() {
                   <SavePanel
                     onSave={() =>
                       modals.openConfirmModal({
-                        title: 'Settings update',
+                        title: CONFIRM.restartInstance.title,
                         children: (
-                          <Text size="sm">
-                            Instance will be restarted. Do you want to continue?
-                          </Text>
+                          <Text size="sm">{CONFIRM.restartInstance.body}</Text>
                         ),
                         onConfirm: handleSubmit,
-                        labels: { cancel: 'Cancel', confirm: 'Confirm' },
+                        labels: {
+                          cancel: CONFIRM.restartInstance.cancel,
+                          confirm: CONFIRM.restartInstance.confirm,
+                        },
                       })
                     }
                   />

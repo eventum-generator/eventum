@@ -26,6 +26,7 @@ import {
   useSetSecretValueMutation,
 } from '@/api/hooks/useSecrets';
 import { ShowErrorDetailsAnchor } from '@/components/ui/ShowErrorDetailsAnchor';
+import { CONFIRM } from '@/theme/copy';
 
 interface TableRowProps {
   name: string;
@@ -216,15 +217,15 @@ const TableRow: FC<TableRowProps> = ({ name }) => {
             display={isEditMode ? 'none' : 'block'}
             onClick={() => {
               modals.openConfirmModal({
-                title: 'Deleting secret',
+                title: CONFIRM.deleteSecret.title,
                 children: (
-                  <Text size="sm">
-                    Secret <b>{name}</b> will be deleted from keyring. Do you
-                    want to continue?
-                  </Text>
+                  <Text size="sm">{CONFIRM.deleteSecret.body(name)}</Text>
                 ),
                 onConfirm: handleDelete,
-                labels: { cancel: 'Cancel', confirm: 'Confirm' },
+                labels: {
+                  cancel: CONFIRM.deleteSecret.cancel,
+                  confirm: CONFIRM.deleteSecret.confirm,
+                },
               });
             }}
           >

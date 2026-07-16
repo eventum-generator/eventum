@@ -41,6 +41,7 @@ import { useBulkDeleteGeneratorsFromStartupMutation } from '@/api/hooks/useStart
 import { AlertIcon } from '@/components/ui/AlertIcon';
 import { PageTitle } from '@/components/ui/PageTitle';
 import { ShowErrorDetailsAnchor } from '@/components/ui/ShowErrorDetailsAnchor';
+import { CONFIRM } from '@/theme/copy';
 
 export default function InstancesPage() {
   const [instanceFilter, setInstanceFilter] = useState('');
@@ -405,14 +406,18 @@ export default function InstancesPage() {
                     loading={bulkDelete.isPending}
                     onClick={() =>
                       modals.openConfirmModal({
-                        title: 'Deleting instances',
+                        title: CONFIRM.deleteInstances.title,
                         children: (
                           <Text size="sm">
-                            Instance(s) <b>{selectedInstanceIds.join(', ')}</b>{' '}
-                            will be deleted. Do you want to continue?
+                            {CONFIRM.deleteInstances.body(
+                              selectedInstanceIds.join(', ')
+                            )}
                           </Text>
                         ),
-                        labels: { cancel: 'Cancel', confirm: 'Confirm' },
+                        labels: {
+                          cancel: CONFIRM.deleteInstances.cancel,
+                          confirm: CONFIRM.deleteInstances.confirm,
+                        },
                         onConfirm: () => handleBulkDelete(selectedInstanceIds),
                       })
                     }

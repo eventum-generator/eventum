@@ -16,10 +16,11 @@ import {
   useStopInstanceMutation,
 } from '@/api/hooks/useInstance';
 import { streamInstanceLogs } from '@/api/routes/instance';
-import { AlertIcon } from '@/components/ui/AlertIcon';
 import { LogsModal } from '@/components/modals/LogsModal';
+import { AlertIcon } from '@/components/ui/AlertIcon';
 import { PageTitle } from '@/components/ui/PageTitle';
 import { ShowErrorDetailsAnchor } from '@/components/ui/ShowErrorDetailsAnchor';
+import { CONFIRM } from '@/theme/copy';
 
 export default function ManagementPage() {
   const restartInstance = useRestartInstanceMutation();
@@ -110,14 +111,13 @@ export default function ManagementPage() {
             variant="default"
             onClick={() =>
               modals.openConfirmModal({
-                title: 'Restarting instance',
-                children: (
-                  <Text size="sm">
-                    Instance will be restarted. Do you want to continue?
-                  </Text>
-                ),
+                title: CONFIRM.restartInstance.title,
+                children: <Text size="sm">{CONFIRM.restartInstance.body}</Text>,
                 onConfirm: () => handleOnRestart(),
-                labels: { cancel: 'Cancel', confirm: 'Confirm' },
+                labels: {
+                  cancel: CONFIRM.restartInstance.cancel,
+                  confirm: CONFIRM.restartInstance.confirm,
+                },
               })
             }
           >
@@ -132,14 +132,13 @@ export default function ManagementPage() {
             c="var(--ev-bad)"
             onClick={() =>
               modals.openConfirmModal({
-                title: 'Stopping instance',
-                children: (
-                  <Text size="sm">
-                    Instance will be stopped. Do you want to continue?
-                  </Text>
-                ),
+                title: CONFIRM.stopInstance.title,
+                children: <Text size="sm">{CONFIRM.stopInstance.body}</Text>,
                 onConfirm: () => handleOnStop(),
-                labels: { cancel: 'Cancel', confirm: 'Confirm' },
+                labels: {
+                  cancel: CONFIRM.stopInstance.cancel,
+                  confirm: CONFIRM.stopInstance.confirm,
+                },
               })
             }
           >

@@ -27,6 +27,7 @@ import { GeneratorStatus } from '@/api/routes/generators/schemas';
 import { LogsModal } from '@/components/modals/LogsModal';
 import { ShowErrorDetailsAnchor } from '@/components/ui/ShowErrorDetailsAnchor';
 import { ROUTE_PATHS } from '@/routing/paths';
+import { CONFIRM } from '@/theme/copy';
 
 interface RowActionsProps {
   target: ReactNode;
@@ -262,14 +263,14 @@ export const RowActions: FC<RowActionsProps> = ({
           leftSection={<IconTrash size={14} />}
           onClick={() =>
             modals.openConfirmModal({
-              title: 'Deleting instance',
+              title: CONFIRM.deleteInstance.title,
               children: (
-                <Text size="sm">
-                  Instance <b>{instanceId}</b> will be deleted. Do you want to
-                  continue?
-                </Text>
+                <Text size="sm">{CONFIRM.deleteInstance.body(instanceId)}</Text>
               ),
-              labels: { cancel: 'Cancel', confirm: 'Confirm' },
+              labels: {
+                cancel: CONFIRM.deleteInstance.cancel,
+                confirm: CONFIRM.deleteInstance.confirm,
+              },
               onConfirm: handleDelete,
             })
           }

@@ -9,6 +9,7 @@ import { SamplesParams } from './SamplesParams';
 import { TemplateEventPluginConfig } from '@/api/routes/generator-configs/schemas/plugins/event/configs/template';
 import { ProjectNameProvider } from '@/pages/ProjectPage/context/ProjectNameContext';
 import { useProjectName } from '@/pages/ProjectPage/hooks/useProjectName';
+import { CONFIRM } from '@/theme/copy';
 
 interface SamplesSectionProps {
   form: UseFormReturnType<TemplateEventPluginConfig>;
@@ -82,14 +83,16 @@ export const SamplesSection: FC<SamplesSectionProps> = ({ form }) => {
           }
           onDelete={() => {
             modals.openConfirmModal({
-              title: 'Deleting sample',
+              title: CONFIRM.deleteSample.title,
               children: (
                 <Text size="sm">
-                  Sample <b>{selectedSample}</b> will be deleted. Do you want to
-                  continue?
+                  {CONFIRM.deleteSample.body(selectedSample)}
                 </Text>
               ),
-              labels: { confirm: 'Confirm', cancel: 'Cancel' },
+              labels: {
+                confirm: CONFIRM.deleteSample.confirm,
+                cancel: CONFIRM.deleteSample.cancel,
+              },
               onConfirm: () => {
                 form.setFieldValue('samples', (prevValue) => {
                   const newValue = { ...prevValue };

@@ -25,6 +25,7 @@ import { FileNode } from '@/api/routes/generator-configs/schemas';
 import { ShowErrorDetailsAnchor } from '@/components/ui/ShowErrorDetailsAnchor';
 import { useFileTree } from '@/pages/ProjectPage/hooks/useFileTree';
 import { useProjectName } from '@/pages/ProjectPage/hooks/useProjectName';
+import { CONFIRM } from '@/theme/copy';
 
 interface TreeProps {
   fileTreeLookup: ReturnType<typeof createFileTreeLookup>;
@@ -229,14 +230,14 @@ export const Tree: FC<TreeProps> = ({ fileTreeLookup }) => {
             }
 
             modals.openConfirmModal({
-              title: 'Deleting file',
+              title: CONFIRM.deleteFile.title,
               children: (
-                <Text size="sm">
-                  File &quot;<b>{item.getId()}</b>&quot; will be deleted. Do you
-                  want to continue?
-                </Text>
+                <Text size="sm">{CONFIRM.deleteFile.body(item.getId())}</Text>
               ),
-              labels: { confirm: 'Confirm', cancel: 'Cancel' },
+              labels: {
+                confirm: CONFIRM.deleteFile.confirm,
+                cancel: CONFIRM.deleteFile.cancel,
+              },
               onConfirm: () => handleDeleteFile(item.getId()),
             });
           }

@@ -17,6 +17,7 @@ import { CreateItemModal } from './CreateItemModal';
 import { FileNodeItemIcon } from './FileNodeItemIcon';
 import { useCreateGeneratorDirectoryMutation } from '@/api/hooks/useGeneratorConfigs';
 import { FileNode } from '@/api/routes/generator-configs/schemas';
+import { CONFIRM } from '@/theme/copy';
 
 interface TreeItemProps {
   item: ItemInstance<FileNode>;
@@ -143,14 +144,16 @@ export const TreeItem: FC<TreeItemProps> = ({
                     ),
                     onClick: () => {
                       modals.openConfirmModal({
-                        title: 'Deleting file',
+                        title: CONFIRM.deleteFile.title,
                         children: (
                           <Text size="sm">
-                            File &quot;<b>{item.getId()}</b>&quot; will be
-                            deleted. Do you want to continue?
+                            {CONFIRM.deleteFile.body(item.getId())}
                           </Text>
                         ),
-                        labels: { confirm: 'Confirm', cancel: 'Cancel' },
+                        labels: {
+                          confirm: CONFIRM.deleteFile.confirm,
+                          cancel: CONFIRM.deleteFile.cancel,
+                        },
                         onConfirm: () => onDeleteFile(item.getId()),
                       });
                     },

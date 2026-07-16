@@ -45,6 +45,7 @@ import { AlertIcon } from '@/components/ui/AlertIcon';
 import { ShowErrorDetailsAnchor } from '@/components/ui/ShowErrorDetailsAnchor';
 import { UnsavedChangesPrompt } from '@/components/ui/UnsavedChangesPrompt';
 import { ROUTE_PATHS } from '@/routing/paths';
+import { CONFIRM } from '@/theme/copy';
 import {
   showErrorNotification,
   showSuccessNotification,
@@ -182,14 +183,12 @@ export default function InstancePage() {
 
     if (status?.is_initializing || status?.is_running) {
       modals.openConfirmModal({
-        title: 'Updating instance',
-        children: (
-          <Text size="sm">
-            Instance <b>{instanceId}</b> is currently running. It will be
-            restarted for saving changes. Do you want to continue?
-          </Text>
-        ),
-        labels: { cancel: 'Cancel', confirm: 'Confirm' },
+        title: CONFIRM.restartInstance.title,
+        children: <Text size="sm">{CONFIRM.restartInstance.body}</Text>,
+        labels: {
+          cancel: CONFIRM.restartInstance.cancel,
+          confirm: CONFIRM.restartInstance.confirm,
+        },
         onConfirm: () =>
           stopGenerator.mutate(
             { id: instanceId },

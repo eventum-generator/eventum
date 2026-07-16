@@ -2,6 +2,8 @@ import { Button, Group, Modal, Text } from '@mantine/core';
 import { useEffect } from 'react';
 import { useBlocker } from 'react-router-dom';
 
+import { CONFIRM } from '@/theme/copy';
+
 interface UnsavedChangesPromptProps {
   /** When true, leaving the page is guarded. Reflect the page's dirty state. */
   when: boolean;
@@ -16,7 +18,7 @@ interface UnsavedChangesPromptProps {
  */
 export function UnsavedChangesPrompt({
   when,
-  message = 'You have unsaved changes that will be lost. Leave this page anyway?',
+  message = CONFIRM.unsavedChanges.body,
 }: Readonly<UnsavedChangesPromptProps>) {
   const blocker = useBlocker(
     ({ currentLocation, nextLocation }) =>
@@ -41,7 +43,7 @@ export function UnsavedChangesPrompt({
     <Modal
       opened={blocked}
       onClose={() => blocker.reset?.()}
-      title="Unsaved changes"
+      title={CONFIRM.unsavedChanges.title}
     >
       <Text size="sm">{message}</Text>
       <Group justify="flex-end" mt="lg">
