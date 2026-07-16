@@ -7,9 +7,11 @@
   background-color: var(--ev-surface);
   border-color: var(--ev-border);
 }
+/* Bordered surfaces also get the soft shadow (uniform panel depth) */
 .mantine-Paper-root[data-with-border],
 .mantine-Card-root[data-with-border] {
   border-color: var(--ev-border);
+  box-shadow: var(--ev-shadow);
 }
 
 /* Inputs (TextInput, Select, NumberInput, PasswordInput, Textarea, etc.
@@ -98,6 +100,7 @@
 .mantine-NavLink-root[data-active] {
   background-color: var(--ev-accent-soft);
   color: var(--ev-text);
+  position: relative;
 }
 .mantine-AppShell-navbar,
 .mantine-AppShell-header {
@@ -151,9 +154,6 @@
 }
 
 /* Active nav: accent left rail alongside the soft background */
-.mantine-NavLink-root[data-active] {
-  position: relative;
-}
 .mantine-NavLink-root[data-active]::before {
   content: '';
   position: absolute;
@@ -179,12 +179,6 @@
 .mantine-ActionIcon-root[data-variant='subtle']:hover,
 .mantine-ActionIcon-root[data-variant='transparent']:hover {
   background-color: var(--ev-surface-2);
-}
-
-/* Uniform panel depth: bordered surfaces get the soft shadow */
-.mantine-Paper-root[data-with-border],
-.mantine-Card-root[data-with-border] {
-  box-shadow: var(--ev-shadow);
 }
 
 /* --- Native control surfaces (replace Mantine's default greys) --- */

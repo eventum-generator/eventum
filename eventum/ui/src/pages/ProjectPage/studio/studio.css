@@ -195,14 +195,12 @@
   gap: 8px;
   padding: 6px 12px;
   border: 1px solid var(--ev-border);
+  border-radius: 9px;
   background-color: var(--ev-surface);
   color: var(--ev-muted);
   cursor: pointer;
   font-size: 13px;
   font-weight: 600;
-}
-.studio-stage {
-  border-radius: 9px;
 }
 .studio-stage:hover:not([data-active='true']) {
   border-color: var(--ev-border-strong);
@@ -226,7 +224,7 @@
 }
 .studio-stage[data-active='true'] .studio-stage-idx {
   background-color: var(--ev-accent);
-  color: #fff;
+  color: var(--mantine-color-white);
 }
 .studio-stage-arrow {
   color: var(--ev-faint);

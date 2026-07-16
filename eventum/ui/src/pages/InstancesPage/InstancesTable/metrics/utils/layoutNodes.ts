@@ -166,7 +166,7 @@ export function updateNodesData(
           },
         };
       }
-      case 'event':
+      case 'event': {
         return {
           ...node,
           data: {
@@ -178,6 +178,7 @@ export function updateNodesData(
             ],
           },
         };
+      }
       case 'output': {
         const plugin = stats.output.find((p) => p.plugin_id === data.pluginId);
         if (!plugin) return node;

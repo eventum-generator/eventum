@@ -16,7 +16,10 @@ function formatUptime(seconds: number): string {
   return `${secs}s`;
 }
 
-function StatCard({ value, label }: { value: string | number; label: string }) {
+function StatCard({
+  value,
+  label,
+}: Readonly<{ value: string | number; label: string }>) {
   return (
     <Paper withBorder p="xs" radius="md">
       <Text size="md" fw={600} lh={1.2}>
