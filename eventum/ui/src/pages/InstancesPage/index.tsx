@@ -16,7 +16,6 @@ import {
 import { modals } from '@mantine/modals';
 import { notifications } from '@mantine/notifications';
 import {
-  IconAlertSquareRounded,
   IconPlayerPlay,
   IconPlayerStop,
   IconRefresh,
@@ -39,6 +38,7 @@ import {
   useUpdateGeneratorStatus,
 } from '@/api/hooks/useGenerators';
 import { useBulkDeleteGeneratorsFromStartupMutation } from '@/api/hooks/useStartup';
+import { AlertIcon } from '@/components/ui/AlertIcon';
 import { PageTitle } from '@/components/ui/PageTitle';
 import { ShowErrorDetailsAnchor } from '@/components/ui/ShowErrorDetailsAnchor';
 
@@ -269,7 +269,7 @@ export default function InstancesPage() {
         <PageTitle title="Instances" />
         <Alert
           variant="default"
-          icon={<Box c="red" component={IconAlertSquareRounded}></Box>}
+          icon={<AlertIcon variant="error" />}
           title="Failed to load instances list"
         >
           {generatorsError.message}

@@ -9,18 +9,14 @@ import {
 } from '@mantine/core';
 import { modals } from '@mantine/modals';
 import { notifications } from '@mantine/notifications';
-import {
-  IconInfoSquareRounded,
-  IconLogs,
-  IconPower,
-  IconReload,
-} from '@tabler/icons-react';
+import { IconLogs, IconPower, IconReload } from '@tabler/icons-react';
 
 import {
   useRestartInstanceMutation,
   useStopInstanceMutation,
 } from '@/api/hooks/useInstance';
 import { streamInstanceLogs } from '@/api/routes/instance';
+import { AlertIcon } from '@/components/ui/AlertIcon';
 import { LogsModal } from '@/components/modals/LogsModal';
 import { PageTitle } from '@/components/ui/PageTitle';
 import { ShowErrorDetailsAnchor } from '@/components/ui/ShowErrorDetailsAnchor';
@@ -81,7 +77,7 @@ export default function ManagementPage() {
         <PageTitle title="Management" />
         <Alert
           variant="default"
-          icon={<Box c="blue" component={IconInfoSquareRounded}></Box>}
+          icon={<AlertIcon variant="info" />}
           title="Info"
         >
           Note, that during the restart, web interface may be unavailable for
@@ -133,7 +129,7 @@ export default function ManagementPage() {
           <Button
             h="60px"
             variant="default"
-            c="red"
+            c="var(--ev-bad)"
             onClick={() =>
               modals.openConfirmModal({
                 title: 'Stopping instance',

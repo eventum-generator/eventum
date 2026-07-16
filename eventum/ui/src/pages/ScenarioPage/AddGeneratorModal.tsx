@@ -1,6 +1,5 @@
 import {
   Alert,
-  Box,
   Button,
   Center,
   Container,
@@ -10,12 +9,12 @@ import {
   Stack,
 } from '@mantine/core';
 import { modals } from '@mantine/modals';
-import { IconAlertSquareRounded } from '@tabler/icons-react';
 import { FC, useMemo, useState } from 'react';
 
 import { useAddGeneratorToScenarioMutation } from '@/api/hooks/useScenarios';
 import { useStartupGenerators } from '@/api/hooks/useStartup';
 import { StartupGeneratorParameters } from '@/api/routes/startup/schemas';
+import { AlertIcon } from '@/components/ui/AlertIcon';
 import { ShowErrorDetailsAnchor } from '@/components/ui/ShowErrorDetailsAnchor';
 import {
   showErrorNotification,
@@ -126,7 +125,7 @@ export const AddGeneratorModal: FC<AddGeneratorModalProps> = ({
       <Container size="md">
         <Alert
           variant="default"
-          icon={<Box c="red" component={IconAlertSquareRounded} />}
+          icon={<AlertIcon variant="error" />}
           title="Failed to load instances"
         >
           {error.message}

@@ -216,7 +216,7 @@ export const InstancesTable: FC<InstancesTableProps> = ({
 
       {table.getFilteredRowModel().rows.length > 0 && (
         <Group w="100%" justify="end" gap="lg">
-          <Text size="sm" c="gray.6">
+          <Text size="sm" c="dimmed">
             Showing{' '}
             {table.getState().pagination.pageIndex *
               table.getState().pagination.pageSize +
@@ -230,7 +230,7 @@ export const InstancesTable: FC<InstancesTableProps> = ({
             of {table.getFilteredRowModel().rows.length}
           </Text>
           <Group gap="xs">
-            <Text size="sm" c="gray.6">
+            <Text size="sm" c="dimmed">
               Page size:
             </Text>
 

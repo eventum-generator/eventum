@@ -1,6 +1,5 @@
 import {
   Alert,
-  Box,
   Button,
   Group,
   Skeleton,
@@ -8,12 +7,12 @@ import {
   TextInput,
 } from '@mantine/core';
 import { useForm } from '@mantine/form';
-import { IconAlertSquareRounded } from '@tabler/icons-react';
 import { FC, useMemo } from 'react';
 
 import { useGeneratorFileTree } from '@/api/hooks/useGeneratorConfigs';
 import { flattenFileTree } from '@/api/routes/generator-configs/modules/file-tree';
 import { TemplateConfigForGeneralModes } from '@/api/routes/generator-configs/schemas/plugins/event/configs/template';
+import { AlertIcon } from '@/components/ui/AlertIcon';
 import { ShowErrorDetailsAnchor } from '@/components/ui/ShowErrorDetailsAnchor';
 import { useProjectName } from '@/pages/ProjectPage/hooks/useProjectName';
 
@@ -111,7 +110,7 @@ export const AddTemplateModal: FC<AddTemplateModalProps> = ({
       {isFileTreeError && (
         <Alert
           variant="default"
-          icon={<Box c="red" component={IconAlertSquareRounded}></Box>}
+          icon={<AlertIcon variant="error" />}
           title="Failed to load list of project files"
         >
           {fileTreeError.message}

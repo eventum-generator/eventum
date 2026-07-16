@@ -11,7 +11,6 @@ import {
 import { useForm } from '@mantine/form';
 import { modals } from '@mantine/modals';
 import {
-  IconAlertSquareRounded,
   IconLayoutDashboard,
   IconLogs,
   IconSettings,
@@ -42,6 +41,7 @@ import {
   StartupGeneratorParameters,
   StartupGeneratorParametersSchema,
 } from '@/api/routes/startup/schemas';
+import { AlertIcon } from '@/components/ui/AlertIcon';
 import { ShowErrorDetailsAnchor } from '@/components/ui/ShowErrorDetailsAnchor';
 import { UnsavedChangesPrompt } from '@/components/ui/UnsavedChangesPrompt';
 import { ROUTE_PATHS } from '@/routing/paths';
@@ -259,7 +259,7 @@ export default function InstancePage() {
       <Container size="md">
         <Alert
           variant="default"
-          icon={<Box c="red" component={IconAlertSquareRounded} />}
+          icon={<AlertIcon variant="error" />}
           title={loadError.title}
         >
           {loadError.error?.message}

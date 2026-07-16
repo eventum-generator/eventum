@@ -7,7 +7,6 @@ import { yaml } from '@codemirror/lang-yaml';
 import { keymap } from '@codemirror/view';
 import { Alert, Box, Skeleton, useMantineColorScheme } from '@mantine/core';
 import { notifications } from '@mantine/notifications';
-import { IconAlertSquareRounded } from '@tabler/icons-react';
 import CodeMirror from '@uiw/react-codemirror';
 import { FC, useEffect, useRef, useState } from 'react';
 
@@ -16,6 +15,7 @@ import {
   useGeneratorFileContent,
   usePutGeneratorFileMutation,
 } from '@/api/hooks/useGeneratorConfigs';
+import { AlertIcon } from '@/components/ui/AlertIcon';
 import { ShowErrorDetailsAnchor } from '@/components/ui/ShowErrorDetailsAnchor';
 import { useProjectName } from '@/pages/ProjectPage/hooks/useProjectName';
 import { cmTheme } from '@/theme/codemirror';
@@ -133,7 +133,7 @@ export const FileEditor: FC<FileEditorProps> = ({
       <Box p="md">
         <Alert
           variant="default"
-          icon={<Box c="red" component={IconAlertSquareRounded}></Box>}
+          icon={<AlertIcon variant="error" />}
           title="Failed to load file content"
         >
           {contentError.message}

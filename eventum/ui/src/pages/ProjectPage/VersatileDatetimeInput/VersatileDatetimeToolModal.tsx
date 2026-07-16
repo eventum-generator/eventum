@@ -1,6 +1,5 @@
 import {
   Alert,
-  Box,
   Button,
   Code,
   Divider,
@@ -14,7 +13,6 @@ import {
 } from '@mantine/core';
 import { useForm } from '@mantine/form';
 import { notifications } from '@mantine/notifications';
-import { IconAlertSquareRounded, IconCircleCheck } from '@tabler/icons-react';
 import { FC, useState } from 'react';
 
 import { useProjectName } from '../hooks/useProjectName';
@@ -22,6 +20,7 @@ import { APIError } from '@/api/errors';
 import { useNormalizedVersatileDatetimeMutation } from '@/api/hooks/usePreview';
 import { VersatileDatetimeParametersBody } from '@/api/routes/preview/schemas';
 import { TIMEZONES } from '@/api/schemas/timezones';
+import { AlertIcon } from '@/components/ui/AlertIcon';
 import { LabelWithTooltip } from '@/components/ui/LabelWithTooltip';
 import { ShowErrorDetailsAnchor } from '@/components/ui/ShowErrorDetailsAnchor';
 
@@ -188,7 +187,7 @@ export const VersatileDatetimeToolModal: FC = () => {
         <Alert
           variant="default"
           title="Invalid"
-          icon={<Box c="red" component={IconAlertSquareRounded}></Box>}
+          icon={<AlertIcon variant="error" />}
         >
           {normalizationError}
         </Alert>
@@ -200,7 +199,7 @@ export const VersatileDatetimeToolModal: FC = () => {
         <Alert
           variant="default"
           title="Valid"
-          icon={<Box c="green" component={IconCircleCheck}></Box>}
+          icon={<AlertIcon variant="success" />}
         >
           Expression is valid: <Code>{normalizedDatetime}</Code>
         </Alert>

@@ -1,6 +1,5 @@
 import {
   Alert,
-  Box,
   Center,
   Container,
   Grid,
@@ -13,7 +12,6 @@ import {
 import { useForm } from '@mantine/form';
 import { modals } from '@mantine/modals';
 import { notifications } from '@mantine/notifications';
-import { IconAlertSquareRounded } from '@tabler/icons-react';
 import { zod4Resolver } from 'mantine-form-zod-resolver';
 import { useEffect } from 'react';
 
@@ -38,6 +36,7 @@ import {
   ServerParametersSchema,
   Settings,
 } from '@/api/routes/instance/schemas';
+import { AlertIcon } from '@/components/ui/AlertIcon';
 import { FloatingPanel } from '@/components/ui/FloatingPanel';
 import { FloatingTableOfContents } from '@/components/ui/FloatingTableOfContents';
 import { PageTitle } from '@/components/ui/PageTitle';
@@ -99,7 +98,7 @@ export default function SettingsPage() {
       <Container size="md">
         <Alert
           variant="default"
-          icon={<Box c="red" component={IconAlertSquareRounded}></Box>}
+          icon={<AlertIcon variant="error" />}
           title="Failed to get instance settings"
         >
           {settingsError.message}

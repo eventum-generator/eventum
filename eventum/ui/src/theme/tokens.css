@@ -36,9 +36,11 @@
   --ev-good: #1a7f37;
   --ev-warn: #9a6700;
   --ev-bad: #cf222e;
+  --ev-info: #1971c2;
   --ev-good-soft: rgba(26, 127, 55, 0.12);
   --ev-warn-soft: rgba(154, 103, 0, 0.12);
   --ev-bad-soft: rgba(207, 34, 46, 0.1);
+  --ev-info-soft: rgba(25, 113, 194, 0.1);
   /* "done" - terminal success at rest: a dark, unlit green (like a
      switched-off green LED), distinct from the lit "good" green. */
   --ev-done-bg: #cbd8ce;
@@ -66,9 +68,11 @@
   --ev-good: #3fb950;
   --ev-warn: #d29922;
   --ev-bad: #f85149;
+  --ev-info: #4d9fff;
   --ev-good-soft: rgba(63, 185, 80, 0.14);
   --ev-warn-soft: rgba(210, 153, 34, 0.14);
   --ev-bad-soft: rgba(248, 81, 73, 0.14);
+  --ev-info-soft: rgba(77, 159, 255, 0.14);
   /* "done" - terminal success at rest: a dark, unlit green (like a
      switched-off green LED), distinct from the lit "good" green. */
   --ev-done-bg: #0d2012;

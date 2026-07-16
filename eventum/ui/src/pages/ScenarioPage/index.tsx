@@ -1,6 +1,5 @@
 import {
   Alert,
-  Box,
   Button,
   Center,
   Container,
@@ -14,7 +13,6 @@ import {
 } from '@mantine/core';
 import { modals } from '@mantine/modals';
 import {
-  IconAlertSquareRounded,
   IconArrowLeft,
   IconLayersSubtract,
   IconPlayerPlay,
@@ -42,6 +40,7 @@ import {
 import { useStartupGenerators } from '@/api/hooks/useStartup';
 import { GeneratorStatus } from '@/api/routes/generators/schemas';
 import { StartupGeneratorParameters } from '@/api/routes/startup/schemas';
+import { AlertIcon } from '@/components/ui/AlertIcon';
 import { PageTitle } from '@/components/ui/PageTitle';
 import { ShowErrorDetailsAnchor } from '@/components/ui/ShowErrorDetailsAnchor';
 import { ROUTE_PATHS } from '@/routing/paths';
@@ -244,7 +243,7 @@ export default function ScenarioPage() {
         <PageTitle title="Scenario" />
         <Alert
           variant="default"
-          icon={<Box c="red" component={IconAlertSquareRounded}></Box>}
+          icon={<AlertIcon variant="error" />}
           title="Failed to load scenario"
         >
           {error?.message}
@@ -291,7 +290,7 @@ export default function ScenarioPage() {
               </Group>
               <Center py="xl">
                 <Stack align="center" gap="md">
-                  <IconLayersSubtract size={48} color="gray" />
+                  <IconLayersSubtract size={48} color="var(--ev-muted)" />
                   <Text c="dimmed" ta="center">
                     Add your first instances to build a scenario
                   </Text>

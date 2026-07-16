@@ -1,5 +1,4 @@
 import { Alert, Container, Skeleton, Stack } from '@mantine/core';
-import { IconAlertSquareRounded } from '@tabler/icons-react';
 import { ReactNode, useEffect } from 'react';
 
 import { ErrorsChart } from './ErrorsChart';
@@ -12,6 +11,7 @@ import { useMetricsHistory } from './history';
 import { aggregateFlow } from './metrics';
 import { useRunningGeneratorsStats } from '@/api/hooks/useGenerators';
 import { useInstanceInfo } from '@/api/hooks/useInstance';
+import { AlertIcon } from '@/components/ui/AlertIcon';
 import { PageTitle } from '@/components/ui/PageTitle';
 import { ShowErrorDetailsAnchor } from '@/components/ui/ShowErrorDetailsAnchor';
 
@@ -84,8 +84,7 @@ export default function MonitoringPage() {
         {isInfoError && (
           <Alert
             variant="default"
-            color="red"
-            icon={<IconAlertSquareRounded />}
+            icon={<AlertIcon variant="error" />}
             title="Failed to load instance info"
           >
             {infoError.message}

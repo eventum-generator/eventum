@@ -15,7 +15,6 @@ import {
 } from '@mantine/core';
 import { modals } from '@mantine/modals';
 import {
-  IconAlertSquareRounded,
   IconPlayerPlay,
   IconPlayerStop,
   IconRefresh,
@@ -39,6 +38,7 @@ import { useDeleteScenarioMutation } from '@/api/hooks/useScenarios';
 import { useStartupGenerators } from '@/api/hooks/useStartup';
 import { GeneratorsInfo } from '@/api/routes/generators/schemas';
 import { StartupGeneratorParametersList } from '@/api/routes/startup/schemas';
+import { AlertIcon } from '@/components/ui/AlertIcon';
 import { PageTitle } from '@/components/ui/PageTitle';
 import { ShowErrorDetailsAnchor } from '@/components/ui/ShowErrorDetailsAnchor';
 import { scenarioStatusBucket } from '@/components/ui/statusPalette';
@@ -274,7 +274,7 @@ export default function ScenariosPage() {
         <PageTitle title="Scenarios" />
         <Alert
           variant="default"
-          icon={<Box c="red" component={IconAlertSquareRounded}></Box>}
+          icon={<AlertIcon variant="error" />}
           title="Failed to load scenarios"
         >
           {error?.message}

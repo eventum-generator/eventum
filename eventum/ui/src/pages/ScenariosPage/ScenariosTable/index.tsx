@@ -158,7 +158,7 @@ export const ScenariosTable: FC<ScenariosTableProps> = ({
         </Table>
         {data.length === 0 && (
           <Center mt="xs">
-            <Text size="sm" c="gray.6">
+            <Text size="sm" c="dimmed">
               No scenarios
             </Text>
           </Center>
@@ -167,7 +167,7 @@ export const ScenariosTable: FC<ScenariosTableProps> = ({
 
       {data.length > 0 && (
         <Group w="100%" justify="end" gap="lg">
-          <Text size="sm" c="gray.6">
+          <Text size="sm" c="dimmed">
             Showing{' '}
             {table.getState().pagination.pageIndex *
               table.getState().pagination.pageSize +
@@ -181,7 +181,7 @@ export const ScenariosTable: FC<ScenariosTableProps> = ({
             of {table.getFilteredRowModel().rows.length}
           </Text>
           <Group gap="xs">
-            <Text size="sm" c="gray.6">
+            <Text size="sm" c="dimmed">
               Page size:
             </Text>
 

@@ -1,7 +1,6 @@
 import {
   ActionIcon,
   Alert,
-  Box,
   Button,
   Center,
   Container,
@@ -15,13 +14,14 @@ import {
   TextInput,
 } from '@mantine/core';
 import { modals } from '@mantine/modals';
-import { IconAlertSquareRounded, IconSearch, IconX } from '@tabler/icons-react';
+import { IconSearch, IconX } from '@tabler/icons-react';
 import { useState } from 'react';
 
 import { CreateProjectModal } from './CreateProjectModal';
 import { GeneratorDirsTable, UsageMode } from './GeneratorDirsTable';
 import { ProjectsEmptyState } from './ProjectsEmptyState';
 import { useGeneratorDirs } from '@/api/hooks/useGeneratorConfigs';
+import { AlertIcon } from '@/components/ui/AlertIcon';
 import { PageTitle } from '@/components/ui/PageTitle';
 import { ShowErrorDetailsAnchor } from '@/components/ui/ShowErrorDetailsAnchor';
 
@@ -52,7 +52,7 @@ export default function ProjectsPage() {
         <PageTitle title="Projects" />
         <Alert
           variant="default"
-          icon={<Box c="red" component={IconAlertSquareRounded}></Box>}
+          icon={<AlertIcon variant="error" />}
           title="Failed to load projects list"
         >
           {generatorDirsError.message}

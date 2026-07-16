@@ -1,13 +1,4 @@
-import {
-  Alert,
-  Anchor,
-  Box,
-  Center,
-  Container,
-  Loader,
-  Text,
-} from '@mantine/core';
-import { IconAlertSquareRounded } from '@tabler/icons-react';
+import { Alert, Anchor, Center, Container, Loader, Text } from '@mantine/core';
 import { Link, useParams } from 'react-router-dom';
 
 import { FileTreeProvider } from './context/FileTreeContext';
@@ -16,6 +7,7 @@ import { StudioProvider } from './studio/StudioProvider';
 import { StudioShell } from './studio/StudioShell';
 import { APIError } from '@/api/errors';
 import { useGeneratorConfig } from '@/api/hooks/useGeneratorConfigs';
+import { AlertIcon } from '@/components/ui/AlertIcon';
 import { ShowErrorDetailsAnchor } from '@/components/ui/ShowErrorDetailsAnchor';
 import { ROUTE_PATHS } from '@/routing/paths';
 
@@ -68,7 +60,7 @@ export default function ProjectPage() {
       <Container size="md">
         <Alert
           variant="default"
-          icon={<Box c="red" component={IconAlertSquareRounded}></Box>}
+          icon={<AlertIcon variant="error" />}
           title="Failed to open project"
         >
           {error.message}

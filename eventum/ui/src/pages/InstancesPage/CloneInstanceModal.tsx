@@ -1,6 +1,5 @@
 import {
   Alert,
-  Box,
   Button,
   Center,
   Container,
@@ -13,7 +12,6 @@ import {
 import { useForm } from '@mantine/form';
 import { modals } from '@mantine/modals';
 import { notifications } from '@mantine/notifications';
-import { IconAlertSquareRounded } from '@tabler/icons-react';
 import { FC } from 'react';
 
 import {
@@ -26,6 +24,7 @@ import {
 } from '@/api/hooks/useStartup';
 import { GeneratorParametersSchema } from '@/api/routes/generators/schemas';
 import { StartupGeneratorParameters } from '@/api/routes/startup/schemas';
+import { AlertIcon } from '@/components/ui/AlertIcon';
 import { ShowErrorDetailsAnchor } from '@/components/ui/ShowErrorDetailsAnchor';
 
 interface CloneInstanceModalProps {
@@ -162,7 +161,7 @@ export const CloneInstanceModal: FC<CloneInstanceModalProps> = ({
       <Container size="md">
         <Alert
           variant="default"
-          icon={<Box c="red" component={IconAlertSquareRounded}></Box>}
+          icon={<AlertIcon variant="error" />}
           title="Failed to get instance parameters"
         >
           {generatorParamsError.message}
@@ -177,7 +176,7 @@ export const CloneInstanceModal: FC<CloneInstanceModalProps> = ({
       <Container size="md">
         <Alert
           variant="default"
-          icon={<Box c="red" component={IconAlertSquareRounded}></Box>}
+          icon={<AlertIcon variant="error" />}
           title="Failed to get startup instance parameters"
         >
           {startupGeneratorParamsError.message}
@@ -194,7 +193,7 @@ export const CloneInstanceModal: FC<CloneInstanceModalProps> = ({
     return (
       <form onSubmit={form.onSubmit(handleCloneInstance)}>
         <Stack>
-          <Text size="sm" c="gray.6">
+          <Text size="sm" c="dimmed">
             Cloning <b>{sourceInstanceId}</b> with all its parameters.
           </Text>
 

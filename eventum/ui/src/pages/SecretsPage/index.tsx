@@ -1,6 +1,5 @@
 import {
   Alert,
-  Box,
   Center,
   Container,
   Loader,
@@ -8,11 +7,11 @@ import {
   Stack,
   Table,
 } from '@mantine/core';
-import { IconAlertSquareRounded } from '@tabler/icons-react';
 
 import { NewSecretRow } from './NewSecretRow';
 import TableRow from './TableRow';
 import { useSecretNames } from '@/api/hooks/useSecrets';
+import { AlertIcon } from '@/components/ui/AlertIcon';
 import { PageTitle } from '@/components/ui/PageTitle';
 import { ShowErrorDetailsAnchor } from '@/components/ui/ShowErrorDetailsAnchor';
 
@@ -39,7 +38,7 @@ export default function SecretsPage() {
         <PageTitle title="Secrets" />
         <Alert
           variant="default"
-          icon={<Box c="red" component={IconAlertSquareRounded}></Box>}
+          icon={<AlertIcon variant="error" />}
           title="Failed to load list of secrets"
         >
           {secretNamesError.message}

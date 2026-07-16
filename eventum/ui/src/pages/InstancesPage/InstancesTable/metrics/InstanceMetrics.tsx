@@ -1,8 +1,4 @@
-import { Alert, Box, Center, Container, Loader, Stack } from '@mantine/core';
-import {
-  IconAlertSquareRounded,
-  IconInfoSquareRounded,
-} from '@tabler/icons-react';
+import { Alert, Center, Container, Loader, Stack } from '@mantine/core';
 import { ReactFlowProvider } from '@xyflow/react';
 import { FC, useEffect, useRef } from 'react';
 
@@ -10,6 +6,7 @@ import { PipelineGraph } from './PipelineGraph';
 import { SummaryBar } from './SummaryBar';
 import { APIError } from '@/api/errors';
 import { useGeneratorStats } from '@/api/hooks/useGenerators';
+import { AlertIcon } from '@/components/ui/AlertIcon';
 import { ShowErrorDetailsAnchor } from '@/components/ui/ShowErrorDetailsAnchor';
 
 interface InstanceMetricsProps {
@@ -70,7 +67,7 @@ export const InstanceMetrics: FC<InstanceMetricsProps> = ({ instanceId }) => {
         <Container size="md">
           <Alert
             variant="default"
-            icon={<Box c="blue" component={IconInfoSquareRounded} />}
+            icon={<AlertIcon variant="info" />}
             title="Instance is not running"
           >
             The generator has stopped. Start it again to see live metrics.
@@ -83,7 +80,7 @@ export const InstanceMetrics: FC<InstanceMetricsProps> = ({ instanceId }) => {
       <Container size="md">
         <Alert
           variant="default"
-          icon={<Box c="red" component={IconAlertSquareRounded} />}
+          icon={<AlertIcon variant="error" />}
           title="Failed to load instance stats"
         >
           {statsError.message}

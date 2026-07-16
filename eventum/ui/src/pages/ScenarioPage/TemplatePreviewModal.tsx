@@ -41,7 +41,7 @@ export const TemplatePreviewModal: FC<TemplatePreviewModalProps> = ({
       <Stack gap="sm">
         {isLoading && <Loader size="sm" mx="auto" />}
         {isError && (
-          <Text size="sm" c="red">
+          <Text size="sm" c="var(--ev-bad)">
             Failed to load file: {error instanceof Error ? error.message : 'Unknown error'}
           </Text>
         )}

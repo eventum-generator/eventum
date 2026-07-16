@@ -88,7 +88,7 @@ const PluginsList = <T extends PluginType>({
       <Stack gap="xs">
         {plugins.length === 0 && (
           <Center>
-            <Text size="sm" c="gray.6">
+            <Text size="sm" c="dimmed">
               No plugins added
             </Text>
           </Center>
@@ -104,7 +104,7 @@ const PluginsList = <T extends PluginType>({
             rightSection={
               <ActionIcon
                 variant="transparent"
-                c="red"
+                c="var(--ev-bad)"
                 title="Remove"
                 size="lg"
                 onClick={(e) => {

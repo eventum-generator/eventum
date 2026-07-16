@@ -210,7 +210,7 @@ const TableRow: FC<TableRowProps> = ({ name }) => {
 
           <ActionIcon
             variant="transparent"
-            c="red"
+            c="var(--ev-bad)"
             title="Remove"
             size="lg"
             display={isEditMode ? 'none' : 'block'}

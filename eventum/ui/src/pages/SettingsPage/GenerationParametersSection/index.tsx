@@ -12,12 +12,12 @@ import {
   Tooltip,
 } from '@mantine/core';
 import { UseFormReturnType } from '@mantine/form';
-import { IconInfoCircle } from '@tabler/icons-react';
 import { FC, useState } from 'react';
 
 import { QueueSizeApproximation } from './QueueSizeApproximation';
 import { GenerationParameters } from '@/api/routes/instance/schemas';
 import { TIMEZONES } from '@/api/schemas/timezones';
+import { AlertIcon } from '@/components/ui/AlertIcon';
 import { LabelWithTooltip } from '@/components/ui/LabelWithTooltip';
 
 interface GenerationParametersSectionProps {
@@ -206,7 +206,7 @@ export const GenerationParametersSection: FC<
           </Group>
           <Alert
             variant="default"
-            icon={<Box c="blue" component={IconInfoCircle}></Box>}
+            icon={<AlertIcon variant="info" />}
             title="Batch lifecycle"
           >
             Formed batch preserve its size throughout the entire workflow of

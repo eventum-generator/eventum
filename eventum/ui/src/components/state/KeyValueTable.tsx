@@ -2,7 +2,6 @@ import {
   ActionIcon,
   Alert,
   Badge,
-  Box,
   Group,
   Menu,
   Pagination,
@@ -17,8 +16,6 @@ import {
 import { useDisclosure } from '@mantine/hooks';
 import { modals } from '@mantine/modals';
 import {
-  IconAlertSquareRounded,
-  IconAlertTriangle,
   IconDotsVertical,
   IconEdit,
   IconEraser,
@@ -37,6 +34,7 @@ import {
   isSimpleValue,
   typeBadgeColor,
 } from './value-helpers';
+import { AlertIcon } from '@/components/ui/AlertIcon';
 import { ShowErrorDetailsAnchor } from '@/components/ui/ShowErrorDetailsAnchor';
 
 const PAGE_SIZE = 20;
@@ -260,7 +258,7 @@ export function KeyValueTable({
         {isError && (
           <Alert
             variant="default"
-            icon={<Box c="red" component={IconAlertSquareRounded} />}
+            icon={<AlertIcon variant="error" />}
             title={errorTitle}
           >
             {error?.message}
@@ -373,7 +371,7 @@ export function KeyValueTable({
                               <Menu.Divider />
                               <Menu.Item
                                 leftSection={<IconTrash size={14} />}
-                                color="red"
+                                color="var(--ev-bad)"
                                 onClick={() => handleDeleteKey(key)}
                               >
                                 Delete
@@ -407,7 +405,7 @@ export function KeyValueTable({
         {warningTitle && warningMessage && (
           <Alert
             variant="default"
-            icon={<Box c="orange" component={IconAlertTriangle} />}
+            icon={<AlertIcon variant="warn" />}
             title={warningTitle}
             p={compact ? 'xs' : undefined}
           >

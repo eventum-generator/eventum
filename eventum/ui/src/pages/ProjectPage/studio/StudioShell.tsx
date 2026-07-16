@@ -1,5 +1,4 @@
-import { Alert, Box, Text } from '@mantine/core';
-import { IconAlertTriangle } from '@tabler/icons-react';
+import { Alert, Text } from '@mantine/core';
 import { CSSProperties, FC, useState } from 'react';
 
 import { CommandBar } from './CommandBar';
@@ -10,6 +9,7 @@ import { ExplorerPanel } from './panels/ExplorerPanel';
 import { InspectorPanel } from './panels/InspectorPanel';
 import './studio.css';
 import { useResizable } from './useResizable';
+import { AlertIcon } from '@/components/ui/AlertIcon';
 import { ShowErrorDetailsAnchor } from '@/components/ui/ShowErrorDetailsAnchor';
 
 type ConsoleState = 'normal' | 'collapsed' | 'maximized';
@@ -40,7 +40,7 @@ export const StudioShell: FC = () => {
         <CommandBar />
         <Alert
           variant="default"
-          icon={<Box c="red" component={IconAlertTriangle} />}
+          icon={<AlertIcon variant="error" />}
           title="Generator configuration is invalid"
         >
           <Text size="sm">

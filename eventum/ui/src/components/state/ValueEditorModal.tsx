@@ -85,7 +85,7 @@ export function ValueEditorModal({
           }}
         />
         {jsonError && (
-          <Text size="sm" c="red">
+          <Text size="sm" c="var(--ev-bad)">
             {jsonError}
           </Text>
         )}
