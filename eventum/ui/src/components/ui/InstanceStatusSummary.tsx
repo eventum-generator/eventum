@@ -2,7 +2,11 @@ import { Box, Group, Text } from '@mantine/core';
 import { FC } from 'react';
 
 import './InstanceStatusSummary.css';
-import { summarizeInstanceStatuses } from './statusPalette';
+import {
+  AGGREGATE_DOT_COLOR,
+  VARIANT_STYLE,
+  summarizeInstanceStatuses,
+} from './statusPalette';
 import { GeneratorStatus } from '@/api/routes/generators/schemas';
 
 interface ChipProps {
@@ -40,7 +44,7 @@ function Chip({ count, label, color, small = false }: Readonly<ChipProps>) {
 
 // Semantic dot color when the bucket is non-empty, faint at zero.
 const dot = (count: number, color: string) =>
-  count > 0 ? color : 'var(--ev-faint)';
+  count > 0 ? color : VARIANT_STYLE.idle.dot;
 
 interface InstanceStatusSummaryProps {
   statuses: GeneratorStatus[];
@@ -61,13 +65,13 @@ export const InstanceStatusSummary: FC<InstanceStatusSummaryProps> = ({
       <Chip
         count={s.active}
         label="active"
-        color={dot(s.active, 'var(--ev-good)')}
+        color={dot(s.active, VARIANT_STYLE.good.dot)}
       />
       <div className="iss-branch">
         <Chip
           count={s.inactive}
           label="inactive"
-          color={dot(s.inactive, 'var(--ev-muted)')}
+          color={dot(s.inactive, AGGREGATE_DOT_COLOR)}
         />
         <span className="iss-trunk" />
         <div className="iss-children">
@@ -76,7 +80,7 @@ export const InstanceStatusSummary: FC<InstanceStatusSummaryProps> = ({
               small
               count={s.finished}
               label="finished"
-              color={dot(s.finished, 'var(--ev-done-dot)')}
+              color={dot(s.finished, VARIANT_STYLE.done.dot)}
             />
           </div>
           <div className="iss-child">
@@ -84,7 +88,7 @@ export const InstanceStatusSummary: FC<InstanceStatusSummaryProps> = ({
               small
               count={s.failed}
               label="failed"
-              color={dot(s.failed, 'var(--ev-bad)')}
+              color={dot(s.failed, VARIANT_STYLE.bad.dot)}
             />
           </div>
           <div className="iss-child">
@@ -92,7 +96,7 @@ export const InstanceStatusSummary: FC<InstanceStatusSummaryProps> = ({
               small
               count={s.idle}
               label="idle"
-              color={dot(s.idle, 'var(--ev-muted)')}
+              color={dot(s.idle, VARIANT_STYLE.idle.dot)}
             />
           </div>
         </div>

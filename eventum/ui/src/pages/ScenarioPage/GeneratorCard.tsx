@@ -40,6 +40,7 @@ import { streamGeneratorLogs } from '@/api/routes/generators';
 import { GeneratorStatus } from '@/api/routes/generators/schemas';
 import { GlobalsUsage } from '@/api/routes/scenarios/schemas';
 import { LogsModal } from '@/components/modals/LogsModal';
+import { statusDotColorOrIdle } from '@/components/ui/statusPalette';
 import { describeInstanceStatus } from '@/pages/InstancesPage/InstancesTable/common/instance-status';
 import { InstanceMetrics } from '@/pages/InstancesPage/InstancesTable/metrics/InstanceMetrics';
 import { ROUTE_PATHS } from '@/routing/paths';
@@ -99,7 +100,8 @@ export const GeneratorCard: FC<GeneratorCardProps> = ({
     (status?.is_initializing ?? false) || (status?.is_stopping ?? false);
   const statusInfo = status
     ? describeInstanceStatus(status)
-    : { text: 'Inactive', color: 'gray.6' as const, processing: false };
+    : { text: 'Inactive', processing: false };
+  const dotColor = statusDotColorOrIdle(status);
 
   const hasGlobalsDetails =
     (globalsUsage?.writes.length ?? 0) > 0 ||
@@ -218,7 +220,7 @@ export const GeneratorCard: FC<GeneratorCardProps> = ({
             <Tooltip label={statusInfo.text} withArrow>
               <Box style={{ lineHeight: 0 }}>
                 <Indicator
-                  color={statusInfo.color}
+                  color={dotColor}
                   size={8}
                   position="middle-center"
                   processing={statusInfo.processing}

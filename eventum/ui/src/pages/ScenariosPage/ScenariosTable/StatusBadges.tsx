@@ -2,6 +2,10 @@ import { Group, Indicator, Text } from '@mantine/core';
 import { FC, ReactNode } from 'react';
 
 import { ScenarioRow } from './types';
+import {
+  AGGREGATE_DOT_COLOR,
+  VARIANT_STYLE,
+} from '@/components/ui/statusPalette';
 
 interface StatusBadgesProps {
   readonly row: ScenarioRow;
@@ -14,10 +18,10 @@ export const StatusBadges: FC<StatusBadgesProps> = ({ row }) => {
     parts.push(
       <Group key="running" gap="sm" align="center" wrap="nowrap">
         <Indicator
-          color="green.6"
+          color={VARIANT_STYLE.good.dot}
           size={8}
           position="middle-center"
-          />
+        />
         <Text size="sm">{row.runningCount} active</Text>
       </Group>
     );
@@ -26,7 +30,11 @@ export const StatusBadges: FC<StatusBadgesProps> = ({ row }) => {
   if (row.stoppingCount > 0) {
     parts.push(
       <Group key="stopping" gap="sm" align="center" wrap="nowrap">
-        <Indicator color="yellow.7" size={8} position="middle-center" />
+        <Indicator
+          color={VARIANT_STYLE.warn.dot}
+          size={8}
+          position="middle-center"
+        />
         <Text size="sm">{row.stoppingCount} stopping</Text>
       </Group>
     );
@@ -35,16 +43,27 @@ export const StatusBadges: FC<StatusBadgesProps> = ({ row }) => {
   if (row.initializingCount > 0) {
     parts.push(
       <Group key="initializing" gap="sm" align="center" wrap="nowrap">
-        <Indicator color="yellow.7" size={8} position="middle-center" />
+        <Indicator
+          color={VARIANT_STYLE.warn.dot}
+          size={8}
+          position="middle-center"
+        />
         <Text size="sm">{row.initializingCount} starting</Text>
       </Group>
     );
   }
 
-  if (row.stoppedCount > 0 && (row.runningCount > 0 || row.initializingCount > 0 || row.stoppingCount > 0)) {
+  if (
+    row.stoppedCount > 0 &&
+    (row.runningCount > 0 || row.initializingCount > 0 || row.stoppingCount > 0)
+  ) {
     parts.push(
       <Group key="stopped" gap="sm" align="center" wrap="nowrap">
-        <Indicator color="gray.6" size={8} position="middle-center" />
+        <Indicator
+          color={AGGREGATE_DOT_COLOR}
+          size={8}
+          position="middle-center"
+        />
         <Text size="sm">{row.stoppedCount} inactive</Text>
       </Group>
     );
@@ -53,7 +72,11 @@ export const StatusBadges: FC<StatusBadgesProps> = ({ row }) => {
   if (parts.length === 0) {
     return (
       <Group gap="sm" align="center" wrap="nowrap">
-        <Indicator color="gray.6" size={8} position="middle-center" />
+        <Indicator
+          color={AGGREGATE_DOT_COLOR}
+          size={8}
+          position="middle-center"
+        />
         <Text size="sm">Inactive</Text>
       </Group>
     );

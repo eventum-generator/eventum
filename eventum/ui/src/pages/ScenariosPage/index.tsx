@@ -37,26 +37,15 @@ import {
 } from '@/api/hooks/useGenerators';
 import { useDeleteScenarioMutation } from '@/api/hooks/useScenarios';
 import { useStartupGenerators } from '@/api/hooks/useStartup';
-import {
-  GeneratorStatus,
-  GeneratorsInfo,
-} from '@/api/routes/generators/schemas';
+import { GeneratorsInfo } from '@/api/routes/generators/schemas';
 import { StartupGeneratorParametersList } from '@/api/routes/startup/schemas';
 import { PageTitle } from '@/components/ui/PageTitle';
-
 import { ShowErrorDetailsAnchor } from '@/components/ui/ShowErrorDetailsAnchor';
+import { scenarioStatusBucket } from '@/components/ui/statusPalette';
 import {
   showErrorNotification,
   showSuccessNotification,
 } from '@/utils/notifications';
-
-function classifyStatus(status: GeneratorStatus | undefined) {
-  if (!status) return 'stopped' as const;
-  if (status.is_initializing) return 'initializing' as const;
-  if (status.is_stopping) return 'stopping' as const;
-  if (status.is_running) return 'running' as const;
-  return 'stopped' as const;
-}
 
 function deriveScenarios(
   startupEntries: StartupGeneratorParametersList,
@@ -83,7 +72,7 @@ function deriveScenarios(
     let stoppingCount = 0;
 
     for (const id of generatorIds) {
-      const classification = classifyStatus(generatorStatusMap.get(id));
+      const classification = scenarioStatusBucket(generatorStatusMap.get(id));
       if (classification === 'running') runningCount++;
       else if (classification === 'initializing') initializingCount++;
       else if (classification === 'stopping') stoppingCount++;
@@ -150,7 +139,7 @@ export default function ScenariosPage() {
       }
       return affected;
     },
-    [scenarios],
+    [scenarios]
   );
 
   const selectedScenarios = useMemo(() => {

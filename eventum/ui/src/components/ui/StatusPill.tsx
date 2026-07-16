@@ -1,11 +1,12 @@
 import { FC } from 'react';
 
+import { StatusDot } from './StatusDot';
 import { VARIANT_STYLE, statusVariant } from './statusPalette';
 import { GeneratorStatus } from '@/api/routes/generators/schemas';
 import { describeInstanceStatus } from '@/pages/InstancesPage/InstancesTable/common/instance-status';
 
 export const StatusPill: FC<{ status: GeneratorStatus }> = ({ status }) => {
-  const { text, processing } = describeInstanceStatus(status);
+  const { text } = describeInstanceStatus(status);
   const s = VARIANT_STYLE[statusVariant(status)];
 
   return (
@@ -23,15 +24,7 @@ export const StatusPill: FC<{ status: GeneratorStatus }> = ({ status }) => {
         color: s.fg,
       }}
     >
-      <span
-        style={{
-          width: 7,
-          height: 7,
-          borderRadius: '50%',
-          background: s.dot,
-          animation: processing ? 'ev-pulse 2s infinite' : undefined,
-        }}
-      />
+      <StatusDot status={status} pulse />
       {text}
     </span>
   );

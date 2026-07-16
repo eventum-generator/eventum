@@ -17,6 +17,7 @@ import { memo, useMemo } from 'react';
 
 import { collectGlobalKeys } from './globals-usage';
 import { GeneratorStatus } from '@/api/routes/generators/schemas';
+import { statusDotColor } from '@/components/ui/statusPalette';
 import { describeInstanceStatus } from '@/pages/InstancesPage/InstancesTable/common/instance-status';
 
 // ---------------------------------------------------------------------------
@@ -151,14 +152,33 @@ const InstanceNode = memo(({ data }: NodeProps<InstanceNodeType>) => (
       ...highlightBorderStyle(data.highlighted),
     }}
   >
-    <Handle type="source" position={Position.Right} id="source" style={SOURCE_HANDLE_STYLE} isConnectable={false} />
-    <Handle type="target" position={Position.Right} id="target" style={TARGET_HANDLE_STYLE} isConnectable={false} />
+    <Handle
+      type="source"
+      position={Position.Right}
+      id="source"
+      style={SOURCE_HANDLE_STYLE}
+      isConnectable={false}
+    />
+    <Handle
+      type="target"
+      position={Position.Right}
+      id="target"
+      style={TARGET_HANDLE_STYLE}
+      isConnectable={false}
+    />
     <Group gap={8} wrap="nowrap" pr={6} justify="space-between">
       <Group gap={8} wrap="nowrap">
         <IconPlayerPlay size={14} />
-        <Text size="sm" fw={500}>{data.label}</Text>
+        <Text size="sm" fw={500}>
+          {data.label}
+        </Text>
       </Group>
-      <Indicator color={data.statusColor} size={8} position="middle-center" processing={data.processing} />
+      <Indicator
+        color={data.statusColor}
+        size={8}
+        position="middle-center"
+        processing={data.processing}
+      />
     </Group>
   </Paper>
 ));
@@ -175,11 +195,25 @@ const KeyNode = memo(({ data }: NodeProps<KeyNodeType>) => (
       ...highlightBorderStyle(data.highlighted),
     }}
   >
-    <Handle type="target" position={Position.Left} id="target" style={SOURCE_HANDLE_STYLE} isConnectable={false} />
-    <Handle type="source" position={Position.Left} id="source" style={TARGET_HANDLE_STYLE} isConnectable={false} />
+    <Handle
+      type="target"
+      position={Position.Left}
+      id="target"
+      style={SOURCE_HANDLE_STYLE}
+      isConnectable={false}
+    />
+    <Handle
+      type="source"
+      position={Position.Left}
+      id="source"
+      style={TARGET_HANDLE_STYLE}
+      isConnectable={false}
+    />
     <Group gap="xs" wrap="nowrap">
       <IconDatabase size={14} />
-      <Text size="sm" ff="monospace">{data.label}</Text>
+      <Text size="sm" ff="monospace">
+        {data.label}
+      </Text>
     </Group>
   </Paper>
 ));
@@ -204,11 +238,11 @@ const INACTIVE_STATUS: GeneratorStatus = {
 function buildInstanceNodes(
   entries: DataFlowDiagramProps['scenarioEntries'],
   statusMap: DataFlowDiagramProps['generatorStatusMap'],
-  highlightedNodeId: string | null | undefined,
+  highlightedNodeId: string | null | undefined
 ): DiagramNode[] {
   return entries.map((entry, i) => {
     const status = statusMap.get(entry.id) ?? INACTIVE_STATUS;
-    const { color, processing } = describeInstanceStatus(status);
+    const { processing } = describeInstanceStatus(status);
     const nodeId = `instance-${entry.id}`;
 
     return {
@@ -217,7 +251,7 @@ function buildInstanceNodes(
       position: { x: INSTANCE_X, y: i * NODE_SPACING_Y + PADDING_TOP },
       data: {
         label: entry.id,
-        statusColor: color,
+        statusColor: statusDotColor(status),
         processing,
         highlighted: highlightedNodeId === nodeId,
       },
@@ -228,7 +262,7 @@ function buildInstanceNodes(
 
 function buildKeyNodes(
   keys: string[],
-  highlightedNodeId: string | null | undefined,
+  highlightedNodeId: string | null | undefined
 ): DiagramNode[] {
   return keys.map((key, i) => {
     const nodeId = `key-${key}`;
@@ -255,7 +289,7 @@ function resolveEdgeStyle(
   edgeId: string,
   sourceNodeId: string,
   targetNodeId: string,
-  ctx: EdgeContext,
+  ctx: EdgeContext
 ) {
   const isHighlighted =
     ctx.highlightedEdgeId === edgeId ||
@@ -263,17 +297,20 @@ function resolveEdgeStyle(
     targetNodeId === ctx.highlightedNodeId;
 
   const style = ctx.hasHighlight
-    ? isHighlighted ? HIGHLIGHTED_EDGE_STYLE : DIMMED_EDGE_STYLE
+    ? isHighlighted
+      ? HIGHLIGHTED_EDGE_STYLE
+      : DIMMED_EDGE_STYLE
     : BASE_EDGE_STYLE;
 
-  const markerColor = ctx.hasHighlight && isHighlighted ? PRIMARY_COLOR : TEXT_COLOR;
+  const markerColor =
+    ctx.hasHighlight && isHighlighted ? PRIMARY_COLOR : TEXT_COLOR;
 
   return { style, markerColor, animated: !ctx.hasHighlight || isHighlighted };
 }
 
 function buildEdges(
   globalsUsageMap: DataFlowDiagramProps['globalsUsageMap'],
-  ctx: EdgeContext,
+  ctx: EdgeContext
 ): Edge[] {
   const edges: Edge[] = [];
   const seen = new Set<string>();
@@ -289,7 +326,12 @@ function buildEdges(
 
       const source = `instance-${generatorId}`;
       const target = `key-${ref.key}`;
-      const { style, markerColor, animated } = resolveEdgeStyle(edgeId, source, target, ctx);
+      const { style, markerColor, animated } = resolveEdgeStyle(
+        edgeId,
+        source,
+        target,
+        ctx
+      );
 
       edges.push({
         id: edgeId,
@@ -312,7 +354,12 @@ function buildEdges(
 
       const source = `key-${ref.key}`;
       const target = `instance-${generatorId}`;
-      const { style, markerColor, animated } = resolveEdgeStyle(edgeId, source, target, ctx);
+      const { style, markerColor, animated } = resolveEdgeStyle(
+        edgeId,
+        source,
+        target,
+        ctx
+      );
 
       edges.push({
         id: edgeId,
@@ -333,7 +380,10 @@ function buildEdges(
 
 function computeDiagramHeight(instanceCount: number, keyCount: number): number {
   const maxCount = Math.max(instanceCount, keyCount);
-  return Math.max(MIN_DIAGRAM_HEIGHT, maxCount * NODE_SPACING_Y + DIAGRAM_BOTTOM_PADDING);
+  return Math.max(
+    MIN_DIAGRAM_HEIGHT,
+    maxCount * NODE_SPACING_Y + DIAGRAM_BOTTOM_PADDING
+  );
 }
 
 // ---------------------------------------------------------------------------
@@ -350,22 +400,33 @@ export function DataFlowDiagram({
 }: Readonly<DataFlowDiagramProps>) {
   const nodeTypes = useMemo(
     () => ({ instance: InstanceNode, key: KeyNode }),
-    [],
+    []
   );
 
   const { structuralNodes, structuralEdges, containerHeight } = useMemo(() => {
     const keyList = collectGlobalKeys(globalsUsageMap);
 
-    const instanceNodes = buildInstanceNodes(scenarioEntries, generatorStatusMap, null);
+    const instanceNodes = buildInstanceNodes(
+      scenarioEntries,
+      generatorStatusMap,
+      null
+    );
     const keyNodes = buildKeyNodes(keyList, null);
 
-    const ctx: EdgeContext = { highlightedNodeId: null, highlightedEdgeId: null, hasHighlight: false };
+    const ctx: EdgeContext = {
+      highlightedNodeId: null,
+      highlightedEdgeId: null,
+      hasHighlight: false,
+    };
     const flowEdges = buildEdges(globalsUsageMap, ctx);
 
     return {
       structuralNodes: [...instanceNodes, ...keyNodes],
       structuralEdges: flowEdges,
-      containerHeight: computeDiagramHeight(scenarioEntries.length, keyList.length),
+      containerHeight: computeDiagramHeight(
+        scenarioEntries.length,
+        keyList.length
+      ),
     };
   }, [scenarioEntries, generatorStatusMap, globalsUsageMap]);
 
@@ -382,7 +443,7 @@ export function DataFlowDiagram({
           opacity: highlightedNodeId && node.id !== highlightedNodeId ? 0.3 : 1,
         },
       })),
-    [structuralNodes, highlightedNodeId],
+    [structuralNodes, highlightedNodeId]
   );
 
   const edges = useMemo(
@@ -391,15 +452,18 @@ export function DataFlowDiagram({
         ...edge,
         style: {
           ...edge.style,
-          opacity: highlightedEdgeId && edge.id !== highlightedEdgeId ? 0.15 : 1,
+          opacity:
+            highlightedEdgeId && edge.id !== highlightedEdgeId ? 0.15 : 1,
           stroke:
             edge.id === highlightedEdgeId
               ? 'var(--mantine-primary-color-filled)'
               : edge.style?.stroke,
         },
-        animated: highlightedEdgeId ? edge.id === highlightedEdgeId : edge.animated,
+        animated: highlightedEdgeId
+          ? edge.id === highlightedEdgeId
+          : edge.animated,
       })),
-    [structuralEdges, highlightedEdgeId],
+    [structuralEdges, highlightedEdgeId]
   );
 
   function handleNodeClick(_: React.MouseEvent, node: Node) {
@@ -412,7 +476,9 @@ export function DataFlowDiagram({
     <Paper withBorder p="md">
       <Group gap="xs" mb="sm">
         <IconRoute size={18} />
-        <Title order={5} fw="normal">Data Flow</Title>
+        <Title order={5} fw="normal">
+          Data Flow
+        </Title>
       </Group>
       <style>{REACT_FLOW_CONTROLS_CSS}</style>
       <div style={{ height: containerHeight }}>

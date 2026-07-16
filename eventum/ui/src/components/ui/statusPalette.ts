@@ -3,8 +3,9 @@ import { describeInstanceStatus } from '@/pages/InstancesPage/InstancesTable/com
 
 export type Variant = 'good' | 'warn' | 'bad' | 'done' | 'idle';
 
-// Map the existing status text to one token-driven variant, replacing the
-// raw-hex colors in instance-status.ts with the unified semantic palette.
+// Map the status text from instance-status.ts to one token-driven variant.
+// This table is the only place a status's color is decided; instance-
+// status.ts only classifies the text/processing flag, not the color.
 // "done" is a terminal-success state at rest - it must read as calmer than
 // the live "good" (Active) so a finished instance is not mistaken for a
 // running one.
@@ -48,6 +49,11 @@ export const VARIANT_STYLE: Record<
   },
 };
 
+/** Neutral dot color for aggregate buckets that mix several variants
+ *  (e.g. an "inactive" total spanning finished + failed + idle) and
+ *  therefore don't map to a single Variant. */
+export const AGGREGATE_DOT_COLOR = 'var(--ev-muted)';
+
 export function statusVariant(status: GeneratorStatus): Variant {
   const { text } = describeInstanceStatus(status);
   return TEXT_TO_VARIANT[text] ?? 'idle';
@@ -57,6 +63,14 @@ export function statusVariant(status: GeneratorStatus): Variant {
  *  Shared by the status pill and the instance badges. */
 export function statusDotColor(status: GeneratorStatus): string {
   return VARIANT_STYLE[statusVariant(status)].dot;
+}
+
+/** Dot color for an instance status that may not be known yet (e.g. data
+ *  still loading). A missing status renders the idle color. */
+export function statusDotColorOrIdle(
+  status: GeneratorStatus | undefined
+): string {
+  return status ? statusDotColor(status) : VARIANT_STYLE.idle.dot;
 }
 
 export type StatusLeaf = 'active' | 'finished' | 'failed' | 'idle';
@@ -73,6 +87,26 @@ export function instanceStatusLeaf(status: GeneratorStatus): StatusLeaf {
     return status.is_ended_up_successfully ? 'finished' : 'failed';
   }
   return 'idle';
+}
+
+export type ScenarioStatusBucket =
+  | 'running'
+  | 'initializing'
+  | 'stopping'
+  | 'stopped';
+
+/** Classify a status into the 4 buckets the Scenarios table needs, keeping
+ *  "initializing"/"stopping" visible on their own instead of folding them
+ *  into instanceStatusLeaf's coarser "active". A missing status (generator
+ *  not found) counts as stopped. */
+export function scenarioStatusBucket(
+  status: GeneratorStatus | undefined
+): ScenarioStatusBucket {
+  if (!status) return 'stopped';
+  if (status.is_initializing) return 'initializing';
+  if (status.is_stopping) return 'stopping';
+  if (status.is_running) return 'running';
+  return 'stopped';
 }
 
 export interface InstanceStatusCounts {

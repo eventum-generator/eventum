@@ -4,24 +4,20 @@ import { Link } from 'react-router-dom';
 
 import { useGenerators } from '@/api/hooks/useGenerators';
 import { GeneratorStatus } from '@/api/routes/generators/schemas';
-import { statusDotColor } from '@/components/ui/statusPalette';
+import { StatusDot } from '@/components/ui/StatusDot';
 import { ROUTE_PATHS } from '@/routing/paths';
 
 const MAX_SHOWN = 3;
 
-function Dot({ color }: Readonly<{ color: string }>) {
-  return (
-    <span
-      style={{
-        display: 'block',
-        width: 7,
-        height: 7,
-        borderRadius: '50%',
-        background: color,
-      }}
-    />
-  );
-}
+// Synthetic status for the overflow badge's dot: it does not represent one
+// real instance, only the fact that at least one hidden instance is running.
+const RUNNING_STATUS: GeneratorStatus = {
+  is_initializing: false,
+  is_running: true,
+  is_stopping: false,
+  is_ended_up: false,
+  is_ended_up_successfully: false,
+};
 
 /**
  * Instance chips for a project row. Each chip links to that instance's page
@@ -63,11 +59,7 @@ export const InstanceBadges: FC<{ ids: string[] }> = ({ ids }) => {
             to={`${ROUTE_PATHS.INSTANCES}/${id}`}
             className="ev-instance-chip"
             variant="default"
-            leftSection={
-              <Dot
-                color={status ? statusDotColor(status) : 'var(--ev-faint)'}
-              />
-            }
+            leftSection={<StatusDot status={status} />}
           >
             {id}
           </Badge>
@@ -78,7 +70,7 @@ export const InstanceBadges: FC<{ ids: string[] }> = ({ ids }) => {
           className="ev-instance-chip ev-chip-more"
           variant="default"
           leftSection={
-            hiddenHasRunning ? <Dot color="var(--ev-good)" /> : undefined
+            hiddenHasRunning ? <StatusDot status={RUNNING_STATUS} /> : undefined
           }
         >
           +{hidden.length}
