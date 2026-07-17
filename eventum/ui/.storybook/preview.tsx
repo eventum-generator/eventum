@@ -8,6 +8,12 @@ import { useEffect } from 'react';
 
 import { theme } from '../src/theme';
 
+// Docs-only pages (Foundations/*) render without the story decorators below,
+// so nothing would set the colour scheme and every --ev-* token would resolve
+// to nothing. Seed the toolbar's default scheme at preview load; the decorator
+// still overrides it per-story whenever the Light/Dark control changes.
+document.documentElement.dataset.mantineColorScheme = 'dark';
+
 /** Only the two forced schemes the toolbar offers - never 'auto', which
  *  `MantineProvider.forceColorScheme` does not accept. */
 type ForcedColorScheme = 'light' | 'dark';
@@ -51,7 +57,16 @@ const preview: Preview = {
             <Notifications />
             <ModalsProvider>
               <ContextMenuProvider>
-                <Story />
+                {/* Every story sits on the real app canvas so components read
+                    in the active scheme, not on Storybook's white docs paper. */}
+                <div
+                  style={{
+                    background: 'var(--ev-bg)',
+                    padding: 'var(--ev-space-6)',
+                  }}
+                >
+                  <Story />
+                </div>
               </ContextMenuProvider>
             </ModalsProvider>
           </MantineProvider>

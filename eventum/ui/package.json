@@ -62,6 +62,7 @@
   "devDependencies": {
     "@eslint/js": "^9.30.0",
     "@storybook/addon-a11y": "10.5.2",
+    "@storybook/addon-docs": "10.5.2",
     "@storybook/react-vite": "10.5.2",
     "@tanstack/react-query-devtools": "^5.90.2",
     "@trivago/prettier-plugin-sort-imports": "^5.2.2",
