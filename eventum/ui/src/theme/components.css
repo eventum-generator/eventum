@@ -26,19 +26,17 @@
   border-color: var(--ev-accent);
 }
 
-/* Buttons */
+/* Buttons keep only the house radius and weight; primary / danger / subtle /
+   gradient colours and all states (hover, active, disabled, loading) are
+   Mantine's own, driven by the primary and red scales in theme/index.ts. */
 .mantine-Button-root {
   border-radius: 9px;
   font-weight: 600;
 }
-.mantine-Button-root[data-variant='default'] {
-  background-color: var(--ev-surface);
-  border-color: var(--ev-border);
-  color: var(--ev-text);
-}
-.mantine-Button-root[data-variant='default']:hover {
-  border-color: var(--ev-border-strong);
-}
+/* Secondary (default variant) fill/hover/label all come from the variant
+   resolver in theme/index.ts (flat muted grey; red-tinted for the medium
+   danger `color="red"`). Mantine's native default (white / off-token grey)
+   would blend on our recessed canvas + raised panels. */
 
 /* Focus ring accent everywhere */
 :where(*):focus-visible {
@@ -118,9 +116,14 @@
   box-shadow: var(--ev-shadow);
 }
 .mantine-Menu-item:hover,
-.mantine-Combobox-option:hover,
+.mantine-Combobox-option:hover {
+  /* Keep the dropdown surface as the base (neutralise Mantine's own grey
+     hover), then add our theme-correct state layer on top. */
+  background-color: var(--ev-surface);
+  background-image: linear-gradient(var(--ev-hover), var(--ev-hover));
+}
 .mantine-Combobox-option[data-combobox-selected] {
-  background-color: var(--ev-surface-2);
+  background-color: var(--ev-accent-soft);
 }
 
 /* Modal */
@@ -267,15 +270,32 @@ a.mantine-Badge-root:hover {
   cursor: not-allowed;
 }
 
-/* Disabled buttons / icon buttons: dim on native tokens, not Mantine grey */
-.mantine-Button-root:disabled,
-.mantine-Button-root[data-disabled] {
-  background-color: var(--ev-surface-2);
-  border-color: var(--ev-border);
+/* Disabled - a faint label + not-allowed cursor on every button. A muted
+   surface is added ONLY for variants that carry a fill at rest (primary,
+   secondary, danger); ghost variants (subtle / danger subtle) stay fill-less,
+   matching their transparent rest. Loading is excluded - it keeps its colour +
+   spinner (a busy state, not a disabled one). */
+.mantine-Button-root:disabled:not([data-loading]),
+.mantine-Button-root[data-disabled]:not([data-loading]) {
   color: var(--ev-faint);
+  cursor: not-allowed;
 }
-.mantine-ActionIcon-root:disabled,
-.mantine-ActionIcon-root[data-disabled] {
+/* Filled/secondary disabled: muted surface (specificity 0,5,0 beats the
+   [data-variant='default'] rule so a disabled secondary dims instead of
+   keeping its rest colours). */
+.mantine-Button-root:not([data-variant='subtle']):not([data-variant='gradient']):disabled:not([data-loading]),
+.mantine-Button-root:not([data-variant='subtle']):not([data-variant='gradient'])[data-disabled]:not([data-loading]) {
+  background-color: var(--ev-disabled-bg);
+  border-color: transparent;
+}
+/* Ghost (subtle) disabled: no fill, just the faint label. */
+.mantine-Button-root[data-variant='subtle']:disabled:not([data-loading]),
+.mantine-Button-root[data-variant='subtle'][data-disabled]:not([data-loading]) {
+  background-color: transparent;
+}
+/* Icon buttons have no fill to mute - dim the glyph instead. */
+.mantine-ActionIcon-root:disabled:not([data-loading]),
+.mantine-ActionIcon-root[data-disabled]:not([data-loading]) {
   background-color: transparent;
   color: var(--ev-faint);
 }
@@ -322,6 +342,12 @@ a.ev-record-link:hover {
     var(--ev-grad-to) 100%
   ) !important;
 }
-.mantine-Button-root[data-variant='gradient']:hover {
-  filter: brightness(1.06);
+/* Gradient hover: the gradient itself is preserved (it lives in the
+   background-image the state-layer overlay is excluded from touching); only the
+   shade shifts, a touch brighter. */
+.mantine-Button-root[data-variant='gradient']:not([data-disabled]):not([data-loading]):hover {
+  filter: brightness(1.08);
+}
+.mantine-Button-root[data-variant='gradient']:not([data-disabled]):not([data-loading]):active {
+  filter: brightness(1.12);
 }

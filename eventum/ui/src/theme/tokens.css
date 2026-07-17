@@ -33,11 +33,31 @@
   --ev-surface-2: #f2f2f6;
   --ev-border: rgba(12, 12, 30, 0.09);
   --ev-border-strong: rgba(12, 12, 30, 0.16);
+  /* Hover state layer for menu / combobox items - darkens in light (overlay). */
+  --ev-hover: rgba(12, 12, 30, 0.1);
   --ev-text: #16161c;
   --ev-muted: #5c5c6b;
-  --ev-faint: #8a8a99;
+  --ev-faint: #6f6f7e;
   --ev-accent: #4d4de7;
   --ev-accent-soft: rgba(77, 77, 231, 0.1);
+  /* Secondary (default) - flat, borderless muted fill (shadcn-style); soft
+     hover shift. Clearly stepped off both the page bg and a panel surface. */
+  --ev-secondary-bg: #dadbe6;
+  --ev-secondary-hover: #d1d2df;
+  /* Tertiary (subtle) hover surface - NEUTRAL so the coloured label (accent or
+     red) stays legible; Mantine's default is a same-hue tint (label vanishes). */
+  --ev-subtle-hover: #e9eaf0;
+  /* Subtle label ON hover: accent kept in light (dark purple is crisp on the
+     light fill). In dark it goes neutral (light purple turns muddy). */
+  --ev-subtle-hover-fg: var(--ev-accent);
+  /* Danger tertiary hover - a warm grey (faint red hint) with a bit more body
+     so the hover reads on the light page; the red label stays readable (~4.4).
+     Doubles as the REST fill of the medium danger (default+red). */
+  --ev-danger-subtle-hover: #ece7e8;
+  /* Medium danger (default+red) hover - a notch deeper than its rest fill. */
+  --ev-danger-secondary-hover: #e6dde0;
+  /* Disabled button surface - stepped off the page so it stays visible. */
+  --ev-disabled-bg: #e2e3ea;
   --ev-cyan: #0e8a8d;
   --ev-good: #1a7f37;
   --ev-warn: #9a6700;
@@ -65,11 +85,32 @@
   --ev-surface-2: #1c1c23;
   --ev-border: rgba(255, 255, 255, 0.08);
   --ev-border-strong: rgba(255, 255, 255, 0.14);
+  /* Hover state layer for menu / combobox items - lightens in dark (overlay). */
+  --ev-hover: rgba(255, 255, 255, 0.12);
   --ev-text: #ececf1;
   --ev-muted: #9a9aa7;
-  --ev-faint: #6a6a78;
+  --ev-faint: #8a8a98;
   --ev-accent: #7c7bf5;
   --ev-accent-soft: rgba(124, 123, 245, 0.14);
+  /* Secondary (default) - flat, borderless muted fill (shadcn-style); soft
+     hover shift. Stepped off both the page bg and a panel surface. */
+  --ev-secondary-bg: #26262f;
+  --ev-secondary-hover: #30303c;
+  /* Tertiary (subtle) hover surface - NEUTRAL so the coloured label (accent or
+     red) stays legible; Mantine's default is a same-hue tint (label vanishes). */
+  --ev-subtle-hover: #202028;
+  /* Subtle label ON hover: neutral in dark (a light purple would turn muddy on
+     the dark fill); light theme keeps the accent instead. */
+  --ev-subtle-hover-fg: var(--ev-text);
+  /* Danger tertiary hover - dark red-tinted fill. R clearly above G, and G=B so
+     the hue is red (a brown reads when G>B); dark + low-sat so it is not garish.
+     Red label #f85149 stays legible (~4.7). Doubles as the REST fill of the
+     medium danger (default+red). */
+  --ev-danger-subtle-hover: #301f1f;
+  /* Medium danger (default+red) hover - a notch deeper than its rest fill. */
+  --ev-danger-secondary-hover: #382626;
+  /* Disabled button surface - stepped off the page so it stays visible. */
+  --ev-disabled-bg: #1c1c23;
   --ev-cyan: #69ced0;
   --ev-good: #3fb950;
   --ev-warn: #d29922;
