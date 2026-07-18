@@ -2,7 +2,11 @@ import { Group, Paper, Text } from '@mantine/core';
 import { Handle, type Node, type NodeProps, Position } from '@xyflow/react';
 import { memo } from 'react';
 
-import { HANDLE_Y, NODE_WIDTH, type PipelineNodeData } from '../utils/layoutNodes';
+import {
+  HANDLE_Y,
+  NODE_WIDTH,
+  type PipelineNodeData,
+} from '../utils/layoutNodes';
 import { PLUGINS_INFO } from '@/api/routes/generator-configs/modules/plugins/registry';
 
 type PipelineNodeType = Node<PipelineNodeData, 'pipelineNode'>;
@@ -15,9 +19,14 @@ const HANDLE_STYLE = {
   top: HANDLE_Y,
 } as const;
 
-function getPluginIcon(colorType: PipelineNodeData['colorType'], pluginName: string) {
+function getPluginIcon(
+  colorType: PipelineNodeData['colorType'],
+  pluginName: string
+) {
   const registry = PLUGINS_INFO[colorType];
-  const info = (registry as Record<string, { icon: React.ComponentType<{ size?: number }> }>)[pluginName];
+  const info = (
+    registry as Record<string, { icon: React.ComponentType<{ size?: number }> }>
+  )[pluginName];
   return info?.icon;
 }
 
@@ -51,7 +60,11 @@ export const PipelineNode = memo(function PipelineNode({
           <Text size="xs" c="dimmed">
             {metric.label}
           </Text>
-          <Text size="xs" fw={600} c={metric.isError ? 'red' : undefined}>
+          <Text
+            size="xs"
+            fw={600}
+            c={metric.isError ? 'var(--ev-bad)' : undefined}
+          >
             {metric.value}
           </Text>
         </Group>

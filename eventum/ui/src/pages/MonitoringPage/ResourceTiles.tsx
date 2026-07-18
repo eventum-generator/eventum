@@ -41,7 +41,7 @@ const Tile: FC<{
       <Group justify="space-between" wrap="nowrap">
         <Group gap={7} wrap="nowrap">
           {icon}
-          <Text size="xs" tt="uppercase" lts="1px" fw={600} c="dimmed">
+          <Text size="xs" tt="uppercase" lts="1.5px" fw={600} c="dimmed">
             {label}
           </Text>
         </Group>

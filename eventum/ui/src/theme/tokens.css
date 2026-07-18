@@ -69,7 +69,7 @@
   --ev-info-soft: rgba(25, 113, 194, 0.1);
   /* "done" - terminal success at rest: a dark, unlit green (like a
      switched-off green LED), distinct from the lit "good" green. */
-  --ev-done-bg: #cbd8ce;
+  --ev-done-bg: #bec7c0;
   --ev-done-fg: #14401f;
   --ev-done-dot: #14401f;
   --ev-shadow:

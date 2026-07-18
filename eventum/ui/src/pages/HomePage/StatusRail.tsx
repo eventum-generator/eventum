@@ -110,17 +110,11 @@ export const StatusRail: FC<StatusRailProps> = ({
                     key={g.id}
                     component={Link}
                     to={`${ROUTE_PATHS.INSTANCES}/${g.id}`}
+                    className="ev-row-button"
                     p="xs"
                     style={{
                       borderRadius: 'var(--mantine-radius-sm)',
                       color: 'inherit',
-                    }}
-                    styles={{
-                      root: {
-                        '&:hover': {
-                          backgroundColor: 'var(--ev-hover)',
-                        },
-                      },
                     }}
                   >
                     <Group gap="sm" justify="space-between" wrap="nowrap">

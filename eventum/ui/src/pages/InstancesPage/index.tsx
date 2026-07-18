@@ -42,11 +42,16 @@ import { AlertIcon } from '@/components/ui/AlertIcon';
 import { PageTitle } from '@/components/ui/PageTitle';
 import { ShowErrorDetailsAnchor } from '@/components/ui/ShowErrorDetailsAnchor';
 import { CONFIRM } from '@/theme/copy';
+import { useTableQueryParams } from '@/utils/useTableQueryParams';
 
 export default function InstancesPage() {
-  const [instanceFilter, setInstanceFilter] = useState('');
-  const [projectNameFilter, setProjectNameFilter] = useState('');
-  const [statusMode, setStatusMode] = useState<StatusMode>('all');
+  const { searchParams, setParams } = useTableQueryParams();
+  const instanceFilter = searchParams.get('instance') ?? '';
+  const projectNameFilter = searchParams.get('project') ?? '';
+  const rawStatus = searchParams.get('status');
+  const statusMode: StatusMode =
+    rawStatus === 'running' || rawStatus === 'inactive' ? rawStatus : 'all';
+
   const [rowSelection, setRowSelection] = useState<RowSelectionState>({});
   const [refreshTurns, setRefreshTurns] = useState(0);
 
@@ -336,7 +341,7 @@ export default function InstancesPage() {
                   rightSection={
                     <ActionIcon
                       variant="transparent"
-                      onClick={() => setInstanceFilter('')}
+                      onClick={() => setParams({ instance: null })}
                       data-input-section
                     >
                       <IconX size={16} />
@@ -344,14 +349,16 @@ export default function InstancesPage() {
                   }
                   placeholder="search by instance..."
                   value={instanceFilter}
-                  onChange={(event) => setInstanceFilter(event.target.value)}
+                  onChange={(event) =>
+                    setParams({ instance: event.target.value || null })
+                  }
                 />
                 <TextInput
                   leftSection={<IconSearch size={16} />}
                   rightSection={
                     <ActionIcon
                       variant="transparent"
-                      onClick={() => setProjectNameFilter('')}
+                      onClick={() => setParams({ project: null })}
                       data-input-section
                     >
                       <IconX size={16} />
@@ -359,11 +366,15 @@ export default function InstancesPage() {
                   }
                   placeholder="search by project..."
                   value={projectNameFilter}
-                  onChange={(event) => setProjectNameFilter(event.target.value)}
+                  onChange={(event) =>
+                    setParams({ project: event.target.value || null })
+                  }
                 />
                 <SegmentedControl
                   value={statusMode}
-                  onChange={(value) => setStatusMode(value as StatusMode)}
+                  onChange={(value) =>
+                    setParams({ status: value === 'all' ? null : value })
+                  }
                   data={[
                     { label: 'All', value: 'all' },
                     { label: 'Running', value: 'running' },
@@ -422,7 +433,7 @@ export default function InstancesPage() {
                       })
                     }
                   >
-                    <Box c={hasSelection ? 'red' : undefined}>
+                    <Box c={hasSelection ? 'var(--ev-bad)' : undefined}>
                       <IconTrash size={18} />
                     </Box>
                   </ActionIcon>

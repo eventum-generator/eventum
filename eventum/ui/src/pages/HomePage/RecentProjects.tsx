@@ -54,17 +54,11 @@ export const RecentProjects: FC<RecentProjectsProps> = ({ generatorDirs }) => {
                   to={generatePath(ROUTE_PATHS.PROJECT, {
                     projectName: project.name,
                   })}
+                  className="ev-row-button"
                   p="xs"
                   style={{
                     borderRadius: 'var(--mantine-radius-sm)',
                     color: 'inherit',
-                  }}
-                  styles={{
-                    root: {
-                      '&:hover': {
-                        backgroundColor: 'var(--ev-hover)',
-                      },
-                    },
                   }}
                 >
                   <Group gap="sm" justify="space-between" wrap="nowrap">

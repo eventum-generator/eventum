@@ -46,18 +46,12 @@ export const ExploreNav: FC = () => {
             withBorder
             radius="md"
             p="md"
+            className="ev-tile-button"
             style={{
               cursor: 'pointer',
               transition: 'border-color 150ms ease',
               color: 'inherit',
               textDecoration: 'none',
-            }}
-            styles={{
-              root: {
-                '&:hover': {
-                  borderColor: 'var(--mantine-primary-color-filled)',
-                },
-              },
             }}
           >
             <Group gap="sm" wrap="nowrap">

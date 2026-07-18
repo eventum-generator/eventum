@@ -4,9 +4,9 @@ import { createColumnHelper } from '@tanstack/react-table';
 import bytes from 'bytes';
 import { formatDistanceToNow } from 'date-fns';
 
-import { InstanceBadges } from './InstanceBadges';
 import { RowActions } from './RowActions';
 import { GeneratorDirsExtendedInfo } from '@/api/routes/generator-configs/schemas';
+import { InstanceBadges } from '@/components/ui/InstanceBadges';
 import { RecordNameLink } from '@/components/ui/RecordNameLink';
 import { ROUTE_PATHS } from '@/routing/paths';
 
@@ -52,7 +52,14 @@ export const columns = [
         rowValue.includes(selectedItem)
       );
     },
-    cell: (info) => <InstanceBadges ids={info.getValue()} />,
+    cell: (info) => (
+      <InstanceBadges
+        ids={info.getValue()}
+        moreTo={`${ROUTE_PATHS.INSTANCES}?project=${encodeURIComponent(
+          info.row.original.name
+        )}`}
+      />
+    ),
   }),
   columnHelper.accessor('last_modified', {
     header: 'Modified',

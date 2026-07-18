@@ -2,17 +2,30 @@
 /* Semantic text shades (c="red", light variants) tuned for legibility on our
    themes. Set after Mantine's own styles, so source order wins - no !important.
    Per-component colour-var overrides live in theme/components.css. */
+/* --mantine-color-error: Mantine sets it per-scheme to a dark red shade (red-8
+   in dark = #620f16) that reads as muddy maroon on the dark canvas. Point it at
+   the theme-aware bad red (bright #f85149 on dark, calm #cf222e on light) so
+   input borders, error messages and required asterisks stay legible. Must live
+   on the per-scheme selector to beat Mantine's own per-scheme default. */
 :root[data-mantine-color-scheme='light'] {
-  --mantine-color-red-text: var(--mantine-color-red-7);
+  /* Drive Mantine's base text + dimmed off our tokens so ALL text (titles,
+     body, labels) matches the design system, not Mantine's stock #000/grey. */
+  --mantine-color-text: var(--ev-text);
+  --mantine-color-dimmed: var(--ev-muted);
+  --mantine-color-red-text: var(--ev-bad);
   --mantine-color-blue-text: var(--mantine-color-blue-6);
   --mantine-color-orange-text: var(--mantine-color-orange-5);
   --mantine-color-green-text: var(--mantine-color-green-6);
+  --mantine-color-error: var(--ev-bad);
 }
 
 :root[data-mantine-color-scheme='dark'] {
-  --mantine-color-red-text: var(--mantine-color-red-5);
+  --mantine-color-text: var(--ev-text);
+  --mantine-color-dimmed: var(--ev-muted);
+  --mantine-color-red-text: var(--ev-bad);
   --mantine-color-green-text: var(--mantine-color-green-5);
   --mantine-color-primary-text: var(--mantine-color-primary-3);
+  --mantine-color-error: var(--ev-bad);
 }
 
 /* Notifications keep the brighter filled shades */

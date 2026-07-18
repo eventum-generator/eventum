@@ -33,7 +33,17 @@ const queryClient = new QueryClient({
 async function loadShiki() {
   const { createHighlighter } = await import('shiki');
   const shiki = await createHighlighter({
-    langs: ['csv', 'json', 'log', 'markdown', 'toml', 'tsv', 'xml', 'yaml'],
+    langs: [
+      'csv',
+      'jinja',
+      'json',
+      'log',
+      'markdown',
+      'toml',
+      'tsv',
+      'xml',
+      'yaml',
+    ],
     themes: ['dark-plus', 'light-plus'],
   });
 

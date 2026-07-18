@@ -1,4 +1,4 @@
-import { Group, Indicator, Paper, Text, Title } from '@mantine/core';
+import { Group, Indicator, Paper, Stack, Text } from '@mantine/core';
 import { IconDatabase, IconPlayerPlay, IconRoute } from '@tabler/icons-react';
 import {
   Background,
@@ -15,6 +15,7 @@ import {
 import '@xyflow/react/dist/style.css';
 import { memo, useMemo } from 'react';
 
+import { SectionHeader } from './SectionHeader';
 import { collectGlobalKeys } from './globals-usage';
 import { GeneratorStatus } from '@/api/routes/generators/schemas';
 import { REACT_FLOW_CONTROLS_CSS } from '@/components/ui/reactFlowControlsCss';
@@ -461,30 +462,27 @@ export function DataFlowDiagram({
 
   return (
     <Paper withBorder p="md">
-      <Group gap="xs" mb="sm">
-        <IconRoute size={18} />
-        <Title order={5} fw="normal">
-          Data Flow
-        </Title>
-      </Group>
       <style>{REACT_FLOW_CONTROLS_CSS}</style>
-      <div style={{ height: containerHeight }}>
-        <ReactFlow
-          nodes={nodes}
-          edges={edges}
-          nodeTypes={nodeTypes}
-          nodesDraggable={false}
-          nodesConnectable={false}
-          elementsSelectable={false}
-          onNodeClick={handleNodeClick}
-          fitView
-          fitViewOptions={{ padding: 0.5 }}
-          proOptions={{ hideAttribution: true }}
-        >
-          <Background variant={BackgroundVariant.Dots} gap={16} size={1} />
-          <Controls showInteractive={false} />
-        </ReactFlow>
-      </div>
+      <Stack gap="sm">
+        <SectionHeader icon={<IconRoute size={18} />} title="Data Flow" />
+        <div style={{ height: containerHeight }}>
+          <ReactFlow
+            nodes={nodes}
+            edges={edges}
+            nodeTypes={nodeTypes}
+            nodesDraggable={false}
+            nodesConnectable={false}
+            elementsSelectable={false}
+            onNodeClick={handleNodeClick}
+            fitView
+            fitViewOptions={{ padding: 0.5 }}
+            proOptions={{ hideAttribution: true }}
+          >
+            <Background variant={BackgroundVariant.Dots} gap={16} size={1} />
+            <Controls showInteractive={false} />
+          </ReactFlow>
+        </div>
+      </Stack>
     </Paper>
   );
 }

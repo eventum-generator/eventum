@@ -15,7 +15,7 @@ import {
 } from '@mantine/core';
 import { modals } from '@mantine/modals';
 import { IconSearch, IconX } from '@tabler/icons-react';
-import { useState } from 'react';
+import { useMemo } from 'react';
 
 import { CreateProjectModal } from './CreateProjectModal';
 import { GeneratorDirsTable, UsageMode } from './GeneratorDirsTable';
@@ -24,11 +24,18 @@ import { useGeneratorDirs } from '@/api/hooks/useGeneratorConfigs';
 import { AlertIcon } from '@/components/ui/AlertIcon';
 import { PageTitle } from '@/components/ui/PageTitle';
 import { ShowErrorDetailsAnchor } from '@/components/ui/ShowErrorDetailsAnchor';
+import { useTableQueryParams } from '@/utils/useTableQueryParams';
 
 export default function ProjectsPage() {
-  const [projectNameFilter, setProjectNameFilter] = useState('');
-  const [instanceFilter, setInstanceFilter] = useState<string[]>([]);
-  const [usageMode, setUsageMode] = useState<UsageMode>('all');
+  const { searchParams, setParams } = useTableQueryParams();
+  const projectNameFilter = searchParams.get('q') ?? '';
+  const rawUsage = searchParams.get('usage');
+  const usageMode: UsageMode =
+    rawUsage === 'used' || rawUsage === 'unused' ? rawUsage : 'all';
+  const instanceFilter = useMemo(() => {
+    const raw = searchParams.get('instances');
+    return raw ? raw.split(',').filter(Boolean) : [];
+  }, [searchParams]);
 
   const {
     data: generatorDirs,
@@ -112,7 +119,7 @@ export default function ProjectsPage() {
                   rightSection={
                     <ActionIcon
                       variant="transparent"
-                      onClick={() => setProjectNameFilter('')}
+                      onClick={() => setParams({ q: null })}
                       data-input-section
                     >
                       <IconX size={16} />
@@ -120,7 +127,9 @@ export default function ProjectsPage() {
                   }
                   placeholder="search by name..."
                   value={projectNameFilter}
-                  onChange={(event) => setProjectNameFilter(event.target.value)}
+                  onChange={(event) =>
+                    setParams({ q: event.target.value || null })
+                  }
                 />
                 <TagsInput
                   leftSection={<IconSearch size={16} />}
@@ -128,15 +137,17 @@ export default function ProjectsPage() {
                   clearable
                   data={[...uniqueInstances].sort((a, b) => a.localeCompare(b))}
                   value={instanceFilter}
-                  onChange={(values) => setInstanceFilter(values)}
+                  onChange={(values) => setParams({ instances: values })}
                   disabled={usageMode === 'unused'}
                 />
                 <SegmentedControl
                   value={usageMode}
                   onChange={(value) => {
                     const mode = value as UsageMode;
-                    setUsageMode(mode);
-                    if (mode === 'unused') setInstanceFilter([]);
+                    setParams({
+                      usage: mode === 'all' ? null : mode,
+                      ...(mode === 'unused' ? { instances: null } : {}),
+                    });
                   }}
                   data={[
                     { label: 'All', value: 'all' },

@@ -29,7 +29,7 @@ interface StageModel {
 const Label: FC<{ icon: Icon; name: string }> = ({ icon: StageIcon, name }) => (
   <Group gap={7} wrap="nowrap" align="center">
     <StageIcon size={15} stroke={1.6} color="var(--ev-muted)" />
-    <Text size="xs" tt="uppercase" lts="1px" fw={600} c="dimmed">
+    <Text size="xs" tt="uppercase" lts="1.5px" fw={600} c="dimmed">
       {name}
     </Text>
   </Group>

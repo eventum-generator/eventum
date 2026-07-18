@@ -9,6 +9,7 @@ import {
   List,
   Loader,
   Paper,
+  SegmentedControl,
   Stack,
   Text,
   TextInput,
@@ -23,10 +24,11 @@ import {
   IconX,
 } from '@tabler/icons-react';
 import { RowSelectionState } from '@tanstack/react-table';
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useMemo, useRef, useState } from 'react';
 
 import { CreateScenarioModal } from './CreateScenarioModal';
-import { ScenariosTable } from './ScenariosTable';
+import { ScenariosEmptyState } from './ScenariosEmptyState';
+import { ScenarioStatusMode, ScenariosTable } from './ScenariosTable';
 import { ScenarioRow } from './ScenariosTable/types';
 import {
   useBulkStartGeneratorMutation,
@@ -46,6 +48,7 @@ import {
   showErrorNotification,
   showSuccessNotification,
 } from '@/utils/notifications';
+import { useTableQueryParams } from '@/utils/useTableQueryParams';
 
 function deriveScenarios(
   startupEntries: StartupGeneratorParametersList,
@@ -94,14 +97,21 @@ function deriveScenarios(
 }
 
 export default function ScenariosPage() {
-  const [nameFilter, setNameFilter] = useState('');
+  const { searchParams, setParams } = useTableQueryParams();
+  const nameFilter = searchParams.get('q') ?? '';
+  const rawStatus = searchParams.get('status');
+  const statusMode: ScenarioStatusMode =
+    rawStatus === 'running' || rawStatus === 'inactive' ? rawStatus : 'all';
+
   const [rowSelection, setRowSelection] = useState<RowSelectionState>({});
+  const [refreshTurns, setRefreshTurns] = useState(0);
 
   const {
     data: startupEntries,
     isLoading: isStartupLoading,
     isError: isStartupError,
     error: startupError,
+    refetch: refetchStartup,
   } = useStartupGenerators();
 
   const {
@@ -128,10 +138,17 @@ export default function ScenariosPage() {
     return deriveScenarios(startupEntries, generators);
   }, [startupEntries, generators]);
 
+  // Keep the latest scenarios in a ref so getAffectedScenarios stays a stable
+  // callback. If its identity changed per fetch, the table columns (built from
+  // it) would rebuild every render, remounting the InstanceBadges cells and
+  // refetching generators in a loop (useGenerators has no staleTime).
+  const scenariosRef = useRef(scenarios);
+  scenariosRef.current = scenarios;
+
   const getAffectedScenarios = useCallback(
     (scenarioName: string, generatorIds: string[]) => {
       const affected: string[] = [];
-      for (const row of scenarios) {
+      for (const row of scenariosRef.current) {
         if (row.name === scenarioName) continue;
         if (row.generatorIds.some((id) => generatorIds.includes(id))) {
           affected.push(row.name);
@@ -139,13 +156,17 @@ export default function ScenariosPage() {
       }
       return affected;
     },
-    [scenarios]
+    []
   );
 
+  // Row ids are the scenario names (via getRowId in the table), so the
+  // selection keys are names directly - map them back and drop any that no
+  // longer exist.
   const selectedScenarios = useMemo(() => {
+    const byName = new Map(scenarios.map((row) => [row.name, row]));
     return Object.keys(rowSelection)
-      .map((rowId) => scenarios[Number(rowId)])
-      .filter((row) => row !== undefined);
+      .map((name) => byName.get(name))
+      .filter((row): row is ScenarioRow => row !== undefined);
   }, [rowSelection, scenarios]);
 
   const selectedGeneratorIds = useMemo(() => {
@@ -284,10 +305,38 @@ export default function ScenariosPage() {
     );
   }
 
+  const openCreateModal = () =>
+    modals.open({
+      title: 'Create scenario',
+      children: <CreateScenarioModal />,
+      size: 'lg',
+    });
+
+  const total = scenarios.length;
+
+  if (total === 0) {
+    return (
+      <Container size="100%">
+        <Stack>
+          <PageTitle title="Scenarios" />
+          <ScenariosEmptyState onCreate={openCreateModal} />
+        </Stack>
+      </Container>
+    );
+  }
+
+  const active = scenarios.filter((row) => row.runningCount > 0).length;
+  const hasSelection = selectedScenarios.length > 0;
+
   return (
     <Container size="100%">
       <Stack>
-        <PageTitle title="Scenarios" />
+        <Group align="baseline" gap="sm">
+          <PageTitle title="Scenarios" />
+          <Text size="sm" c="dimmed">
+            {total} {total === 1 ? 'scenario' : 'scenarios'} · {active} active
+          </Text>
+        </Group>
 
         <Paper withBorder p="sm">
           <Group justify="space-between">
@@ -297,7 +346,7 @@ export default function ScenariosPage() {
                 rightSection={
                   <ActionIcon
                     variant="transparent"
-                    onClick={() => setNameFilter('')}
+                    onClick={() => setParams({ q: null })}
                     data-input-section
                   >
                     <IconX size={16} />
@@ -305,73 +354,81 @@ export default function ScenariosPage() {
                 }
                 placeholder="search by name..."
                 value={nameFilter}
-                onChange={(event) => setNameFilter(event.target.value)}
+                onChange={(event) =>
+                  setParams({ q: event.target.value || null })
+                }
+              />
+              <SegmentedControl
+                value={statusMode}
+                onChange={(value) =>
+                  setParams({ status: value === 'all' ? null : value })
+                }
+                data={[
+                  { label: 'All', value: 'all' },
+                  { label: 'Running', value: 'running' },
+                  { label: 'Inactive', value: 'inactive' },
+                ]}
               />
             </Group>
-            <Group gap="xs">
-              <Group gap={0}>
+            <Group gap="sm">
+              {hasSelection && (
+                <Text size="sm" c="dimmed">
+                  {selectedScenarios.length} selected
+                </Text>
+              )}
+              <ActionIcon.Group>
                 <ActionIcon
                   size="lg"
                   variant="default"
-                  title="Delete"
-                  style={{
-                    borderTopRightRadius: 0,
-                    borderBottomRightRadius: 0,
-                  }}
-                  disabled={selectedScenarios.length === 0}
-                  onClick={handleBulkDelete}
-                >
-                  <Box c={selectedScenarios.length === 0 ? undefined : 'red'}>
-                    <IconTrash size={20} />
-                  </Box>
-                </ActionIcon>
-                <ActionIcon
-                  size="lg"
-                  variant="default"
-                  title="Refresh"
-                  bdrs={0}
-                  onClick={() => void refetchGenerators()}
-                  loading={isGeneratorsLoading}
-                >
-                  <IconRefresh size={20} />
-                </ActionIcon>
-                <ActionIcon
-                  size="lg"
-                  variant="default"
-                  title="Stop"
-                  bdrs={0}
-                  disabled={selectedGeneratorIds.length === 0}
-                  loading={bulkStop.isPending}
-                  onClick={handleBulkStop}
-                >
-                  <IconPlayerStop size={20} />
-                </ActionIcon>
-                <ActionIcon
-                  size="lg"
-                  variant="default"
-                  title="Start"
-                  style={{
-                    borderTopLeftRadius: 0,
-                    borderBottomLeftRadius: 0,
-                  }}
-                  disabled={selectedGeneratorIds.length === 0}
+                  title="Start selected"
+                  disabled={!hasSelection}
                   loading={bulkStart.isPending}
                   onClick={handleBulkStart}
                 >
-                  <IconPlayerPlay size={20} />
+                  <IconPlayerPlay size={18} />
                 </ActionIcon>
-              </Group>
-              <Button
-                onClick={() =>
-                  modals.open({
-                    title: 'Create scenario',
-                    children: <CreateScenarioModal />,
-                    size: 'lg',
-                  })
-                }
+                <ActionIcon
+                  size="lg"
+                  variant="default"
+                  title="Stop selected"
+                  disabled={!hasSelection}
+                  loading={bulkStop.isPending}
+                  onClick={handleBulkStop}
+                >
+                  <IconPlayerStop size={18} />
+                </ActionIcon>
+                <ActionIcon
+                  size="lg"
+                  variant="default"
+                  title="Delete selected"
+                  disabled={!hasSelection}
+                  onClick={handleBulkDelete}
+                >
+                  <Box c={hasSelection ? 'var(--ev-bad)' : undefined}>
+                    <IconTrash size={18} />
+                  </Box>
+                </ActionIcon>
+              </ActionIcon.Group>
+              <ActionIcon
+                size="lg"
+                variant="default"
+                title="Refresh"
+                onClick={() => {
+                  setRefreshTurns((turns) => turns + 1);
+                  void refetchGenerators();
+                  void refetchStartup();
+                }}
               >
-                Create new
-              </Button>
+                <IconRefresh
+                  size={18}
+                  style={{
+                    transition:
+                      'transform 0.65s cubic-bezier(0.22, 1, 0.36, 1)',
+                    transform: `rotate(${refreshTurns * 360}deg)`,
+                  }}
+                />
+              </ActionIcon>
+              <Button onClick={openCreateModal}>Create new</Button>
             </Group>
           </Group>
         </Paper>
@@ -379,6 +436,7 @@ export default function ScenariosPage() {
         <ScenariosTable
           data={scenarios}
           nameFilter={nameFilter}
+          statusMode={statusMode}
           rowSelection={rowSelection}
           onRowSelectionChange={setRowSelection}
           getAffectedScenarios={getAffectedScenarios}

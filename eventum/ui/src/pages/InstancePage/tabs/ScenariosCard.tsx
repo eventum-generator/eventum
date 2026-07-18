@@ -94,7 +94,6 @@ export const ScenariosCard: FC<ScenariosCardProps> = ({
         <Menu.Target>
           <Button
             variant="subtle"
-            size="compact-sm"
             leftSection={<IconPlus size={16} />}
             disabled={available.length === 0}
             style={{ alignSelf: 'flex-start' }}

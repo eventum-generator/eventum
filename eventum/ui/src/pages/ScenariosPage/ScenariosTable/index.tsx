@@ -31,25 +31,52 @@ import { FC, useEffect, useMemo, useState } from 'react';
 import { createColumns } from './columns';
 import { ScenarioRow } from './types';
 
+export type ScenarioStatusMode = 'all' | 'running' | 'inactive';
+
+/** A scenario counts as running while any of its instances is live or
+ *  transitioning (running / starting / stopping). */
+function isScenarioActive(row: ScenarioRow): boolean {
+  return (
+    row.runningCount > 0 || row.initializingCount > 0 || row.stoppingCount > 0
+  );
+}
+
 interface ScenariosTableProps {
   data: ScenarioRow[];
   nameFilter?: string;
+  statusMode?: ScenarioStatusMode;
   rowSelection: RowSelectionState;
   onRowSelectionChange: React.Dispatch<React.SetStateAction<RowSelectionState>>;
-  getAffectedScenarios: (scenarioName: string, generatorIds: string[]) => string[];
+  getAffectedScenarios: (
+    scenarioName: string,
+    generatorIds: string[]
+  ) => string[];
 }
 
 export const ScenariosTable: FC<ScenariosTableProps> = ({
   data,
   nameFilter = '',
+  statusMode = 'all',
   rowSelection,
   onRowSelectionChange,
   getAffectedScenarios,
 }) => {
   const columns = useMemo(
     () => createColumns(getAffectedScenarios),
-    [getAffectedScenarios],
+    [getAffectedScenarios]
   );
+
+  // Status filtering runs here rather than through a column filter so it
+  // stays out of columns.tsx (mirrors the instances table).
+  const statusFilteredData = useMemo(() => {
+    if (statusMode === 'all') {
+      return data;
+    }
+
+    return data.filter((row) =>
+      statusMode === 'running' ? isScenarioActive(row) : !isScenarioActive(row)
+    );
+  }, [data, statusMode]);
 
   const [sorting, setSorting] = useState<SortingState>([
     { id: 'name', desc: false },
@@ -61,8 +88,9 @@ export const ScenariosTable: FC<ScenariosTableProps> = ({
   });
 
   const table = useReactTable({
-    data,
+    data: statusFilteredData,
     columns,
+    getRowId: (row) => row.name,
     state: { sorting, columnFilters, pagination, rowSelection },
     onSortingChange: setSorting,
     onColumnFiltersChange: setColumnFilters,
@@ -82,7 +110,7 @@ export const ScenariosTable: FC<ScenariosTableProps> = ({
   return (
     <Stack>
       <Paper withBorder p="sm">
-        <Table>
+        <Table bdrs="md">
           <Table.Thead>
             {table.getHeaderGroups().map((headerGroup) => (
               <Table.Tr key={headerGroup.id}>
@@ -146,26 +174,23 @@ export const ScenariosTable: FC<ScenariosTableProps> = ({
               <Table.Tr key={row.id}>
                 {row.getVisibleCells().map((cell) => (
                   <Table.Td key={cell.id}>
-                    {flexRender(
-                      cell.column.columnDef.cell,
-                      cell.getContext()
-                    )}
+                    {flexRender(cell.column.columnDef.cell, cell.getContext())}
                   </Table.Td>
                 ))}
               </Table.Tr>
             ))}
           </Table.Tbody>
         </Table>
-        {data.length === 0 && (
+        {table.getFilteredRowModel().rows.length === 0 && (
           <Center mt="xs">
             <Text size="sm" c="dimmed">
-              No scenarios
+              No scenarios match your filters
             </Text>
           </Center>
         )}
       </Paper>
 
-      {data.length > 0 && (
+      {table.getFilteredRowModel().rows.length > 0 && (
         <Group w="100%" justify="end" gap="lg">
           <Text size="sm" c="dimmed">
             Showing{' '}
@@ -188,8 +213,9 @@ export const ScenariosTable: FC<ScenariosTableProps> = ({
             <Select
               data={['10', '15', '25', '50', '100']}
               size="sm"
-              w="60px"
+              w={68}
               variant="unstyled"
+              styles={{ input: { textAlign: 'center' } }}
               value={table.getState().pagination.pageSize.toString()}
               onChange={(value) =>
                 table.setPageSize(Number.parseInt(value ?? '15'))

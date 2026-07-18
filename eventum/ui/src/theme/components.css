@@ -7,10 +7,10 @@
   background-color: var(--ev-surface);
   border-color: var(--ev-border);
 }
-/* Bordered surfaces also get the soft shadow (uniform panel depth) */
+/* Bordered surfaces also get the soft shadow (uniform panel depth). The
+   border colour already comes from the base rule above. */
 .mantine-Paper-root[data-with-border],
 .mantine-Card-root[data-with-border] {
-  border-color: var(--ev-border);
   box-shadow: var(--ev-shadow);
 }
 
@@ -25,6 +25,14 @@
 .mantine-Input-input:focus-within {
   border-color: var(--ev-accent);
 }
+/* Invalid field: red border matching the error message. Our resting
+   border-color override above would otherwise keep it neutral; this also
+   persists over the focus accent so an invalid field always reads as invalid. */
+.mantine-Input-input[data-error],
+.mantine-Input-input[data-error]:focus,
+.mantine-Input-input[data-error]:focus-within {
+  border-color: var(--mantine-color-error);
+}
 
 /* Buttons keep only the house radius and weight; primary / danger / subtle /
    gradient colours and all states (hover, active, disabled, loading) are
@@ -38,8 +46,11 @@
    danger `color="red"`). Mantine's native default (white / off-token grey)
    would blend on our recessed canvas + raised panels. */
 
-/* Focus ring accent everywhere */
-:where(*):focus-visible {
+/* Focus ring accent everywhere. The :where() rule (specificity 0,0,1) covers
+   native focusables; Mantine components carry .mantine-focus-auto with its own
+   0,2,0 ring, so match that specificity to recolour it to the accent too. */
+:where(*):focus-visible,
+.mantine-focus-auto:focus-visible {
   outline-color: var(--ev-accent);
 }
 
@@ -98,6 +109,11 @@
 /* Sidebar / nav */
 .mantine-NavLink-root {
   border-radius: 8px;
+}
+/* Inactive item hover uses the shared neutral state layer (like table rows and
+   menu items), not Mantine's primary-tinted default, so all list hovers match. */
+.mantine-NavLink-root:not([data-active]):hover {
+  background-color: var(--ev-hover);
 }
 .mantine-NavLink-root[data-active] {
   background-color: var(--ev-accent-soft);
@@ -190,10 +206,15 @@
 
 /* --- Native control surfaces (replace Mantine's default greys) --- */
 
-/* Default-variant icon buttons: match default Button chrome */
+/* Default-variant icon buttons carry a visible, consistent border in every
+   state. The theme resolver returns `border: transparent` for the default
+   variant (so secondary *buttons* stay flat) - which collapses to `border:
+   none` and would leave icon buttons borderless when enabled, while Mantine's
+   disabled state re-adds a border. Force a real 1px border here so rest, hover
+   and disabled all read the same (only the glyph dims when disabled). */
 .mantine-ActionIcon-root[data-variant='default'] {
   background-color: var(--ev-surface);
-  border-color: var(--ev-border);
+  border: 1px solid var(--ev-border-strong);
   color: var(--ev-text);
 }
 .mantine-ActionIcon-root[data-variant='default']:hover {
@@ -236,10 +257,16 @@ a.mantine-Badge-root:hover {
 }
 .ev-instance-chip .mantine-Badge-label {
   font-size: 12px;
+  font-weight: 500;
   text-transform: none;
 }
 .ev-chip-more .mantine-Badge-label {
   color: var(--ev-muted);
+}
+/* When the overflow chip is a link, its muted label brightens to accent on
+   hover like the instance chips (whose labels inherit the anchor hover). */
+a.ev-chip-more:hover .mantine-Badge-label {
+  color: var(--ev-accent);
 }
 
 /* Close buttons (modals, popovers) hover on our surface, not Mantine grey. */
@@ -252,6 +279,10 @@ a.mantine-Badge-root:hover {
   background-color: var(--ev-surface);
   border-color: var(--ev-border);
   color: var(--ev-text);
+}
+.mantine-Pagination-control:not([data-active]):hover {
+  background-color: var(--ev-surface-2);
+  border-color: var(--ev-border-strong);
 }
 
 /* Checkbox / radio / switch off-state tracks */
@@ -330,6 +361,21 @@ a.ev-record-link:hover {
   color: var(--ev-accent);
 }
 
+/* Clickable list rows (Home recent projects / instances): a neutral hover
+   state layer so the row reads as an active click target, matching table-row
+   and menu-item hover. (Mantine v8 drops the `styles={{root:{'&:hover'}}}`
+   nested-selector form, so the hover must live in real CSS.) */
+.ev-row-button {
+  transition: background-color 120ms ease;
+}
+.ev-row-button:hover {
+  background-color: var(--ev-hover);
+}
+/* Clickable tiles (Home explore): accent border on hover. */
+.ev-tile-button:hover {
+  border-color: var(--ev-accent);
+}
+
 /* Sign-in brand gradient: theme-invariant vibrant purple->cyan (logo-like),
    3-stop so cyan holds back to ~30% and only trails in as an accent, instead
    of an even 50/50 split that reads cyan-heavy. Overrides Mantine's 2-stop
@@ -385,14 +431,16 @@ a.ev-record-link:hover {
   --nl-color: var(--mantine-color-primary-5);
 }
 
-/* Links (Anchor + in-code links): deeper accent in light, lighter in dark. */
+/* Links (Anchor + in-code links): deeper accent in light, lighter in dark.
+   The var is set on the element, which beats Mantine's :root default by
+   directness - no !important needed. */
 [data-mantine-color-scheme='light'] .mantine-Anchor-root,
 [data-mantine-color-scheme='light'] .mantine-CodeHighlight-codeHighlight {
-  --mantine-color-anchor: var(--mantine-color-primary-5) !important;
+  --mantine-color-anchor: var(--mantine-color-primary-5);
 }
 [data-mantine-color-scheme='dark'] .mantine-Anchor-root,
 [data-mantine-color-scheme='dark'] .mantine-CodeHighlight-codeHighlight {
-  --mantine-color-anchor: var(--mantine-color-primary-3) !important;
+  --mantine-color-anchor: var(--mantine-color-primary-3);
 }
 
 /* Transparent icon buttons use the text colour (neutral glyph), not primary.
