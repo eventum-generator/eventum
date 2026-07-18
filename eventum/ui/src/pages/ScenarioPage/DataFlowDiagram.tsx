@@ -17,6 +17,7 @@ import { memo, useMemo } from 'react';
 
 import { collectGlobalKeys } from './globals-usage';
 import { GeneratorStatus } from '@/api/routes/generators/schemas';
+import { REACT_FLOW_CONTROLS_CSS } from '@/components/ui/reactFlowControlsCss';
 import { statusDotColor } from '@/components/ui/statusPalette';
 import { describeInstanceStatus } from '@/pages/InstancesPage/InstancesTable/common/instance-status';
 
@@ -110,20 +111,6 @@ const TARGET_HANDLE_STYLE = { ...HIDDEN_HANDLE_STYLE, top: '75%' } as const;
 // ---------------------------------------------------------------------------
 // CSS for React Flow controls (Mantine theme integration)
 // ---------------------------------------------------------------------------
-
-const REACT_FLOW_CONTROLS_CSS = `
-  .react-flow__controls button {
-    background-color: var(--mantine-color-body);
-    color: ${TEXT_COLOR};
-    border-color: var(--mantine-color-default-border);
-  }
-  .react-flow__controls button:hover {
-    background-color: var(--mantine-color-default-hover);
-  }
-  .react-flow__controls button svg {
-    fill: ${TEXT_COLOR};
-  }
-`;
 
 // ---------------------------------------------------------------------------
 // Highlight style for nodes

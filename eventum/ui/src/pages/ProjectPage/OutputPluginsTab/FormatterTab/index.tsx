@@ -99,7 +99,6 @@ export const FormatterTab: FC = () => {
           <ToolSpacer />
           <form onSubmit={form.onSubmit(handleFormatEvents)}>
             <Button
-              size="xs"
               leftSection={<IconArrowsLeftRight size={15} />}
               type="submit"
               disabled={!canFormat}

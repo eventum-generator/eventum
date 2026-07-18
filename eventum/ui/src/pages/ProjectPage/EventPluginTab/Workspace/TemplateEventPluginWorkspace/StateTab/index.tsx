@@ -73,7 +73,6 @@ export const StateTab: FC = () => {
     <ToolShell
       toolbar={
         <Select
-          size="xs"
           w={240}
           label={
             <LabelWithTooltip

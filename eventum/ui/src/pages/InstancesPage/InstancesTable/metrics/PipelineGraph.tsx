@@ -21,25 +21,11 @@ import {
   updateNodesData,
 } from './utils/layoutNodes';
 import type { GeneratorStats } from '@/api/routes/generators/schemas';
+import { REACT_FLOW_CONTROLS_CSS } from '@/components/ui/reactFlowControlsCss';
 
 const nodeTypes = { pipelineNode: PipelineNode } as const;
 
-const TEXT_COLOR = 'var(--mantine-color-text)';
 const FIT_PADDING = 0.2;
-
-const REACT_FLOW_CONTROLS_CSS = `
-  .react-flow__controls button {
-    background-color: var(--mantine-color-body);
-    color: ${TEXT_COLOR};
-    border-color: var(--mantine-color-default-border);
-  }
-  .react-flow__controls button:hover {
-    background-color: var(--mantine-color-default-hover);
-  }
-  .react-flow__controls button svg {
-    fill: ${TEXT_COLOR};
-  }
-`;
 
 /**
  * Updates only node DATA via setNodes callback — positions stay untouched,

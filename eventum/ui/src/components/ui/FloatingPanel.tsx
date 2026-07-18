@@ -28,7 +28,7 @@ export const FloatingPanel: FC<FloatingPanelProps> = ({
           mt="xl"
           bg="var(--mantine-color-default)"
           style={{
-            boxShadow: '0 0px 15px rgba(0,0,0,0.15)',
+            boxShadow: 'var(--ev-shadow)',
             border: '1px solid',
             borderColor: 'var(--mantine-color-default-border)',
             zIndex: 100,

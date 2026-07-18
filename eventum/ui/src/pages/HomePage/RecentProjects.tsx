@@ -62,7 +62,7 @@ export const RecentProjects: FC<RecentProjectsProps> = ({ generatorDirs }) => {
                   styles={{
                     root: {
                       '&:hover': {
-                        backgroundColor: 'var(--mantine-color-default-hover)',
+                        backgroundColor: 'var(--ev-hover)',
                       },
                     },
                   }}

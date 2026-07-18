@@ -118,7 +118,7 @@ export const StatusRail: FC<StatusRailProps> = ({
                     styles={{
                       root: {
                         '&:hover': {
-                          backgroundColor: 'var(--mantine-color-default-hover)',
+                          backgroundColor: 'var(--ev-hover)',
                         },
                       },
                     }}

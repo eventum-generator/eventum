@@ -240,7 +240,6 @@ const TimestampsHistogram: FC<TimestampsHistogramProps> = ({
         toolbar={
           <>
             <MultiSelect
-              size="xs"
               w={260}
               label={
                 <LabelWithTooltip
@@ -258,7 +257,6 @@ const TimestampsHistogram: FC<TimestampsHistogramProps> = ({
               styles={{ input: { maxHeight: 92, overflowY: 'auto' } }}
             />
             <NumberInput
-              size="xs"
               w={100}
               min={1}
               allowDecimal={false}
@@ -271,7 +269,6 @@ const TimestampsHistogram: FC<TimestampsHistogramProps> = ({
               {...form.getInputProps('size', { type: 'input' })}
             />
             <TextInput
-              size="xs"
               w={130}
               label={
                 <LabelWithTooltip
@@ -283,7 +280,6 @@ const TimestampsHistogram: FC<TimestampsHistogramProps> = ({
               {...form.getInputProps('span', { type: 'input' })}
             />
             <Select
-              size="xs"
               w={140}
               label={
                 <LabelWithTooltip
@@ -298,7 +294,6 @@ const TimestampsHistogram: FC<TimestampsHistogramProps> = ({
               {...form.getInputProps('timezone', { type: 'input' })}
             />
             <Input.Wrapper
-              size="xs"
               label={
                 <LabelWithTooltip
                   label="Skip past"
@@ -308,14 +303,12 @@ const TimestampsHistogram: FC<TimestampsHistogramProps> = ({
             >
               <div className="tool-switch-slot">
                 <Switch
-                  size="xs"
                   {...form.getInputProps('skipPast', { type: 'checkbox' })}
                 />
               </div>
             </Input.Wrapper>
             <ToolSpacer />
             <Button
-              size="xs"
               className="tool-ctl"
               type="submit"
               loading={generateTimestamp.isPending}

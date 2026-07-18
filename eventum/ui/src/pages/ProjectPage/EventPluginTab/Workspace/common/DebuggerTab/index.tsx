@@ -206,7 +206,6 @@ export const DebuggerTab: FC<DebuggerTabProps> = ({
       toolbar={
         <>
           <TextInput
-            size="xs"
             w={250}
             label={
               <LabelWithTooltip
@@ -229,7 +228,6 @@ export const DebuggerTab: FC<DebuggerTabProps> = ({
             {...produceParamsForm.getInputProps('timestamp')}
           />
           <TagsInput
-            size="xs"
             w={260}
             label={
               <LabelWithTooltip
@@ -242,7 +240,6 @@ export const DebuggerTab: FC<DebuggerTabProps> = ({
             {...produceParamsForm.getInputProps('tags')}
           />
           <NumberInput
-            size="xs"
             label={
               <LabelWithTooltip
                 label="Count"
@@ -267,7 +264,6 @@ export const DebuggerTab: FC<DebuggerTabProps> = ({
             <Group gap={8} wrap="nowrap">
               {isPluginInitialized ? (
                 <Button
-                  size="xs"
                   variant="default"
                   title="Stop debugging"
                   leftSection={<IconBugOff size={15} />}
@@ -279,7 +275,6 @@ export const DebuggerTab: FC<DebuggerTabProps> = ({
                 </Button>
               ) : (
                 <Button
-                  size="xs"
                   variant="default"
                   title="Start debugging with new instance of event plugin"
                   leftSection={<IconBug size={15} />}
@@ -291,7 +286,6 @@ export const DebuggerTab: FC<DebuggerTabProps> = ({
                 </Button>
               )}
               <Button
-                size="xs"
                 title="Produce event using provided parameters"
                 leftSection={<IconPlayerPlay size={15} />}
                 onClick={handleProduce}
@@ -324,7 +318,6 @@ export const DebuggerTab: FC<DebuggerTabProps> = ({
             grow={1.5}
             actions={
               <Select
-                size="xs"
                 w={140}
                 placeholder="Syntax"
                 data={[

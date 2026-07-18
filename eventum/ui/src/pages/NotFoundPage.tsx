@@ -18,7 +18,7 @@ export default function NotFound() {
         <Title order={2} mb="md">
           Page Not Found
         </Title>
-        <Button size="md" component={Link} to={ROUTE_PATHS.ROOT}>
+        <Button size="sm" component={Link} to={ROUTE_PATHS.ROOT}>
           Go Back
         </Button>
       </Container>

@@ -29,7 +29,7 @@ export default function ErrorPage({
         <Text size="md" c="dimmed" mb="xl">
           Error info: {error?.message ?? 'no info'}
         </Text>
-        <Button size="md" onClick={resetError}>
+        <Button size="sm" onClick={resetError}>
           Reload
         </Button>
       </Container>

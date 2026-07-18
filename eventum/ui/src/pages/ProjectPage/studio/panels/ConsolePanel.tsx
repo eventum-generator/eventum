@@ -123,7 +123,6 @@ export const ConsolePanel: FC<ConsolePanelProps> = ({
         <Group gap={8}>
           {!collapsed && showEventViewSwitch && (
             <SegmentedControl
-              size="xs"
               value={effectiveEventView}
               onChange={(value) => setEventView(value as EventView)}
               data={[
