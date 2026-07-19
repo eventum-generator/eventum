@@ -98,8 +98,9 @@ export const GenerationParametersSection: FC<
         }
         placeholder="seconds"
         suffix=" s."
-        min={0.1}
-        step={0.1}
+        min={1}
+        step={1}
+        allowDecimal={false}
         {...form.getInputProps('write_timeout')}
         key={form.key('write_timeout')}
       />
