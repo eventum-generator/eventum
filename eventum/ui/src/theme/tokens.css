@@ -60,11 +60,11 @@
   --ev-disabled-bg: #e2e3ea;
   --ev-cyan: #0e8a8d;
   --ev-good: #1a7f37;
-  --ev-warn: #9a6700;
+  --ev-warn: #ca8a04;
   --ev-bad: #cf222e;
   --ev-info: #1971c2;
   --ev-good-soft: rgba(26, 127, 55, 0.12);
-  --ev-warn-soft: rgba(154, 103, 0, 0.12);
+  --ev-warn-soft: rgba(202, 138, 4, 0.12);
   --ev-bad-soft: rgba(207, 34, 46, 0.1);
   --ev-info-soft: rgba(25, 113, 194, 0.1);
   /* "done" - terminal success at rest: a dark, unlit green (like a
