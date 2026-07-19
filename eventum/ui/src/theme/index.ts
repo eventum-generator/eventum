@@ -12,6 +12,7 @@ import '@/theme/components.css';
 import {
   Checkbox,
   Modal,
+  PasswordInput,
   createTheme,
   defaultVariantColorsResolver,
   type MantineColorsTuple,
@@ -121,5 +122,8 @@ export const theme = createTheme({
     Checkbox: Checkbox.extend({ defaultProps: { radius: 'sm' } }),
     // House rule: every modal is vertically centered (Mantine defaults to top).
     Modal: Modal.extend({ defaultProps: { centered: true } }),
+    // PasswordInput defaults to md (16px) while every other input defaults to
+    // sm (14px); pin it to sm so it matches sibling TextInputs everywhere.
+    PasswordInput: PasswordInput.extend({ defaultProps: { size: 'sm' } }),
   },
 });

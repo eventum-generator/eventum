@@ -329,7 +329,7 @@ export default function InstancesPage() {
             <PageTitle title="Instances" />
             <Text size="sm" c="dimmed">
               {total} {total === 1 ? 'instance' : 'instances'} · {running}{' '}
-              running
+              active
             </Text>
           </Group>
 

@@ -85,6 +85,16 @@
 .mantine-Table-tbody .mantine-Table-tr:last-of-type .mantine-Table-td {
   border-bottom: 0;
 }
+/* Copy affordance revealed on row hover (e.g. Secrets name) - hidden at rest
+   so the row stays calm, shown on hover or keyboard focus. */
+.ev-copy-btn {
+  opacity: 0;
+  transition: opacity 120ms ease;
+}
+.mantine-Table-tbody .mantine-Table-tr:hover .ev-copy-btn,
+.ev-copy-btn:focus-visible {
+  opacity: 1;
+}
 
 @keyframes ev-pulse {
   0% {

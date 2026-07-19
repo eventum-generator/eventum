@@ -1,19 +1,23 @@
-import {
-  ActionIcon,
-  Group,
-  PasswordInput,
-  Table,
-  TextInput,
-} from '@mantine/core';
+import { Button, Group, Paper, PasswordInput, TextInput } from '@mantine/core';
 import { isNotEmpty, useForm } from '@mantine/form';
 import { notifications } from '@mantine/notifications';
-import { IconDeviceFloppy } from '@tabler/icons-react';
 import { FC } from 'react';
 
 import { useSetSecretValueMutation } from '@/api/hooks/useSecrets';
 import { ShowErrorDetailsAnchor } from '@/components/ui/ShowErrorDetailsAnchor';
 
-export const NewSecretRow: FC = () => {
+interface NewSecretFormProps {
+  /** Close the form without adding anything. */
+  onCancel: () => void;
+}
+
+/**
+ * Inline form for adding a secret to the keyring. Lives above the list
+ * instead of inside the table so its fields lay out cleanly. Stays open
+ * after a successful add (fields reset) to make entering several in a row
+ * quick; the caller closes it via `onCancel`.
+ */
+export const NewSecretForm: FC<NewSecretFormProps> = ({ onCancel }) => {
   const form = useForm<{ name: string; value: string }>({
     initialValues: {
       name: '',
@@ -27,10 +31,10 @@ export const NewSecretRow: FC = () => {
     onSubmitPreventDefault: 'always',
   });
 
-  const updateSecretValue = useSetSecretValueMutation();
+  const setSecret = useSetSecretValueMutation();
 
-  function handleSetNewSecret(values: typeof form.values) {
-    updateSecretValue.mutate(
+  function handleSubmit(values: typeof form.values) {
+    setSecret.mutate(
       { name: values.name, value: values.value },
       {
         onError: (error) => {
@@ -57,39 +61,40 @@ export const NewSecretRow: FC = () => {
     );
   }
 
-  return (
-    <Table.Tr style={{ verticalAlign: 'top' }}>
-      <Table.Td w="50%">
-        <TextInput
-          placeholder="new secret name"
-          {...form.getInputProps('name')}
-          size="sm"
-        />
-      </Table.Td>
-      <Table.Td>
-        <form onSubmit={form.onSubmit(handleSetNewSecret)}>
-          <PasswordInput
-            placeholder="secret value"
-            {...form.getInputProps('value')}
-            size="sm"
-          />
-        </form>
-      </Table.Td>
+  function handleCancel() {
+    form.reset();
+    onCancel();
+  }
 
-      <Table.Td>
-        <Group gap="xs">
-          <ActionIcon
-            variant="transparent"
-            title="Save"
-            size="lg"
-            onClick={() => handleSetNewSecret(form.values)}
+  return (
+    <Paper withBorder radius="md" p="md" bg="var(--ev-surface-2)">
+      <form onSubmit={form.onSubmit(handleSubmit)}>
+        <Group align="flex-end" gap="sm" wrap="nowrap">
+          <TextInput
+            label="Name"
+            placeholder="new-secret-name"
+            style={{ flex: 1 }}
+            data-autofocus
+            {...form.getInputProps('name')}
+          />
+          <PasswordInput
+            label="Value"
+            placeholder="secret value"
+            style={{ flex: 1 }}
+            {...form.getInputProps('value')}
+          />
+          <Button
+            type="submit"
             disabled={!form.isValid()}
-            loading={updateSecretValue.isPending}
+            loading={setSecret.isPending}
           >
-            <IconDeviceFloppy size={20} />
-          </ActionIcon>
+            Add
+          </Button>
+          <Button variant="default" onClick={handleCancel}>
+            Cancel
+          </Button>
         </Group>
-      </Table.Td>
-    </Table.Tr>
+      </form>
+    </Paper>
   );
 };

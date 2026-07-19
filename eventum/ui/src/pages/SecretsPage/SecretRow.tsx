@@ -1,16 +1,20 @@
 import {
   ActionIcon,
+  CopyButton,
   Group,
   Loader,
+  PasswordInput,
   Table,
   Text,
-  TextInput,
+  Tooltip,
 } from '@mantine/core';
 import { isNotEmpty, useForm } from '@mantine/form';
 import { useDisclosure } from '@mantine/hooks';
 import { modals } from '@mantine/modals';
 import { notifications } from '@mantine/notifications';
 import {
+  IconCheck,
+  IconCopy,
   IconDeviceFloppy,
   IconEdit,
   IconEye,
@@ -28,11 +32,18 @@ import {
 import { ShowErrorDetailsAnchor } from '@/components/ui/ShowErrorDetailsAnchor';
 import { CONFIRM } from '@/theme/copy';
 
-interface TableRowProps {
+interface SecretRowProps {
   name: string;
 }
 
-const TableRow: FC<TableRowProps> = ({ name }) => {
+/** Fixed-length mask so a hidden value never leaks its real length. */
+const MaskedValue: FC = () => (
+  <Text ff="monospace" c="dimmed" style={{ letterSpacing: 2 }}>
+    {'•'.repeat(8)}
+  </Text>
+);
+
+const SecretRow: FC<SecretRowProps> = ({ name }) => {
   const [isValueShown, { open: showValue, close: hideValue }] =
     useDisclosure(false);
   const [isEditMode, setEditMode] = useState(false);
@@ -166,55 +177,89 @@ const TableRow: FC<TableRowProps> = ({ name }) => {
 
   return (
     <Table.Tr>
-      <Table.Td>{name}</Table.Td>
+      <Table.Td>
+        <Group gap={6} wrap="nowrap">
+          <Text ff="monospace" size="sm">
+            {name}
+          </Text>
+          <CopyButton value={name} timeout={1500}>
+            {({ copied, copy }) => (
+              <Tooltip
+                label={copied ? 'Copied' : 'Copy name'}
+                withArrow
+                position="right"
+              >
+                <ActionIcon
+                  className="ev-copy-btn"
+                  variant="subtle"
+                  size="sm"
+                  onClick={copy}
+                  aria-label="Copy secret name"
+                >
+                  {copied ? (
+                    <IconCheck size={14} color="var(--ev-good)" />
+                  ) : (
+                    <IconCopy size={14} color="var(--ev-text)" />
+                  )}
+                </ActionIcon>
+              </Tooltip>
+            )}
+          </CopyButton>
+        </Group>
+      </Table.Td>
       <Table.Td>
         {isSecretValueLoading || isUpdatingValue ? (
           <Loader size="xs" />
         ) : isEditMode ? (
-          <TextInput
+          <PasswordInput
             placeholder="secret value"
             {...form.getInputProps('value')}
           />
         ) : isValueShown ? (
-          form.values.value
+          <Text ff="monospace" size="sm" style={{ wordBreak: 'break-all' }}>
+            {form.values.value}
+          </Text>
         ) : (
-          '********'
+          <MaskedValue />
         )}
       </Table.Td>
-      <Table.Td style={{ verticalAlign: 'top' }}>
-        <Group gap="xs" wrap="nowrap">
+      <Table.Td style={{ verticalAlign: 'middle' }}>
+        <Group gap={4} wrap="nowrap" justify="flex-end">
           <ActionIcon
-            variant="transparent"
+            variant="subtle"
             title={isValueShown ? 'Hide' : 'Show'}
-            size="lg"
+            size="md"
             onClick={() => void handleOnValueVisibilityChange()}
-            disabled={isEditMode}
+            display={isEditMode ? 'none' : undefined}
           >
-            {isValueShown ? <IconEyeOff size={20} /> : <IconEye size={20} />}
+            {isValueShown ? (
+              <IconEyeOff size={18} color="var(--ev-text)" />
+            ) : (
+              <IconEye size={18} color="var(--ev-text)" />
+            )}
           </ActionIcon>
 
           <ActionIcon
-            variant="transparent"
+            variant="subtle"
             title={isEditMode ? 'Save' : 'Edit'}
-            size="lg"
+            size="md"
             onClick={() => void handleOnEditModeChange(form.values)}
             disabled={
               isUpdatingValue || (form.initialized && !form.isValid('value'))
             }
           >
             {isEditMode ? (
-              <IconDeviceFloppy size={20} />
+              <IconDeviceFloppy size={18} color="var(--ev-accent)" />
             ) : (
-              <IconEdit size={20} />
+              <IconEdit size={18} color="var(--ev-text)" />
             )}
           </ActionIcon>
 
           <ActionIcon
-            variant="transparent"
-            c="var(--ev-bad)"
+            variant="subtle"
             title="Remove"
-            size="lg"
-            display={isEditMode ? 'none' : 'block'}
+            size="md"
+            display={isEditMode ? 'none' : undefined}
             onClick={() => {
               modals.openConfirmModal({
                 title: CONFIRM.deleteSecret.title,
@@ -229,17 +274,17 @@ const TableRow: FC<TableRowProps> = ({ name }) => {
               });
             }}
           >
-            <IconTrash size={20} stroke={1.5} />
+            <IconTrash size={18} stroke={1.5} color="var(--ev-bad)" />
           </ActionIcon>
 
           <ActionIcon
-            variant="transparent"
+            variant="subtle"
             title="Cancel"
-            size="lg"
+            size="md"
             onClick={handleCancelEditing}
-            display={isEditMode ? 'block' : 'none'}
+            display={isEditMode ? undefined : 'none'}
           >
-            <IconX size={20} />
+            <IconX size={18} color="var(--ev-text)" />
           </ActionIcon>
         </Group>
       </Table.Td>
@@ -247,4 +292,4 @@ const TableRow: FC<TableRowProps> = ({ name }) => {
   );
 };
 
-export default React.memo(TableRow);
+export default React.memo(SecretRow);
