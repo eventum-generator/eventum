@@ -37,6 +37,11 @@ All notable changes to this project will be documented in this file.
 - **Closed streaming connections on graceful shutdown** — Ctrl+C with a live log view or a connected MCP client now exits in well under a second, instead of waiting out the shutdown timeout and printing cancellation errors
 - **Scoped the network and disk figures to the Eventum process** — the Disk I/O and Network tiles measured the whole host. Disk now comes from the process and network bytes are counted inside the application; CPU and memory stay host-level, and all counters are cumulative since startup
 
+#### Plugins
+
+- **Restored parallel generation alongside the `clickhouse` output** — loading the plugin on free-threaded Python re-enabled the GIL for the whole process, so every generator lost parallelism, not only the one writing to ClickHouse. The ClickHouse client is now required at a version whose compiled modules keep the GIL disabled
+- **Dropped the unsatisfiable constraint on the `clickhouse` certificate fields** — `ca_cert`, `client_cert` and `client_cert_key` carried a text-length constraint that cannot apply to a path, so any value failed with a type error while the configuration was read, leaving certificate-based TLS unusable
+
 #### MCP
 
 - **Widened the guidance given to agents** — large CSV/JSON samples go through the REST file API (over HTTP) or straight to disk (locally) instead of the slow `write_generator_file` tool. The agent is also told that templates can import any installed Python package and run shell commands via `subprocess`, that the server exposes an OpenAPI schema to fall back on when no tool fits, and how live/sample modes and scenarios work
