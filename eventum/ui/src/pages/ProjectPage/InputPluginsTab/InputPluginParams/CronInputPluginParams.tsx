@@ -7,12 +7,12 @@ import {
   TextInput,
 } from '@mantine/core';
 import { useForm } from '@mantine/form';
-import cronstrue from 'cronstrue';
 import { zod4Resolver } from 'mantine-form-zod-resolver';
 import { FC } from 'react';
 import z from 'zod';
 
 import { VersatileDatetimeInput } from '../../VersatileDatetimeInput';
+import { describeCronExpression } from './cron-expression';
 import {
   CronInputPluginConfig,
   CronInputPluginConfigSchema,
@@ -24,17 +24,11 @@ interface CronInputPluginParamsProps {
   onChange: (config: CronInputPluginConfig) => void;
 }
 
-const CronExpressionSchema = z.string().refine(
-  (value) => {
-    try {
-      cronstrue.toString(value);
-      return true;
-    } catch {
-      return false;
-    }
-  },
-  { message: 'Invalid cron expression' }
-);
+const CronExpressionSchema = z
+  .string()
+  .refine((value) => describeCronExpression(value) !== null, {
+    message: 'Invalid cron expression',
+  });
 
 const ExtendedCronInputPluginConfigSchema = CronInputPluginConfigSchema.extend({
   expression: CronExpressionSchema,
@@ -52,12 +46,7 @@ export const CronInputPluginParams: FC<CronInputPluginParamsProps> = ({
     validateInputOnChange: true,
   });
 
-  let cronDescription = '';
-  try {
-    cronDescription = cronstrue.toString(form.values.expression);
-  } catch {
-    /* empty */
-  }
+  const cronDescription = describeCronExpression(form.values.expression) ?? '';
 
   return (
     <Stack gap="xs">
@@ -67,8 +56,7 @@ export const CronInputPluginParams: FC<CronInputPluginParamsProps> = ({
             label={
               <LabelWithTooltip
                 label="Expression"
-                tooltip="Cron expression (supports specifying seconds, years, random
-        values and keywords)"
+                tooltip="Cron expression in minute hour day month weekday order, with optional second and year fields placed after weekday (random values and keywords are supported)"
               />
             }
             required

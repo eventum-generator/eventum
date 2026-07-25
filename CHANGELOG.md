@@ -21,6 +21,7 @@ All notable changes to this project will be documented in this file.
 - **MCP settings are now editable in the Studio Settings page** — the Server parameters section gained MCP controls (enable the HTTP server, allow write tools, mount path, allowed hosts); previously these were configurable only by editing `eventum.yml`, and saving settings from Studio silently reset any existing MCP configuration to defaults
 - **Opening a scenario with many instances no longer times out** — scenarios with several generators now open reliably; previously the page could hang and fail after about ten seconds while loading each instance's global-state usage
 - **Stopping the app no longer hangs when a log or MCP stream is open** — pressing Ctrl+C while a generator's live log view or a connected MCP client is streaming now shuts the app down in well under a second, instead of waiting out the graceful-shutdown timeout and printing cancellation errors on exit
+- **Studio describes cron expressions with seconds correctly** — the text under the cron **Expression** field read the seconds as the first field, so `35 10 * * * 3` was described as "At 35 seconds past the minute … only on Wednesday" while the generator actually fires at 10:35:03 every day. Descriptions now follow the same field order as the generator (`minute hour day month weekday second year`), the expression is validated by that same reading, and the field hint spells the order out
 
 ## 2.6.0 (2026-06-11)
 
