@@ -2,6 +2,18 @@ import axios, { AxiosError } from 'axios';
 
 import { APIError } from './errors';
 
+// Deadline for a regular request. Long enough for the directory walks
+// and preview runs the backend performs on request, short enough to
+// surface an unresponsive backend.
+const DEFAULT_TIMEOUT = 60_000;
+
+// Deadline for a request that transfers file content. How long such a
+// request takes is set by the size of the file and the speed of the
+// link, not by the health of the backend, so any fixed deadline would
+// cut off a transfer that is still making progress. Zero disables the
+// deadline; a broken connection still fails the request.
+export const TRANSFER_TIMEOUT = 0;
+
 export const apiClient = axios.create({
   baseURL: '/api',
   withCredentials: true,
@@ -9,8 +21,40 @@ export const apiClient = axios.create({
     Accept: 'application/json',
     'Content-Type': 'application/json',
   },
-  timeout: 10_000,
+  timeout: DEFAULT_TIMEOUT,
 });
+
+// User friendly titles of response codes that make sense to distinguish
+function describeStatusCode(statusCode: number): string {
+  if (statusCode >= 500) {
+    return 'Server error';
+  } else if (statusCode === 401) {
+    return 'Invalid credentials';
+  } else if (statusCode === 403) {
+    return 'Forbidden';
+  } else if (statusCode === 404) {
+    return 'Resource not found';
+  } else if (statusCode === 409) {
+    return 'Resource already exists';
+  } else if (statusCode === 413) {
+    return 'Content too large';
+  } else if (statusCode === 422) {
+    return 'Invalid payload';
+  } else {
+    return 'Client error';
+  }
+}
+
+// A request that never reached a response either ran out of its
+// deadline or failed on the connection - the two read differently to
+// the user.
+function describeFailedRequest(error: AxiosError): string {
+  const timedOut =
+    error.code === AxiosError.ECONNABORTED ||
+    error.code === AxiosError.ETIMEDOUT;
+
+  return timedOut ? 'Request timed out' : 'Request failed';
+}
 
 apiClient.interceptors.response.use(
   (response) => response,
@@ -19,7 +63,7 @@ apiClient.interceptors.response.use(
       if (error.response === undefined) {
         return Promise.reject(
           new APIError({
-            message: 'Request failed',
+            message: describeFailedRequest(error),
             details: error.message,
             requestConfig: error.config,
           })
@@ -27,36 +71,13 @@ apiClient.interceptors.response.use(
       }
 
       const statusCode = error.response.status;
-      const response = error.response;
-      const requestConfig = error.config;
-
-      let message: string;
-
-      // User friendly titles of response codes that make sense to distinguish
-      if (statusCode >= 500) {
-        message = 'Server error';
-      } else if (statusCode === 401) {
-        message = 'Invalid credentials';
-      } else if (statusCode === 403) {
-        message = 'Forbidden';
-      } else if (statusCode === 404) {
-        message = 'Resource not found';
-      } else if (statusCode === 409) {
-        message = 'Resource already exists';
-      } else if (statusCode === 413) {
-        message = 'Content too large';
-      } else if (statusCode === 422) {
-        message = 'Invalid payload';
-      } else {
-        message = 'Client error';
-      }
 
       return Promise.reject(
         new APIError({
-          message: message,
+          message: describeStatusCode(statusCode),
           details: `Server respond with status code ${statusCode}`,
-          response: response,
-          requestConfig: requestConfig,
+          response: error.response,
+          requestConfig: error.config,
         })
       );
     } else if (error instanceof Error) {
