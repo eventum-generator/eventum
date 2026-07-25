@@ -163,6 +163,7 @@ export const Tree: FC<TreeProps> = ({ fileTreeLookup }) => {
         fileTreeLookup.items.get(itemId) ?? {
           name: '',
           is_dir: false,
+          size_in_bytes: null,
           children: [],
         },
       getChildren: (itemId) => fileTreeLookup.children.get(itemId) ?? [],
