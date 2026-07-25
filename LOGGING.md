@@ -27,6 +27,11 @@
         <td>Any</td>
     </tr>
     <tr>
+        <td>name</td>
+        <td>Name of the object related to event message</td>
+        <td>str</td>
+    </tr>
+    <tr>
         <td>hint</td>
         <td>Actionable suggestion for resolving the issue</td>
         <td>str</td>

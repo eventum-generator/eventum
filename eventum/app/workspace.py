@@ -7,6 +7,7 @@ adapters. No transport concerns here.
 import shutil
 from pathlib import Path
 
+from eventum.core.config_loader import extract_secrets
 from eventum.exceptions import ContextualError
 
 
@@ -220,3 +221,106 @@ def delete_dir(path: Path) -> None:
             msg,
             context={'reason': str(e), 'file_path': str(path)},
         ) from None
+
+
+def rename_generator_dir(
+    generators_dir: Path,
+    name: str,
+    new_name: str,
+) -> Path:
+    """Rename a generator directory inside the generators directory.
+
+    Parameters
+    ----------
+    generators_dir : Path
+        Root directory that contains generator subdirectories.
+    name : str
+        Current name of the generator directory.
+    new_name : str
+        Name to rename the directory to. Must be a single directory
+        name, since only directories directly inside
+        ``generators_dir`` are recognized as generators.
+
+    Returns
+    -------
+    Path
+        Resolved absolute path of the renamed directory.
+
+    Raises
+    ------
+    WorkspaceError
+        If either name resolves outside ``generators_dir``, the new
+        name is not a single directory name, the source directory does
+        not exist, the target name is already taken, or the rename
+        fails.
+
+    """
+    source = resolve_generator_dir(generators_dir, name)
+
+    if new_name != Path(new_name).name:
+        msg = 'Generator name must be a single directory name'
+        raise WorkspaceError(msg, context={'name': new_name})
+
+    destination = resolve_generator_dir(generators_dir, new_name)
+
+    if not source.is_dir():
+        msg = 'Generator directory does not exist'
+        raise WorkspaceError(msg, context={'name': name})
+
+    if destination.exists():
+        msg = 'Generator directory already exists'
+        raise WorkspaceError(msg, context={'name': new_name})
+
+    try:
+        source.rename(destination)
+    except OSError as e:
+        msg = 'Failed to rename directory'
+        raise WorkspaceError(
+            msg,
+            context={'reason': str(e), 'path': str(source)},
+        ) from None
+
+    return destination
+
+
+def find_secret_references(
+    generators_dir: Path,
+    config_filename: Path,
+    secret: str,
+) -> list[str]:
+    """List generator directories whose config references a secret.
+
+    Only generator configurations are scanned, since `${secrets.*}`
+    tokens are substituted in them alone. Configurations that cannot
+    be read are skipped - such a generator cannot run either.
+
+    Parameters
+    ----------
+    generators_dir : Path
+        Root directory that contains generator subdirectories.
+    config_filename : Path
+        Name of the configuration file inside a generator directory.
+    secret : str
+        Name of the secret to look for.
+
+    Returns
+    -------
+    list[str]
+        Sorted names of generator directories referencing the secret.
+
+    """
+    if not generators_dir.exists():
+        return []
+
+    names: list[str] = []
+
+    for config_path in generators_dir.glob(f'*/{config_filename}'):
+        try:
+            content = config_path.read_text()
+        except OSError, UnicodeDecodeError:
+            continue
+
+        if secret in extract_secrets(content):
+            names.append(config_path.parent.name)
+
+    return sorted(names)

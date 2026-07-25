@@ -10,7 +10,9 @@ from eventum.app.workspace import (
     delete_dir,
     delete_file,
     ensure_relative,
+    find_secret_references,
     read_text,
+    rename_generator_dir,
     resolve_generator_dir,
     resolve_generator_file,
     write_text,
@@ -176,3 +178,109 @@ def test_delete_dir_missing_raises(tmp_path: Path):
     with pytest.raises(WorkspaceError) as exc_info:
         delete_dir(missing)
     assert exc_info.value.context['file_path'] == str(missing)
+
+
+def test_rename_generator_dir_moves_directory(tmp_path: Path):
+    source = tmp_path / 'gen'
+    (source / 'templates').mkdir(parents=True)
+    (source / 'generator.yml').write_text('input: []\n')
+
+    result = rename_generator_dir(tmp_path, 'gen', 'renamed')
+
+    assert result == (tmp_path / 'renamed').resolve()
+    assert not source.exists()
+    assert (tmp_path / 'renamed' / 'templates').is_dir()
+    assert (
+        tmp_path / 'renamed' / 'generator.yml'
+    ).read_text() == 'input: []\n'
+
+
+def test_rename_generator_dir_missing_source_raises(tmp_path: Path):
+    with pytest.raises(WorkspaceError) as exc_info:
+        rename_generator_dir(tmp_path, 'absent', 'renamed')
+    assert exc_info.value.context['name'] == 'absent'
+
+
+def test_rename_generator_dir_existing_target_raises(tmp_path: Path):
+    (tmp_path / 'gen').mkdir()
+    (tmp_path / 'taken').mkdir()
+
+    with pytest.raises(WorkspaceError) as exc_info:
+        rename_generator_dir(tmp_path, 'gen', 'taken')
+
+    assert exc_info.value.context['name'] == 'taken'
+    assert (tmp_path / 'gen').is_dir()
+
+
+def test_rename_generator_dir_nested_target_rejected(tmp_path: Path):
+    (tmp_path / 'gen').mkdir()
+
+    with pytest.raises(WorkspaceError) as exc_info:
+        rename_generator_dir(tmp_path, 'gen', 'nested/renamed')
+
+    assert exc_info.value.context['name'] == 'nested/renamed'
+    assert (tmp_path / 'gen').is_dir()
+
+
+def test_rename_generator_dir_escaping_target_rejected(tmp_path: Path):
+    (tmp_path / 'gen').mkdir()
+
+    with pytest.raises(WorkspaceError):
+        rename_generator_dir(tmp_path, 'gen', '../escape')
+
+    assert (tmp_path / 'gen').is_dir()
+
+
+def test_rename_generator_dir_escaping_source_rejected(tmp_path: Path):
+    with pytest.raises(WorkspaceError):
+        rename_generator_dir(tmp_path, '../escape', 'renamed')
+
+
+_CONFIG_FILENAME = Path('generator.yml')
+
+
+def _write_config(generators_dir: Path, name: str, content: str) -> None:
+    """Create a generator directory holding the given config content."""
+    config_path = generators_dir / name / _CONFIG_FILENAME
+    config_path.parent.mkdir(parents=True)
+    config_path.write_text(content)
+
+
+def test_find_secret_references_matches_referencing_dirs(tmp_path: Path):
+    _write_config(tmp_path, 'gen-a', 'token: ${secrets.api_key}\n')
+    _write_config(tmp_path, 'gen-b', 'token: ${ secrets.api_key }\n')
+    _write_config(tmp_path, 'gen-c', 'token: ${secrets.other}\n')
+    _write_config(tmp_path, 'gen-d', 'host: ${params.host}\n')
+
+    assert find_secret_references(tmp_path, _CONFIG_FILENAME, 'api_key') == [
+        'gen-a',
+        'gen-b',
+    ]
+
+
+def test_find_secret_references_ignores_dirs_without_config(tmp_path: Path):
+    (tmp_path / 'not-a-generator').mkdir()
+    (tmp_path / 'not-a-generator' / 'other.yml').write_text(
+        'token: ${secrets.api_key}\n'
+    )
+
+    assert find_secret_references(tmp_path, _CONFIG_FILENAME, 'api_key') == []
+
+
+def test_find_secret_references_skips_unreadable_config(tmp_path: Path):
+    _write_config(tmp_path, 'gen-a', 'token: ${secrets.api_key}\n')
+    (tmp_path / 'gen-b' / _CONFIG_FILENAME).parent.mkdir(parents=True)
+    (tmp_path / 'gen-b' / _CONFIG_FILENAME).write_bytes(b'\xff\xfe\x00')
+
+    assert find_secret_references(tmp_path, _CONFIG_FILENAME, 'api_key') == [
+        'gen-a'
+    ]
+
+
+def test_find_secret_references_missing_dir_returns_empty(tmp_path: Path):
+    assert (
+        find_secret_references(
+            tmp_path / 'absent', _CONFIG_FILENAME, 'api_key'
+        )
+        == []
+    )
