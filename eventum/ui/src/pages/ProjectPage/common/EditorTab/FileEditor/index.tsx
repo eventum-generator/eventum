@@ -8,17 +8,25 @@ import { keymap } from '@codemirror/view';
 import { Alert, Box, Skeleton, useMantineColorScheme } from '@mantine/core';
 import { notifications } from '@mantine/notifications';
 import CodeMirror from '@uiw/react-codemirror';
+import bytes from 'bytes';
 import { FC, useEffect, useRef, useState } from 'react';
 
 import { jinjaCompletion } from './completions';
 import {
   useGeneratorFileContent,
+  useGeneratorFileTree,
   usePutGeneratorFileMutation,
 } from '@/api/hooks/useGeneratorConfigs';
+import { findFileNode } from '@/api/routes/generator-configs/modules/file-tree';
 import { AlertIcon } from '@/components/ui/AlertIcon';
 import { ShowErrorDetailsAnchor } from '@/components/ui/ShowErrorDetailsAnchor';
 import { useProjectName } from '@/pages/ProjectPage/hooks/useProjectName';
 import { cmTheme } from '@/theme/codemirror';
+
+// Files above this size are not requested at all: transferring one takes
+// as long as the link needs, and the editor cannot usefully display it.
+// Generator output files are the usual case - they grow without a bound.
+const MAX_EDITABLE_SIZE = 10 * 1024 * 1024;
 
 export interface FileEditorProps {
   filePath: string;
@@ -35,13 +43,27 @@ export const FileEditor: FC<FileEditorProps> = ({
 }) => {
   const { colorScheme } = useMantineColorScheme();
   const { projectName } = useProjectName();
+
+  // The file tree carries the size of every file, so an oversized file is
+  // recognized before its content is requested. Until the tree resolves
+  // the size is unknown and the request waits.
+  const { data: fileTree, isPending: isFileTreePending } =
+    useGeneratorFileTree(projectName);
+  const fileSize =
+    fileTree === undefined
+      ? null
+      : (findFileNode(fileTree, filePath)?.size_in_bytes ?? null);
+  const isTooLarge = fileSize !== null && fileSize > MAX_EDITABLE_SIZE;
+
   const {
     data: fileContent,
     isLoading: isContentLoading,
     isError: isContentError,
     error: contentError,
     isSuccess: isContentSuccess,
-  } = useGeneratorFileContent(projectName, filePath);
+  } = useGeneratorFileContent(projectName, filePath, {
+    enabled: !isFileTreePending && !isTooLarge,
+  });
   const updateFile = usePutGeneratorFileMutation();
 
   const [content, setContent] = useState<string>('');
@@ -124,7 +146,22 @@ export const FileEditor: FC<FileEditorProps> = ({
 
   extensions.push(saveKeymap);
 
-  if (isContentLoading) {
+  if (isTooLarge) {
+    return (
+      <Box p="md">
+        <Alert
+          variant="default"
+          icon={<AlertIcon variant="warn" />}
+          title="File is too large to open"
+        >
+          {bytes(fileSize)} exceeds the editor limit of{' '}
+          {bytes(MAX_EDITABLE_SIZE)}. Open the file outside of Studio.
+        </Alert>
+      </Box>
+    );
+  }
+
+  if (isFileTreePending || isContentLoading) {
     return <Skeleton h={height} />;
   }
 

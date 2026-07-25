@@ -3,12 +3,58 @@
 import asyncio
 import contextlib
 import os
-from collections.abc import AsyncIterator
+from collections.abc import AsyncGenerator, AsyncIterator
 from pathlib import Path
 
 import aiofiles
+from aiofiles.threadpool.binary import AsyncBufferedReader
 
 _IDLE_POLL_INTERVAL = 0.5
+_SNAPSHOT_CHUNK_SIZE = 64 * 1024
+
+
+async def stream_snapshot(
+    file: AsyncBufferedReader,
+) -> AsyncGenerator[bytes]:
+    """Stream file content as it is at the beginning of the call.
+
+    Reads at most as many bytes as the file holds when the streaming
+    starts, so content appended by a concurrent writer is left out and
+    the stream is guaranteed to end. A file truncated mid-read ends the
+    stream early. The file is closed once the stream is over or
+    abandoned.
+
+    Parameters
+    ----------
+    file : AsyncBufferedReader
+        Opened file to stream. Ownership is transferred to this call.
+
+    Yields
+    ------
+    bytes
+        File chunk.
+
+    Raises
+    ------
+    OSError
+        If file cannot be read.
+
+    """
+    try:
+        await file.seek(0, os.SEEK_END)
+        remaining = await file.tell()
+        await file.seek(0, os.SEEK_SET)
+
+        while remaining > 0:
+            chunk = await file.read(min(_SNAPSHOT_CHUNK_SIZE, remaining))
+
+            if not chunk:
+                break
+
+            remaining -= len(chunk)
+            yield chunk
+    finally:
+        await file.close()
 
 
 async def stream_file(

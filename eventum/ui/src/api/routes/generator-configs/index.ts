@@ -12,7 +12,7 @@ import {
   GeneratorFileContent,
   GeneratorFileContentSchema,
 } from './schemas';
-import { apiClient } from '@/api/client';
+import { apiClient, TRANSFER_TIMEOUT } from '@/api/client';
 import '@/api/routes/instance/schemas';
 import { validateResponse } from '@/api/wrappers';
 
@@ -90,6 +90,7 @@ export async function getGeneratorFile(
     GeneratorFileContentSchema,
     apiClient.get(`/generator-configs/${name}/file/${filepath}`, {
       responseType: 'text',
+      timeout: TRANSFER_TIMEOUT,
     })
   );
 }
@@ -115,6 +116,7 @@ export async function uploadGeneratorFile(
     headers: {
       'Content-Type': undefined,
     },
+    timeout: TRANSFER_TIMEOUT,
   });
 }
 
@@ -135,6 +137,7 @@ export async function putGeneratorFile(
     headers: {
       'Content-Type': undefined,
     },
+    timeout: TRANSFER_TIMEOUT,
   });
 }
 
@@ -160,8 +163,12 @@ export async function copyGeneratorFile(
   source: string,
   destination: string
 ) {
-  await apiClient.post(`/generator-configs/${name}/file-copy`, {
-    source,
-    destination,
-  });
+  await apiClient.post(
+    `/generator-configs/${name}/file-copy`,
+    {
+      source,
+      destination,
+    },
+    { timeout: TRANSFER_TIMEOUT }
+  );
 }

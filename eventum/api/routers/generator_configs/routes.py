@@ -40,6 +40,7 @@ from eventum.api.routers.generator_configs.file_tree import (
 from eventum.api.routers.generator_configs.models import (
     GeneratorDirExtendedInfo,
 )
+from eventum.api.utils.file_streaming import stream_snapshot
 from eventum.api.utils.response_description import merge_responses
 from eventum.utils.dotted_keys import DottedKeyError, expand_dotted_keys
 from eventum.utils.fs_utils import (
@@ -423,7 +424,7 @@ async def get_generator_file(
         Annotated[Path, CheckFilepathIsDirectlyRelativeDep],
     ],
     settings: SettingsDep,
-) -> responses.FileResponse:
+) -> responses.StreamingResponse:
     path = (settings.path.generators_dir / name / filepath).resolve()
 
     if not path.is_file():
@@ -432,13 +433,24 @@ async def get_generator_file(
             detail='File does not exist',
         )
 
+    # File is opened here, before the response starts, so that an
+    # unreadable file is reported as an error instead of aborting the
+    # connection in the middle of the body.
     try:
-        return responses.FileResponse(path=path, media_type='text/plain')
+        file = await aiofiles.open(path, 'rb')
     except OSError as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f'File cannot be read due to OS error: {e}',
         ) from None
+
+    # Content length is intentionally left undeclared: a generator
+    # writing to the file changes its size at any moment, and a declared
+    # length would stop matching the sent body.
+    return responses.StreamingResponse(
+        stream_snapshot(file),
+        media_type='text/plain',
+    )
 
 
 @router.post(

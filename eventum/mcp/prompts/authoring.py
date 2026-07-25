@@ -34,7 +34,11 @@ when you validate, preview, or run.
 3. For a `template` event plugin, match technique to intent: a picking \
 mode (`all`/`chance`/`spin`/`chain`/`fsm`) for several variants or a \
 stateful sequence, and `shared`/`locals` state for correlated or \
-drifting values. Inspect any data files with `describe_sample`.
+drifting values. Inspect any data files with `describe_sample` - it \
+summarises a sample without pulling it into the conversation, and \
+`read_generator_file` returns one window of a file at a time, so \
+continue from its `next_offset` while `truncated` is true instead of \
+expecting a whole file back.
 4. Write the file set with `write_generator_file`, paths relative to \
 the generator directory: `generator.yml`, plus `templates/` and \
 `samples/` for a template generator. A `replay` generator just points \

@@ -5,6 +5,7 @@ from pathlib import Path
 from eventum.mcp.context import FileAuthoringContext
 from eventum.mcp.errors import ToolFailure
 from eventum.mcp.tools.workspace_files import (
+    _MAX_READ_BYTES,
     delete_generator,
     delete_generator_file,
     list_generator_files,
@@ -12,6 +13,9 @@ from eventum.mcp.tools.workspace_files import (
     read_generator_file,
     write_generator_file,
 )
+
+# Small enough to page a test file in a handful of windows.
+_LINE_LIMIT = 256
 
 
 def _ctx(tmp_path: Path, *, read_only: bool = False) -> FileAuthoringContext:
@@ -63,10 +67,92 @@ def test_list_generator_files_unknown(tmp_path: Path) -> None:
 
 
 def test_read_generator_file(tmp_path: Path) -> None:
-    """Known file contents are returned verbatim."""
+    """A file within the window is returned whole and not truncated."""
     _gen(tmp_path)
     result = read_generator_file(_ctx(tmp_path), 'g', 'templates/a.jinja')
-    assert result == 'hi'
+    assert result == {
+        'content': 'hi',
+        'offset': 0,
+        'next_offset': None,
+        'size_in_bytes': 2,
+        'truncated': False,
+    }
+
+
+def test_read_generator_file_windows_large_file(tmp_path: Path) -> None:
+    """A file over the limit is windowed and reports what is left.
+
+    This is the regression guard: the whole file used to be returned, so
+    an output file or a large sample landed in the agent's context in
+    one piece.
+    """
+    d = _gen(tmp_path)
+    lines = [f'{{"n": {i}}}\n' for i in range(400)]
+    (d / 'big.json').write_text(''.join(lines))
+
+    result = read_generator_file(
+        _ctx(tmp_path), 'g', 'big.json', limit=_LINE_LIMIT
+    )
+
+    assert not isinstance(result, ToolFailure)
+    assert result['truncated'] is True
+    assert result['offset'] == 0
+    assert result['size_in_bytes'] == len(''.join(lines))
+    assert len(result['content'].encode()) <= _LINE_LIMIT
+    # Windows end on a line break, so a page is never a partial line.
+    assert result['content'].endswith('\n')
+    assert result['next_offset'] == len(result['content'].encode())
+
+
+def test_read_generator_file_pages_whole_file(tmp_path: Path) -> None:
+    """Following next_offset reads the file without gaps or repeats."""
+    d = _gen(tmp_path)
+    content = ''.join(f'{{"n": {i}}}\n' for i in range(400))
+    (d / 'big.json').write_text(content)
+
+    pages: list[str] = []
+    offset: int | None = 0
+
+    while offset is not None:
+        page = read_generator_file(
+            _ctx(tmp_path), 'g', 'big.json', offset=offset, limit=_LINE_LIMIT
+        )
+        assert not isinstance(page, ToolFailure)
+        pages.append(page['content'])
+        offset = page['next_offset']
+
+    assert ''.join(pages) == content
+
+
+def test_read_generator_file_caps_limit(tmp_path: Path) -> None:
+    """A limit above the cap is clamped instead of honoured."""
+    d = _gen(tmp_path)
+    content = 'x' * (_MAX_READ_BYTES * 2)
+    (d / 'big.csv').write_text(content)
+
+    result = read_generator_file(
+        _ctx(tmp_path), 'g', 'big.csv', limit=_MAX_READ_BYTES * 2
+    )
+
+    assert not isinstance(result, ToolFailure)
+    assert len(result['content']) == _MAX_READ_BYTES
+    assert result['truncated'] is True
+
+
+def test_read_generator_file_offset_past_end(tmp_path: Path) -> None:
+    """An offset past the end of the file yields nothing to continue."""
+    _gen(tmp_path)
+    result = read_generator_file(
+        _ctx(tmp_path), 'g', 'templates/a.jinja', offset=1000
+    )
+
+    assert result == {
+        'content': '',
+        'offset': 2,
+        'next_offset': None,
+        'size_in_bytes': 2,
+        'truncated': False,
+    }
 
 
 def test_read_generator_file_not_found(tmp_path: Path) -> None:
@@ -110,9 +196,10 @@ def test_write_generator_file_roundtrip(tmp_path: Path) -> None:
     _gen(tmp_path)
     res = write_generator_file(_ctx(tmp_path), 'g', 'templates/b.jinja', 'yo')
     assert res == {'written': 'templates/b.jinja'}
-    assert (
-        read_generator_file(_ctx(tmp_path), 'g', 'templates/b.jinja') == 'yo'
-    )
+
+    read = read_generator_file(_ctx(tmp_path), 'g', 'templates/b.jinja')
+    assert not isinstance(read, ToolFailure)
+    assert read['content'] == 'yo'
 
 
 def test_write_blocked_when_read_only(tmp_path: Path) -> None:

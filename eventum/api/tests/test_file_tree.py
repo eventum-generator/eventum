@@ -62,3 +62,30 @@ def test_node_names_match_path(tmp_path):
 
     node = build_file_tree(f)
     assert node.name == 'my_file.yml'
+
+
+def test_file_size(tmp_path):
+    f = tmp_path / 'test.txt'
+    f.write_bytes(b'content')
+
+    node = build_file_tree(f)
+    assert node.size_in_bytes == len(b'content')
+
+
+def test_directory_size_is_unknown(tmp_path):
+    d = tmp_path / 'project'
+    d.mkdir()
+    (d / 'test.txt').write_bytes(b'content')
+
+    node = build_file_tree(d)
+    assert node.size_in_bytes is None
+    assert node.children[0].size_in_bytes == len(b'content')  # type: ignore
+
+
+def test_unreadable_file_size_is_unknown(tmp_path):
+    link = tmp_path / 'dangling.txt'
+    link.symlink_to(tmp_path / 'missing.txt')
+
+    node = build_file_tree(link)
+    assert node.is_dir is False
+    assert node.size_in_bytes is None

@@ -9,6 +9,7 @@ import {
   IconFolderPlus,
   IconTrash,
 } from '@tabler/icons-react';
+import bytes from 'bytes';
 import { useContextMenu } from 'mantine-contextmenu';
 import { dirname, join } from 'pathe';
 import { FC } from 'react';
@@ -40,6 +41,8 @@ export const TreeItem: FC<TreeItemProps> = ({
 
   const { showContextMenu } = useContextMenu();
   const createDir = useCreateGeneratorDirectoryMutation();
+
+  const fileSize = item.isFolder() ? null : item.getItemData().size_in_bytes;
 
   return (
     <NavLink
@@ -199,6 +202,11 @@ export const TreeItem: FC<TreeItemProps> = ({
             />
           ) : (
             <Text size="sm">{item.getItemName()}</Text>
+          )}
+          {fileSize !== null && !item.isRenaming() && (
+            <Text size="xs" c="dimmed" ml="auto" style={{ flexShrink: 0 }}>
+              {bytes(fileSize)}
+            </Text>
           )}
         </Group>
       }
