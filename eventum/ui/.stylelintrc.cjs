@@ -12,10 +12,4 @@ module.exports = {
       },
     ],
   },
-  overrides: [
-    {
-      files: ['src/theme/tokens.css'],
-      rules: { 'color-no-hex': null, 'scale-unlimited/declaration-strict-value': null },
-    },
-  ],
 };
