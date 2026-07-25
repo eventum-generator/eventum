@@ -6,31 +6,47 @@ All notable changes to this project will be documented in this file.
 
 ### 🚀 New Features
 
-- **Studio redesign** — every screen restyled on one design system: matched dark and light themes, one status palette, and consistent surfaces, controls, tables and menus
-- **The project page is now a development studio** — a docked workspace of file explorer, tabbed code editor, stage inspector and a console holding the timestamp preview, event debugger, template state and formatter. One Save covers the configuration and every edited file, and the debug tools keep their results while you move between stages. A `generator.yml` that fails to parse no longer locks the project: it opens in recovery mode with the error over the editor
-- **The instance page is now a live overview** — Overview, Settings and Logs tabs. Overview draws live throughput over the pipeline with per-plugin counters, the instance's project, mode, autostart, timezone and last run, and its scenarios with inline add and remove. The header carries live status, uptime and Start / Stop / Restart; the log viewer is embedded and streams only while its tab is open
-- **Monitoring is a live dashboard** — animated Input → Event → Output flow with per-stage metrics, throughput and failure charts over a rolling window, each instance's share of the output load, and CPU, memory, disk and network tiles
-- **MCP tools for scenarios, settings, and instance control** — over HTTP an agent can manage scenarios (list, inspect, add or remove a generator, delete), read and edit the shared global state, read host/runtime info and the running settings (credentials redacted, absolute paths shortened), patch the settings file, and stop or restart the instance. Write tools stay gated behind `server.mcp.allow_write`; credentials cannot be changed over MCP, settings apply on the next restart, and stopping or restarting ends the agent's own connection
-- **Runtime stats and filters in the tables** — running instances show Flow (average output EPS), Errors and Written as sortable columns. Projects filters by All / In use / Unused, Instances and Scenarios by All / Running / Inactive, each list counts its records, and every table has a first-run and a no-match state. Filters live in the URL, so a filtered view is linkable. Project rows carry instance chips that link to their instance and light up while it runs
-- **Management is an instance console** — application and host identity (version, Python, platform, address, uptime), a CPU and memory snapshot, the application log streamed in the page instead of behind a modal, and a danger zone for restart and stop
-- **Settings, Secrets and the scenario page reworked** — Settings splits into a Server / Generation / Paths / Logging rail with Save pinned in the header and a dot on sections holding unsaved edits; Secrets adds entries through an inline form with a password field and copyable names; the scenario page gains an aggregate status header with Start all and Stop all, and inline syntax-highlighted template previews
-- **Unsaved changes are guarded on every exit** — leaving an instance or a project with unsaved changes asks for confirmation on any navigation and warns before a refresh or a closed tab; previously only the back button was covered
-- **Clone an instance in Studio** — the row menu gains a Clone action that creates a new instance from an existing one, reusing its project and all parameters
-- **Studio navigation is link-based** — record names, sidebar items, breadcrumbs, home cards and in-page links are real links, so middle-click and Ctrl/Cmd-click open them in a new browser tab; middle-click also closes an editor tab. Selecting a record name no longer opens it, so names stay copyable
+#### Eventum Studio
+
+- **Restyled every screen on one design system** — matched dark and light themes, one status palette, and consistent surfaces, controls, tables and menus
+- **Rebuilt the project page into a development studio** — a docked workspace of file explorer, tabbed code editor, stage inspector and a console holding the timestamp preview, event debugger, template state and formatter. One Save covers the configuration and every edited file, and the debug tools keep their results while you move between stages. A `generator.yml` that fails to parse now opens in recovery mode with the error over the editor instead of locking the project out
+- **Rebuilt the instance page into a live overview** — Overview, Settings and Logs tabs. Overview draws live throughput over the pipeline with per-plugin counters, the instance's project, mode, autostart, timezone and last run, and its scenarios with inline add and remove. The header carries live status, uptime and Start / Stop / Restart; the log viewer is embedded and streams only while its tab is open
+- **Rebuilt Monitoring into a live dashboard** — animated Input → Event → Output flow with per-stage metrics, throughput and failure charts over a rolling window, each instance's share of the output load, and CPU, memory, disk and network tiles
+- **Rebuilt Management into an instance console** — application and host identity (version, Python, platform, address, uptime), a CPU and memory snapshot, the application log streamed in the page instead of behind a modal, and a danger zone for restart and stop
+- **Added runtime stats and filters to the tables** — running instances show Flow (average output EPS), Errors and Written as sortable columns. Projects filters by All / In use / Unused, Instances and Scenarios by All / Running / Inactive, each list counts its records, and every table has a first-run and a no-match state. Filters live in the URL, so a filtered view is linkable. Project rows carry instance chips that link to their instance and light up while it runs
+- **Reworked Settings, Secrets and the scenario page** — Settings splits into a Server / Generation / Paths / Logging rail with Save pinned in the header and a dot on sections holding unsaved edits; Secrets adds entries through an inline form with a password field and copyable names; the scenario page gains an aggregate status header with Start all and Stop all, and inline syntax-highlighted template previews
+- **Added an unsaved-changes guard** — leaving an instance or a project with unsaved changes asks for confirmation on any navigation and warns before a refresh or a closed tab; previously only the back button was covered
+- **Added a Clone action to the instance row menu** — creates a new instance from an existing one, reusing its project and all parameters
+- **Made Studio navigation link-based** — record names, sidebar items, breadcrumbs, home cards and in-page links are real links, so middle-click and Ctrl/Cmd-click open them in a new browser tab; middle-click also closes an editor tab. Selecting a record name no longer opens it, so names stay copyable
+
+#### MCP
+
+- **Added tools for scenarios, global state, settings and instance control** — over HTTP an agent can manage scenarios (list, inspect, add or remove a generator, delete), read and edit the shared global state, read host/runtime info and the running settings (credentials redacted, absolute paths shortened), patch the settings file, and stop or restart the instance. Write tools stay gated behind `server.mcp.allow_write`; credentials cannot be changed over MCP, settings apply on the next restart, and stopping or restarting ends the agent's own connection
 
 ### 🐛 Bug Fixes
 
-- **MCP settings are editable in Studio and no longer reset** — the Server section gained MCP controls (enable the HTTP server, allow write tools, mount path, allowed hosts); previously they were configurable only in `eventum.yml`, and saving settings from Studio silently reset them to defaults
-- **Opening a scenario with many instances no longer times out** — the page could hang and fail after about ten seconds while loading each instance's global-state usage
-- **Stopping the app no longer hangs when a log or MCP stream is open** — Ctrl+C now shuts the app down in well under a second instead of waiting out the graceful-shutdown timeout and printing cancellation errors
-- **Recreating a deleted project no longer shows the old project's settings** — a project created with the name of a deleted one now starts from a clean configuration
-- **Network and disk figures measure Eventum, not the whole host** — the Disk I/O and Network tiles reported system-wide counters. Disk now comes from the Eventum process and network bytes are counted inside the application; CPU and memory stay host-level, and counters are cumulative since startup
-- **MCP agents get the fast path for large samples and a fuller picture of Eventum** — large CSV/JSON samples go through the REST file API (over HTTP) or straight to disk (locally) instead of the slow `write_generator_file` tool. The agent is also told that templates can import any installed Python package and run shell commands via `subprocess`, that the server exposes an OpenAPI schema to fall back on when no tool fits, and how live/sample modes and scenarios work
-- **The Write timeout field accepts only whole seconds** — it allowed fractional values that the configuration then rejected on save
+#### Eventum Studio
+
+- **Added MCP controls to the Server settings section** — the HTTP server toggle, write-tool permission, mount path and allowed hosts are now editable in Studio; previously they lived only in `eventum.yml`, and saving settings from Studio reset them to defaults
+- **Cleared the cached project configuration on delete and create** — a project created with the name of a deleted one starts from a clean configuration instead of showing the old project's settings
+- **Restricted the Write timeout field to whole seconds** — it accepted fractional values that the configuration then rejected on save
+
+#### Core
+
+- **Closed streaming connections on graceful shutdown** — Ctrl+C with a live log view or a connected MCP client now exits in well under a second, instead of waiting out the shutdown timeout and printing cancellation errors
+- **Scoped the network and disk figures to the Eventum process** — the Disk I/O and Network tiles measured the whole host. Disk now comes from the process and network bytes are counted inside the application; CPU and memory stay host-level, and all counters are cumulative since startup
+
+#### MCP
+
+- **Widened the guidance given to agents** — large CSV/JSON samples go through the REST file API (over HTTP) or straight to disk (locally) instead of the slow `write_generator_file` tool. The agent is also told that templates can import any installed Python package and run shell commands via `subprocess`, that the server exposes an OpenAPI schema to fall back on when no tool fits, and how live/sample modes and scenarios work
+
+#### API/CLI
+
+- **Moved the scenario global-state scan to a worker thread** — a scenario with many generators opens instead of hanging and failing after about ten seconds
 
 ### 📝 Other Changes
 
-- **Nested `server.ui` and `server.api` config sections** — the web UI and REST API toggles moved under `server.ui.enabled` and `server.api.enabled`, matching `server.mcp`. The flat `server.ui_enabled` and `server.api_enabled` keys still work but are deprecated, warn at startup and go away in 2.8; mixing a flat key with its nested form is rejected
+- **Nested the `server.ui` and `server.api` config sections** — the web UI and REST API toggles moved under `server.ui.enabled` and `server.api.enabled`, matching `server.mcp`. The flat `server.ui_enabled` and `server.api_enabled` keys still work but are deprecated, warn at startup and go away in 2.8; mixing a flat key with its nested form is rejected
 
 ## 2.6.0 (2026-06-11)
 
