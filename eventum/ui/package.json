@@ -8,6 +8,7 @@
     "build": "tsc -b && vite build --config vite.config.ts",
     "lint": "eslint .",
     "lint:css": "stylelint \"src/**/*.css\"",
+    "test": "vitest run",
     "preview": "vite preview"
   },
   "dependencies": {
@@ -91,6 +92,7 @@
     "typescript": "~5.8.3",
     "typescript-eslint": "^8.34.1",
     "vite": "^7.0.0",
-    "vite-plugin-svgr": "^4.3.0"
+    "vite-plugin-svgr": "^4.3.0",
+    "vitest": "^4.1.10"
   }
 }
