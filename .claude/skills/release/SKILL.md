@@ -17,7 +17,7 @@ description: Prepare and execute an Eventum release - changelog, version bump, v
 
 ## Reference
 
-- `.claude/rules/changelog.md` - sections, component grouping, and entry wording for `CHANGELOG.md`.
+- `CHANGELOG.md` - existing version sections set the formatting convention.
 - Last release tags and PRs - tone for release notes and announcement body.
 
 ## When to use
@@ -44,7 +44,7 @@ Confirm the version bump with the user before continuing.
 
 Two artifacts across two repos, each in its own voice:
 
-- `eventum` on `develop` - rename `## Unreleased` in `CHANGELOG.md` to `## <version> (<date>)` in YYYY-MM-DD form. When no `Unreleased` section exists, build the section from `git log <latest-tag>..HEAD`. Always re-check the resulting list against `git log <latest-tag>..HEAD` even when an `Unreleased` section was already present - small fixes often land without a CHANGELOG entry. Fill gaps, polish wording, and re-check the whole section against `.claude/rules/changelog.md`. Technical voice, for developers.
+- `eventum` on `develop` - rename `## Unreleased` in `CHANGELOG.md` to `## <version> (<date>)` in YYYY-MM-DD form. When no `Unreleased` section exists, build the section from `git log <latest-tag>..HEAD`. Always re-check the resulting list against `git log <latest-tag>..HEAD` even when an `Unreleased` section was already present - small fixes often land without a CHANGELOG entry. Fill gaps, polish wording. Technical voice, for developers.
 - `../docs` - new page at `content/docs/changelog/<version>.mdx`, registered in `content/docs/changelog/meta.json`. User-facing voice: describe what changed for the end user (not developer) - not a one-to-one copy of the CHANGELOG entry. Commits land on a dedicated branch in step 6.
 
 ### 3. Version bump

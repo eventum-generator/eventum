@@ -89,9 +89,7 @@ H2 sections use emoji prefixes - include only what applies:
 - `## 🧪 Testing`
 - `## 📝 Other changes`
 
-Use `### Subsection` inside a section when item count warrants grouping - by component (`### Eventum Studio`, `### Core`, `### Plugins`, `### API/CLI`, `### MCP`) by default, or by plugin type (`### Input plugins`, `### Output plugins`) when a release is plugin-heavy.
-
-Entry wording and ordering follow `.claude/rules/changelog.md`: lead with what was done, keep the earlier behaviour in the detail, order by impact, and merge changes to the same screen or mechanism. The voice differs - this page speaks to the end user, `CHANGELOG.md` to developers.
+Use `### Subsection` inside a section when item count warrants grouping (e.g. `### Input plugins`, `### Output plugins` inside `🚀 New features`).
 
 Write entries from the user's perspective - what they can do, not what the code does.
 
