@@ -47,6 +47,13 @@ def test_create_generator_surfaces_module_and_large_sample() -> None:
     assert '/api/generator-configs/' in text
 
 
+def test_create_generator_explains_windowed_reads() -> None:
+    """The prompt tells the agent to page a file read."""
+    text = create_generator_text()
+    assert 'next_offset' in text
+    assert 'truncated' in text
+
+
 def test_live_ops_covers_modes_and_scenarios() -> None:
     """The live-ops prompt explains run modes and scenarios."""
     text = live_ops_text()
