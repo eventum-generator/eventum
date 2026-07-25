@@ -6,22 +6,55 @@ All notable changes to this project will be documented in this file.
 
 ### 🚀 New Features
 
-- **Nested `server.ui` and `server.api` config sections** — the web UI and REST API toggles now live under `server.ui.enabled` and `server.api.enabled`, matching the `server.mcp` layout. The flat `server.ui_enabled` and `server.api_enabled` keys still work but are deprecated, print a notice at startup, and will be removed in version 2.8; combining a flat key with its nested form is rejected
-- **Clone an instance in Studio** — the instance row menu now has a **Clone** action that creates a new instance from an existing one, reusing its project and all parameters; you only choose a name for the clone
-- **Rename projects, instances, scenarios, and secrets in Studio** — each of them now has a **Rename** action, so an object no longer has to be recreated to get a different name. Renaming a **project** moves its directory and repoints every instance that uses it, which requires those instances to be stopped. Renaming an **instance** keeps its parameters and scenario membership; logs written under the old name stay in their own file. Renaming a **scenario** rewrites the tag on all its instances. Renaming a **secret** keeps its value, and the dialog lists the projects that read it as `${secrets.<name>}` — those placeholders are not rewritten automatically
-- **MCP tools for scenarios, settings, and instance control** — over HTTP an agent can now manage **scenarios** (list them, inspect a scenario's generators, add or remove a generator, delete a scenario), read and edit the shared **global state** (get the whole state or one key, set, delete a key, clear), read **host/runtime info** and the running **settings** (auth credentials redacted, absolute paths shortened), patch the **settings** file, and **stop** or **restart** the instance. All write tools stay gated behind `server.mcp.allow_write`; auth credentials cannot be changed over MCP, settings updates apply on the next restart, and stopping or restarting ends the agent's own connection since the server runs inside the instance
-- **Open a record by clicking its name** — project, instance, and scenario names in the tables are now links: left-click opens the record, middle-click or Ctrl/Cmd-click opens it in a new browser tab. Selecting the name text no longer opens the record, so names stay copyable
-- **Links across Studio open in a new tab on middle-click** — the sidebar, breadcrumbs, home action cards, recent projects, and in-page navigation links are now real links, so middle-click and Ctrl/Cmd-click open a new browser tab instead of doing nothing
-- **Clickable breadcrumbs** — each breadcrumb segment now links to its page; the current page and any segment that has no page stay plain text
-- **Close an editor tab with middle-click** — middle-clicking a file tab in the project editor closes it, with the same unsaved-changes prompt as the close button
+#### Eventum Studio
+
+- **Restyled every screen on one design system** — matched dark and light themes, one status palette, and consistent surfaces, controls, tables and menus
+- **Rebuilt the project page into a development studio** — a docked workspace of file explorer, tabbed code editor, stage inspector and a console holding the timestamp preview, event debugger, template state and formatter. One Save covers the configuration and every edited file, and the debug tools keep their results while you move between stages. A `generator.yml` that fails to parse now opens in recovery mode with the error over the editor instead of locking the project out
+- **Rebuilt the instance page into a live overview** — Overview, Settings and Logs tabs. Overview draws live throughput over the pipeline with per-plugin counters, the instance's project, mode, autostart, timezone and last run, and its scenarios with inline add and remove. The header carries live status, uptime and Start / Stop / Restart; the log viewer is embedded and streams only while its tab is open
+- **Rebuilt Monitoring into a live dashboard** — animated Input → Event → Output flow with per-stage metrics, throughput and failure charts over a rolling window, each instance's share of the output load, and CPU, memory, disk and network tiles
+- **Rebuilt Management into an instance console** — application and host identity (version, Python, platform, address, uptime), a CPU and memory snapshot, the application log streamed in the page instead of behind a modal, and a danger zone for restart and stop
+- **Added runtime stats and filters to the tables** — running instances show Flow (average output EPS), Errors and Written as sortable columns. Projects filters by All / In use / Unused, Instances and Scenarios by All / Running / Inactive, each list counts its records, and every table has a first-run and a no-match state. Filters live in the URL, so a filtered view is linkable. Project rows carry instance chips that link to their instance and light up while it runs
+- **Reworked Settings, Secrets and the scenario page** — Settings splits into a Server / Generation / Paths / Logging rail with Save pinned in the header and a dot on sections holding unsaved edits; Secrets adds entries through an inline form with a password field and copyable names; the scenario page gains an aggregate status header with Start all and Stop all, and inline syntax-highlighted template previews
+- **Added an unsaved-changes guard** — leaving an instance or a project with unsaved changes asks for confirmation on any navigation and warns before a refresh or a closed tab; previously only the back button was covered
+- **Added a Rename action to projects, instances, scenarios and secrets** — an object no longer has to be recreated to carry a different name. A renamed project moves its directory and every instance using it follows, so those instances must be stopped first; a renamed instance keeps its parameters and scenario membership; a renamed scenario has its tag rewritten on all its instances; a renamed secret keeps its value, and the dialog lists the projects reading it as `${secrets.<name>}`, since those placeholders are not rewritten
+- **Added a Clone action to the instance row menu** — creates a new instance from an existing one, reusing its project and all parameters
+- **Made Studio navigation link-based** — record names, sidebar items, breadcrumbs, home cards and in-page links are real links, so middle-click and Ctrl/Cmd-click open them in a new browser tab; middle-click also closes an editor tab. Selecting a record name no longer opens it, so names stay copyable
+
+#### MCP
+
+- **Added tools for scenarios, global state, settings and instance control** — over HTTP an agent can manage scenarios (list, inspect, add or remove a generator, delete), read and edit the shared global state, read host/runtime info and the running settings (credentials redacted, absolute paths shortened), patch the settings file, and stop or restart the instance. Write tools stay gated behind `server.mcp.allow_write`; credentials cannot be changed over MCP, settings apply on the next restart, and stopping or restarting ends the agent's own connection
 
 ### 🐛 Bug Fixes
 
-- **MCP agents get the fast path for large samples and a fuller picture of Eventum** — building a generator over MCP no longer pushes large CSV/JSON samples through the slow `write_generator_file` tool: the agent is guided to upload them via the REST file API (over HTTP) or write them straight to disk (when running locally). The agent is also told that event templates can import any installed Python package — not only `rand`/`faker`/`mimesis` — and run shell commands via `subprocess`, that the running server exposes a REST API with an OpenAPI schema to fall back on when no MCP tool fits, and how live/sample run modes and scenarios work
-- **Recreating a deleted project no longer shows the old project's settings** — creating a project with the same name as a deleted one now starts from a clean configuration; previously its plugin tabs could still display the deleted project's settings
-- **MCP settings are now editable in the Studio Settings page** — the Server parameters section gained MCP controls (enable the HTTP server, allow write tools, mount path, allowed hosts); previously these were configurable only by editing `eventum.yml`, and saving settings from Studio silently reset any existing MCP configuration to defaults
-- **Opening a scenario with many instances no longer times out** — scenarios with several generators now open reliably; previously the page could hang and fail after about ten seconds while loading each instance's global-state usage
-- **Stopping the app no longer hangs when a log or MCP stream is open** — pressing Ctrl+C while a generator's live log view or a connected MCP client is streaming now shuts the app down in well under a second, instead of waiting out the graceful-shutdown timeout and printing cancellation errors on exit
+#### Eventum Studio
+
+- **Added MCP controls to the Server settings section** — the HTTP server toggle, write-tool permission, mount path and allowed hosts are now editable in Studio; previously they lived only in `eventum.yml`, and saving settings from Studio reset them to defaults
+- **Cleared the cached project configuration on delete and create** — a project created with the name of a deleted one starts from a clean configuration instead of showing the old project's settings
+- **Restricted the Write timeout field to whole seconds** — it accepted fractional values that the configuration then rejected on save
+- **Read the cron seconds field in the generator's order** — the text under the cron Expression field took the seconds as the first field, so `35 10 * * * 3` was described as "At 35 seconds past the minute … only on Wednesday" while the generator fires at 10:35:03 every day. The description and the validity check now follow `minute hour day month weekday second year`, and the field hint spells the order out
+- **Accepted cron expressions carrying random values or parameters** — `0 0 R * *` and `${params.schedule}` were rejected as invalid although the generator runs them; the field checked what could be spelled out in words rather than what the generator accepts. Both are accepted now, with a note under the field saying the schedule is resolved at run time
+
+#### Core
+
+- **Closed streaming connections on graceful shutdown** — Ctrl+C with a live log view or a connected MCP client now exits in well under a second, instead of waiting out the shutdown timeout and printing cancellation errors
+- **Scoped the network and disk figures to the Eventum process** — the Disk I/O and Network tiles measured the whole host. Disk now comes from the process and network bytes are counted inside the application; CPU and memory stay host-level, and all counters are cumulative since startup
+
+#### Plugins
+
+- **Restored parallel generation alongside the `clickhouse` output** — loading the plugin on free-threaded Python re-enabled the GIL for the whole process, so every generator lost parallelism, not only the one writing to ClickHouse. The ClickHouse client is now required at a version whose compiled modules keep the GIL disabled
+- **Dropped the unsatisfiable constraint on the `clickhouse` certificate fields** — `ca_cert`, `client_cert` and `client_cert_key` carried a text-length constraint that cannot apply to a path, so any value failed with a type error while the configuration was read, leaving certificate-based TLS unusable
+
+#### MCP
+
+- **Widened the guidance given to agents** — large CSV/JSON samples go through the REST file API (over HTTP) or straight to disk (locally) instead of the slow `write_generator_file` tool. The agent is also told that templates can import any installed Python package and run shell commands via `subprocess`, that the server exposes an OpenAPI schema to fall back on when no tool fits, and how live/sample modes and scenarios work
+
+#### API/CLI
+
+- **Moved the scenario global-state scan to a worker thread** — a scenario with many generators opens instead of hanging and failing after about ten seconds
+
+### 📝 Other Changes
+
+- **Nested the `server.ui` and `server.api` config sections** — the web UI and REST API toggles moved under `server.ui.enabled` and `server.api.enabled`, matching `server.mcp`. The flat `server.ui_enabled` and `server.api_enabled` keys still work but are deprecated, warn at startup and go away in 2.8; mixing a flat key with its nested form is rejected
 
 ## 2.6.0 (2026-06-11)
 
