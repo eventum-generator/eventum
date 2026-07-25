@@ -18,7 +18,11 @@ from fastapi import (
 )
 from pydantic import ValidationError
 
-from eventum.api.dependencies.app import GeneratorManagerDep, SettingsDep
+from eventum.api.dependencies.app import (
+    GeneratorManagerDep,
+    SettingsDep,
+    StartupDep,
+)
 from eventum.api.routers.generator_configs.api_types import (
     ApiGeneratorConfig as GeneratorConfig,
 )
@@ -39,8 +43,16 @@ from eventum.api.routers.generator_configs.file_tree import (
 )
 from eventum.api.routers.generator_configs.models import (
     GeneratorDirExtendedInfo,
+    RenameGeneratorDirRequest,
 )
 from eventum.api.utils.response_description import merge_responses
+from eventum.app.renaming import (
+    RenameBlockedError,
+    RenameConflictError,
+    RenameError,
+    RenameNotFoundError,
+    rename_project,
+)
 from eventum.utils.dotted_keys import DottedKeyError, expand_dotted_keys
 from eventum.utils.fs_utils import (
     calculate_dir_size,
@@ -325,6 +337,73 @@ async def delete_generator_config(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=(f'Configuration cannot be deleted due to OS error: {e}'),
+        ) from None
+
+
+@router.post(
+    '/{name}/rename',
+    description=(
+        'Rename generator configuration directory. Instances that use the '
+        'configuration are repointed at the new directory and must be '
+        'stopped beforehand.'
+    ),
+    response_description='IDs of repointed instances',
+    responses=merge_responses(
+        check_directory_is_allowed.responses,
+        check_configuration_exists.responses,
+        {
+            409: {
+                'description': (
+                    'Directory with the new name already exists, or an '
+                    'instance using the configuration is active'
+                ),
+            },
+            500: {
+                'description': (
+                    'Configuration cannot be renamed due to OS error'
+                ),
+            },
+        },
+    ),
+)
+async def rename_generator_config(
+    name: Annotated[
+        str,
+        CheckDirectoryIsAllowedDep,
+        CheckConfigurationExistsDep,
+    ],
+    request: Annotated[
+        RenameGeneratorDirRequest,
+        Body(description='New directory name'),
+    ],
+    manager: GeneratorManagerDep,
+    startup: StartupDep,
+    settings: SettingsDep,
+) -> list[str]:
+    try:
+        return await asyncio.to_thread(
+            lambda: rename_project(
+                manager=manager,
+                startup=startup,
+                generators_dir=settings.path.generators_dir,
+                name=name,
+                new_name=request.new_name,
+            ),
+        )
+    except RenameNotFoundError as e:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=str(e),
+        ) from None
+    except (RenameConflictError, RenameBlockedError) as e:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=str(e),
+        ) from None
+    except RenameError as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=str(e),
         ) from None
 
 

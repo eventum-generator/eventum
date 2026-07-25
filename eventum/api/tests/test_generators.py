@@ -4,6 +4,7 @@ from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import pytest
+import yaml
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
@@ -16,6 +17,7 @@ from eventum.app.models.parameters.server import (
     ServerParameters,
 )
 from eventum.app.models.settings import Settings
+from eventum.app.startup import Startup
 from eventum.core.parameters import GenerationParameters, GeneratorParameters
 
 
@@ -44,10 +46,21 @@ def manager():
 
 
 @pytest.fixture()
-def client(tmp_settings, manager):
+def startup(tmp_settings):
+    tmp_settings.path.startup.write_text('')
+    return Startup(
+        file_path=tmp_settings.path.startup,
+        generators_dir=tmp_settings.path.generators_dir,
+        generation_parameters=tmp_settings.generation,
+    )
+
+
+@pytest.fixture()
+def client(tmp_settings, manager, startup):
     app = FastAPI()
     app.state.settings = tmp_settings
     app.state.generator_manager = manager
+    app.state.startup = startup
     app.include_router(router, prefix='/generators')
     with TestClient(app) as c:
         yield c
@@ -214,3 +227,82 @@ def test_bulk_stop(client, manager, tmp_settings):
             json=['bulk2'],
         )
     assert response.status_code == 200
+
+
+# --- POST /{id}/rename ---
+
+
+def test_rename_generator(client, manager, tmp_settings):
+    config_path = _make_config_file(tmp_settings, 'ren_gen')
+    manager.add(GeneratorParameters(id='ren_gen', path=Path(config_path)))
+
+    response = client.post(
+        '/generators/ren_gen/rename', json={'new_id': 'renamed'}
+    )
+
+    assert response.status_code == 200
+    assert manager.generator_ids == ['renamed']
+
+
+def test_rename_generator_renames_startup_entry(client, manager, tmp_settings):
+    config_path = _make_config_file(tmp_settings, 'ren_gen')
+    manager.add(GeneratorParameters(id='ren_gen', path=Path(config_path)))
+    tmp_settings.path.startup.write_text(
+        '- id: ren_gen\n  path: ren_gen/generator.yml\n'
+    )
+
+    response = client.post(
+        '/generators/ren_gen/rename', json={'new_id': 'renamed'}
+    )
+
+    assert response.status_code == 200
+    assert yaml.safe_load(tmp_settings.path.startup.read_text()) == [
+        {'id': 'renamed', 'path': 'ren_gen/generator.yml'}
+    ]
+
+
+def test_rename_generator_not_found(client):
+    response = client.post(
+        '/generators/missing/rename', json={'new_id': 'renamed'}
+    )
+
+    assert response.status_code == 404
+
+
+def test_rename_generator_id_taken(client, manager, tmp_settings):
+    config_path = _make_config_file(tmp_settings, 'ren_gen')
+    manager.add(GeneratorParameters(id='ren_gen', path=Path(config_path)))
+    manager.add(GeneratorParameters(id='taken', path=Path(config_path)))
+
+    response = client.post(
+        '/generators/ren_gen/rename', json={'new_id': 'taken'}
+    )
+
+    assert response.status_code == 409
+    assert manager.generator_ids == ['ren_gen', 'taken']
+
+
+def test_rename_generator_active(client, manager, tmp_settings):
+    config_path = _make_config_file(tmp_settings, 'ren_gen')
+    manager.add(GeneratorParameters(id='ren_gen', path=Path(config_path)))
+
+    with patch.object(
+        type(manager.get_generator('ren_gen')),
+        'is_running',
+        new_callable=lambda: property(lambda self: True),
+    ):
+        response = client.post(
+            '/generators/ren_gen/rename', json={'new_id': 'renamed'}
+        )
+
+    assert response.status_code == 409
+    assert manager.generator_ids == ['ren_gen']
+
+
+def test_rename_generator_blank_id(client, manager, tmp_settings):
+    config_path = _make_config_file(tmp_settings, 'ren_gen')
+    manager.add(GeneratorParameters(id='ren_gen', path=Path(config_path)))
+
+    response = client.post('/generators/ren_gen/rename', json={'new_id': ''})
+
+    assert response.status_code == 422

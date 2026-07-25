@@ -32,3 +32,9 @@ class ScenarioResponse(BaseModel, frozen=True):
     generator_ids: list[str] = Field(
         description='IDs of generators in this scenario',
     )
+
+
+class RenameScenarioRequest(BaseModel, frozen=True):
+    """New name for an existing scenario."""
+
+    new_name: str = Field(min_length=1, description='New scenario name')

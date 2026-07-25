@@ -21,6 +21,7 @@ from eventum.api.routers.scenarios.models import (
     GlobalsReferenceResponse,
     GlobalsUsageResponse,
     GlobalsWarningResponse,
+    RenameScenarioRequest,
     ScenarioResponse,
 )
 from eventum.api.utils.response_description import merge_responses
@@ -131,6 +132,48 @@ async def get_scenario(
             detail=f'Scenario not found: {name}',
         )
     return ScenarioResponse(name=name, generator_ids=generator_ids)
+
+
+@router.post(
+    '/{name}/rename',
+    description=(
+        'Rename scenario (rewrite tag in all generators that carry it)'
+    ),
+    responses=merge_responses(
+        _STARTUP_ERROR_RESPONSES,
+        {404: {'description': 'Scenario not found'}},
+        {409: {'description': 'Scenario with the new name already exists'}},
+    ),
+)
+async def rename_scenario(
+    name: Annotated[
+        str, FastApiPath(description='Scenario name', min_length=1)
+    ],
+    request: Annotated[
+        RenameScenarioRequest,
+        Body(description='New scenario name'),
+    ],
+    startup: StartupDep,
+) -> None:
+    try:
+        await asyncio.to_thread(
+            startup.rename_scenario, name, request.new_name
+        )
+    except ScenarioNotFoundError:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f'Scenario not found: {name}',
+        ) from None
+    except ScenarioConflictError:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=f'Scenario already exists: {request.new_name}',
+        ) from None
+    except StartupError as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=str(e),
+        ) from None
 
 
 @router.delete(
