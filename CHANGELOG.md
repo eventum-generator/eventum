@@ -41,6 +41,7 @@ All notable changes to this project will be documented in this file.
 
 #### MCP
 
+- **Capped what one file read hands to the agent** — `read_generator_file` returned the whole file, so an output file or a large sample went into the agent's context in one piece. A call now returns at most 64 KB, 256 KB on request, ending on a complete line, and reports the file size together with the offset to continue from - an agent pages through a large file instead of pulling it whole
 - **Widened the guidance given to agents** — large CSV/JSON samples go through the REST file API (over HTTP) or straight to disk (locally) instead of the slow `write_generator_file` tool. The agent is also told that templates can import any installed Python package and run shell commands via `subprocess`, that the server exposes an OpenAPI schema to fall back on when no tool fits, and how live/sample modes and scenarios work
 
 #### API/CLI
