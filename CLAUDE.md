@@ -66,7 +66,7 @@ Standard tool invocations (`uv run pytest`, `uv run ruff check`, `uv run mypy ev
 
 ## Rules
 
-Area-specific rules live in `.claude/rules/`, scoped by `backend`, `frontend`, `docs`, and `content`. Read the relevant scope before touching that area.
+Area-specific rules live in `.claude/rules/`, scoped by `backend`, `frontend`, `docs`, and `content`. Read the relevant scope before touching that area. Rules that span areas sit at the top level - `changelog.md` covers `CHANGELOG.md`.
 
 ## Hard rules
 
