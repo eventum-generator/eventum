@@ -122,6 +122,18 @@ export const EditorPanel: FC = () => {
                     type="button"
                     className="studio-tab-btn"
                     onClick={() => activateItem(item)}
+                    // Middle click closes the tab, as in an editor. The press
+                    // is swallowed too, or the browser starts autoscroll on
+                    // the tab strip instead.
+                    onAuxClick={(event) => {
+                      if (event.button === 1) {
+                        event.preventDefault();
+                        requestClose(item);
+                      }
+                    }}
+                    onMouseDown={(event) => {
+                      if (event.button === 1) event.preventDefault();
+                    }}
                   >
                     <FileNodeItemIcon item={item} />
                     <span className="studio-tab-name" data-missing={missing}>

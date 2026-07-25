@@ -20,8 +20,10 @@ import {
   Popover,
   Table,
   createTheme,
+  defaultVariantColorsResolver,
   type CSSVariablesResolver,
   type MantineColorsTuple,
+  type VariantColorsResolverInput,
 } from '@mantine/core';
 
 /* eslint-disable no-restricted-syntax -- colour scales are the one place
@@ -234,6 +236,25 @@ export const cssVariablesResolver: CSSVariablesResolver = () => ({
   },
 });
 
+// Danger comes in three levels: filled (a decisive confirm), medium and
+// ghost. Mantine covers the outer two, but its `default` variant ignores
+// `color`, which would flatten the medium level into a plain neutral button.
+// Keep that variant's neutral surface and give it back its red label.
+function variantColorResolver(input: VariantColorsResolverInput) {
+  const base = defaultVariantColorsResolver(input);
+
+  if (input.variant === 'default' && input.color === 'red') {
+    return {
+      ...base,
+      color: 'var(--mantine-color-red-text)',
+      hover: 'var(--mantine-color-red-light)',
+      hoverColor: 'var(--mantine-color-red-text)',
+    };
+  }
+
+  return base;
+}
+
 export const theme = createTheme({
   autoContrast: true,
   fontFamily:
@@ -271,6 +292,7 @@ export const theme = createTheme({
   },
   primaryColor: 'primary',
   primaryShade: { light: 6, dark: 5 },
+  variantColorResolver,
   defaultGradient: {
     from: 'var(--mantine-color-primary-4)',
     to: 'var(--mantine-color-cyan-4)',
