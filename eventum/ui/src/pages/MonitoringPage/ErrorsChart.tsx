@@ -12,8 +12,8 @@ import {
   fixedWindow,
 } from './history';
 
-const BAD = 'var(--ev-bad)';
-const WARN = 'var(--ev-warn)';
+const BAD = 'var(--mantine-color-red-text)';
+const WARN = 'var(--mantine-color-yellow-text)';
 
 export const ErrorsChart: FC<{ flow: FlowPoint[] }> = ({ flow }) => {
   const real = useMemo(() => errorData(flow), [flow]);
@@ -29,7 +29,7 @@ export const ErrorsChart: FC<{ flow: FlowPoint[] }> = ({ flow }) => {
   return (
     <Stack gap="xs">
       <SectionLabel>Failures</SectionLabel>
-      <Paper withBorder radius="md" p="md">
+      <Paper withBorder p="md">
         {real.length < 2 ? (
           <Center h={150}>
             <Text size="sm" c="dimmed">

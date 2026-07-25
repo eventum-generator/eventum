@@ -65,7 +65,7 @@ export const TemplatePreview: FC<TemplatePreviewProps> = ({
 
   if (isError) {
     return (
-      <Text size="xs" c="var(--ev-bad)">
+      <Text size="xs" c="red">
         Failed to load template:{' '}
         {error instanceof Error ? error.message : 'unknown error'}
       </Text>

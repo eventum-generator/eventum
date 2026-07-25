@@ -60,11 +60,7 @@ export const PipelineNode = memo(function PipelineNode({
           <Text size="xs" c="dimmed">
             {metric.label}
           </Text>
-          <Text
-            size="xs"
-            fw={600}
-            c={metric.isError ? 'var(--ev-bad)' : undefined}
-          >
+          <Text size="xs" fw={600} c={metric.isError ? 'red' : undefined}>
             {metric.value}
           </Text>
         </Group>

@@ -42,12 +42,15 @@ export default tseslint.config({
     'no-restricted-syntax': [
       'error',
       {
-        selector: "Literal[value=/^#(?:[0-9a-fA-F]{3,4}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})$/]",
-        message: 'Hardcoded hex colour - use a var(--ev-*) token or theme value.',
+        selector:
+          'Literal[value=/^#(?:[0-9a-fA-F]{3,4}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})$/]',
+        message:
+          'Hardcoded hex colour - use a Mantine CSS variable or colour prop.',
       },
       {
-        selector: "Literal[value=/^(?:rgba?|hsla?)\\(/]",
-        message: 'Hardcoded colour function - use a var(--ev-*) token or theme value.',
+        selector: 'Literal[value=/^(?:rgba?|hsla?)\\(/]',
+        message:
+          'Hardcoded colour function - use a Mantine CSS variable or colour prop.',
       },
     ],
   },

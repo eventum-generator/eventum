@@ -44,7 +44,6 @@ export const ExploreNav: FC = () => {
             component={Link}
             to={tile.path}
             withBorder
-            radius="md"
             p="md"
             className="ev-tile-button"
             style={{

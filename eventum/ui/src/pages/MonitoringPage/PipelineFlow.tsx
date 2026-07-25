@@ -28,7 +28,7 @@ interface StageModel {
 
 const Label: FC<{ icon: Icon; name: string }> = ({ icon: StageIcon, name }) => (
   <Group gap={7} wrap="nowrap" align="center">
-    <StageIcon size={15} stroke={1.6} color="var(--ev-muted)" />
+    <StageIcon size={15} stroke={1.6} color="var(--mantine-color-dimmed)" />
     <Text size="xs" tt="uppercase" lts="1.5px" fw={600} c="dimmed">
       {name}
     </Text>
@@ -65,7 +65,9 @@ const Subs: FC<{ subs: Sub[] }> = ({ subs }) => (
           size="md"
           fw={700}
           ff="monospace"
-          style={{ color: s.danger ? 'var(--ev-bad)' : undefined }}
+          style={{
+            color: s.danger ? 'var(--mantine-color-red-text)' : undefined,
+          }}
         >
           {s.value}
         </Text>
@@ -78,10 +80,7 @@ const Subs: FC<{ subs: Sub[] }> = ({ subs }) => (
 );
 
 const Arrow: FC<{ col: number }> = ({ col }) => (
-  <Flex
-    c="var(--ev-faint)"
-    style={{ gridColumn: col, gridRow: 2, alignSelf: 'center' }}
-  >
+  <Flex c="dimmed" style={{ gridColumn: col, gridRow: 2, alignSelf: 'center' }}>
     <IconArrowRight size={18} stroke={1.75} />
   </Flex>
 );
@@ -152,7 +151,7 @@ export const PipelineFlow: FC<PipelineFlowProps> = ({ flow, inputPlugins }) => {
   return (
     <Stack gap="xs">
       <SectionLabel>Pipeline</SectionLabel>
-      <Paper withBorder radius="md" p="lg">
+      <Paper withBorder p="lg">
         <Box style={{ overflowX: 'auto' }}>
           <div style={gridStyle}>
             {stages.map((st, i) => {

@@ -209,7 +209,7 @@ export const FormatterTab: FC = () => {
                   Errors
                 </Text>
                 {formattingResult.errors.length > 0 && (
-                  <Text size="xs" c="var(--ev-bad)">
+                  <Text size="xs" c="red">
                     {formattingResult.errors.length}
                   </Text>
                 )}

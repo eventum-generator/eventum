@@ -1,5 +1,5 @@
 /* Generator studio - docked IDE layout. Fills the app main area and scrolls
-   inside its panels, never the page. Chrome is driven by --ev-* tokens. */
+   inside its panels, never the page. Chrome reads Mantine variables. */
 
 .studio {
   --studio-gap: 8px;
@@ -33,10 +33,10 @@
   flex-direction: column;
   min-height: 0;
   min-width: 0;
-  background-color: var(--ev-surface);
-  border: 1px solid var(--ev-border);
-  border-radius: var(--ev-radius);
-  box-shadow: var(--ev-shadow);
+  background-color: var(--mantine-color-body);
+  border: 1px solid var(--mantine-color-default-border);
+  border-radius: var(--mantine-radius-lg);
+  box-shadow: var(--mantine-shadow-sm);
   overflow: hidden;
 }
 
@@ -47,12 +47,12 @@
   justify-content: space-between;
   gap: 8px;
   padding: 7px 10px 7px 12px;
-  border-bottom: 1px solid var(--ev-border);
+  border-bottom: 1px solid var(--mantine-color-default-border);
   text-transform: uppercase;
   letter-spacing: 0.06em;
   font-size: 11px;
   font-weight: 600;
-  color: var(--ev-faint);
+  color: var(--mantine-color-dimmed);
   user-select: none;
 }
 
@@ -123,7 +123,7 @@
 }
 .studio-resizer:hover::after,
 .studio-resizer[data-dragging='true']::after {
-  background-color: var(--ev-accent);
+  background-color: var(--mantine-color-primary-text);
 }
 
 /* Editor open-file tab strip */
@@ -135,7 +135,7 @@
   padding: 4px 6px 0;
   overflow-x: auto;
   scrollbar-width: none;
-  border-bottom: 1px solid var(--ev-border);
+  border-bottom: 1px solid var(--mantine-color-default-border);
 }
 .studio-tabstrip::-webkit-scrollbar {
   display: none;
@@ -147,20 +147,20 @@
   padding: 6px 8px 6px 10px;
   border: 1px solid transparent;
   border-bottom: none;
-  border-radius: 8px 8px 0 0;
+  border-radius: var(--mantine-radius-md) var(--mantine-radius-md) 0 0;
   font-size: 12.5px;
-  color: var(--ev-muted);
+  color: var(--mantine-color-dimmed);
   white-space: nowrap;
   cursor: pointer;
   max-width: 240px;
 }
 .studio-tab:hover {
-  background-color: var(--ev-surface-2);
+  background-color: var(--mantine-color-default-hover);
 }
 .studio-tab[data-active='true'] {
-  background-color: var(--ev-surface-2);
-  border-color: var(--ev-border);
-  color: var(--ev-text);
+  background-color: var(--mantine-color-default);
+  border-color: var(--mantine-color-default-border);
+  color: var(--mantine-color-text);
 }
 .studio-tab-btn {
   display: flex;
@@ -180,7 +180,7 @@
 }
 .studio-tab-name[data-missing='true'] {
   text-decoration: line-through;
-  color: var(--ev-faint);
+  color: var(--mantine-color-dimmed);
 }
 
 /* Pipeline strip in the command bar */
@@ -194,22 +194,22 @@
   align-items: center;
   gap: 8px;
   padding: 6px 12px;
-  border: 1px solid var(--ev-border);
-  border-radius: 9px;
-  background-color: var(--ev-surface);
-  color: var(--ev-muted);
+  border: 1px solid var(--mantine-color-default-border);
+  border-radius: var(--mantine-radius-md);
+  background-color: var(--mantine-color-body);
+  color: var(--mantine-color-dimmed);
   cursor: pointer;
   font-size: 13px;
   font-weight: 600;
 }
 .studio-stage:hover:not([data-active='true']) {
-  border-color: var(--ev-border-strong);
-  color: var(--ev-text);
+  background-color: var(--mantine-color-default-hover);
+  color: var(--mantine-color-text);
 }
 .studio-stage[data-active='true'] {
-  background-color: var(--ev-accent-soft);
-  color: var(--ev-text);
-  border-color: var(--ev-accent);
+  background-color: var(--mantine-primary-color-light);
+  color: var(--mantine-color-text);
+  border-color: var(--mantine-color-primary-text);
 }
 .studio-stage-idx {
   display: inline-flex;
@@ -219,15 +219,15 @@
   height: 18px;
   border-radius: 50%;
   font-size: 11px;
-  background-color: var(--ev-surface-2);
-  color: var(--ev-faint);
+  background-color: var(--mantine-color-gray-light);
+  color: var(--mantine-color-dimmed);
 }
 .studio-stage[data-active='true'] .studio-stage-idx {
-  background-color: var(--ev-accent);
+  background-color: var(--mantine-color-primary-text);
   color: var(--mantine-color-white);
 }
 .studio-stage-arrow {
-  color: var(--ev-faint);
+  color: var(--mantine-color-dimmed);
   padding: 0 2px;
 }
 
@@ -277,7 +277,7 @@
   height: 2px;
   margin-top: -1px;
   border-radius: 2px;
-  background-color: var(--ev-accent);
+  background-color: var(--mantine-color-primary-text);
   pointer-events: none;
 }
 .dragline::before {
@@ -287,9 +287,9 @@
   top: -3px;
   height: 4px;
   width: 4px;
-  border: 2px solid var(--ev-accent);
+  border: 2px solid var(--mantine-color-primary-text);
   border-radius: 99px;
-  background: var(--ev-surface);
+  background: var(--mantine-color-body);
 }
 
 /* Console body hosts a single filling tool; the tool's panes scroll, not
@@ -317,7 +317,7 @@
   align-items: flex-start;
   gap: 10px 12px;
   padding: 10px 12px;
-  border-bottom: 1px solid var(--ev-border);
+  border-bottom: 1px solid var(--mantine-color-default-border);
 }
 .tool-toolbar-spacer {
   flex: 1 1 auto;
@@ -367,9 +367,9 @@
   flex: 1 1 0;
   min-width: 260px;
   min-height: 0;
-  background-color: var(--ev-surface-2);
-  border: 1px solid var(--ev-border);
-  border-radius: var(--ev-radius);
+  background-color: var(--mantine-color-default);
+  border: 1px solid var(--mantine-color-default-border);
+  border-radius: var(--mantine-radius-md);
   overflow: hidden;
 }
 .tool-pane-header {
@@ -380,14 +380,14 @@
   gap: 8px;
   min-height: 34px;
   padding: 5px 10px;
-  border-bottom: 1px solid var(--ev-border);
+  border-bottom: 1px solid var(--mantine-color-default-border);
 }
 .tool-pane-title {
   text-transform: uppercase;
   letter-spacing: 0.05em;
   font-size: 10.5px;
   font-weight: 600;
-  color: var(--ev-faint);
+  color: var(--mantine-color-dimmed);
   white-space: nowrap;
 }
 .tool-pane-actions {
@@ -421,13 +421,13 @@
   gap: 8px;
 }
 
-/* Code blocks read as distinct wells over the pane surface (the pane is
-   --ev-surface-2, the well recedes to --ev-surface) with a clear border, so
-   stacked events / errors / results don't merge into the background. */
+/* Code blocks read as distinct wells over the pane surface (the pane sits on
+   the control surface, the well recedes to the panel colour) with a clear
+   border, so stacked events / errors / results don't merge together. */
 .tool-pane .mantine-Code-root,
 .tool-pane .mantine-CodeHighlight-root {
-  border: 1px solid var(--ev-border-strong);
-  border-radius: 8px;
+  border: 1px solid var(--mantine-color-default-border);
+  border-radius: var(--mantine-radius-md);
 }
 :root[data-mantine-color-scheme='dark'] .tool-pane .mantine-Code-root,
 :root[data-mantine-color-scheme='dark'] .tool-pane .mantine-CodeHighlight-code,
@@ -435,10 +435,10 @@
 :root[data-mantine-color-scheme='dark']
   .tool-pane
   .mantine-CodeHighlight-controls {
-  background-color: var(--ev-surface);
+  background-color: var(--mantine-color-body);
 }
 :root[data-mantine-color-scheme='light'] .tool-pane .mantine-Code-root {
-  background-color: var(--ev-surface);
+  background-color: var(--mantine-color-body);
 }
 /* Wrap long lines (tracebacks, formatted payloads) instead of scrolling the
    block sideways. */
@@ -447,14 +447,14 @@
   overflow-wrap: anywhere;
 }
 
-/* Segmented controls inside a pane recede to --ev-surface so their track does
-   not merge with the pane (--ev-surface-2); the active chip rises back up. */
+/* Segmented controls inside a pane recede to the panel colour so their track
+   does not merge with the pane surface; the active chip rises back up. */
 .tool-pane .mantine-SegmentedControl-root {
-  background-color: var(--ev-surface);
-  border: 1px solid var(--ev-border);
+  background-color: var(--mantine-color-body);
+  border: 1px solid var(--mantine-color-default-border);
 }
 .tool-pane .mantine-SegmentedControl-indicator {
-  background-color: var(--ev-surface-2);
+  background-color: var(--mantine-color-default);
 }
 
 /* Select clear button: Mantine sets `background: var(--input-bg)` inline, so
@@ -466,7 +466,7 @@
 }
 .tool-toolbar .mantine-InputClearButton-root:hover,
 .tool-pane .mantine-InputClearButton-root:hover {
-  background: var(--ev-border-strong) !important;
+  background: var(--mantine-color-default-hover) !important;
 }
 
 /* Chart fills its pane edge-to-edge */
@@ -494,12 +494,12 @@
   width: 8px;
   height: 8px;
   border-radius: 50%;
-  background-color: var(--ev-faint);
+  background-color: var(--mantine-color-dimmed);
   flex: 0 0 auto;
 }
 .tool-status-dot[data-on='true'] {
-  background-color: var(--ev-good);
-  box-shadow: 0 0 0 3px var(--ev-good-soft);
+  background-color: var(--mantine-color-green-text);
+  box-shadow: 0 0 0 3px var(--mantine-color-green-light);
 }
 
 /* Centered empty / prompt state */
@@ -513,18 +513,18 @@
   height: 100%;
 }
 .tool-empty-icon {
-  color: var(--ev-faint);
+  color: var(--mantine-color-dimmed);
   opacity: 0.7;
 }
 
 /* Inspector sections */
 .studio-inspector-section + .studio-inspector-section {
-  border-top: 1px solid var(--ev-border);
+  border-top: 1px solid var(--mantine-color-default-border);
 }
 .studio-inspector-section-title {
   text-transform: uppercase;
   letter-spacing: 0.06em;
   font-size: 11px;
   font-weight: 600;
-  color: var(--ev-faint);
+  color: var(--mantine-color-dimmed);
 }

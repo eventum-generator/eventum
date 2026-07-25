@@ -13,7 +13,7 @@ interface InstancesEmptyStateProps {
 export const InstancesEmptyState: FC<InstancesEmptyStateProps> = ({
   onCreate,
 }) => (
-  <Paper withBorder radius="md" p="xl">
+  <Paper withBorder p="xl">
     <Stack align="center" gap="sm" py="xl">
       <ThemeIcon variant="default" size={48} radius="md">
         <IconPlayerPlay size={24} stroke={1.5} />

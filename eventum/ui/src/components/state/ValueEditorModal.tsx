@@ -1,6 +1,13 @@
 import { json, jsonParseLinter } from '@codemirror/lang-json';
 import { linter } from '@codemirror/lint';
-import { Button, Group, Modal, Stack, Text , useMantineColorScheme } from '@mantine/core';
+import {
+  Button,
+  Group,
+  Modal,
+  Stack,
+  Text,
+  useMantineColorScheme,
+} from '@mantine/core';
 import { IconEdit } from '@tabler/icons-react';
 import CodeMirror from '@uiw/react-codemirror';
 import { useEffect, useMemo, useState } from 'react';
@@ -85,7 +92,7 @@ export function ValueEditorModal({
           }}
         />
         {jsonError && (
-          <Text size="sm" c="var(--ev-bad)">
+          <Text size="sm" c="red">
             {jsonError}
           </Text>
         )}

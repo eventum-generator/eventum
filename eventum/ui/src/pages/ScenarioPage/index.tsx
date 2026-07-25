@@ -283,7 +283,7 @@ export default function ScenarioPage() {
               to={ROUTE_PATHS.SCENARIOS}
               title="Back to scenarios"
             >
-              <IconArrowLeft size={20} color="var(--ev-muted)" />
+              <IconArrowLeft size={20} color="var(--mantine-color-dimmed)" />
             </ActionIcon>
             <Title
               order={2}

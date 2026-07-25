@@ -60,7 +60,7 @@ export const StatusRail: FC<StatusRailProps> = ({
             Monitoring
           </Anchor>
         </Group>
-        <Paper withBorder radius="md" p="lg">
+        <Paper withBorder p="lg">
           <Group justify="space-between" wrap="wrap" gap="md" align="center">
             <Group align="baseline" gap={8} wrap="nowrap">
               <Text
@@ -90,7 +90,7 @@ export const StatusRail: FC<StatusRailProps> = ({
         <Text size="xs" tt="uppercase" lts="1.5px" fw={600} c="dimmed">
           Recent instances
         </Text>
-        <Paper withBorder radius="md" p="xs">
+        <Paper withBorder p="xs">
           {recent.length === 0 ? (
             <Text size="sm" c="dimmed" ta="center" py="md">
               No instances yet.

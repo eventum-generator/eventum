@@ -18,7 +18,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { ReactQueryDevtools } from '@tanstack/react-query-devtools';
 import { RouterProvider } from 'react-router-dom';
 
-import { theme } from '@/theme';
+import { cssVariablesResolver, theme } from '@/theme';
 import { router } from '@/routing';
 import { useMemo } from 'react';
 
@@ -78,7 +78,11 @@ function InnerApp() {
 export default function App() {
   return (
     <QueryClientProvider client={queryClient}>
-      <MantineProvider theme={theme} defaultColorScheme="dark">
+      <MantineProvider
+        theme={theme}
+        cssVariablesResolver={cssVariablesResolver}
+        defaultColorScheme="dark"
+      >
         <CodeHighlightAdapterProvider adapter={shikiAdapter}>
           <Notifications />
           <ModalsProvider>

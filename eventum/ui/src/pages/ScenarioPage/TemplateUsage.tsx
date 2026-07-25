@@ -47,12 +47,12 @@ const KeyChip: FC<KeyChipProps> = ({ label, color, onEnter, onLeave }) => {
         alignItems: 'center',
         height: 22,
         padding: '0 8px',
-        borderRadius: 6,
+        borderRadius: 'var(--mantine-radius-sm)',
         fontSize: 12,
         fontFamily: 'var(--mantine-font-family-monospace)',
-        background: 'var(--ev-surface-2)',
-        color: 'var(--ev-text)',
-        border: `1px solid ${hovered ? color : 'var(--ev-border)'}`,
+        background: 'var(--mantine-color-gray-light)',
+        color: 'var(--mantine-color-text)',
+        border: `1px solid ${hovered ? color : 'var(--mantine-color-default-border)'}`,
         transition: 'border-color 120ms ease',
       }}
     >
@@ -69,8 +69,16 @@ interface FlowRowProps {
 }
 
 const FLOW = {
-  write: { label: 'writes', color: 'var(--ev-accent)', Icon: IconArrowRight },
-  read: { label: 'reads', color: 'var(--ev-cyan)', Icon: IconArrowLeft },
+  write: {
+    label: 'writes',
+    color: 'var(--mantine-color-primary-text)',
+    Icon: IconArrowRight,
+  },
+  read: {
+    label: 'reads',
+    color: 'var(--mantine-color-cyan-text)',
+    Icon: IconArrowLeft,
+  },
 } as const;
 
 /** One direction's keys: a fixed-width leader (arrow + label) so the write
@@ -156,7 +164,10 @@ export const TemplateUsage: FC<TemplateUsageProps> = ({
                   <Group gap={8} wrap="nowrap" style={{ minWidth: 0 }}>
                     <IconFile
                       size={14}
-                      style={{ color: 'var(--ev-faint)', flexShrink: 0 }}
+                      style={{
+                        color: 'var(--mantine-color-dimmed)',
+                        flexShrink: 0,
+                      }}
                     />
                     <Text size="xs" ff="monospace" truncate>
                       {dir && (
@@ -177,7 +188,10 @@ export const TemplateUsage: FC<TemplateUsageProps> = ({
                       >
                         <IconAlertTriangle
                           size={13}
-                          style={{ color: 'var(--ev-warn)', flexShrink: 0 }}
+                          style={{
+                            color: 'var(--mantine-color-yellow-text)',
+                            flexShrink: 0,
+                          }}
                         />
                       </Tooltip>
                     )}
@@ -185,12 +199,18 @@ export const TemplateUsage: FC<TemplateUsageProps> = ({
                   {isOpen ? (
                     <IconChevronDown
                       size={14}
-                      style={{ color: 'var(--ev-faint)', flexShrink: 0 }}
+                      style={{
+                        color: 'var(--mantine-color-dimmed)',
+                        flexShrink: 0,
+                      }}
                     />
                   ) : (
                     <IconChevronRight
                       size={14}
-                      style={{ color: 'var(--ev-faint)', flexShrink: 0 }}
+                      style={{
+                        color: 'var(--mantine-color-dimmed)',
+                        flexShrink: 0,
+                      }}
                     />
                   )}
                 </Group>

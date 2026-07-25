@@ -12,10 +12,3 @@ export function formatRate(bytesPerSecond: number | undefined): string {
   if (bytesPerSecond === undefined) return '-';
   return `${bytes(Math.round(bytesPerSecond), { decimalPlaces: 1 }) ?? '0 B'}/s`;
 }
-
-/** Semantic color for a percentage against warn/bad thresholds. */
-export function levelColor(pct: number, warn: number, bad: number): string {
-  if (pct >= bad) return 'var(--ev-bad)';
-  if (pct >= warn) return 'var(--ev-warn)';
-  return 'var(--ev-good)';
-}

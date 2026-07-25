@@ -25,10 +25,10 @@ const VARIANT_ICON: Record<AlertIconVariant, TablerIcon> = {
 };
 
 const VARIANT_COLOR: Record<AlertIconVariant, string> = {
-  error: 'var(--ev-bad)',
-  info: 'var(--ev-info)',
-  success: 'var(--ev-good)',
-  warn: 'var(--ev-warn)',
+  error: 'var(--mantine-color-red-text)',
+  info: 'var(--mantine-color-blue-text)',
+  success: 'var(--mantine-color-green-text)',
+  warn: 'var(--mantine-color-yellow-text)',
 };
 
 /**

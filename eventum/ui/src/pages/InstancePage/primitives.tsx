@@ -17,7 +17,7 @@ export const Section: FC<{ label: string; children: ReactNode }> = ({
 }) => (
   <Stack gap="xs">
     <SectionLabel>{label}</SectionLabel>
-    <Paper withBorder radius="md" p="md">
+    <Paper withBorder p="md">
       {children}
     </Paper>
   </Stack>

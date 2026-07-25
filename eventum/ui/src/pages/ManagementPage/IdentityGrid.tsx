@@ -13,6 +13,11 @@ import { formatFreq } from './format';
 import { Attr, AttrValue, InfoCard, LiveUptime, Meter } from './primitives';
 import { InstanceInfo } from '@/api/routes/instance/schemas';
 import { ROUTE_PATHS } from '@/routing/paths';
+import {
+  CPU_THRESHOLDS,
+  MEMORY_THRESHOLDS,
+  levelColor,
+} from '@/utils/levelColor';
 
 const HEAD_ICON = { size: 18, stroke: 1.6 };
 
@@ -91,7 +96,11 @@ export const IdentityGrid: FC<{ info: InstanceInfo }> = ({ info }) => {
         <Vital
           label="CPU"
           pct={info.cpu_percent}
-          color="var(--ev-accent)"
+          color={levelColor(
+            info.cpu_percent,
+            CPU_THRESHOLDS.warn,
+            CPU_THRESHOLDS.bad
+          )}
           caption={`${info.cpu_count ?? '?'} cores · ${formatFreq(
             info.cpu_frequency_mhz
           )}`}
@@ -99,7 +108,11 @@ export const IdentityGrid: FC<{ info: InstanceInfo }> = ({ info }) => {
         <Vital
           label="Memory"
           pct={memPct}
-          color="var(--ev-accent)"
+          color={levelColor(
+            memPct,
+            MEMORY_THRESHOLDS.warn,
+            MEMORY_THRESHOLDS.bad
+          )}
           caption={`${bytes(info.memory_used_bytes)} / ${bytes(
             info.memory_total_bytes
           )}`}

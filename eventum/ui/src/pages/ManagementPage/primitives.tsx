@@ -19,10 +19,10 @@ export const InfoCard: FC<{
   title: string;
   children: ReactNode;
 }> = ({ icon, title, children }) => (
-  <Paper withBorder radius="md" p="lg" h="100%">
+  <Paper withBorder p="lg" h="100%">
     <Stack gap="sm" h="100%">
       <Group gap="sm" wrap="nowrap" align="center">
-        <Box c="var(--ev-muted)" style={{ display: 'flex' }}>
+        <Box c="dimmed" style={{ display: 'flex' }}>
           {icon}
         </Box>
         <Text fw={600} fz="0.95rem">
@@ -73,7 +73,7 @@ export const Meter: FC<{ pct: number; color: string }> = ({ pct, color }) => (
     style={{
       height: 4,
       borderRadius: 999,
-      background: 'var(--ev-surface-2)',
+      background: 'var(--mantine-color-default-border)',
       overflow: 'hidden',
     }}
   >

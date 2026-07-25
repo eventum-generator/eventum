@@ -32,7 +32,11 @@ function Chip({ count, label, color, small = false }: Readonly<ChipProps>) {
         <Text
           span
           fw={small ? 600 : 700}
-          style={{ color: small ? 'var(--ev-muted)' : 'var(--ev-text)' }}
+          style={{
+            color: small
+              ? 'var(--mantine-color-dimmed)'
+              : 'var(--mantine-color-text)',
+          }}
         >
           {count}
         </Text>{' '}

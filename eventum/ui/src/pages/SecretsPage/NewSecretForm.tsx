@@ -67,7 +67,7 @@ export const NewSecretForm: FC<NewSecretFormProps> = ({ onCancel }) => {
   }
 
   return (
-    <Paper withBorder radius="md" p="md" bg="var(--ev-surface-2)">
+    <Paper withBorder shadow="none" p="md" bg="var(--mantine-color-gray-light)">
       <form onSubmit={form.onSubmit(handleSubmit)}>
         <Group align="flex-end" gap="sm" wrap="nowrap">
           <TextInput

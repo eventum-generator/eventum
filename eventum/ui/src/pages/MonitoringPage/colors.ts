@@ -2,5 +2,5 @@
 // the "in / read / received / input" channel is cyan, the "out / write /
 // sent / output" channel is accent. Kept in a non-component module so fast
 // refresh stays happy.
-export const CYAN = 'var(--ev-cyan)';
-export const ACCENT = 'var(--ev-accent)';
+export const CYAN = 'var(--mantine-color-cyan-text)';
+export const ACCENT = 'var(--mantine-color-primary-text)';

@@ -29,7 +29,7 @@ export const RecentProjects: FC<RecentProjectsProps> = ({ generatorDirs }) => {
       <Text size="xs" tt="uppercase" lts="1.5px" fw={600} c="dimmed">
         Recent projects
       </Text>
-      <Paper withBorder radius="md" p="xs">
+      <Paper withBorder p="xs">
         {projects.length === 0 ? (
           <Text size="sm" c="dimmed" ta="center" py="lg">
             No projects yet - create one to get started.

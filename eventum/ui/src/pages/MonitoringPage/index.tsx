@@ -55,7 +55,7 @@ export default function MonitoringPage() {
 
   let liveSection: ReactNode;
   if (isStatsLoading) {
-    liveSection = <Skeleton h={220} radius="md" />;
+    liveSection = <Skeleton h={220} radius="lg" />;
   } else if (stats.length === 0) {
     liveSection = <NoRunningGenerators />;
   } else {
@@ -95,7 +95,7 @@ export default function MonitoringPage() {
         {liveSection}
 
         {isInfoLoading && !instanceInfo ? (
-          <Skeleton h={160} radius="md" />
+          <Skeleton h={160} radius="lg" />
         ) : (
           instanceInfo && (
             <ResourceTiles

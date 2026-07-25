@@ -5,7 +5,7 @@
  */
 export const REACT_FLOW_CONTROLS_CSS = `
   .react-flow__controls button {
-    background-color: var(--mantine-color-body);
+    background-color: var(--mantine-color-default);
     color: var(--mantine-color-text);
     border-color: var(--mantine-color-default-border);
   }

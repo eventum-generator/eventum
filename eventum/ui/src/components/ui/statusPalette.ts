@@ -18,41 +18,41 @@ const TEXT_TO_VARIANT: Record<string, Variant> = {
   Inactive: 'idle',
 };
 
+/** Mantine palette backing each variant, and whether the variant has a lit
+ *  state. A chip reads `-light` for its fill and `-light-color` for its label,
+ *  which keeps the text legible in both schemes; the dot of a lit variant
+ *  jumps to shade 4 - the vivid end of the ramp - so a running instance reads
+ *  as switched on rather than merely coloured. */
+const VARIANT_COLOR: Record<Variant, { color: string; lit: boolean }> = {
+  good: { color: 'green', lit: true },
+  warn: { color: 'yellow', lit: true },
+  bad: { color: 'red', lit: true },
+  // Terminal success at rest: teal is settled where green is lit, so a
+  // finished instance is not mistaken for a running one.
+  done: { color: 'teal', lit: false },
+  idle: { color: 'gray', lit: false },
+};
+
 export const VARIANT_STYLE: Record<
   Variant,
   { bg: string; fg: string; dot: string }
-> = {
-  good: {
-    bg: 'var(--ev-good-soft)',
-    fg: 'var(--ev-good)',
-    dot: 'var(--ev-good)',
-  },
-  warn: {
-    bg: 'var(--ev-warn-soft)',
-    fg: 'var(--ev-warn)',
-    dot: 'var(--ev-warn)',
-  },
-  bad: {
-    bg: 'var(--ev-bad-soft)',
-    fg: 'var(--ev-bad)',
-    dot: 'var(--ev-bad)',
-  },
-  done: {
-    bg: 'var(--ev-done-bg)',
-    fg: 'var(--ev-done-fg)',
-    dot: 'var(--ev-done-dot)',
-  },
-  idle: {
-    bg: 'var(--ev-surface-2)',
-    fg: 'var(--ev-muted)',
-    dot: 'var(--ev-faint)',
-  },
-};
+> = Object.fromEntries(
+  Object.entries(VARIANT_COLOR).map(([variant, { color, lit }]) => [
+    variant,
+    {
+      bg: `var(--mantine-color-${color}-light)`,
+      fg: `var(--mantine-color-${color}-light-color)`,
+      dot: lit
+        ? `var(--mantine-color-${color}-4)`
+        : `var(--mantine-color-${color}-light-color)`,
+    },
+  ])
+) as Record<Variant, { bg: string; fg: string; dot: string }>;
 
 /** Neutral dot color for aggregate buckets that mix several variants
  *  (e.g. an "inactive" total spanning finished + failed + idle) and
  *  therefore don't map to a single Variant. */
-export const AGGREGATE_DOT_COLOR = 'var(--ev-muted)';
+export const AGGREGATE_DOT_COLOR = 'var(--mantine-color-dimmed)';
 
 export function statusVariant(status: GeneratorStatus): Variant {
   const { text } = describeInstanceStatus(status);

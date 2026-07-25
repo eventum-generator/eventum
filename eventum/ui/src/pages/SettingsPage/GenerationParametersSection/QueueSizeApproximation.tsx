@@ -19,7 +19,7 @@ export const QueueSizeApproximation: FC<QueueSizeApproximationProps> = ({
   return (
     <Alert
       variant="default"
-      icon={<IconCalculator color="var(--ev-info)" />}
+      icon={<IconCalculator color="var(--mantine-color-blue-text)" />}
       title="Size approximation"
     >
       With event size{' '}

@@ -66,7 +66,7 @@ export default function SignInPage() {
   return (
     <Center h="100vh" w="100vw">
       <Container>
-        <Paper withBorder radius="md" w={'400px'}>
+        <Paper withBorder w={'400px'}>
           <form onSubmit={form.onSubmit(handleSubmit)}>
             <Stack m="xl" gap="0">
               <Box ta="center">

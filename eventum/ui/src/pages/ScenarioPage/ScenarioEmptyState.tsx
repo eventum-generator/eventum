@@ -11,7 +11,7 @@ interface ScenarioEmptyStateProps {
  * to add the first one instead of empty panels.
  */
 export const ScenarioEmptyState: FC<ScenarioEmptyStateProps> = ({ onAdd }) => (
-  <Paper withBorder radius="md" p="xl">
+  <Paper withBorder p="xl">
     <Stack align="center" gap="sm" py="xl">
       <ThemeIcon variant="default" size={48} radius="md">
         <IconStack2 size={24} stroke={1.5} />

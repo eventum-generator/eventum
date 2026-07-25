@@ -11,7 +11,7 @@ interface SecretsEmptyStateProps {
  * for and how it is referenced, then offers the single action to add one.
  */
 export const SecretsEmptyState: FC<SecretsEmptyStateProps> = ({ onAdd }) => (
-  <Paper withBorder radius="md" p="xl">
+  <Paper withBorder p="xl">
     <Stack align="center" gap="sm" py="xl">
       <ThemeIcon variant="default" size={48} radius="md">
         <IconLock size={24} stroke={1.5} />

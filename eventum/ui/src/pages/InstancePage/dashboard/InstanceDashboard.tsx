@@ -28,7 +28,7 @@ export const InstanceDashboard: FC<InstanceDashboardProps> = ({
   outputEps,
 }) => {
   if (!stats) {
-    return <Skeleton h={340} radius="md" />;
+    return <Skeleton h={340} radius="lg" />;
   }
 
   return (

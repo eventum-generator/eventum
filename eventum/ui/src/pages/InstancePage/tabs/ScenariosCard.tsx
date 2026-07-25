@@ -80,11 +80,11 @@ export const ScenariosCard: FC<ScenariosCardProps> = ({
             <ActionIcon
               size="sm"
               variant="subtle"
-              color="var(--ev-muted)"
+              color="var(--mantine-color-dimmed)"
               title="Remove from scenario"
               onClick={() => handleRemove(name)}
             >
-              <IconX size={14} color="var(--ev-muted)" />
+              <IconX size={14} color="var(--mantine-color-dimmed)" />
             </ActionIcon>
           </Group>
         ))

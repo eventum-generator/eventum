@@ -13,7 +13,7 @@ interface ProjectsEmptyStateProps {
 export const ProjectsEmptyState: FC<ProjectsEmptyStateProps> = ({
   onCreate,
 }) => (
-  <Paper withBorder radius="md" p="xl">
+  <Paper withBorder p="xl">
     <Stack align="center" gap="sm" py="xl">
       <ThemeIcon variant="default" size={48} radius="md">
         <IconFolderPlus size={24} stroke={1.5} />

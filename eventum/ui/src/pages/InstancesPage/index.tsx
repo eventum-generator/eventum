@@ -433,7 +433,7 @@ export default function InstancesPage() {
                       })
                     }
                   >
-                    <Box c={hasSelection ? 'var(--ev-bad)' : undefined}>
+                    <Box c={hasSelection ? 'red' : undefined}>
                       <IconTrash size={18} />
                     </Box>
                   </ActionIcon>

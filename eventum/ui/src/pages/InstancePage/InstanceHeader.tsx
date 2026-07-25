@@ -63,7 +63,7 @@ export const InstanceHeader: FC<InstanceHeaderProps> = ({
           onClick={onBack}
           title="Back to instances"
         >
-          <IconArrowLeft size={20} color="var(--ev-muted)" />
+          <IconArrowLeft size={20} color="var(--mantine-color-dimmed)" />
         </ActionIcon>
         <Title
           order={2}

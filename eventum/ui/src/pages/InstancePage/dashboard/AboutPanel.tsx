@@ -45,10 +45,12 @@ const StateChip: FC<{ on: boolean }> = ({ on }) => (
       height: 20,
       padding: '0 8px',
       borderRadius: 999,
-      border: '1px solid var(--ev-border)',
+      border: '1px solid var(--mantine-color-default-border)',
       fontSize: 11,
       fontWeight: 600,
-      color: on ? 'var(--ev-good)' : 'var(--ev-muted)',
+      color: on
+        ? 'var(--mantine-color-green-text)'
+        : 'var(--mantine-color-dimmed)',
     }}
   >
     <span
@@ -56,7 +58,9 @@ const StateChip: FC<{ on: boolean }> = ({ on }) => (
         width: 6,
         height: 6,
         borderRadius: '50%',
-        background: on ? 'var(--ev-good)' : 'var(--ev-faint)',
+        background: on
+          ? 'var(--mantine-color-green-text)'
+          : 'var(--mantine-color-dimmed)',
       }}
     />
     {on ? 'On' : 'Off'}

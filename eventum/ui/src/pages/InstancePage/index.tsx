@@ -321,7 +321,7 @@ export default function InstancePage() {
                       width: 6,
                       height: 6,
                       borderRadius: '50%',
-                      background: 'var(--ev-accent)',
+                      background: 'var(--mantine-color-primary-text)',
                     }}
                   />
                 ) : null

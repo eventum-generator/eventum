@@ -197,9 +197,12 @@ const SecretRow: FC<SecretRowProps> = ({ name }) => {
                   aria-label="Copy secret name"
                 >
                   {copied ? (
-                    <IconCheck size={14} color="var(--ev-good)" />
+                    <IconCheck
+                      size={14}
+                      color="var(--mantine-color-green-text)"
+                    />
                   ) : (
-                    <IconCopy size={14} color="var(--ev-text)" />
+                    <IconCopy size={14} color="var(--mantine-color-text)" />
                   )}
                 </ActionIcon>
               </Tooltip>
@@ -233,9 +236,9 @@ const SecretRow: FC<SecretRowProps> = ({ name }) => {
             display={isEditMode ? 'none' : undefined}
           >
             {isValueShown ? (
-              <IconEyeOff size={18} color="var(--ev-text)" />
+              <IconEyeOff size={18} color="var(--mantine-color-text)" />
             ) : (
-              <IconEye size={18} color="var(--ev-text)" />
+              <IconEye size={18} color="var(--mantine-color-text)" />
             )}
           </ActionIcon>
 
@@ -249,9 +252,12 @@ const SecretRow: FC<SecretRowProps> = ({ name }) => {
             }
           >
             {isEditMode ? (
-              <IconDeviceFloppy size={18} color="var(--ev-accent)" />
+              <IconDeviceFloppy
+                size={18}
+                color="var(--mantine-color-primary-text)"
+              />
             ) : (
-              <IconEdit size={18} color="var(--ev-text)" />
+              <IconEdit size={18} color="var(--mantine-color-text)" />
             )}
           </ActionIcon>
 
@@ -274,7 +280,11 @@ const SecretRow: FC<SecretRowProps> = ({ name }) => {
               });
             }}
           >
-            <IconTrash size={18} stroke={1.5} color="var(--ev-bad)" />
+            <IconTrash
+              size={18}
+              stroke={1.5}
+              color="var(--mantine-color-red-text)"
+            />
           </ActionIcon>
 
           <ActionIcon
@@ -284,7 +294,7 @@ const SecretRow: FC<SecretRowProps> = ({ name }) => {
             onClick={handleCancelEditing}
             display={isEditMode ? undefined : 'none'}
           >
-            <IconX size={18} color="var(--ev-text)" />
+            <IconX size={18} color="var(--mantine-color-text)" />
           </ActionIcon>
         </Group>
       </Table.Td>

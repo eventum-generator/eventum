@@ -265,8 +265,8 @@ export default function SettingsPage() {
               position: 'sticky',
               top: 60,
               zIndex: 30,
-              background: 'var(--mantine-color-body)',
-              borderBottom: '1px solid var(--ev-border)',
+              background: 'var(--ev-canvas)',
+              borderBottom: '1px solid var(--mantine-color-default-border)',
             }}
           >
             <Group
@@ -309,7 +309,7 @@ export default function SettingsPage() {
                           w={7}
                           h={7}
                           bdrs={999}
-                          bg="var(--ev-accent)"
+                          bg="var(--mantine-color-primary-text)"
                           aria-label="unsaved changes"
                         />
                       ) : null
@@ -322,7 +322,7 @@ export default function SettingsPage() {
             </Box>
 
             <Box style={{ flex: 1, minWidth: 0, maxWidth: 820 }}>
-              <Paper withBorder radius="md" p="lg">
+              <Paper withBorder p="lg">
                 <Stack gap="md">
                   <Box>
                     <Title order={3} fw={600} fz="1.125rem">

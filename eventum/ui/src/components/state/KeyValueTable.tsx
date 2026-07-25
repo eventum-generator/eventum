@@ -371,7 +371,7 @@ export function KeyValueTable({
                               <Menu.Divider />
                               <Menu.Item
                                 leftSection={<IconTrash size={14} />}
-                                color="var(--ev-bad)"
+                                color="var(--mantine-color-red-text)"
                                 onClick={() => handleDeleteKey(key)}
                               >
                                 Delete

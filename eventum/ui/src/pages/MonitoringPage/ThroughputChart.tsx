@@ -27,7 +27,7 @@ export const ThroughputChart: FC<ThroughputChartProps> = ({
   return (
     <Stack gap="xs">
       <SectionLabel>Throughput</SectionLabel>
-      <Paper withBorder radius="md" p="md">
+      <Paper withBorder p="md">
         {real.length < 2 ? (
           <Center h={160}>
             <Text size="sm" c="dimmed">

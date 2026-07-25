@@ -18,7 +18,7 @@
 .iss-trunk {
   flex: 0 0 auto;
   width: 16px;
-  border-top: 1.5px solid var(--ev-border-strong);
+  border-top: 1.5px solid var(--mantine-color-default-border);
 }
 
 .iss-children {
@@ -39,7 +39,7 @@
   left: 0;
   top: 50%;
   width: 12px;
-  border-top: 1.5px solid var(--ev-border-strong);
+  border-top: 1.5px solid var(--mantine-color-default-border);
 }
 
 /* Vertical spine segment linking each child to the next (the last child
@@ -50,5 +50,5 @@
   left: 0;
   top: 50%;
   height: calc(100% + 7px);
-  border-left: 1.5px solid var(--ev-border-strong);
+  border-left: 1.5px solid var(--mantine-color-default-border);
 }

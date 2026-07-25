@@ -1,38 +1,8 @@
-/* ========== Global Mantine colour-var tuning ========== */
-/* Semantic text shades (c="red", light variants) tuned for legibility on our
-   themes. Set after Mantine's own styles, so source order wins - no !important.
-   Per-component colour-var overrides live in theme/components.css. */
-/* --mantine-color-error: Mantine sets it per-scheme to a dark red shade (red-8
-   in dark = #620f16) that reads as muddy maroon on the dark canvas. Point it at
-   the theme-aware bad red (bright #f85149 on dark, calm #cf222e on light) so
-   input borders, error messages and required asterisks stay legible. Must live
-   on the per-scheme selector to beat Mantine's own per-scheme default. */
-:root[data-mantine-color-scheme='light'] {
-  /* Drive Mantine's base text + dimmed off our tokens so ALL text (titles,
-     body, labels) matches the design system, not Mantine's stock #000/grey. */
-  --mantine-color-text: var(--ev-text);
-  --mantine-color-dimmed: var(--ev-muted);
-  --mantine-color-red-text: var(--ev-bad);
-  --mantine-color-blue-text: var(--mantine-color-blue-6);
-  --mantine-color-orange-text: var(--mantine-color-orange-5);
-  --mantine-color-green-text: var(--mantine-color-green-6);
-  --mantine-color-error: var(--ev-bad);
-}
-
-:root[data-mantine-color-scheme='dark'] {
-  --mantine-color-text: var(--ev-text);
-  --mantine-color-dimmed: var(--ev-muted);
-  --mantine-color-red-text: var(--ev-bad);
-  --mantine-color-green-text: var(--mantine-color-green-5);
-  --mantine-color-primary-text: var(--mantine-color-primary-3);
-  --mantine-color-error: var(--ev-bad);
-}
-
-/* Notifications keep the brighter filled shades */
-.mantine-Notifications-root {
-  --mantine-color-red-filled: var(--mantine-color-red-5);
-  --mantine-color-green-filled: var(--mantine-color-green-5);
-  --mantine-color-blue-filled: var(--mantine-color-blue-5);
+/* Page canvas. Mantine paints the body with --mantine-color-body, which is
+   also the colour of every raised panel (Paper, AppShell, Modal). The canvas
+   sits one step behind it so panels read as lifted. */
+body {
+  background-color: var(--ev-canvas);
 }
 
 /* Section titles: clear the sticky app header when scrolled into view */
@@ -55,7 +25,7 @@ svg.tabler-icon {
   .cm-textfield {
     border: 1px solid var(--mantine-color-default-border);
     background: var(--mantine-color-default);
-    border-radius: 4px;
+    border-radius: var(--mantine-radius-sm);
     outline: none;
   }
 
@@ -63,7 +33,7 @@ svg.tabler-icon {
     cursor: pointer;
     border: 1px solid var(--mantine-color-default-border);
     background: var(--mantine-color-default);
-    border-radius: 4px;
+    border-radius: var(--mantine-radius-sm);
   }
 
   input[type='checkbox'] {

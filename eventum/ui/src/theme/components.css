@@ -1,104 +1,178 @@
-/* Global chrome restyle - targets Mantine stable classes, driven by tokens.
+/* Chrome that the theme object cannot express: a handful of Mantine parts
+   with no CSS variable of their own, plus the app's own element classes.
    Loaded after @mantine/core/styles.css so equal-specificity rules win. */
 
-/* Raised surfaces over the recessed canvas */
-.mantine-Paper-root,
-.mantine-Card-root {
-  background-color: var(--ev-surface);
-  border-color: var(--ev-border);
-}
-/* Bordered surfaces also get the soft shadow (uniform panel depth). The
-   border colour already comes from the base rule above. */
-.mantine-Paper-root[data-with-border],
-.mantine-Card-root[data-with-border] {
-  box-shadow: var(--ev-shadow);
+/* ========== Mantine parts without a variable ========== */
+
+/* Headings: tighter tracking across the app. */
+.mantine-Title-root {
+  letter-spacing: -0.02em;
 }
 
-/* Inputs (TextInput, Select, NumberInput, PasswordInput, Textarea, etc.
-   all render .mantine-Input-input) */
-.mantine-Input-input {
-  background-color: var(--ev-surface-2);
-  border-color: var(--ev-border);
-  border-radius: 9px;
-}
-.mantine-Input-input:focus,
-.mantine-Input-input:focus-within {
-  border-color: var(--ev-accent);
-}
-/* Invalid field: red border matching the error message. Our resting
-   border-color override above would otherwise keep it neutral; this also
-   persists over the focus accent so an invalid field always reads as invalid. */
-.mantine-Input-input[data-error],
-.mantine-Input-input[data-error]:focus,
-.mantine-Input-input[data-error]:focus-within {
-  border-color: var(--mantine-color-error);
-}
-
-/* Buttons keep only the house radius and weight; primary / danger / subtle /
-   gradient colours and all states (hover, active, disabled, loading) are
-   Mantine's own, driven by the primary and red scales in theme/index.ts. */
-.mantine-Button-root {
-  border-radius: 9px;
-  font-weight: 600;
-}
-/* Secondary (default variant) fill/hover/label all come from the variant
-   resolver in theme/index.ts (flat muted grey; red-tinted for the medium
-   danger `color="red"`). Mantine's native default (white / off-token grey)
-   would blend on our recessed canvas + raised panels. */
-
-/* Focus ring accent everywhere. The :where() rule (specificity 0,0,1) covers
-   native focusables; Mantine components carry .mantine-focus-auto with its own
-   0,2,0 ring, so match that specificity to recolour it to the accent too. */
-:where(*):focus-visible,
-.mantine-focus-auto:focus-visible {
-  outline-color: var(--ev-accent);
-}
-
-/* Tables */
-/* Header sits on the panel surface, not the near-black --mantine-color-body
-   (which Mantine uses as the sticky-header background by default). */
-.mantine-Table-thead {
-  background-color: var(--ev-surface);
-}
-.mantine-Table-thead .mantine-Table-th {
-  background-color: var(--ev-surface);
+/* Table headers are micro-labels, not data. */
+.mantine-Table-th {
   text-transform: uppercase;
   letter-spacing: 0.06em;
   font-size: 11px;
   font-weight: 600;
-  color: var(--ev-faint);
-  border-bottom: 1px solid var(--ev-border);
-  padding: 11px 16px;
+  color: var(--mantine-color-dimmed);
 }
-.mantine-Table-tbody .mantine-Table-td {
-  border-bottom: 1px solid var(--ev-border);
-  padding: 13px 16px;
-  color: var(--ev-text);
+
+/* Floating panels carry the same hairline as the controls that open them;
+   Mantine gives popovers a fainter one in the light scheme. */
+.mantine-Popover-dropdown {
+  --popover-border-color: var(--mantine-color-default-border);
 }
-/* Row hover is a translucent state layer (same token as menu/combobox hover)
-   so it composites over the panel instead of matching the opaque
-   --ev-surface-2 badge fill - keeps chips legible on a hovered row and
-   unifies hover across rows, menus and dropdowns. */
-.mantine-Table-tbody .mantine-Table-tr:hover .mantine-Table-td {
-  background-color: var(--ev-hover);
+
+/* Select and multi-select dropdowns follow Menu and Popover onto the control
+   surface; Mantine puts them on the panel colour, which flattens them against
+   the panel they open over. */
+.mantine-Combobox-dropdown {
+  background-color: var(--mantine-color-default);
+  border-color: var(--mantine-color-default-border);
 }
-.mantine-Table-tbody .mantine-Table-tr:last-of-type .mantine-Table-td {
-  border-bottom: 0;
+.mantine-Combobox-option:hover:not([data-combobox-selected]) {
+  background-color: var(--mantine-color-default-hover);
 }
+
+/* Neutral alerts read as an inset block rather than another panel: Mantine's
+   default variant paints them the plain control surface. The tint is a faint
+   wash of the scheme's own muted colour - enough to set the block apart, not
+   enough to turn it into a grey slab. The semantic colour stays where it
+   belongs, on the icon. */
+.mantine-Alert-root[data-variant='default'] {
+  background-color: var(--ev-canvas);
+}
+
+/* Active nav item: accent rail alongside the soft background. */
+.mantine-NavLink-root[data-active] {
+  position: relative;
+}
+.mantine-NavLink-root[data-active]::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 6px;
+  bottom: 6px;
+  width: 3px;
+  border-radius: 0 3px 3px 0;
+  background: var(--mantine-color-primary-text);
+}
+
+/* Sidebar group headers (NavLinks with children carry data-expanded):
+   light muted micro-labels so the actual items lead. */
+.mantine-NavLink-root[data-expanded] .mantine-NavLink-label {
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--mantine-color-dimmed);
+}
+
+/* Sign-in brand gradient: a 3-stop purple->cyan that holds purple to 24% so
+   cyan only trails in as an accent, instead of the even split Mantine builds
+   from defaultGradient. !important beats the inline --button-bg. */
+.mantine-Button-root[data-variant='gradient'] {
+  --button-bg: linear-gradient(
+    12deg,
+    var(--mantine-color-primary-4) 0%,
+    var(--mantine-color-primary-4) 24%,
+    var(--mantine-color-cyan-4) 100%
+  ) !important;
+  --button-hover: var(--button-bg) !important;
+}
+.mantine-Button-root[data-variant='gradient']:not([data-disabled]):not(
+    [data-loading]
+  ):hover {
+  filter: brightness(1.08);
+}
+
+/* Scrollbars */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--mantine-color-placeholder) transparent;
+}
+
+/* ========== App element classes ========== */
+
 /* Copy affordance revealed on row hover (e.g. Secrets name) - hidden at rest
    so the row stays calm, shown on hover or keyboard focus. */
 .ev-copy-btn {
   opacity: 0;
   transition: opacity 120ms ease;
 }
-.mantine-Table-tbody .mantine-Table-tr:hover .ev-copy-btn,
+.mantine-Table-tr:hover .ev-copy-btn,
 .ev-copy-btn:focus-visible {
   opacity: 1;
 }
 
+/* Instance chips (Projects table): match the status pill metrics (height 24,
+   12px text) and keep the id lowercase, so both badge families read as one
+   system - the chip stays neutral and clickable, the status pill keeps its
+   semantic colour. */
+.mantine-Badge-root.ev-instance-chip {
+  height: 24px;
+  /* A neutral tint so the chip reads as a chip on a white panel too, where
+     the default variant would be white on white. */
+  background-color: var(--mantine-color-gray-light);
+}
+.ev-instance-chip .mantine-Badge-label {
+  font-size: 12px;
+  font-weight: 500;
+  text-transform: none;
+}
+.ev-chip-more .mantine-Badge-label {
+  color: var(--mantine-color-dimmed);
+}
+
+/* Badges rendered as links (breadcrumbs, instance chips): show a pointer
+   (Mantine's root cursor:default otherwise wins over the <a> default) and
+   brighten on hover. */
+a.mantine-Badge-root {
+  cursor: pointer;
+}
+a.mantine-Badge-root:hover {
+  color: var(--mantine-color-primary-text);
+  border-color: var(--mantine-color-placeholder);
+}
+a.ev-chip-more:hover .mantine-Badge-label {
+  color: var(--mantine-color-primary-text);
+}
+
+/* Record / navigation links: one style everywhere. Plain text colour at rest
+   so dense tables and meta lines stay calm, highlighting to the accent on
+   hover, never underlined. `a.` beats Mantine's .mantine-Anchor-root colour. */
+a.ev-record-link {
+  color: inherit;
+  transition: color 120ms ease;
+}
+a.ev-record-link:hover {
+  color: var(--mantine-color-primary-text);
+}
+
+/* Clickable list rows (Home recent projects / instances): a neutral hover
+   state layer so the row reads as an active click target, matching table-row
+   and menu-item hover. (Mantine v8 drops the `styles={{root:{'&:hover'}}}`
+   nested-selector form, so the hover must live in real CSS.) */
+.ev-row-button {
+  transition: background-color 120ms ease;
+}
+.ev-row-button:hover {
+  background-color: var(--mantine-color-default-hover);
+}
+
+/* Clickable tiles (Home explore): accent border on hover. */
+.ev-tile-button {
+  transition: border-color 120ms ease;
+}
+.ev-tile-button:hover {
+  border-color: var(--mantine-color-primary-text);
+}
+
+/* Pulse behind the dot of an instance that is starting or stopping. */
 @keyframes ev-pulse {
   0% {
-    box-shadow: 0 0 0 0 var(--ev-good-soft);
+    box-shadow: 0 0 0 0 var(--mantine-color-green-light);
   }
   70% {
     box-shadow: 0 0 0 5px transparent;
@@ -114,355 +188,4 @@
       box-shadow: none;
     }
   }
-}
-
-/* Sidebar / nav */
-.mantine-NavLink-root {
-  border-radius: 8px;
-}
-/* Inactive item hover uses the shared neutral state layer (like table rows and
-   menu items), not Mantine's primary-tinted default, so all list hovers match. */
-.mantine-NavLink-root:not([data-active]):hover {
-  background-color: var(--ev-hover);
-}
-.mantine-NavLink-root[data-active] {
-  background-color: var(--ev-accent-soft);
-  color: var(--ev-text);
-  position: relative;
-}
-.mantine-AppShell-navbar,
-.mantine-AppShell-header {
-  background-color: var(--ev-surface);
-  border-color: var(--ev-border);
-}
-
-/* Floating panels: menus, select/tags dropdowns, popovers - one surface */
-.mantine-Menu-dropdown,
-.mantine-Combobox-dropdown,
-.mantine-Popover-dropdown {
-  background-color: var(--ev-surface);
-  border: 1px solid var(--ev-border);
-  border-radius: 12px;
-  box-shadow: var(--ev-shadow);
-}
-.mantine-Menu-item:hover,
-.mantine-Combobox-option:hover {
-  /* Keep the dropdown surface as the base (neutralise Mantine's own grey
-     hover), then add our theme-correct state layer on top. */
-  background-color: var(--ev-surface);
-  background-image: linear-gradient(var(--ev-hover), var(--ev-hover));
-}
-.mantine-Combobox-option[data-combobox-selected] {
-  background-color: var(--ev-accent-soft);
-}
-
-/* Modal */
-.mantine-Modal-content,
-.mantine-Modal-header {
-  background-color: var(--ev-surface);
-}
-
-/* Tabs */
-.mantine-Tabs-tab[data-active] {
-  border-color: var(--ev-accent);
-}
-
-/* Alerts keep semantic colors; align neutral default */
-.mantine-Alert-root[data-variant='default'] {
-  background-color: var(--ev-surface-2);
-  border: 1px solid var(--ev-border);
-}
-
-/* Scrollbars */
-* {
-  scrollbar-width: thin;
-  scrollbar-color: var(--ev-border-strong) transparent;
-}
-
-/* --- Polish pass --- */
-
-/* Headings: tighter tracking across the app */
-.mantine-Title-root {
-  letter-spacing: -0.02em;
-}
-
-/* Active nav: accent left rail alongside the soft background */
-.mantine-NavLink-root[data-active]::before {
-  content: '';
-  position: absolute;
-  left: 0;
-  top: 6px;
-  bottom: 6px;
-  width: 3px;
-  border-radius: 0 3px 3px 0;
-  background: var(--ev-accent);
-}
-
-/* Sidebar group headers (NavLinks with children carry data-expanded):
-   light muted micro-labels so the actual items lead. */
-.mantine-NavLink-root[data-expanded] .mantine-NavLink-label {
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-  font-size: 11px;
-  font-weight: 600;
-  color: var(--ev-faint);
-}
-
-/* Icon buttons: subtle hover surface */
-.mantine-ActionIcon-root[data-variant='subtle']:hover,
-.mantine-ActionIcon-root[data-variant='transparent']:hover {
-  background-color: var(--ev-surface-2);
-}
-
-/* --- Native control surfaces (replace Mantine's default greys) --- */
-
-/* Default-variant icon buttons carry a visible, consistent border in every
-   state. The theme resolver returns `border: transparent` for the default
-   variant (so secondary *buttons* stay flat) - which collapses to `border:
-   none` and would leave icon buttons borderless when enabled, while Mantine's
-   disabled state re-adds a border. Force a real 1px border here so rest, hover
-   and disabled all read the same (only the glyph dims when disabled). */
-.mantine-ActionIcon-root[data-variant='default'] {
-  background-color: var(--ev-surface);
-  border: 1px solid var(--ev-border-strong);
-  color: var(--ev-text);
-}
-.mantine-ActionIcon-root[data-variant='default']:hover {
-  background-color: var(--ev-surface-2);
-  border-color: var(--ev-border-strong);
-}
-
-/* Segmented control: inset track, delineated active chip */
-.mantine-SegmentedControl-root {
-  background-color: var(--ev-surface-2);
-}
-.mantine-SegmentedControl-indicator {
-  background-color: var(--ev-surface);
-  box-shadow: inset 0 0 0 1px var(--ev-border);
-}
-
-/* Default badges (e.g. instance chips) */
-.mantine-Badge-root[data-variant='default'] {
-  background-color: var(--ev-surface-2);
-  border-color: var(--ev-border);
-  color: var(--ev-text);
-}
-/* Badges rendered as links (breadcrumbs, instance chips): show a pointer
-   (Mantine's root cursor:default otherwise wins over the <a> default) and
-   brighten the border on hover. */
-a.mantine-Badge-root {
-  cursor: pointer;
-}
-a.mantine-Badge-root:hover {
-  color: var(--ev-accent);
-  border-color: var(--ev-border-strong);
-}
-
-/* Instance chips (Projects table): match the StatusPill pill metrics
-   (height 24, 12px text) and keep the id lowercase, so both badge families
-   read as one system - the chip stays neutral + clickable, the status pill
-   keeps its semantic colour. */
-.mantine-Badge-root.ev-instance-chip {
-  height: 24px;
-}
-.ev-instance-chip .mantine-Badge-label {
-  font-size: 12px;
-  font-weight: 500;
-  text-transform: none;
-}
-.ev-chip-more .mantine-Badge-label {
-  color: var(--ev-muted);
-}
-/* When the overflow chip is a link, its muted label brightens to accent on
-   hover like the instance chips (whose labels inherit the anchor hover). */
-a.ev-chip-more:hover .mantine-Badge-label {
-  color: var(--ev-accent);
-}
-
-/* Close buttons (modals, popovers) hover on our surface, not Mantine grey. */
-.mantine-CloseButton-root:hover {
-  background-color: var(--ev-surface-2);
-}
-
-/* Pagination: inactive controls on the panel surface, active keeps accent */
-.mantine-Pagination-control:not([data-active]) {
-  background-color: var(--ev-surface);
-  border-color: var(--ev-border);
-  color: var(--ev-text);
-}
-.mantine-Pagination-control:not([data-active]):hover {
-  background-color: var(--ev-surface-2);
-  border-color: var(--ev-border-strong);
-}
-
-/* Checkbox / radio / switch off-state tracks */
-.mantine-Checkbox-input:not(:checked),
-.mantine-Radio-radio:not(:checked) {
-  background-color: var(--ev-surface-2);
-  border-color: var(--ev-border);
-}
-.mantine-Switch-input:not(:checked) + .mantine-Switch-track {
-  background-color: var(--ev-surface-2);
-  border-color: var(--ev-border);
-}
-
-/* Disabled inputs dim toward the surface behind them so the field recedes
-   (reads as disabled in both themes) instead of keeping the raised well.
-   Opacity dims fill + text together, sidestepping Mantine's per-control
-   disabled colour so the muted look is uniform across input types. */
-.mantine-Input-input:disabled,
-.mantine-Input-input[data-disabled] {
-  background-color: var(--ev-surface-2);
-  opacity: 0.6;
-  cursor: not-allowed;
-}
-
-/* Disabled - a faint label + not-allowed cursor on every button. A muted
-   surface is added ONLY for variants that carry a fill at rest (primary,
-   secondary, danger); ghost variants (subtle / danger subtle) stay fill-less,
-   matching their transparent rest. Loading is excluded - it keeps its colour +
-   spinner (a busy state, not a disabled one). */
-.mantine-Button-root:disabled:not([data-loading]),
-.mantine-Button-root[data-disabled]:not([data-loading]) {
-  color: var(--ev-faint);
-  cursor: not-allowed;
-}
-/* Filled/secondary disabled: muted surface (specificity 0,5,0 beats the
-   [data-variant='default'] rule so a disabled secondary dims instead of
-   keeping its rest colours). */
-.mantine-Button-root:not([data-variant='subtle']):not(
-    [data-variant='gradient']
-  ):disabled:not([data-loading]),
-.mantine-Button-root:not([data-variant='subtle']):not(
-    [data-variant='gradient']
-  )[data-disabled]:not([data-loading]) {
-  background-color: var(--ev-disabled-bg);
-  border-color: transparent;
-}
-/* Ghost (subtle) disabled: no fill, just the faint label. */
-.mantine-Button-root[data-variant='subtle']:disabled:not([data-loading]),
-.mantine-Button-root[data-variant='subtle'][data-disabled]:not([data-loading]) {
-  background-color: transparent;
-}
-/* Icon buttons have no fill to mute - dim the glyph instead. */
-.mantine-ActionIcon-root:disabled:not([data-loading]),
-.mantine-ActionIcon-root[data-disabled]:not([data-loading]) {
-  background-color: transparent;
-  color: var(--ev-faint);
-}
-
-/* Code blocks (shiki): keep the VSCode Dark+ syntax but drop the default grey
-   box for our raised surface, so snippets match the CodeMirror editor. Dark
-   only - the light code scheme is left unchanged. */
-:root[data-mantine-color-scheme='dark'] .mantine-CodeHighlight-code,
-:root[data-mantine-color-scheme='dark'] .mantine-CodeHighlight-pre,
-:root[data-mantine-color-scheme='dark'] .mantine-CodeHighlight-controls {
-  background-color: var(--ev-surface-2);
-}
-
-/* Record / navigation links: one style everywhere. Plain text colour at rest
-   so dense tables and meta lines stay calm, highlighting to the accent on
-   hover, never underlined. `a.` beats Mantine's .mantine-Anchor-root colour. */
-a.ev-record-link {
-  color: inherit;
-  transition: color 120ms ease;
-}
-a.ev-record-link:hover {
-  color: var(--ev-accent);
-}
-
-/* Clickable list rows (Home recent projects / instances): a neutral hover
-   state layer so the row reads as an active click target, matching table-row
-   and menu-item hover. (Mantine v8 drops the `styles={{root:{'&:hover'}}}`
-   nested-selector form, so the hover must live in real CSS.) */
-.ev-row-button {
-  transition: background-color 120ms ease;
-}
-.ev-row-button:hover {
-  background-color: var(--ev-hover);
-}
-/* Clickable tiles (Home explore): accent border on hover. */
-.ev-tile-button:hover {
-  border-color: var(--ev-accent);
-}
-
-/* Sign-in brand gradient: theme-invariant vibrant purple->cyan (logo-like),
-   3-stop so cyan holds back to ~30% and only trails in as an accent, instead
-   of an even 50/50 split that reads cyan-heavy. Overrides Mantine's 2-stop
-   defaultGradient for the (only) gradient-variant button. */
-.mantine-Button-root[data-variant='gradient'] {
-  /* !important beats Mantine's inline --button-bg (built from the 2-stop
-     defaultGradient). This 3-stop holds purple to 30% so cyan only trails in
-     as an accent instead of an even 50/50 split. --button-hover kept in sync
-     so hover does not revert to the 2-stop. */
-  --button-bg: linear-gradient(
-    12deg,
-    var(--ev-grad-from) 0%,
-    var(--ev-grad-from) 24%,
-    var(--ev-grad-to) 100%
-  ) !important;
-  --button-hover: linear-gradient(
-    12deg,
-    var(--ev-grad-from) 0%,
-    var(--ev-grad-from) 24%,
-    var(--ev-grad-to) 100%
-  ) !important;
-}
-/* Gradient hover: the gradient itself is preserved (it lives in the
-   background-image the state-layer overlay is excluded from touching); only the
-   shade shifts, a touch brighter. */
-.mantine-Button-root[data-variant='gradient']:not([data-disabled]):not(
-    [data-loading]
-  ):hover {
-  filter: brightness(1.08);
-}
-.mantine-Button-root[data-variant='gradient']:not([data-disabled]):not(
-    [data-loading]
-  ):active {
-  filter: brightness(1.12);
-}
-
-/* --- Per-scheme Mantine colour-var overrides (consolidated from index.css so
-   each component's theming lives in one file). `!important` is kept only where
-   it must beat Mantine's inline variant styles (badge/avatar/anchor/ai-color);
-   scheme-conditional overrides are the standard Mantine-var approach. --- */
-
-/* Light theme: light-variant badge + avatar read as the deeper accent shade
-   (Mantine's pale default is too light on the white surface). */
-[data-mantine-color-scheme='light'] .mantine-Badge-root[data-variant='light'] {
-  --badge-color: var(--mantine-color-primary-5) !important;
-  --badge-bg: var(--mantine-color-primary-1) !important;
-}
-[data-mantine-color-scheme='light'] .mantine-Avatar-root {
-  --avatar-color: var(--mantine-color-primary-5) !important;
-  --avatar-bg: var(--mantine-color-primary-1) !important;
-}
-[data-mantine-color-scheme='light'] .mantine-NavLink-root {
-  --nl-color: var(--mantine-color-primary-5);
-}
-
-/* Links (Anchor + in-code links): deeper accent in light, lighter in dark.
-   The var is set on the element, which beats Mantine's :root default by
-   directness - no !important needed. */
-[data-mantine-color-scheme='light'] .mantine-Anchor-root,
-[data-mantine-color-scheme='light'] .mantine-CodeHighlight-codeHighlight {
-  --mantine-color-anchor: var(--mantine-color-primary-5);
-}
-[data-mantine-color-scheme='dark'] .mantine-Anchor-root,
-[data-mantine-color-scheme='dark'] .mantine-CodeHighlight-codeHighlight {
-  --mantine-color-anchor: var(--mantine-color-primary-3);
-}
-
-/* Transparent icon buttons use the text colour (neutral glyph), not primary.
-   !important beats Mantine's inline --ai-color from the variant resolver. */
-.mantine-ActionIcon-root[data-variant='transparent'] {
-  --ai-color: var(--mantine-color-text) !important;
-}
-[data-mantine-color-scheme='light']
-  .mantine-ActionIcon-root[data-variant='transparent'][data-input-section] {
-  color: var(--mantine-color-gray-7);
-}
-[data-mantine-color-scheme='dark']
-  .mantine-ActionIcon-root[data-variant='transparent'][data-input-section] {
-  color: var(--mantine-color-dark-1);
 }

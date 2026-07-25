@@ -277,7 +277,7 @@ export const ServerParametersSection: FC<ServerParametersSectionProps> = ({
       </Group>
       <Alert
         variant="default"
-        icon={<Box c="var(--ev-warn)" component={IconLockExclamation} />}
+        icon={<Box c="yellow" component={IconLockExclamation} />}
         title="Security notification"
       >
         Username and password are parameters in configuration file that stored

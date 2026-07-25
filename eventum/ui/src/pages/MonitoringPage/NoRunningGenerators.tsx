@@ -12,7 +12,7 @@ import { ROUTE_PATHS } from '@/routing/paths';
  * process metrics are always live.
  */
 export const NoRunningGenerators: FC = () => (
-  <Paper withBorder radius="md" p="xl">
+  <Paper withBorder p="xl">
     <Stack align="center" gap="sm" py="xl">
       <ThemeIcon variant="default" size={48} radius="md">
         <IconActivity size={24} stroke={1.5} />

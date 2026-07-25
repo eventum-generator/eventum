@@ -12,7 +12,7 @@ import { LogsModal } from '@/components/modals/LogsModal';
 export const LogsPanel: FC = () => (
   <Stack gap="xs">
     <SectionLabel>Instance logs</SectionLabel>
-    <Paper withBorder radius="md" p="sm">
+    <Paper withBorder p="sm">
       <LogsModal
         getWebSocket={() => streamInstanceLogs(10_048_576)}
         height="420px"

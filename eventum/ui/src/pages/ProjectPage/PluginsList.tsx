@@ -104,7 +104,7 @@ const PluginsList = <T extends PluginType>({
             rightSection={
               <ActionIcon
                 variant="transparent"
-                c="var(--ev-bad)"
+                c="red"
                 title="Remove"
                 size="lg"
                 onClick={(e) => {

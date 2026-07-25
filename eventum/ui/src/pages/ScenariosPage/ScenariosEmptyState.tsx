@@ -13,7 +13,7 @@ interface ScenariosEmptyStateProps {
 export const ScenariosEmptyState: FC<ScenariosEmptyStateProps> = ({
   onCreate,
 }) => (
-  <Paper withBorder radius="md" p="xl">
+  <Paper withBorder p="xl">
     <Stack align="center" gap="sm" py="xl">
       <ThemeIcon variant="default" size={48} radius="md">
         <IconTransform size={24} stroke={1.5} />

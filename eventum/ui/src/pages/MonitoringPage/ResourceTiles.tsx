@@ -12,7 +12,7 @@ import { Metric } from './Metric';
 import { MiniChart } from './MiniChart';
 import { SectionLabel } from './SectionLabel';
 import { ACCENT, CYAN } from './colors';
-import { formatRate, levelColor } from './format';
+import { formatRate } from './format';
 import {
   CurrentMetrics,
   ResourcePoint,
@@ -20,8 +20,17 @@ import {
   gaugePoints,
 } from './history';
 import { InstanceInfo } from '@/api/routes/instance/schemas';
+import {
+  CPU_THRESHOLDS,
+  MEMORY_THRESHOLDS,
+  levelColor,
+} from '@/utils/levelColor';
 
-const HEAD_ICON = { size: 15, color: 'var(--ev-muted)', stroke: 1.5 };
+const HEAD_ICON = {
+  size: 15,
+  color: 'var(--mantine-color-dimmed)',
+  stroke: 1.5,
+};
 const TILE_H = 240;
 /**
  * Uniform tile: header, one primary metric line, one grey caption line,
@@ -36,7 +45,7 @@ const Tile: FC<{
   caption: ReactNode;
   chart: ReactNode;
 }> = ({ label, scope, icon, primary, caption, chart }) => (
-  <Paper withBorder radius="md" p="md" style={{ height: TILE_H }}>
+  <Paper withBorder p="md" style={{ height: TILE_H }}>
     <Stack gap="xs" style={{ height: '100%' }}>
       <Group justify="space-between" wrap="nowrap">
         <Group gap={7} wrap="nowrap">
@@ -79,8 +88,16 @@ export const ResourceTiles: FC<ResourceTilesProps> = ({
     info.memory_total_bytes > 0
       ? (info.memory_used_bytes / info.memory_total_bytes) * 100
       : 0;
-  const cpuColor = levelColor(info.cpu_percent, 60, 85);
-  const memColor = levelColor(memPct, 70, 90);
+  const cpuColor = levelColor(
+    info.cpu_percent,
+    CPU_THRESHOLDS.warn,
+    CPU_THRESHOLDS.bad
+  );
+  const memColor = levelColor(
+    memPct,
+    MEMORY_THRESHOLDS.warn,
+    MEMORY_THRESHOLDS.bad
+  );
 
   const cpuData = useMemo(() => gaugePoints(resources, 'cpu'), [resources]);
   const memData = useMemo(() => gaugePoints(resources, 'memPct'), [resources]);

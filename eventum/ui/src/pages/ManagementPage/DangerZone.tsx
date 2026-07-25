@@ -110,8 +110,10 @@ export const DangerZone: FC = () => {
 
   return (
     <Stack gap="xs">
-      <SectionLabel color="var(--ev-bad)">Danger zone</SectionLabel>
-      <Paper withBorder radius="md" p={0} style={{ overflow: 'hidden' }}>
+      <SectionLabel color="var(--mantine-color-red-text)">
+        Danger zone
+      </SectionLabel>
+      <Paper withBorder p={0} style={{ overflow: 'hidden' }}>
         <ControlRow
           title="Restart instance"
           description="Stops and starts the instance. The web interface may be briefly unavailable while it restarts."

@@ -101,7 +101,7 @@ export const RowActions: FC<RowActionsProps> = ({
         <Menu.Divider />
 
         <Menu.Item
-          color="var(--ev-bad)"
+          color="var(--mantine-color-red-text)"
           leftSection={<IconTrash size={14} />}
           onClick={handleDelete}
         >

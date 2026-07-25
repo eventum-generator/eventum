@@ -172,7 +172,7 @@ export const columns = [
           size="sm"
           style={{
             fontVariantNumeric: 'tabular-nums',
-            color: value > 0 ? 'var(--ev-bad)' : undefined,
+            color: value > 0 ? 'var(--mantine-color-red-text)' : undefined,
             fontWeight: value > 0 ? 600 : undefined,
           }}
         >

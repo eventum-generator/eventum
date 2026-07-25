@@ -18,8 +18,8 @@ import {
 // red is reserved for failures and deliberately omitted.
 /* eslint-disable no-restricted-syntax -- categorical chart series needs distinct swatches beyond the token set */
 const PALETTE = [
-  'var(--ev-accent)',
-  'var(--ev-cyan)',
+  'var(--mantine-color-primary-text)',
+  'var(--mantine-color-cyan-text)',
   '#3fb950',
   '#d29922',
   '#4d9fff',
@@ -28,7 +28,7 @@ const PALETTE = [
   '#fb923c',
 ];
 /* eslint-enable no-restricted-syntax */
-const FALLBACK = 'var(--ev-accent)';
+const FALLBACK = 'var(--mantine-color-primary-text)';
 
 interface InstanceLoadProps {
   load: LoadPoint[];
@@ -89,7 +89,7 @@ export const InstanceLoad: FC<InstanceLoadProps> = ({ load }) => {
   return (
     <Stack gap="xs">
       <SectionLabel>Instance load</SectionLabel>
-      <Paper withBorder radius="md" p="md">
+      <Paper withBorder p="md">
         {derived.length < 2 ? (
           <Center h={180}>
             <Text size="sm" c="dimmed">
