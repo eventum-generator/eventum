@@ -26,15 +26,20 @@ from eventum.plugins.event.plugins.template.sample_reader import (
 _EXAMPLE_ROWS_LIMIT = 5
 _KEY = 'sample'
 
+# Introspection parses the sample whole, the way a run loads it, so the
+# cost follows the file. The ceiling is orders of magnitude above any
+# real sample and only stops a file that is not one - an output file of
+# a long run, for instance, which an agent reads in windows instead.
+_MAX_SAMPLE_BYTES = 32 * 1024 * 1024
 
-def _describe_sample(
+
+def _resolve_sample(
     context: AuthoringContext,
-    name: str,
+    rel: Path,
     relative_path: str,
-) -> dict[str, Any] | ToolFailure:
-    """Resolve and parse the sample synchronously."""
-    rel = Path(relative_path)
-
+    name: str,
+) -> Path | ToolFailure:
+    """Resolve a sample path that is safe and small enough to parse."""
     try:
         path = workspace.resolve_generator_file(
             context.generators_dir, name, rel
@@ -47,6 +52,45 @@ def _describe_sample(
             error='Sample file not found',
             details={'file_path': relative_path},
         )
+
+    try:
+        size_in_bytes = path.stat().st_size
+    except OSError:
+        return ToolFailure(
+            error='Failed to load sample',
+            details={'file_path': relative_path},
+        )
+
+    if size_in_bytes > _MAX_SAMPLE_BYTES:
+        return ToolFailure(
+            error='Sample file is too large to introspect',
+            details={
+                'file_path': relative_path,
+                'size_in_bytes': size_in_bytes,
+                'max_size_in_bytes': _MAX_SAMPLE_BYTES,
+                'hint': (
+                    'Read the beginning of the file with '
+                    'read_generator_file instead.'
+                ),
+            },
+        )
+
+    return path
+
+
+def _describe_sample(
+    context: AuthoringContext,
+    name: str,
+    relative_path: str,
+) -> dict[str, Any] | ToolFailure:
+    """Resolve and parse the sample synchronously."""
+    rel = Path(relative_path)
+
+    resolved = _resolve_sample(context, rel, relative_path, name)
+    if isinstance(resolved, ToolFailure):
+        return resolved
+
+    path = resolved
 
     # Exact-case match: the sample config source validators accept
     # only lowercase '.csv'/'.json', mirroring the workspace file
@@ -140,8 +184,9 @@ async def describe_sample(
 
     ToolFailure
         If the path escapes the generator directory, the file does not
-        exist, the file type is unsupported, or the sample is malformed.
-        Never raises; does not leak absolute paths.
+        exist, the file type is unsupported, the file is larger than
+        the introspection ceiling, or the sample is malformed. Never
+        raises; does not leak absolute paths.
 
     """
     return await asyncio.to_thread(
@@ -167,6 +212,10 @@ def register(
         Use it to learn a sample's column names so templates can
         reference them via ``samples.<name>.pick().<column>``.
 
+        The file is parsed whole, as a run would load it, so a file
+        larger than 32 MB is refused instead - read the beginning of
+        such a file with ``read_generator_file``.
+
         Parameters
         ----------
         name : str
@@ -181,7 +230,8 @@ def register(
         dict[str, Any] | ToolFailure
             ``type``, ``columns``, ``row_count``, and ``example_rows``
             for the sample, or a structured failure if the path is
-            invalid, missing, unsupported, or malformed. Does not raise.
+            invalid, missing, unsupported, too large, or malformed. Does
+            not raise.
 
         """
         return observe_failure(

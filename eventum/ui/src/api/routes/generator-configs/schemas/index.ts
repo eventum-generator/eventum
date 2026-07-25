@@ -48,12 +48,15 @@ const FileNodeSchema: z.ZodType = z.lazy(() =>
   z.object({
     name: z.string(),
     is_dir: z.boolean(),
+    size_in_bytes: z.number().int().nullable(),
     children: z.array(FileNodeSchema).nullable().optional(),
   })
 );
 export interface FileNode {
   name: string;
   is_dir: boolean;
+  // Set for files only, and null when the size cannot be read.
+  size_in_bytes: number | null;
   children: FileNode[] | null;
 }
 

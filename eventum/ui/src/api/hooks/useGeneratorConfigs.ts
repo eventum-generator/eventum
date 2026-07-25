@@ -163,10 +163,15 @@ export function useGeneratorFileTree(name: string) {
   });
 }
 
-export function useGeneratorFileContent(name: string, filepath: string) {
+export function useGeneratorFileContent(
+  name: string,
+  filepath: string,
+  options?: { enabled?: boolean }
+) {
   return useQuery({
     queryKey: [...GENERATOR_CONFIG_DIR_FILES_QUERY_KEY, name, filepath],
     queryFn: () => getGeneratorFile(name, filepath),
+    enabled: options?.enabled ?? true,
   });
 }
 

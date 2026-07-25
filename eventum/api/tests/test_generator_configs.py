@@ -2,6 +2,7 @@
 
 from unittest.mock import MagicMock, patch
 
+import aiofiles
 import pytest
 import yaml
 from fastapi import FastAPI
@@ -338,6 +339,63 @@ def test_get_file_tree(client, tmp_settings):
     names = {node['name'] for node in data}
     assert tmp_settings.path.generator_config_filename.name in names
     assert 'templates' in names
+
+
+def test_get_file_tree_reports_sizes(client, tmp_settings):
+    gen_dir = _create_config(tmp_settings, 'size_gen')
+    (gen_dir / 'sample.csv').write_bytes(b'a,b,c')
+
+    response = client.get('/configs/size_gen/file-tree')
+    assert response.status_code == 200
+
+    nodes = {node['name']: node for node in response.json()}
+    assert nodes['sample.csv']['size_in_bytes'] == len(b'a,b,c')
+
+
+# --- GET /{name}/file/{filepath} ---
+
+
+def test_get_file(client, tmp_settings):
+    gen_dir = _create_config(tmp_settings, 'read_gen')
+    (gen_dir / 'notes.txt').write_text('file content')
+
+    response = client.get('/configs/read_gen/file/notes.txt')
+    assert response.status_code == 200
+    assert response.text == 'file content'
+    assert response.headers['content-type'] == 'text/plain; charset=utf-8'
+
+
+def test_get_file_declares_no_length(client, tmp_settings):
+    # A file a generator is writing to changes its size at any moment,
+    # so a declared length stops matching the body being sent and the
+    # response is aborted mid-body.
+    gen_dir = _create_config(tmp_settings, 'length_gen')
+    (gen_dir / 'output.ndjson').write_text('{"a": 1}\n')
+
+    response = client.get('/configs/length_gen/file/output.ndjson')
+    assert response.status_code == 200
+    assert 'content-length' not in response.headers
+
+
+def test_get_file_not_found(client, tmp_settings):
+    _create_config(tmp_settings, 'missing_file_gen')
+
+    response = client.get('/configs/missing_file_gen/file/absent.txt')
+    assert response.status_code == 404
+
+
+def test_get_file_os_error(client, tmp_settings, monkeypatch):
+    gen_dir = _create_config(tmp_settings, 'error_gen')
+    (gen_dir / 'notes.txt').write_text('file content')
+
+    def raise_os_error(*args, **kwargs):
+        raise OSError('permission denied')
+
+    monkeypatch.setattr(aiofiles, 'open', raise_os_error)
+
+    response = client.get('/configs/error_gen/file/notes.txt')
+    assert response.status_code == 500
+    assert 'OS error' in response.json()['detail']
 
 
 # --- Directory traversal ---

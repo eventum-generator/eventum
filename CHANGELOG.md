@@ -19,6 +19,7 @@ All notable changes to this project will be documented in this file.
 - **Added a Rename action to projects, instances, scenarios and secrets** — an object no longer has to be recreated to carry a different name. A renamed project moves its directory and every instance using it follows, so those instances must be stopped first; a renamed instance keeps its parameters and scenario membership; a renamed scenario has its tag rewritten on all its instances; a renamed secret keeps its value, and the dialog lists the projects reading it as `${secrets.<name>}`, since those placeholders are not rewritten
 - **Added a Clone action to the instance row menu** — creates a new instance from an existing one, reusing its project and all parameters
 - **Made Studio navigation link-based** — record names, sidebar items, breadcrumbs, home cards and in-page links are real links, so middle-click and Ctrl/Cmd-click open them in a new browser tab; middle-click also closes an editor tab. Selecting a record name no longer opens it, so names stay copyable
+- **Added file sizes to the project file tree** — every file shows its size next to its name, and a file over 10 MB is not opened in the editor: the tab reports the size and the limit instead of transferring a file the editor cannot display. Generator output files are the usual case
 
 #### MCP
 
@@ -28,6 +29,7 @@ All notable changes to this project will be documented in this file.
 
 #### Eventum Studio
 
+- **Gave file transfers their own request deadline** — every request from Studio shared a single 10-second deadline, so opening or uploading a large project file failed while the transfer was still running. Requests that carry file content now run without a deadline and the rest have 60 seconds; a request that does run out of time says so instead of reporting a generic failure
 - **Added MCP controls to the Server settings section** — the HTTP server toggle, write-tool permission, mount path and allowed hosts are now editable in Studio; previously they lived only in `eventum.yml`, and saving settings from Studio reset them to defaults
 - **Cleared the cached project configuration on delete and create** — a project created with the name of a deleted one starts from a clean configuration instead of showing the old project's settings
 - **Restricted the Write timeout field to whole seconds** — it accepted fractional values that the configuration then rejected on save
@@ -43,13 +45,16 @@ All notable changes to this project will be documented in this file.
 
 - **Restored parallel generation alongside the `clickhouse` output** — loading the plugin on free-threaded Python re-enabled the GIL for the whole process, so every generator lost parallelism, not only the one writing to ClickHouse. The ClickHouse client is now required at a version whose compiled modules keep the GIL disabled
 - **Dropped the unsatisfiable constraint on the `clickhouse` certificate fields** — `ca_cert`, `client_cert` and `client_cert_key` carried a text-length constraint that cannot apply to a path, so any value failed with a type error while the configuration was read, leaving certificate-based TLS unusable
+- **Reported a failed bind of the `http` input as a generation error** — a generator whose port was already taken produced no timestamps and no diagnosis; it now fails with the bind address and the server exit code
 
 #### MCP
 
+- **Bounded what file access hands to the agent** — `read_generator_file` returned the whole file, so an output file or a large sample went into the agent's context in one piece. A call now returns at most 64 KB, 256 KB when asked for, ending on a complete line, and reports the file size with the offset to continue from, so an agent pages through anything larger. `describe_sample` parses a sample whole, the way a run loads it, so it now refuses a file above 32 MB and points at the windowed read instead. The authoring prompt tells the agent how to page a read
 - **Widened the guidance given to agents** — large CSV/JSON samples go through the REST file API (over HTTP) or straight to disk (locally) instead of the slow `write_generator_file` tool. The agent is also told that templates can import any installed Python package and run shell commands via `subprocess`, that the server exposes an OpenAPI schema to fall back on when no tool fits, and how live/sample modes and scenarios work
 
 #### API/CLI
 
+- **Served a generator file as a snapshot of the moment it was requested** — reading an output file of a running generator aborted mid-response, because the response declared the file size before reading the file and the file kept growing. A file that cannot be read now answers with an error instead of a dropped connection
 - **Moved the scenario global-state scan to a worker thread** — a scenario with many generators opens instead of hanging and failing after about ten seconds
 
 ### 📝 Other Changes
