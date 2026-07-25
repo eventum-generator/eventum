@@ -13,10 +13,11 @@ import {
   Tooltip,
 } from '@mantine/core';
 import { UseFormReturnType } from '@mantine/form';
-import { IconAlertTriangle, IconLockExclamation } from '@tabler/icons-react';
+import { IconLockExclamation } from '@tabler/icons-react';
 import { FC } from 'react';
 
 import { ServerParameters } from '@/api/routes/instance/schemas';
+import { AlertIcon } from '@/components/ui/AlertIcon';
 import { LabelWithTooltip } from '@/components/ui/LabelWithTooltip';
 
 interface ServerParametersSectionProps {
@@ -53,7 +54,7 @@ export const ServerParametersSection: FC<ServerParametersSectionProps> = ({
 
       <Alert
         variant="default"
-        icon={<Box c="orange" component={IconAlertTriangle}></Box>}
+        icon={<AlertIcon variant="warn" />}
         title="Disabling API"
         hidden={form.getValues().api?.enabled}
       >
@@ -276,7 +277,7 @@ export const ServerParametersSection: FC<ServerParametersSectionProps> = ({
       </Group>
       <Alert
         variant="default"
-        icon={<Box c="orange" component={IconLockExclamation} />}
+        icon={<Box c="yellow" component={IconLockExclamation} />}
         title="Security notification"
       >
         Username and password are parameters in configuration file that stored
@@ -311,7 +312,7 @@ export const ServerParametersSection: FC<ServerParametersSectionProps> = ({
       </Group>
       <Alert
         variant="default"
-        icon={<Box c="orange" component={IconAlertTriangle} />}
+        icon={<AlertIcon variant="warn" />}
         title="Write tools enabled"
         hidden={!form.getValues().mcp?.allow_write}
       >

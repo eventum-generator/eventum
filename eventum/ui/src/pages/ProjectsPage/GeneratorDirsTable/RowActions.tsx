@@ -8,6 +8,7 @@ import { Link } from 'react-router-dom';
 import { useDeleteGeneratorConfigMutation } from '@/api/hooks/useGeneratorConfigs';
 import { ShowErrorDetailsAnchor } from '@/components/ui/ShowErrorDetailsAnchor';
 import { ROUTE_PATHS } from '@/routing/paths';
+import { CONFIRM } from '@/theme/copy';
 
 interface RowActionsProps {
   target: ReactNode;
@@ -50,14 +51,13 @@ export const RowActions: FC<RowActionsProps> = ({
     }
 
     modals.openConfirmModal({
-      title: 'Deleting project',
-      children: (
-        <Text size="sm">
-          Project <b>{dirName}</b> will be deleted. Do you want to continue?
-        </Text>
-      ),
+      title: CONFIRM.deleteProject.title,
+      children: <Text size="sm">{CONFIRM.deleteProject.body(dirName)}</Text>,
       size: 'md',
-      labels: { cancel: 'Cancel', confirm: 'Confirm' },
+      labels: {
+        cancel: CONFIRM.deleteProject.cancel,
+        confirm: CONFIRM.deleteProject.confirm,
+      },
       onConfirm: () =>
         deleteGeneratorConfig.mutate(
           { name: dirName },
@@ -101,7 +101,7 @@ export const RowActions: FC<RowActionsProps> = ({
         <Menu.Divider />
 
         <Menu.Item
-          color="red"
+          color="var(--mantine-color-red-text)"
           leftSection={<IconTrash size={14} />}
           onClick={handleDelete}
         >

@@ -16,6 +16,7 @@ import {
   PluginType,
 } from '@/api/routes/generator-configs/modules/plugins/registry';
 import { AreaButton } from '@/components/ui/AreaButton';
+import { CONFIRM } from '@/theme/copy';
 
 interface PluginsListProps<T extends PluginType> {
   type: T;
@@ -38,17 +39,16 @@ const PluginsList = <T extends PluginType>({
 }: PluginsListProps<T>) => {
   function handleDeletePlugin(index: number) {
     modals.openConfirmModal({
-      title: 'Deleting plugin',
+      title: CONFIRM.deletePlugin.title,
       children: (
         <Text size="sm">
-          Plugin{' '}
-          <b>
-            {plugins[index]} #{index + 1}
-          </b>{' '}
-          will be deleted. Do you want to continue?
+          {CONFIRM.deletePlugin.body(`${plugins[index]} #${index + 1}`)}
         </Text>
       ),
-      labels: { cancel: 'Cancel', confirm: 'Confirm' },
+      labels: {
+        cancel: CONFIRM.deletePlugin.cancel,
+        confirm: CONFIRM.deletePlugin.confirm,
+      },
       onConfirm: () => {
         onDeletePlugin(index);
         modals.closeAll();
@@ -88,7 +88,7 @@ const PluginsList = <T extends PluginType>({
       <Stack gap="xs">
         {plugins.length === 0 && (
           <Center>
-            <Text size="sm" c="gray.6">
+            <Text size="sm" c="dimmed">
               No plugins added
             </Text>
           </Center>

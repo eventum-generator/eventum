@@ -1,22 +1,31 @@
 import {
   ActionIcon,
   Button,
-  Center,
   Code,
-  Divider,
   Group,
-  Paper,
-  Stack,
   Text,
   Textarea,
+  Tooltip,
 } from '@mantine/core';
 import { useForm } from '@mantine/form';
 import { notifications } from '@mantine/notifications';
-import { IconArrowsLeftRight, IconPlus, IconX } from '@tabler/icons-react';
+import {
+  IconArrowsLeftRight,
+  IconFileText,
+  IconPlus,
+  IconX,
+} from '@tabler/icons-react';
 import { nanoid } from 'nanoid';
 import { FC, useState } from 'react';
 
 import { useProjectName } from '../../hooks/useProjectName';
+import {
+  ToolBody,
+  ToolEmpty,
+  ToolPane,
+  ToolShell,
+  ToolSpacer,
+} from '../../studio/panels/console/primitives';
 import { FormatterParams } from '../OutputPluginParams/components/FormatterParams';
 import { useFormatEventsMutation } from '@/api/hooks/usePreview';
 import {
@@ -80,24 +89,17 @@ export const FormatterTab: FC = () => {
   const canFormat = events.length > 0 && form.values.formatter !== undefined;
 
   return (
-    <Stack gap="xs">
-      <FormatterParams
-        value={form.values.formatter}
-        onChange={(config) => {
-          form.setFieldValue('formatter', config);
-        }}
-      />
-
-      <Stack gap="2px">
-        <Group justify="space-between">
-          <Text size="sm" fw="bold">
-            Events
+    <ToolShell
+      toolbar={
+        <>
+          <Text size="xs" c="dimmed" maw={520}>
+            Feed sample events through the configured formatter to preview the
+            delivered payload.
           </Text>
+          <ToolSpacer />
           <form onSubmit={form.onSubmit(handleFormatEvents)}>
             <Button
-              variant="transparent"
-              c={canFormat ? 'primary' : 'gray.6'}
-              leftSection={<IconArrowsLeftRight size={16} />}
+              leftSection={<IconArrowsLeftRight size={15} />}
               type="submit"
               disabled={!canFormat}
               loading={formatEvents.isPending}
@@ -105,117 +107,132 @@ export const FormatterTab: FC = () => {
               Format
             </Button>
           </form>
-          <Text size="sm" fw="bold">
-            Result
-          </Text>
-        </Group>
-        <Divider />
-      </Stack>
-
-      <Group grow align="start">
-        <Stack gap="xs">
-          {events.map((event, index) => (
-            <Textarea
-              key={event.id}
-              value={event.content}
-              placeholder="..."
-              minRows={2}
-              autosize
-              rightSection={
-                <ActionIcon
-                  variant="transparent"
-                  size="sm"
-                  title="Delete event"
-                  onClick={() => {
-                    setEvents((prev) => prev.filter((e) => e.id !== event.id));
-                  }}
-                >
-                  <IconX size={16} />
-                </ActionIcon>
-              }
-              rightSectionProps={{
-                style: {
-                  alignSelf: 'flex-start',
-                  marginTop: 6,
-                },
-              }}
-              onChange={(e) => {
-                const next = [...events];
-                next[index] = { ...event, content: e.currentTarget.value };
-                setEvents(next);
-              }}
-            />
-          ))}
-
-          <Button
-            variant="default"
-            leftSection={<IconPlus size={16} />}
-            onClick={() => {
-              setEvents((prev) => [...prev, { id: nanoid(), content: '' }]);
+        </>
+      }
+    >
+      <ToolBody>
+        <ToolPane title="Formatter" grow={0} basis={300}>
+          <FormatterParams
+            value={form.values.formatter}
+            onChange={(config) => {
+              form.setFieldValue('formatter', config);
             }}
-          >
-            Add
-          </Button>
-        </Stack>
+          />
+        </ToolPane>
 
-        <Stack gap="xs">
-          {formattingResult !== null ? (
-            <Stack gap="xs">
-              <Paper withBorder p="xs">
-                <Stack gap="4px">
-                  <Text size="sm" fw="bold">
-                    Formatted events
-                  </Text>
-                  {formattingResult.events.length === 0 && (
-                    <Center>
-                      <Text size="sm" c="gray.6">
-                        No events
-                      </Text>
-                    </Center>
-                  )}
-                  <Stack gap="xs">
-                    {formattingResult.events.map((event, index) => (
-                      <Code key={index} block>
-                        {event}
-                      </Code>
-                    ))}
-                  </Stack>
-                </Stack>
-              </Paper>
-
-              <Paper withBorder p="xs">
-                <Stack gap="4px">
-                  <Text size="sm" fw="bold">
-                    Errors
-                  </Text>
-                  {formattingResult.errors.length === 0 && (
-                    <Center>
-                      <Text size="sm" c="gray.6">
-                        No errors
-                      </Text>
-                    </Center>
-                  )}
-                  <Stack gap="xs">
-                    {formattingResult.errors.map((error, index) => (
-                      <Code key={index} block>
-                        {error.message}
-                        {error.original_event !== null &&
-                          `\nOriginal event:\n${error.original_event}`}
-                      </Code>
-                    ))}
-                  </Stack>
-                </Stack>
-              </Paper>
-            </Stack>
+        <ToolPane
+          title="Events"
+          grow={1}
+          actions={
+            <Tooltip label="Add event" withArrow>
+              <ActionIcon
+                variant="default"
+                size="sm"
+                aria-label="Add event"
+                onClick={() =>
+                  setEvents((prev) => [...prev, { id: nanoid(), content: '' }])
+                }
+              >
+                <IconPlus size={15} />
+              </ActionIcon>
+            </Tooltip>
+          }
+        >
+          {events.length > 0 ? (
+            <div className="tool-list">
+              {events.map((event, index) => (
+                <Textarea
+                  key={event.id}
+                  value={event.content}
+                  placeholder="raw event ..."
+                  minRows={2}
+                  autosize
+                  rightSection={
+                    <ActionIcon
+                      variant="subtle"
+                      size="sm"
+                      title="Delete event"
+                      onClick={() => {
+                        setEvents((prev) =>
+                          prev.filter((e) => e.id !== event.id)
+                        );
+                      }}
+                    >
+                      <IconX size={15} />
+                    </ActionIcon>
+                  }
+                  rightSectionProps={{
+                    style: {
+                      alignSelf: 'flex-start',
+                      marginTop: 6,
+                    },
+                  }}
+                  onChange={(e) => {
+                    const next = [...events];
+                    next[index] = { ...event, content: e.currentTarget.value };
+                    setEvents(next);
+                  }}
+                />
+              ))}
+            </div>
           ) : (
-            <Center>
-              <Text c="gray.6" size="sm">
-                No result
-              </Text>
-            </Center>
+            <ToolEmpty>Add an event to format.</ToolEmpty>
           )}
-        </Stack>
-      </Group>
-    </Stack>
+        </ToolPane>
+
+        <ToolPane title="Result" grow={1}>
+          {formattingResult === null ? (
+            <ToolEmpty icon={<IconFileText size={28} />}>
+              Format the events to preview the delivered output.
+            </ToolEmpty>
+          ) : (
+            <>
+              <Text size="xs" fw={600} c="dimmed" mb={6}>
+                Formatted events
+              </Text>
+              {formattingResult.events.length > 0 ? (
+                <div className="tool-list">
+                  {formattingResult.events.map((event, index) => (
+                    <Code key={index} block>
+                      {event}
+                    </Code>
+                  ))}
+                </div>
+              ) : (
+                <Text size="sm" c="dimmed">
+                  No events
+                </Text>
+              )}
+
+              <Group gap={6} mt="sm" mb={6}>
+                <Text size="xs" fw={600} c="dimmed">
+                  Errors
+                </Text>
+                {formattingResult.errors.length > 0 && (
+                  <Text size="xs" c="red">
+                    {formattingResult.errors.length}
+                  </Text>
+                )}
+              </Group>
+              {formattingResult.errors.length > 0 ? (
+                <div className="tool-list">
+                  {formattingResult.errors.map((error, index) => (
+                    <Code key={index} block>
+                      {error.message}
+                      {error.original_event !== null &&
+                        `\nOriginal event:\n${error.original_event}`}
+                    </Code>
+                  ))}
+                </div>
+              ) : (
+                <Text size="sm" c="dimmed">
+                  No errors
+                </Text>
+              )}
+            </>
+          )}
+        </ToolPane>
+      </ToolBody>
+    </ToolShell>
   );
 };

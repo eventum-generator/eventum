@@ -5,33 +5,34 @@ import { markdown } from '@codemirror/lang-markdown';
 import { python } from '@codemirror/lang-python';
 import { yaml } from '@codemirror/lang-yaml';
 import { keymap } from '@codemirror/view';
-import {
-  Alert,
-  Box,
-  Skeleton,
-  Stack,
-  useMantineColorScheme,
-} from '@mantine/core';
+import { Alert, Box, Skeleton, useMantineColorScheme } from '@mantine/core';
 import { notifications } from '@mantine/notifications';
-import { IconAlertSquareRounded } from '@tabler/icons-react';
-import { vscodeDark, vscodeLight } from '@uiw/codemirror-theme-vscode';
 import CodeMirror from '@uiw/react-codemirror';
-import { FC, useEffect, useState } from 'react';
+import { FC, useEffect, useRef, useState } from 'react';
 
 import { jinjaCompletion } from './completions';
 import {
   useGeneratorFileContent,
   usePutGeneratorFileMutation,
 } from '@/api/hooks/useGeneratorConfigs';
+import { AlertIcon } from '@/components/ui/AlertIcon';
 import { ShowErrorDetailsAnchor } from '@/components/ui/ShowErrorDetailsAnchor';
 import { useProjectName } from '@/pages/ProjectPage/hooks/useProjectName';
+import { cmTheme } from '@/theme/codemirror';
 
 export interface FileEditorProps {
   filePath: string;
   setSaved: (saved: boolean) => void;
+  height?: string;
+  registerSave?: (save: () => void) => void;
 }
 
-export const FileEditor: FC<FileEditorProps> = ({ filePath, setSaved }) => {
+export const FileEditor: FC<FileEditorProps> = ({
+  filePath,
+  setSaved,
+  height = '65vh',
+  registerSave,
+}) => {
   const { colorScheme } = useMantineColorScheme();
   const { projectName } = useProjectName();
   const {
@@ -84,6 +85,13 @@ export const FileEditor: FC<FileEditorProps> = ({ filePath, setSaved }) => {
     );
   }
 
+  // Expose the current save to the studio (visible Save button, Save all).
+  const saveRef = useRef(handleSave);
+  saveRef.current = handleSave;
+  useEffect(() => {
+    registerSave?.(() => saveRef.current());
+  }, [registerSave]);
+
   const saveKeymap = keymap.of([
     {
       key: 'Mod-s',
@@ -117,39 +125,39 @@ export const FileEditor: FC<FileEditorProps> = ({ filePath, setSaved }) => {
   extensions.push(saveKeymap);
 
   if (isContentLoading) {
-    return <Skeleton h="60vh" />;
+    return <Skeleton h={height} />;
   }
 
   if (isContentError) {
     return (
-      <Alert
-        variant="default"
-        icon={<Box c="red" component={IconAlertSquareRounded}></Box>}
-        title="Failed to load file content"
-      >
-        {contentError.message}
-        <ShowErrorDetailsAnchor error={contentError} prependDot />
-      </Alert>
+      <Box p="md">
+        <Alert
+          variant="default"
+          icon={<AlertIcon variant="error" />}
+          title="Failed to load file content"
+        >
+          {contentError.message}
+          <ShowErrorDetailsAnchor error={contentError} prependDot />
+        </Alert>
+      </Box>
     );
   }
 
   if (isContentSuccess) {
     return (
-      <Stack gap="xs">
-        <CodeMirror
-          value={content}
-          onChange={(value) => {
-            setContent(value);
+      <CodeMirror
+        value={content}
+        onChange={(value) => {
+          setContent(value);
 
-            if (!isTouched) {
-              setTouched(true);
-            }
-          }}
-          height="65vh"
-          extensions={extensions}
-          theme={colorScheme === 'dark' ? vscodeDark : vscodeLight}
-        />
-      </Stack>
+          if (!isTouched) {
+            setTouched(true);
+          }
+        }}
+        height={height}
+        extensions={extensions}
+        theme={cmTheme(colorScheme)}
+      />
     );
   }
 

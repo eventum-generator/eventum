@@ -75,7 +75,7 @@ export const CronInputPluginParams: FC<CronInputPluginParamsProps> = ({
             placeholder="cron expression"
             {...form.getInputProps('expression')}
           />
-          <Text size="xs" c="gray.6">
+          <Text size="xs" c="dimmed">
             {cronDescription}
           </Text>
         </Stack>

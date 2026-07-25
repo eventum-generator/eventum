@@ -30,18 +30,20 @@ import { FC, useEffect, useState } from 'react';
 import { columns } from './columns';
 import { GeneratorDirsExtendedInfo } from '@/api/routes/generator-configs/schemas';
 
+export type UsageMode = 'all' | 'used' | 'unused';
+
 interface GeneratorDirsTableProps {
   data: GeneratorDirsExtendedInfo;
   projectNameFilter?: string;
   instancesFilter?: string[];
-  anyInstanceFilter?: boolean;
+  usageMode?: UsageMode;
 }
 
 export const GeneratorDirsTable: FC<GeneratorDirsTableProps> = ({
   data,
   projectNameFilter = '',
   instancesFilter = [],
-  anyInstanceFilter = false,
+  usageMode = 'all',
 }) => {
   const [sorting, setSorting] = useState<SortingState>([
     { id: 'name', desc: false },
@@ -69,9 +71,9 @@ export const GeneratorDirsTable: FC<GeneratorDirsTableProps> = ({
     table.getColumn('name')?.setFilterValue(projectNameFilter);
     table.getColumn('generator_ids')?.setFilterValue({
       instancesFilter: instancesFilter,
-      anyInstanceFilter: anyInstanceFilter,
+      usageMode: usageMode,
     });
-  }, [projectNameFilter, instancesFilter, anyInstanceFilter, table]);
+  }, [projectNameFilter, instancesFilter, usageMode, table]);
 
   return (
     <Stack>
@@ -104,7 +106,7 @@ export const GeneratorDirsTable: FC<GeneratorDirsTableProps> = ({
                                   size="sm"
                                   onClick={header.column.getToggleSortingHandler()}
                                 >
-                                  <IconSortDescending size={16} />
+                                  <IconSortAscending size={16} />
                                 </ActionIcon>
                               )}
                               {header.column.getIsSorted() === 'desc' && (
@@ -113,7 +115,7 @@ export const GeneratorDirsTable: FC<GeneratorDirsTableProps> = ({
                                   size="sm"
                                   onClick={header.column.getToggleSortingHandler()}
                                 >
-                                  <IconSortAscending size={16} />
+                                  <IconSortDescending size={16} />
                                 </ActionIcon>
                               )}
                               {header.column.getIsSorted() === false && (
@@ -147,18 +149,18 @@ export const GeneratorDirsTable: FC<GeneratorDirsTableProps> = ({
             ))}
           </Table.Tbody>
         </Table>
-        {data.length === 0 && (
+        {table.getFilteredRowModel().rows.length === 0 && (
           <Center mt="xs">
-            <Text size="sm" c="gray.6">
-              No projects
+            <Text size="sm" c="dimmed">
+              No projects match your filters
             </Text>
           </Center>
         )}
       </Paper>
 
-      {data.length > 0 && (
+      {table.getFilteredRowModel().rows.length > 0 && (
         <Group w="100%" justify="end" gap="lg">
-          <Text size="sm" c="gray.6">
+          <Text size="sm" c="dimmed">
             Showing{' '}
             {table.getState().pagination.pageIndex *
               table.getState().pagination.pageSize +
@@ -172,15 +174,16 @@ export const GeneratorDirsTable: FC<GeneratorDirsTableProps> = ({
             of {table.getFilteredRowModel().rows.length}
           </Text>
           <Group gap="xs">
-            <Text size="sm" c="gray.6">
+            <Text size="sm" c="dimmed">
               Page size:
             </Text>
 
             <Select
               data={['10', '15', '25', '50', '100']}
               size="sm"
-              w="60px"
+              w={68}
               variant="unstyled"
+              styles={{ input: { textAlign: 'center' } }}
               value={table.getState().pagination.pageSize.toString()}
               onChange={(value) =>
                 table.setPageSize(Number.parseInt(value ?? '15'))

@@ -39,6 +39,20 @@ export default tseslint.config({
     'unicorn/prefer-switch': 'off',
     'sonarjs/no-useless-intersection': 'off',
     'sonarjs/no-nested-functions': 'off',
+    'no-restricted-syntax': [
+      'error',
+      {
+        selector:
+          'Literal[value=/^#(?:[0-9a-fA-F]{3,4}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})$/]',
+        message:
+          'Hardcoded hex colour - use a Mantine CSS variable or colour prop.',
+      },
+      {
+        selector: 'Literal[value=/^(?:rgba?|hsla?)\\(/]',
+        message:
+          'Hardcoded colour function - use a Mantine CSS variable or colour prop.',
+      },
+    ],
   },
   languageOptions: {
     ecmaVersion: 2020,

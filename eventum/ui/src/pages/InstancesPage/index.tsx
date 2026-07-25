@@ -4,11 +4,11 @@ import {
   Box,
   Button,
   Center,
-  Checkbox,
   Container,
   Group,
   Loader,
   Paper,
+  SegmentedControl,
   Stack,
   Text,
   TextInput,
@@ -16,7 +16,6 @@ import {
 import { modals } from '@mantine/modals';
 import { notifications } from '@mantine/notifications';
 import {
-  IconAlertSquareRounded,
   IconPlayerPlay,
   IconPlayerStop,
   IconRefresh,
@@ -25,26 +24,36 @@ import {
   IconX,
 } from '@tabler/icons-react';
 import { RowSelectionState } from '@tanstack/react-table';
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 
 import { CreateInstanceModal } from './CreateInstanceModal';
-import { InstancesTable } from './InstancesTable';
+import { InstancesEmptyState } from './InstancesEmptyState';
+import { InstancesTable, StatusMode } from './InstancesTable';
 import {
   useBulkDeleteGeneratorMutation,
   useBulkStartGeneratorMutation,
   useBulkStopGeneratorMutation,
   useGenerators,
+  useRunningGeneratorsStats,
   useUpdateGeneratorStatus,
 } from '@/api/hooks/useGenerators';
 import { useBulkDeleteGeneratorsFromStartupMutation } from '@/api/hooks/useStartup';
+import { AlertIcon } from '@/components/ui/AlertIcon';
 import { PageTitle } from '@/components/ui/PageTitle';
 import { ShowErrorDetailsAnchor } from '@/components/ui/ShowErrorDetailsAnchor';
+import { CONFIRM } from '@/theme/copy';
+import { useTableQueryParams } from '@/utils/useTableQueryParams';
 
 export default function InstancesPage() {
-  const [instanceFilter, setInstanceFilter] = useState('');
-  const [projectNameFilter, setProjectNameFilter] = useState('');
-  const [runningOnlyFilter, setRunningOnlyFilter] = useState(false);
+  const { searchParams, setParams } = useTableQueryParams();
+  const instanceFilter = searchParams.get('instance') ?? '';
+  const projectNameFilter = searchParams.get('project') ?? '';
+  const rawStatus = searchParams.get('status');
+  const statusMode: StatusMode =
+    rawStatus === 'running' || rawStatus === 'inactive' ? rawStatus : 'all';
+
   const [rowSelection, setRowSelection] = useState<RowSelectionState>({});
+  const [refreshTurns, setRefreshTurns] = useState(0);
 
   const {
     data: generators,
@@ -61,6 +70,20 @@ export default function InstancesPage() {
   const bulkDelete = useBulkDeleteGeneratorMutation();
   const bulkDeleteGeneratorsFromStartup =
     useBulkDeleteGeneratorsFromStartupMutation();
+
+  // Stats are served only for running instances; fetched once and on manual
+  // refresh (no auto-update), keyed by id for the table's Flow/Errors/Written
+  // columns. Non-running instances have no entry and render "-".
+  const { data: runningStats, refetch: refetchStats } =
+    useRunningGeneratorsStats();
+
+  const statsById = useMemo(
+    () =>
+      Object.fromEntries(
+        (runningStats ?? []).map((stats) => [stats.id, stats])
+      ),
+    [runningStats]
+  );
 
   function getInactiveInstances() {
     if (generators === undefined) {
@@ -252,7 +275,7 @@ export default function InstancesPage() {
         <PageTitle title="Instances" />
         <Alert
           variant="default"
-          icon={<Box c="red" component={IconAlertSquareRounded}></Box>}
+          icon={<AlertIcon variant="error" />}
           title="Failed to load instances list"
         >
           {generatorsError.message}
@@ -263,23 +286,62 @@ export default function InstancesPage() {
   }
 
   if (isGeneratorsSuccess) {
-    const selectedInstanceIds = Object.keys(rowSelection)
-      .map((rowId) => generators[Number(rowId)]?.id)
-      .filter((id) => id !== undefined);
+    const openCreateModal = () =>
+      modals.open({
+        title: 'New instance',
+        children: (
+          <CreateInstanceModal
+            existingInstanceIds={generators.map((instance) => instance.id)}
+          />
+        ),
+        size: 'lg',
+      });
+
+    const total = generators.length;
+
+    if (total === 0) {
+      return (
+        <Container size="100%">
+          <Stack>
+            <PageTitle title="Instances" />
+            <InstancesEmptyState onCreate={openCreateModal} />
+          </Stack>
+        </Container>
+      );
+    }
+
+    const running = generators.filter(
+      (instance) => instance.status.is_running
+    ).length;
+
+    // Row ids are the instance ids (via getRowId in the table), so the
+    // selection keys are ids directly - filter out any that no longer exist.
+    const existingIds = new Set(generators.map((instance) => instance.id));
+    const selectedInstanceIds = Object.keys(rowSelection).filter((id) =>
+      existingIds.has(id)
+    );
+    const hasSelection = selectedInstanceIds.length > 0;
 
     return (
       <Container size="100%">
         <Stack>
-          <PageTitle title="Instances" />
+          <Group align="baseline" gap="sm">
+            <PageTitle title="Instances" />
+            <Text size="sm" c="dimmed">
+              {total} {total === 1 ? 'instance' : 'instances'} · {running}{' '}
+              active
+            </Text>
+          </Group>
+
           <Paper withBorder p="sm">
-            <Group justify="space-between" align="center">
+            <Group justify="space-between">
               <Group>
                 <TextInput
                   leftSection={<IconSearch size={16} />}
                   rightSection={
                     <ActionIcon
                       variant="transparent"
-                      onClick={() => setInstanceFilter('')}
+                      onClick={() => setParams({ instance: null })}
                       data-input-section
                     >
                       <IconX size={16} />
@@ -287,14 +349,16 @@ export default function InstancesPage() {
                   }
                   placeholder="search by instance..."
                   value={instanceFilter}
-                  onChange={(event) => setInstanceFilter(event.target.value)}
+                  onChange={(event) =>
+                    setParams({ instance: event.target.value || null })
+                  }
                 />
                 <TextInput
                   leftSection={<IconSearch size={16} />}
                   rightSection={
                     <ActionIcon
                       variant="transparent"
-                      onClick={() => setProjectNameFilter('')}
+                      onClick={() => setParams({ project: null })}
                       data-input-section
                     >
                       <IconX size={16} />
@@ -302,101 +366,98 @@ export default function InstancesPage() {
                   }
                   placeholder="search by project..."
                   value={projectNameFilter}
-                  onChange={(event) => setProjectNameFilter(event.target.value)}
-                />
-                <Checkbox
-                  label="Running only"
-                  checked={runningOnlyFilter}
                   onChange={(event) =>
-                    setRunningOnlyFilter(event.currentTarget.checked)
+                    setParams({ project: event.target.value || null })
                   }
                 />
+                <SegmentedControl
+                  value={statusMode}
+                  onChange={(value) =>
+                    setParams({ status: value === 'all' ? null : value })
+                  }
+                  data={[
+                    { label: 'All', value: 'all' },
+                    { label: 'Running', value: 'running' },
+                    { label: 'Inactive', value: 'inactive' },
+                  ]}
+                />
               </Group>
-              <Group gap="xs">
-                <Group gap={0}>
+              <Group gap="sm">
+                {hasSelection && (
+                  <Text size="sm" c="dimmed">
+                    {selectedInstanceIds.length} selected
+                  </Text>
+                )}
+                <ActionIcon.Group>
                   <ActionIcon
                     size="lg"
                     variant="default"
-                    title="Delete"
-                    style={{
-                      borderTopRightRadius: 0,
-                      borderBottomRightRadius: 0,
-                    }}
-                    onClick={() =>
-                      modals.openConfirmModal({
-                        title: 'Deleting instances',
-                        children: (
-                          <Text size="sm">
-                            Instance(s) <b>{selectedInstanceIds.join(', ')}</b>{' '}
-                            will be deleted. Do you want to continue?
-                          </Text>
-                        ),
-                        labels: { cancel: 'Cancel', confirm: 'Confirm' },
-                        onConfirm: () => handleBulkDelete(selectedInstanceIds),
-                      })
-                    }
-                    loading={bulkDelete.isPending}
-                    disabled={selectedInstanceIds.length === 0}
+                    title="Start selected"
+                    disabled={!hasSelection}
+                    loading={bulkStart.isPending}
+                    onClick={() => handleBulkStart(selectedInstanceIds)}
                   >
-                    <Box
-                      c={selectedInstanceIds.length === 0 ? undefined : 'red'}
-                    >
-                      <IconTrash size={20} />
-                    </Box>
-                  </ActionIcon>
-                  <ActionIcon
-                    size="lg"
-                    variant="default"
-                    title="Refresh"
-                    bdrs={0}
-                    onClick={() => void refetchGenerators()}
-                    loading={isGeneratorsLoading}
-                  >
-                    <IconRefresh size={20} />
+                    <IconPlayerPlay size={18} />
                   </ActionIcon>
                   <ActionIcon
                     size="lg"
                     variant="default"
                     title="Stop selected"
-                    bdrs={0}
-                    disabled={selectedInstanceIds.length === 0}
+                    disabled={!hasSelection}
                     loading={bulkStop.isPending}
                     onClick={() => handleBulkStop(selectedInstanceIds)}
                   >
-                    <IconPlayerStop size={20} />
+                    <IconPlayerStop size={18} />
                   </ActionIcon>
                   <ActionIcon
                     size="lg"
                     variant="default"
-                    title="Start selected"
-                    style={{
-                      borderTopLeftRadius: 0,
-                      borderBottomLeftRadius: 0,
-                    }}
-                    disabled={selectedInstanceIds.length === 0}
-                    loading={bulkStart.isPending}
-                    onClick={() => handleBulkStart(selectedInstanceIds)}
+                    title="Delete selected"
+                    disabled={!hasSelection}
+                    loading={bulkDelete.isPending}
+                    onClick={() =>
+                      modals.openConfirmModal({
+                        title: CONFIRM.deleteInstances.title,
+                        children: (
+                          <Text size="sm">
+                            {CONFIRM.deleteInstances.body(
+                              selectedInstanceIds.join(', ')
+                            )}
+                          </Text>
+                        ),
+                        labels: {
+                          cancel: CONFIRM.deleteInstances.cancel,
+                          confirm: CONFIRM.deleteInstances.confirm,
+                        },
+                        onConfirm: () => handleBulkDelete(selectedInstanceIds),
+                      })
+                    }
                   >
-                    <IconPlayerPlay size={20} />
+                    <Box c={hasSelection ? 'red' : undefined}>
+                      <IconTrash size={18} />
+                    </Box>
                   </ActionIcon>
-                </Group>
-                <Button
-                  onClick={() =>
-                    modals.open({
-                      title: 'New instance',
-                      children: (
-                        <CreateInstanceModal
-                          existingInstanceIds={generators.map(
-                            (instance) => instance.id
-                          )}
-                        />
-                      ),
-                      size: 'lg',
-                    })
-                  }
+                </ActionIcon.Group>
+                <ActionIcon
+                  size="lg"
+                  variant="default"
+                  title="Refresh"
+                  onClick={() => {
+                    setRefreshTurns((turns) => turns + 1);
+                    void refetchGenerators();
+                    void refetchStats();
+                  }}
                 >
-                  Create new
-                </Button>
+                  <IconRefresh
+                    size={18}
+                    style={{
+                      transition:
+                        'transform 0.65s cubic-bezier(0.22, 1, 0.36, 1)',
+                      transform: `rotate(${refreshTurns * 360}deg)`,
+                    }}
+                  />
+                </ActionIcon>
+                <Button onClick={openCreateModal}>Create new</Button>
               </Group>
             </Group>
           </Paper>
@@ -405,7 +466,8 @@ export default function InstancesPage() {
             data={generators}
             projectNameFilter={projectNameFilter}
             instancesFilter={instanceFilter}
-            runningOnlyFilter={runningOnlyFilter}
+            statusMode={statusMode}
+            statsById={statsById}
             rowSelection={rowSelection}
             onRowSelectionChange={setRowSelection}
           />

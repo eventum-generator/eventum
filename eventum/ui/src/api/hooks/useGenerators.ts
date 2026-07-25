@@ -82,17 +82,22 @@ export function useDeleteGeneratorMutation() {
   });
 }
 
-export function useGeneratorStatus(id: string) {
+export function useGeneratorStatus(
+  id: string,
+  options?: { refetchInterval?: number | false }
+) {
   return useQuery({
     queryKey: [...GENERATORS_QUERY_KEY, id, 'status'],
     queryFn: () => getGeneratorStatus(id),
+    refetchInterval: options?.refetchInterval,
   });
 }
 
-export function useGeneratorStats(id: string) {
+export function useGeneratorStats(id: string, options?: { enabled?: boolean }) {
   return useQuery({
     queryKey: [...GENERATORS_QUERY_KEY, id, 'stats'],
     queryFn: () => getGeneratorStats(id),
+    enabled: options?.enabled ?? true,
   });
 }
 
@@ -200,4 +205,3 @@ export function useUpdateGeneratorStatus() {
     },
   });
 }
-

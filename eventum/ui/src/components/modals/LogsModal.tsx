@@ -1,15 +1,20 @@
 import { EditorState } from '@codemirror/state';
 import { ActionIcon, Group, Stack, useMantineColorScheme } from '@mantine/core';
 import { IconArrowBarToDown, IconArrowBarToUp } from '@tabler/icons-react';
-import { vscodeDark, vscodeLight } from '@uiw/codemirror-theme-vscode';
 import CodeMirror, { EditorView } from '@uiw/react-codemirror';
 import { FC, useCallback, useEffect, useRef, useState } from 'react';
 
+import { cmTheme } from '@/theme/codemirror';
+
 interface LogsModalProps {
   getWebSocket: () => WebSocket;
+  height?: string;
 }
 
-export const LogsModal: FC<LogsModalProps> = ({ getWebSocket }) => {
+export const LogsModal: FC<LogsModalProps> = ({
+  getWebSocket,
+  height = '75vh',
+}) => {
   const { colorScheme } = useMantineColorScheme();
 
   const [editorView, setEditorView] = useState<EditorView>();
@@ -62,8 +67,8 @@ export const LogsModal: FC<LogsModalProps> = ({ getWebSocket }) => {
   return (
     <Stack>
       <CodeMirror
-        height="75vh"
-        theme={colorScheme === 'dark' ? vscodeDark : vscodeLight}
+        height={height}
+        theme={cmTheme(colorScheme)}
         editable={false}
         extensions={[
           EditorView.lineWrapping,

@@ -1,4 +1,4 @@
-import { Alert, Box, List, NumberInput } from '@mantine/core';
+import { Alert, List, NumberInput } from '@mantine/core';
 import { IconCalculator } from '@tabler/icons-react';
 import bytes from 'bytes';
 import { FC, useState } from 'react';
@@ -19,7 +19,7 @@ export const QueueSizeApproximation: FC<QueueSizeApproximationProps> = ({
   return (
     <Alert
       variant="default"
-      icon={<Box c="blue" component={IconCalculator}></Box>}
+      icon={<IconCalculator color="var(--mantine-color-blue-text)" />}
       title="Size approximation"
     >
       With event size{' '}

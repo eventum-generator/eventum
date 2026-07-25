@@ -5,6 +5,7 @@ import { createColumnHelper } from '@tanstack/react-table';
 import { RowActions } from './RowActions';
 import { StatusBadges } from './StatusBadges';
 import { ScenarioRow } from './types';
+import { InstanceBadges } from '@/components/ui/InstanceBadges';
 import { RecordNameLink } from '@/components/ui/RecordNameLink';
 import { ROUTE_PATHS } from '@/routing/paths';
 
@@ -58,7 +59,14 @@ export function createColumns(
       header: 'Instances',
       id: 'generatorCount',
       enableSorting: true,
-      cell: (info) => info.getValue(),
+      cell: ({ row }) => (
+        <InstanceBadges
+          ids={row.original.generatorIds}
+          moreTo={`${ROUTE_PATHS.SCENARIOS}/${encodeURIComponent(
+            row.original.name
+          )}`}
+        />
+      ),
     }),
     columnHelper.display({
       id: 'status',
