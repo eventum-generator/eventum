@@ -1,5 +1,5 @@
 {
-  "compilerOptions": {    
+  "compilerOptions": {
     /* Type Checking */
     "strict": true,
     "noFallthroughCasesInSwitch": true,
@@ -8,7 +8,7 @@
     "noUncheckedIndexedAccess": true,
     "noUnusedLocals": true,
     "noUnusedParameters": true,
-    
+
     /* Modules */
     "allowImportingTsExtensions": true,
     "module": "ESNext",
@@ -30,7 +30,13 @@
     "useDefineForClassFields": true,
 
     /* Completeness */
-    "skipLibCheck": true,
+    "skipLibCheck": true
   },
-  "include": ["src", "vite.config.ts", ".storybook/**/*.ts", ".storybook/**/*.tsx"]
+  "include": [
+    "src",
+    "vite.config.ts",
+    "vitest.config.ts",
+    ".storybook/**/*.ts",
+    ".storybook/**/*.tsx"
+  ]
 }

@@ -31,6 +31,7 @@ All notable changes to this project will be documented in this file.
 - **Cleared the cached project configuration on delete and create** — a project created with the name of a deleted one starts from a clean configuration instead of showing the old project's settings
 - **Restricted the Write timeout field to whole seconds** — it accepted fractional values that the configuration then rejected on save
 - **Read the cron seconds field in the generator's order** — the text under the cron Expression field took the seconds as the first field, so `35 10 * * * 3` was described as "At 35 seconds past the minute … only on Wednesday" while the generator fires at 10:35:03 every day. The description and the validity check now follow `minute hour day month weekday second year`, and the field hint spells the order out
+- **Accepted cron expressions carrying random values or parameters** — `0 0 R * *` and `${params.schedule}` were rejected as invalid although the generator runs them; the field checked what could be spelled out in words rather than what the generator accepts. Both are accepted now, with a note under the field saying the schedule is resolved at run time
 
 #### Core
 

@@ -12,7 +12,7 @@ import { FC } from 'react';
 import z from 'zod';
 
 import { VersatileDatetimeInput } from '../../VersatileDatetimeInput';
-import { describeCronExpression } from './cron-expression';
+import { summarizeCronExpression } from './cron-expression';
 import {
   CronInputPluginConfig,
   CronInputPluginConfigSchema,
@@ -26,7 +26,7 @@ interface CronInputPluginParamsProps {
 
 const CronExpressionSchema = z
   .string()
-  .refine((value) => describeCronExpression(value) !== null, {
+  .refine((value) => summarizeCronExpression(value).valid, {
     message: 'Invalid cron expression',
   });
 
@@ -46,7 +46,9 @@ export const CronInputPluginParams: FC<CronInputPluginParamsProps> = ({
     validateInputOnChange: true,
   });
 
-  const cronDescription = describeCronExpression(form.values.expression) ?? '';
+  const { hint: expressionHint } = summarizeCronExpression(
+    form.values.expression
+  );
 
   return (
     <Stack gap="xs">
@@ -64,7 +66,7 @@ export const CronInputPluginParams: FC<CronInputPluginParamsProps> = ({
             {...form.getInputProps('expression')}
           />
           <Text size="xs" c="dimmed">
-            {cronDescription}
+            {expressionHint}
           </Text>
         </Stack>
         <NumberInput
