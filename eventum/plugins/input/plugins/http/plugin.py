@@ -17,6 +17,31 @@ from eventum.plugins.input.plugins.http.config import HttpInputPluginConfig
 from eventum.plugins.input.utils.time_utils import now64
 
 
+def _describe_server_error(error: BaseException) -> str:
+    """Describe server failure for error context.
+
+    Parameters
+    ----------
+    error : BaseException
+        Error to describe.
+
+    Returns
+    -------
+    str
+        Human readable description of the error.
+
+    Notes
+    -----
+    Uvicorn reports a failed bind by calling `sys.exit`, and the
+    resulting `SystemExit` carries only the exit code.
+
+    """
+    if isinstance(error, SystemExit):
+        return f'Server exited with code {error.code}'
+
+    return str(error)
+
+
 class GenerateRequestData(BaseModel, extra='forbid', frozen=True):
     """Data for generate request.
 
@@ -86,6 +111,7 @@ class HttpInputPlugin(
             maxsize=config.max_pending_requests,
         )
         self._is_stopping = False
+        self._server_error: BaseException | None = None
 
     async def _handle_generate(
         self,
@@ -148,18 +174,20 @@ class HttpInputPlugin(
         future : Future
             Done future.
 
+        Notes
+        -----
+        The failure is saved instead of being raised - this callback
+        runs in whichever thread completed the future, where a raised
+        exception is only logged. `_generate` raises it once the request
+        queue is unblocked.
+
         """
         try:
             future.result()
-        except Exception as e:
+        except (Exception, SystemExit) as e:  # noqa: BLE001
             self._is_stopping = True
             self._server.should_exit = True
-
-            msg = 'Error during server execution'
-            raise PluginGenerationError(
-                msg,
-                context={'reason': str(e)},
-            ) from e
+            self._server_error = e
         finally:
             self._request_queue.put(None)
 
@@ -193,7 +221,19 @@ class HttpInputPlugin(
                     continue
 
                 if count is None:
-                    break
+                    error = self._server_error
+                    if error is None:
+                        break
+
+                    msg = 'Error during server execution'
+                    raise PluginGenerationError(
+                        msg,
+                        context={
+                            'reason': _describe_server_error(error),
+                            'host': self._config.host,
+                            'port': self._config.port,
+                        },
+                    ) from error
 
                 self._buffer.m_push(
                     timestamp=now64(self._timezone),
