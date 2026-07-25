@@ -41,6 +41,12 @@ export async function deleteGenerator(id: string) {
   await apiClient.delete(`/generators/${id}`);
 }
 
+export async function renameGenerator(id: string, newId: string) {
+  await apiClient.post(`/generators/${encodeURIComponent(id)}/rename`, {
+    new_id: newId,
+  });
+}
+
 export async function getGeneratorStatus(id: string): Promise<GeneratorStatus> {
   return await validateResponse(
     GeneratorStatusSchema,

@@ -11,6 +11,7 @@ import {
   getGeneratorStatus,
   getRunningGeneratorsStats,
   listGenerators,
+  renameGenerator,
   startGenerator,
   stopGenerator,
   updateGenerator,
@@ -78,6 +79,23 @@ export function useDeleteGeneratorMutation() {
         queryKey: GENERATORS_QUERY_KEY,
         exact: true,
       });
+    },
+  });
+}
+
+export function useRenameGeneratorMutation() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({ id, newId }: { id: string; newId: string }) =>
+      renameGenerator(id, newId),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({
+        queryKey: GENERATORS_QUERY_KEY,
+        exact: true,
+      });
+      await queryClient.invalidateQueries({ queryKey: ['startup'] });
+      await queryClient.invalidateQueries({ queryKey: ['scenarios'] });
     },
   });
 }

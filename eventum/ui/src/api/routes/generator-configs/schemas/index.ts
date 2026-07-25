@@ -41,6 +41,9 @@ export type GeneratorConfig = z.infer<typeof GeneratorConfigSchema>;
 export const GeneratorConfigPathSchema = z.string();
 export type GeneratorConfigPath = z.infer<typeof GeneratorConfigPathSchema>;
 
+export const GeneratorIdsSchema = z.array(z.string());
+export type GeneratorIds = z.infer<typeof GeneratorIdsSchema>;
+
 const FileNodeSchema: z.ZodType = z.lazy(() =>
   z.object({
     name: z.string(),

@@ -24,6 +24,15 @@ export async function deleteScenario(name: string): Promise<void> {
   await apiClient.delete(`/scenarios/${encodeURIComponent(name)}`);
 }
 
+export async function renameScenario(
+  name: string,
+  newName: string
+): Promise<void> {
+  await apiClient.post(`/scenarios/${encodeURIComponent(name)}/rename`, {
+    new_name: newName,
+  });
+}
+
 export async function addGeneratorToScenario(
   name: string,
   generatorId: string

@@ -1,6 +1,7 @@
 import { List, Menu, Text } from '@mantine/core';
 import { modals } from '@mantine/modals';
 import {
+  IconCursorText,
   IconEdit,
   IconPlayerPlay,
   IconPlayerStop,
@@ -9,12 +10,14 @@ import {
 import { FC, ReactNode } from 'react';
 import { Link } from 'react-router-dom';
 
+import { RenameScenarioModal } from '../RenameScenarioModal';
 import {
   useBulkStartGeneratorMutation,
   useBulkStopGeneratorMutation,
   useUpdateGeneratorStatus,
 } from '@/api/hooks/useGenerators';
 import { useDeleteScenarioMutation } from '@/api/hooks/useScenarios';
+import { useStartupGenerators } from '@/api/hooks/useStartup';
 import { ROUTE_PATHS } from '@/routing/paths';
 import {
   showErrorNotification,
@@ -42,6 +45,11 @@ export const RowActions: FC<RowActionsProps> = ({
   getAffectedScenarios,
 }) => {
   const deleteScenario = useDeleteScenarioMutation();
+
+  // Reads the query the page itself renders from, so no extra request.
+  // Passing names down as a prop would rebuild the table columns on
+  // every poll - see the note on getAffectedScenarios in the page.
+  const { data: startupEntries } = useStartupGenerators();
   const bulkStart = useBulkStartGeneratorMutation();
   const bulkStop = useBulkStopGeneratorMutation();
   const updateStatus = useUpdateGeneratorStatus();
@@ -124,6 +132,23 @@ export const RowActions: FC<RowActionsProps> = ({
     }
   }
 
+  function handleRename() {
+    modals.open({
+      title: 'Rename scenario',
+      children: (
+        <RenameScenarioModal
+          scenarioName={scenarioName}
+          existingScenarioNames={[
+            ...new Set(
+              (startupEntries ?? []).flatMap((entry) => entry.scenarios ?? [])
+            ),
+          ]}
+          instanceCount={generatorIds.length}
+        />
+      ),
+    });
+  }
+
   function handleDelete() {
     modals.openConfirmModal({
       title: 'Delete scenario',
@@ -158,6 +183,13 @@ export const RowActions: FC<RowActionsProps> = ({
           leftSection={<IconEdit size={14} />}
         >
           Edit
+        </Menu.Item>
+
+        <Menu.Item
+          leftSection={<IconCursorText size={14} />}
+          onClick={handleRename}
+        >
+          Rename
         </Menu.Item>
 
         <Menu.Item
