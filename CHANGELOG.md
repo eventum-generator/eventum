@@ -44,6 +44,7 @@ All notable changes to this project will be documented in this file.
 
 - **Restored parallel generation alongside the `clickhouse` output** — loading the plugin on free-threaded Python re-enabled the GIL for the whole process, so every generator lost parallelism, not only the one writing to ClickHouse. The ClickHouse client is now required at a version whose compiled modules keep the GIL disabled
 - **Dropped the unsatisfiable constraint on the `clickhouse` certificate fields** — `ca_cert`, `client_cert` and `client_cert_key` carried a text-length constraint that cannot apply to a path, so any value failed with a type error while the configuration was read, leaving certificate-based TLS unusable
+- **Dropped the same unsatisfiable constraint on the `opensearch` and `http` output certificate fields**. `ca_cert`, `client_cert` and `client_cert_key` carried a text-length constraint that cannot apply to a path, so setting any of them failed with a type error while the configuration was read, leaving certificate-based TLS unusable for both plugins
 - **Reported a failed bind of the `http` input as a generation error** — a generator whose port was already taken produced no timestamps and no diagnosis; it now fails with the bind address and the server exit code
 
 #### MCP
