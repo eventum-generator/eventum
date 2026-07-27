@@ -9,8 +9,11 @@ import { Alert, Box, Skeleton, useMantineColorScheme } from '@mantine/core';
 import { notifications } from '@mantine/notifications';
 import CodeMirror from '@uiw/react-codemirror';
 import bytes from 'bytes';
-import { FC, useEffect, useRef, useState } from 'react';
+import { FC, useEffect, useMemo, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 
+import { SearchPanel } from './SearchPanel';
+import { SearchPanelHandle, searchPanel } from './SearchPanel/extension';
 import { jinjaCompletion } from './completions';
 import {
   useGeneratorFileContent,
@@ -68,6 +71,21 @@ export const FileEditor: FC<FileEditorProps> = ({
 
   const [content, setContent] = useState<string>('');
   const [isTouched, setTouched] = useState(false);
+
+  // The search panel is a CodeMirror panel with a React body: the extension
+  // hands over the element it mounted, the controls are rendered into it.
+  const [searchHandle, setSearchHandle] = useState<SearchPanelHandle | null>(
+    null
+  );
+  const searchExtension = useMemo(
+    () =>
+      searchPanel({
+        onOpen: setSearchHandle,
+        onClose: (closed) =>
+          setSearchHandle((current) => (current === closed ? null : current)),
+      }),
+    []
+  );
 
   useEffect(() => {
     if (isContentSuccess) {
@@ -144,7 +162,7 @@ export const FileEditor: FC<FileEditorProps> = ({
     extensions.push(markdown());
   }
 
-  extensions.push(saveKeymap);
+  extensions.push(saveKeymap, searchExtension);
 
   if (isTooLarge) {
     return (
@@ -182,19 +200,23 @@ export const FileEditor: FC<FileEditorProps> = ({
 
   if (isContentSuccess) {
     return (
-      <CodeMirror
-        value={content}
-        onChange={(value) => {
-          setContent(value);
+      <>
+        <CodeMirror
+          value={content}
+          onChange={(value) => {
+            setContent(value);
 
-          if (!isTouched) {
-            setTouched(true);
-          }
-        }}
-        height={height}
-        extensions={extensions}
-        theme={cmTheme(colorScheme)}
-      />
+            if (!isTouched) {
+              setTouched(true);
+            }
+          }}
+          height={height}
+          extensions={extensions}
+          theme={cmTheme(colorScheme)}
+        />
+        {searchHandle &&
+          createPortal(<SearchPanel handle={searchHandle} />, searchHandle.dom)}
+      </>
     );
   }
 
