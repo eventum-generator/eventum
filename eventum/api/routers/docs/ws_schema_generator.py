@@ -2,7 +2,6 @@
 
 from dataclasses import asdict
 from itertools import chain
-from pathlib import Path
 from typing import Annotated, Any, get_args, get_origin
 
 import yaml
@@ -201,30 +200,18 @@ def generate_asyncapi_schema(  # noqa: C901, PLR0912, PLR0915
     return asyncapi
 
 
-def register_asyncapi_schema(
-    schema: dict[str, Any],
-    target_path: Path,
-) -> None:
-    """Register asyncapi schema by updating yaml schema file used by
-    docs router.
+def dump_asyncapi_schema(schema: dict[str, Any]) -> str:
+    """Serialize asyncapi schema to YAML.
 
     Parameters
     ----------
     schema : dict[str, Any]
         AsyncAPI schema dict.
 
-    target_path : Path
-        Path to the file used by docs router.
-
-    Raises
-    ------
-    RuntimeError
-        If schema cannot be registered.
+    Returns
+    -------
+    str
+        Schema serialized as YAML document.
 
     """
-    try:
-        with target_path.open('w') as f:
-            yaml.dump(schema, stream=f, sort_keys=False)
-    except OSError as e:
-        msg = f'Cannot update schema file due to OS error: {e}'
-        raise RuntimeError(msg) from None
+    return yaml.dump(schema, sort_keys=False)

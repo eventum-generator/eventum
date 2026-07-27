@@ -123,6 +123,29 @@ StartupDep = Annotated[
 ]
 
 
+async def get_asyncapi_schema(app: AppDep) -> str:
+    """Get asyncapi schema of websocket endpoints.
+
+    Parameters
+    ----------
+    app : AppDep
+        App dependency.
+
+    Returns
+    -------
+    str
+        Schema serialized as YAML document.
+
+    """
+    return app.state.asyncapi_schema
+
+
+AsyncapiSchemaDep = Annotated[
+    str,
+    Depends(get_asyncapi_schema),
+]
+
+
 async def get_instance_hooks(request: Request) -> InstanceHooks:
     """Get instance hooks.
 
