@@ -18,7 +18,9 @@ interface GlobalStatePanelProps {
   scenarioName: string;
 }
 
-export const GlobalStatePanel: FC<GlobalStatePanelProps> = ({ scenarioName }) => {
+export const GlobalStatePanel: FC<GlobalStatePanelProps> = ({
+  scenarioName,
+}) => {
   const { data, isLoading, isError, error, isSuccess, refetch } =
     useScenarioGlobalState(scenarioName, { refetchInterval: 5000 });
   const updateState = useUpdateScenarioGlobalStateMutation(scenarioName);
@@ -36,10 +38,10 @@ export const GlobalStatePanel: FC<GlobalStatePanelProps> = ({ scenarioName }) =>
           onError: (updateError) => {
             showErrorNotification('Failed to update key', updateError);
           },
-        },
+        }
       );
     },
-    [updateState],
+    [updateState]
   );
 
   const handleDeleteKey = useCallback(
@@ -53,7 +55,7 @@ export const GlobalStatePanel: FC<GlobalStatePanelProps> = ({ scenarioName }) =>
         },
       });
     },
-    [deleteKey],
+    [deleteKey]
   );
 
   const handleAddKey = useCallback(
@@ -67,10 +69,10 @@ export const GlobalStatePanel: FC<GlobalStatePanelProps> = ({ scenarioName }) =>
           onError: (addError) => {
             showErrorNotification('Failed to add key', addError);
           },
-        },
+        }
       );
     },
-    [updateState],
+    [updateState]
   );
 
   const handleClear = useCallback(() => {

@@ -1,7 +1,7 @@
 import z from 'zod';
 
-import { orPlaceholder } from '../../../placeholder';
 import { ENCODINGS } from '../../../encodings';
+import { orPlaceholder } from '../../../placeholder';
 import { BaseOutputPluginConfigSchema } from '../base-config';
 
 export const WRITE_MODES = ['append', 'overwrite'] as const;

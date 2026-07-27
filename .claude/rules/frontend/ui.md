@@ -56,3 +56,12 @@ Adding or modifying a plugin touches four places.
 
 - `globals.ts` under `pages/ProjectPage/common/EditorTab/FileEditor/completions/` is the single source for Jinja template autocomplete.
 - Mirror there any backend change that exposes new template context variables or module functions.
+
+## Tests
+
+`pnpm test` runs vitest over `src/**/*.test.{ts,tsx}` in jsdom. Tests sit next to the code they cover.
+
+- `src/test/setup.ts` - jest-dom matchers, unmount after each test, and the jsdom stubs the app mounts against (`matchMedia`, `ResizeObserver`, `IntersectionObserver`).
+- `src/test/render.tsx` - `renderWithProviders` mounts a component under the app theme and a query client of its own; page-specific providers are wrapped at the call site.
+- Data comes from mocking the `api/hooks/` module the component reads - tests never reach the network.
+- Drive interaction through `@testing-library/user-event`. Nothing in jsdom is laid out, so anything resting on real geometry belongs in a browser instead.

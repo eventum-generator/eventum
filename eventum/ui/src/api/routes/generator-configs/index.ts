@@ -13,7 +13,7 @@ import {
   GeneratorFileContentSchema,
   GeneratorIdsSchema,
 } from './schemas';
-import { apiClient, TRANSFER_TIMEOUT } from '@/api/client';
+import { TRANSFER_TIMEOUT, apiClient } from '@/api/client';
 import '@/api/routes/instance/schemas';
 import { validateResponse } from '@/api/wrappers';
 

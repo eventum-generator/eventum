@@ -6,7 +6,7 @@ export function collectGlobalKeys(
   globalsUsageMap: Map<
     string,
     { writes: { key: string }[]; reads: { key: string }[] } | undefined
-  >,
+  >
 ): string[] {
   const keys = new Set<string>();
   for (const usage of globalsUsageMap.values()) {

@@ -64,6 +64,14 @@ All notable changes to this project will be documented in this file.
 - **Served the websocket API schema from memory** — the schema was written into the installed package on every application start, so an installation on a read-only filesystem refused to start over a documentation file, and the served schema carried the version and bind address of whoever last started the application. It is now held in memory and always describes the running instance
 - **Read host and runtime facts when they are requested** — the host name, IPv4 address, platform string, Python build and host boot time were captured once as the application loaded and published as defaults in the API schema, so the reference on the documentation site described the machine that exported it. They are now resolved per request and no longer appear in the schema
 
+### ⚡ Performance
+
+- **Stopped rebuilding the editor configuration on every keystroke** — typing in a project file rebuilt the editor's language mode, autocomplete, search and save shortcut on each character, which told on a large file. The configuration is now built once per opened file
+
+### 🧪 Testing
+
+- **Added a component-test harness to Eventum Studio** — the UI suite runs in jsdom with React Testing Library, so a screen or a control can be mounted and driven from a test instead of only its pure helpers being covered
+
 ### 📝 Other Changes
 
 - **Nested the `server.ui` and `server.api` config sections** — the web UI and REST API toggles moved under `server.ui.enabled` and `server.api.enabled`, matching `server.mcp`. The flat `server.ui_enabled` and `server.api_enabled` keys still work but are deprecated, warn at startup and go away in 2.8; mixing a flat key with its nested form is rejected
