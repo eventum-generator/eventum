@@ -158,20 +158,21 @@ const cyanColorTuple: MantineColorsTuple = [
   '#063f41',
 ];
 
-// Terminal success ("Finished"): the success green with its chroma pulled out
-// (54 -> 24 at shade 6, same hue), so a finished instance reads as an unlit
-// indicator next to the lit green of a running one.
+// Terminal success ("Finished"): the success green rebuilt shade by shade at
+// 45% of its chroma and a step darker - same hue throughout. A finished
+// instance reads as an unlit indicator next to the lit green of a running one,
+// and still as green rather than as grey.
 const sageColorTuple: MantineColorsTuple = [
-  '#eff3f0',
-  '#dde7e0',
-  '#bcd0c2',
-  '#98b6a1',
-  '#77997f',
-  '#5b7f64',
-  '#456b4e',
-  '#36573d',
-  '#28422d',
-  '#1b2e1f',
+  '#e5ece7',
+  '#d1e2d5',
+  '#b0cfb7',
+  '#90bb96',
+  '#75a375',
+  '#5f885e',
+  '#496d4d',
+  '#3a573d',
+  '#2b432e',
+  '#1c2e1f',
 ];
 
 // Mantine reads these as the light scheme's panel colour and text colour.
