@@ -26,31 +26,31 @@ class InstanceInfo(BaseModel, extra='forbid', frozen=True):
         description='Application version',
     )
     python_version: str = Field(
-        default=platform.python_version(),
+        default_factory=platform.python_version,
         description='Python version',
     )
     python_implementation: str = Field(
-        default=platform.python_implementation(),
+        default_factory=platform.python_implementation,
         description='Python implementation',
     )
     python_compiler: str = Field(
-        default=platform.python_compiler(),
+        default_factory=platform.python_compiler,
         description='Python compiler',
     )
 
     # Platform
     platform: str = Field(
-        default=platform.platform(),
+        default_factory=platform.platform,
         description='Host platform',
     )
 
     # Host info
     host_name: str = Field(
-        default=socket.gethostname(),
+        default_factory=socket.gethostname,
         description='Host name',
     )
     host_ip_v4: str = Field(
-        default=socket.gethostbyname(socket.gethostname()),
+        default_factory=lambda: socket.gethostbyname(socket.gethostname()),
         description='Host IPv4',
     )
 
@@ -126,7 +126,7 @@ class InstanceInfo(BaseModel, extra='forbid', frozen=True):
 
     # Time
     boot_timestamp: float = Field(
-        default=psutil.boot_time(),
+        default_factory=psutil.boot_time,
         description='Timestamp of host boot up',
     )
 

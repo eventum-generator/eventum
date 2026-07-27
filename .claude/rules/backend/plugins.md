@@ -42,3 +42,4 @@ eventum/plugins/<type>/plugins/<name>/
 ## Cross-cutting updates
 
 - Any user-facing change - new plugin or config field change - must be mirrored in the UI (Zod schema + form) and docs (MDX page). See `frontend/ui.md` "Plugin UI" and `docs/mdx.md` rules.
+- Plugin configs are part of the generator-config API models, so a config change also changes the published OpenAPI schema. Re-export it as described in `backend/api.md` "OpenAPI export".
