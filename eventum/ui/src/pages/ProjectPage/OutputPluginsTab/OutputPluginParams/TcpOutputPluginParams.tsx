@@ -202,6 +202,11 @@ export const TcpOutputPluginParams: FC<TcpOutputPluginParamsProps> = ({
               }
               disabled={!form.getValues().ssl}
               {...form.getInputProps('verify', { type: 'checkbox' })}
+              checked={
+                typeof form.values.verify === 'boolean'
+                  ? form.values.verify
+                  : true
+              }
             />
           </Group>
 

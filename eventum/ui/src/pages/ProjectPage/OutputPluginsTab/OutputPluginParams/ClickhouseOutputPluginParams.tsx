@@ -302,6 +302,11 @@ export const ClickhouseOutputPluginParams: FC<
               />
             }
             {...form.getInputProps('verify', { type: 'checkbox' })}
+            checked={
+              typeof form.values.verify === 'boolean'
+                ? form.values.verify
+                : true
+            }
           />
 
           <ProjectFileSelect
