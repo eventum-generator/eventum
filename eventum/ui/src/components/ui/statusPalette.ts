@@ -15,7 +15,7 @@ const TEXT_TO_VARIANT: Record<string, Variant> = {
   Stopping: 'warn',
   Failed: 'bad',
   Finished: 'done',
-  Inactive: 'idle',
+  Idle: 'idle',
 };
 
 /** Chip palette and indicator shade per variant. `color` tints the chip and

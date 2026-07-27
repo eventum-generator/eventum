@@ -101,7 +101,7 @@ export default function ScenariosPage() {
   const nameFilter = searchParams.get('q') ?? '';
   const rawStatus = searchParams.get('status');
   const statusMode: ScenarioStatusMode =
-    rawStatus === 'running' || rawStatus === 'inactive' ? rawStatus : 'all';
+    rawStatus === 'running' || rawStatus === 'idle' ? rawStatus : 'all';
 
   const [rowSelection, setRowSelection] = useState<RowSelectionState>({});
   const [refreshTurns, setRefreshTurns] = useState(0);
@@ -366,7 +366,7 @@ export default function ScenariosPage() {
                 data={[
                   { label: 'All', value: 'all' },
                   { label: 'Running', value: 'running' },
-                  { label: 'Inactive', value: 'inactive' },
+                  { label: 'Idle', value: 'idle' },
                 ]}
               />
             </Group>

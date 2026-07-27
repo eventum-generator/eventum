@@ -62,6 +62,7 @@ All notable changes to this project will be documented in this file.
 
 ### 📝 Other Changes
 
+- **Renamed the status of an instance that has not run from Inactive to Idle** — Inactive is the total covering every instance at rest, and the fleet summary already broke it down into finished, failed and idle, so the state carrying the same name as its own total now reads Idle. The Instances and Scenarios status filters follow, along with their `status` URL value - links pinned to `status=inactive` fall back to All
 - **Nested the `server.ui` and `server.api` config sections** — the web UI and REST API toggles moved under `server.ui.enabled` and `server.api.enabled`, matching `server.mcp`. The flat `server.ui_enabled` and `server.api_enabled` keys still work but are deprecated, warn at startup and go away in 2.8; mixing a flat key with its nested form is rejected
 
 ## 2.6.0 (2026-06-11)
