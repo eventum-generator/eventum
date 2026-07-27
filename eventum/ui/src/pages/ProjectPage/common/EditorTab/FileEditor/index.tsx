@@ -1,20 +1,14 @@
-import { autocompletion } from '@codemirror/autocomplete';
-import { jinja } from '@codemirror/lang-jinja';
-import { json } from '@codemirror/lang-json';
-import { markdown } from '@codemirror/lang-markdown';
-import { python } from '@codemirror/lang-python';
-import { yaml } from '@codemirror/lang-yaml';
 import { keymap } from '@codemirror/view';
 import { Alert, Box, Skeleton, useMantineColorScheme } from '@mantine/core';
 import { notifications } from '@mantine/notifications';
 import CodeMirror from '@uiw/react-codemirror';
 import bytes from 'bytes';
-import { FC, useEffect, useMemo, useRef, useState } from 'react';
+import { FC, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 
 import { SearchPanel } from './SearchPanel';
 import { SearchPanelHandle, searchPanel } from './SearchPanel/extension';
-import { jinjaCompletion } from './completions';
+import { languageExtensions } from './language';
 import {
   useGeneratorFileContent,
   useGeneratorFileTree,
@@ -72,19 +66,8 @@ export const FileEditor: FC<FileEditorProps> = ({
   const [content, setContent] = useState<string>('');
   const [isTouched, setTouched] = useState(false);
 
-  // The search panel is a CodeMirror panel with a React body: the extension
-  // hands over the element it mounted, the controls are rendered into it.
   const [searchHandle, setSearchHandle] = useState<SearchPanelHandle | null>(
     null
-  );
-  const searchExtension = useMemo(
-    () =>
-      searchPanel({
-        onOpen: setSearchHandle,
-        onClose: (closed) =>
-          setSearchHandle((current) => (current === closed ? null : current)),
-      }),
-    []
   );
 
   useEffect(() => {
@@ -132,37 +115,39 @@ export const FileEditor: FC<FileEditorProps> = ({
     registerSave?.(() => saveRef.current());
   }, [registerSave]);
 
-  const saveKeymap = keymap.of([
-    {
-      key: 'Mod-s',
-      preventDefault: true,
-      run: () => {
-        handleSave();
-        return true;
-      },
-    },
-  ]);
+  // The editor rebuilds its whole configuration whenever this array or the
+  // change handler changes identity, so both stay stable while the file is
+  // edited. The keymap goes through the save ref for the same reason: the
+  // save closes over the content and is rebuilt on every keystroke.
+  const extensions = useMemo(
+    () => [
+      ...languageExtensions(filePath),
+      keymap.of([
+        {
+          key: 'Mod-s',
+          preventDefault: true,
+          run: () => {
+            saveRef.current();
+            return true;
+          },
+        },
+      ]),
+      // The search panel is a CodeMirror panel with a React body: the
+      // extension hands over the element it mounted, the controls are
+      // rendered into it.
+      searchPanel({
+        onOpen: setSearchHandle,
+        onClose: (closed) =>
+          setSearchHandle((current) => (current === closed ? null : current)),
+      }),
+    ],
+    [filePath]
+  );
 
-  const extensions = [];
-
-  if (filePath.endsWith('.jinja')) {
-    extensions.push(
-      jinja(),
-      autocompletion({
-        override: [jinjaCompletion],
-      })
-    );
-  } else if (filePath.endsWith('.py')) {
-    extensions.push(python());
-  } else if (filePath.endsWith('.json')) {
-    extensions.push(json());
-  } else if (/\.ya?ml$/.test(filePath)) {
-    extensions.push(yaml());
-  } else if (filePath.endsWith('.md')) {
-    extensions.push(markdown());
-  }
-
-  extensions.push(saveKeymap, searchExtension);
+  const handleChange = useCallback((value: string) => {
+    setContent(value);
+    setTouched(true);
+  }, []);
 
   if (isTooLarge) {
     return (
@@ -203,13 +188,7 @@ export const FileEditor: FC<FileEditorProps> = ({
       <>
         <CodeMirror
           value={content}
-          onChange={(value) => {
-            setContent(value);
-
-            if (!isTouched) {
-              setTouched(true);
-            }
-          }}
+          onChange={handleChange}
           height={height}
           extensions={extensions}
           theme={cmTheme(colorScheme)}

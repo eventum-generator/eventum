@@ -61,6 +61,10 @@ All notable changes to this project will be documented in this file.
 - **Served a generator file as a snapshot of the moment it was requested** — reading an output file of a running generator aborted mid-response, because the response declared the file size before reading the file and the file kept growing. A file that cannot be read now answers with an error instead of a dropped connection
 - **Moved the scenario global-state scan to a worker thread** — a scenario with many generators opens instead of hanging and failing after about ten seconds
 
+### ⚡ Performance
+
+- **Stopped rebuilding the editor configuration on every keystroke** — typing in a project file rebuilt the editor's language mode, autocomplete, search and save shortcut on each character, which told on a large file. The configuration is now built once per opened file
+
 ### 🧪 Testing
 
 - **Added a component-test harness to Eventum Studio** — the UI suite runs in jsdom with React Testing Library, so a screen or a control can be mounted and driven from a test instead of only its pure helpers being covered
