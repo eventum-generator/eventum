@@ -378,7 +378,8 @@ export default function InstancesPage() {
                   data={[
                     { label: 'All', value: 'all' },
                     { label: 'Running', value: 'running' },
-                    { label: 'Inactive', value: 'inactive' },
+                    // The URL keeps `inactive`, so filtered links stay valid.
+                    { label: 'Idle', value: 'inactive' },
                   ]}
                 />
               </Group>

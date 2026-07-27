@@ -158,23 +158,6 @@ const cyanColorTuple: MantineColorsTuple = [
   '#063f41',
 ];
 
-// Terminal success ("Finished"): the success green rebuilt shade by shade at
-// 45% of its chroma and a step darker - same hue throughout. A finished
-// instance reads as an unlit indicator next to the lit green of a running one,
-// and still as green rather than as grey.
-const sageColorTuple: MantineColorsTuple = [
-  '#e5ece7',
-  '#d1e2d5',
-  '#b0cfb7',
-  '#90bb96',
-  '#75a375',
-  '#5f885e',
-  '#496d4d',
-  '#3a573d',
-  '#2b432e',
-  '#1c2e1f',
-];
-
 // Mantine reads these as the light scheme's panel colour and text colour.
 const white = '#ffffff';
 const black = '#16161c';
@@ -187,7 +170,7 @@ const shadows = {
 
 /* eslint-enable no-restricted-syntax */
 
-const SEMANTIC_COLORS = ['green', 'yellow', 'red', 'blue', 'sage'];
+const SEMANTIC_COLORS = ['green', 'yellow', 'red', 'blue'];
 
 const softLightTints = Object.fromEntries(
   SEMANTIC_COLORS.flatMap((color) => [
@@ -231,11 +214,6 @@ export const cssVariablesResolver: CSSVariablesResolver = () => ({
     '--mantine-color-green-light-color': 'var(--mantine-color-green-4)',
     '--mantine-color-yellow-light-color': 'var(--mantine-color-yellow-4)',
     '--mantine-color-blue-light-color': 'var(--mantine-color-blue-4)',
-    // Terminal success is the exception: shade 4 is the vivid end of the ramp,
-    // which is exactly what an unlit indicator must not be. It holds the
-    // settled shade in both schemes, dim against the lit green of a running
-    // instance.
-    '--mantine-color-sage-light-color': 'var(--mantine-color-sage-6)',
     // Neutral chips stay muted rather than jumping to a near-white label.
     '--mantine-color-gray-light-color': 'var(--mantine-color-dark-2)',
     '--mantine-shadow-sm': shadows.dark,
@@ -294,7 +272,6 @@ export const theme = createTheme({
     yellow: yellowColorTuple,
     blue: blueColorTuple,
     cyan: cyanColorTuple,
-    sage: sageColorTuple,
   },
   primaryColor: 'primary',
   primaryShade: { light: 6, dark: 5 },
