@@ -61,6 +61,10 @@ All notable changes to this project will be documented in this file.
 - **Served a generator file as a snapshot of the moment it was requested** — reading an output file of a running generator aborted mid-response, because the response declared the file size before reading the file and the file kept growing. A file that cannot be read now answers with an error instead of a dropped connection
 - **Moved the scenario global-state scan to a worker thread** — a scenario with many generators opens instead of hanging and failing after about ten seconds
 
+### 🧪 Testing
+
+- **Added a component-test harness to Eventum Studio** — the UI suite runs in jsdom with React Testing Library, so a screen or a control can be mounted and driven from a test instead of only its pure helpers being covered
+
 ### 📝 Other Changes
 
 - **Nested the `server.ui` and `server.api` config sections** — the web UI and REST API toggles moved under `server.ui.enabled` and `server.api.enabled`, matching `server.mcp`. The flat `server.ui_enabled` and `server.api_enabled` keys still work but are deprecated, warn at startup and go away in 2.8; mixing a flat key with its nested form is rejected
