@@ -54,23 +54,43 @@ describe('statusVariant', () => {
   });
 });
 
-describe('the finished status', () => {
-  it('takes the neutral chip of a state at rest, not a green one', () => {
-    // A green chip of any shade reads as a running instance once diluted to a
-    // tint, and in a table the two sit rows apart with nothing to compare
-    // against.
-    expect(VARIANT_STYLE.done.bg).toBe(VARIANT_STYLE.idle.bg);
-    expect(VARIANT_STYLE.done.fg).toBe(VARIANT_STYLE.idle.fg);
-    expect(VARIANT_STYLE.done.bg).not.toBe(VARIANT_STYLE.good.bg);
-  });
+describe('the status chip', () => {
+  it.each(['done', 'bad', 'idle'] as const)(
+    'keeps %s on the neutral chip, since the instance is not live',
+    (variant) => {
+      // A colored chip of any shade reads as a live one once diluted to a
+      // tint, and in a table the two sit rows apart with nothing to compare
+      // against.
+      expect(VARIANT_STYLE[variant].bg).toBe(VARIANT_STYLE.idle.bg);
+      expect(VARIANT_STYLE[variant].fg).toBe(VARIANT_STYLE.idle.fg);
+    }
+  );
 
-  it('keeps its green in the indicator alone', () => {
+  it.each(['good', 'warn'] as const)(
+    'colors the chip of %s, the state of a live instance',
+    (variant) => {
+      expect(VARIANT_STYLE[variant].bg).not.toBe(VARIANT_STYLE.idle.bg);
+    }
+  );
+
+  it('tells the states at rest apart by their indicator alone', () => {
+    const atRest = [
+      VARIANT_STYLE.done.dot,
+      VARIANT_STYLE.bad.dot,
+      VARIANT_STYLE.idle.dot,
+    ];
+
+    expect(new Set(atRest).size).toBe(atRest.length);
+  });
+});
+
+describe('the finished indicator', () => {
+  it('takes the running green, deep instead of vivid', () => {
     expect(VARIANT_STYLE.done.dot).toBe('var(--mantine-color-green-6)');
     expect(VARIANT_STYLE.good.dot).toBe('var(--mantine-color-green-4)');
-    expect(VARIANT_STYLE.done.dot).not.toBe(VARIANT_STYLE.idle.dot);
   });
 
-  it('draws that indicator deep enough to read as switched off', () => {
+  it('is deep enough to read as switched off', () => {
     // Both indicators come from one ramp, so hue cannot carry the difference -
     // brightness does.
     expect(luminance(shade('green', 6))).toBeLessThan(

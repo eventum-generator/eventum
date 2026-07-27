@@ -22,15 +22,17 @@ const TEXT_TO_VARIANT: Record<string, Variant> = {
  *  colors its label - a chip reads `-light` for its fill and `-light-color`
  *  for its label, which keeps the text legible in both schemes. `dot` names
  *  the shade the indicator takes: shade 4 is the vivid end of a ramp, so a
- *  live state reads as switched on; a state at rest takes a shade deep enough
- *  to read as switched off. */
+ *  live state reads as switched on.
+ *
+ *  A chip stays colored only while the instance is live. The states at rest
+ *  share the neutral chip and name their outcome through the indicator alone,
+ *  at a shade deep enough to read as switched off - a colored chip of any
+ *  shade reads as a live one once diluted to a tint, and in a table the two
+ *  sit rows apart with nothing to compare against. */
 const VARIANT_COLOR: Record<Variant, { color: string; dot: string }> = {
   good: { color: 'green', dot: 'var(--mantine-color-green-4)' },
   warn: { color: 'yellow', dot: 'var(--mantine-color-yellow-4)' },
-  bad: { color: 'red', dot: 'var(--mantine-color-red-4)' },
-  // Terminal success: a neutral chip carrying an unlit green indicator. A
-  // green chip of any shade reads as the green of a running instance once
-  // diluted to a tint, so the green survives in the indicator alone.
+  bad: { color: 'gray', dot: 'var(--mantine-color-red-7)' },
   done: { color: 'gray', dot: 'var(--mantine-color-green-6)' },
   idle: { color: 'gray', dot: 'var(--mantine-color-gray-light-color)' },
 };
