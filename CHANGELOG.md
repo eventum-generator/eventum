@@ -20,6 +20,7 @@ All notable changes to this project will be documented in this file.
 - **Added a Clone action to the instance row menu** — creates a new instance from an existing one, reusing its project and all parameters
 - **Made Studio navigation link-based** — record names, sidebar items, breadcrumbs, home cards and in-page links are real links, so middle-click and Ctrl/Cmd-click open them in a new browser tab; middle-click also closes an editor tab. Selecting a record name no longer opens it, so names stay copyable
 - **Added file sizes to the project file tree** — every file shows its size next to its name, and a file over 10 MB is not opened in the editor: the tab reports the size and the limit instead of transferring a file the editor cannot display. Generator output files are the usual case
+- **Rebuilt the editor search panel** — Ctrl/Cmd-F opens a compact panel floating over the top-right corner of the editor instead of a strip stretched across its bottom edge. The query field counts the matches and marks a malformed expression, case, regular-expression and whole-word matching are icon toggles, and the replace row is revealed on demand
 
 #### MCP
 
