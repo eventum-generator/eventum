@@ -23,6 +23,7 @@ All notable changes to this project will be documented in this file.
 
 #### MCP
 
+- **Added rename tools for projects, generators, scenarios and secrets** — over HTTP an agent can rename each of them with the same guards the UI applies: a renamed project moves its directory and repoints the generators using it (all of which must be stopped), a renamed generator keeps its parameters and scenario membership, a renamed scenario has its tag rewritten everywhere, and a renamed secret keeps its value without ever exposing it. `list_secret_references` reports the projects reading a secret, so the agent can name what a rename breaks; `${secrets.*}` tokens are never rewritten. Adding and reading a secret value stay outside MCP
 - **Added tools for scenarios, global state, settings and instance control** — over HTTP an agent can manage scenarios (list, inspect, add or remove a generator, delete), read and edit the shared global state, read host/runtime info and the running settings (credentials redacted, absolute paths shortened), patch the settings file, and stop or restart the instance. Write tools stay gated behind `server.mcp.allow_write`; credentials cannot be changed over MCP, settings apply on the next restart, and stopping or restarting ends the agent's own connection
 
 ### 🐛 Bug Fixes
