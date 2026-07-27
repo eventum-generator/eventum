@@ -11,10 +11,9 @@ from eventum.api.dependencies.authentication import (
 from eventum.api.exceptions import APISchemaGenerationError
 from eventum.api.routers.auth import router as auth_router
 from eventum.api.routers.docs import router as docs_router
-from eventum.api.routers.docs.routes import ASYNCAPI_SCHEMA_PATH
 from eventum.api.routers.docs.ws_schema_generator import (
+    dump_asyncapi_schema,
     generate_asyncapi_schema,
-    register_asyncapi_schema,
 )
 from eventum.api.routers.generator_configs import (
     router as generator_configs_router,
@@ -64,7 +63,7 @@ def build_api_app(
 
     Raises
     ------
-    SchemaGenerationError
+    APISchemaGenerationError
         If API schema generation fails.
 
     """
@@ -166,19 +165,17 @@ def build_api_app(
     )
     app.include_router(docs_router, tags=['Docs'])
 
-    asyncapi_schema = generate_asyncapi_schema(
-        app=app,
-        host=settings.server.host,
-        port=settings.server.port,
-    )
-
+    logger.debug('Generating asyncapi schema for websocket endpoints')
     try:
-        register_asyncapi_schema(
-            schema=asyncapi_schema,
-            target_path=ASYNCAPI_SCHEMA_PATH,
+        asyncapi_schema = generate_asyncapi_schema(
+            app=app,
+            host=settings.server.host,
+            port=settings.server.port,
         )
-    except RuntimeError as e:
+    except Exception as e:
         msg = 'Failed to generate asyncapi schema for websocket endpoints'
         raise APISchemaGenerationError(msg, context={'reason': str(e)}) from e
+
+    app.state.asyncapi_schema = dump_asyncapi_schema(asyncapi_schema)
 
     return app

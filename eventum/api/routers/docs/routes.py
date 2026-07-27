@@ -3,8 +3,10 @@
 from pathlib import Path
 
 import aiofiles
-from fastapi import APIRouter, HTTPException, status
-from fastapi.responses import FileResponse, HTMLResponse
+from fastapi import APIRouter, HTTPException, Response, status
+from fastapi.responses import HTMLResponse
+
+from eventum.api.dependencies.app import AsyncapiSchemaDep
 
 router = APIRouter()
 
@@ -12,18 +14,11 @@ router = APIRouter()
 BASE_DIR = Path(__file__).parent
 STATIC_DIR = BASE_DIR / 'static'
 ASYNCAPI_PAGE_PATH = STATIC_DIR / 'asyncapi.html'
-ASYNCAPI_SCHEMA_PATH = STATIC_DIR / 'asyncapi.yml'
 
 
 @router.get('/asyncapi.yml', include_in_schema=False)
-async def get_asyncapi_spec() -> FileResponse:
-    try:
-        return FileResponse(ASYNCAPI_SCHEMA_PATH, media_type='text/plain')
-    except OSError as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f'Cannot open schema file due to OS error: {e}',
-        ) from None
+async def get_asyncapi_spec(schema: AsyncapiSchemaDep) -> Response:
+    return Response(content=schema, media_type='text/plain')
 
 
 @router.get('/asyncapi', include_in_schema=False)
