@@ -31,7 +31,7 @@ import { FC, useEffect, useMemo, useState } from 'react';
 import { createColumns } from './columns';
 import { ScenarioRow } from './types';
 
-export type ScenarioStatusMode = 'all' | 'running' | 'idle';
+export type ScenarioStatusMode = 'all' | 'running' | 'inactive';
 
 /** A scenario counts as running while any of its instances is live or
  *  transitioning (running / starting / stopping). */
