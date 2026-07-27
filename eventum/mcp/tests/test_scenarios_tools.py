@@ -13,6 +13,7 @@ from eventum.mcp.tools.scenarios import (
     get_scenario,
     list_scenarios,
     remove_generator_from_scenario,
+    rename_scenario,
 )
 
 _TWO = (
@@ -170,3 +171,58 @@ async def test_delete_scenario_read_only_blocked(tmp_path: Path) -> None:
     result = await delete_scenario(ctx, 'alpha')
 
     assert isinstance(result, ToolFailure)
+
+
+async def test_rename_scenario_rewrites_tag(tmp_path: Path) -> None:
+    """Renaming rewrites the tag and returns the affected ids."""
+    ctx = _ctx(tmp_path)
+    (tmp_path / 'startup.yml').write_text(_TWO)
+
+    result = await rename_scenario(ctx, 'alpha', 'delta')
+
+    assert result == {
+        'scenario': 'alpha',
+        'new_name': 'delta',
+        'renamed': True,
+        'generator_ids': ['gen-1'],
+    }
+    assert await list_scenarios(ctx) == ['delta']
+
+
+async def test_rename_scenario_unknown_is_failure(tmp_path: Path) -> None:
+    """An unknown scenario returns a structured failure."""
+    ctx = _ctx(tmp_path)
+    (tmp_path / 'startup.yml').write_text(_TWO)
+
+    result = await rename_scenario(ctx, 'missing', 'delta')
+
+    assert isinstance(result, ToolFailure)
+    assert result.details == {'name': 'missing'}
+
+
+async def test_rename_scenario_taken_name_is_failure(tmp_path: Path) -> None:
+    """Renaming onto an existing scenario is refused."""
+    ctx = _ctx(tmp_path)
+    (tmp_path / 'startup.yml').write_text(
+        '- id: gen-1\n  path: gen-1/generator.yml\n  scenarios:\n'
+        '    - alpha\n'
+        '- id: gen-2\n  path: gen-2/generator.yml\n  scenarios:\n'
+        '    - beta\n'
+    )
+
+    result = await rename_scenario(ctx, 'alpha', 'beta')
+
+    assert isinstance(result, ToolFailure)
+    assert result.details == {'name': 'beta'}
+    assert await list_scenarios(ctx) == ['alpha', 'beta']
+
+
+async def test_rename_scenario_read_only_is_failure(tmp_path: Path) -> None:
+    """A read-only server refuses the rename."""
+    ctx = _ctx(tmp_path, read_only=True)
+    (tmp_path / 'startup.yml').write_text(_TWO)
+
+    result = await rename_scenario(ctx, 'alpha', 'delta')
+
+    assert isinstance(result, ToolFailure)
+    assert await list_scenarios(ctx) == ['alpha']

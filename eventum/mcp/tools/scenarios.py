@@ -90,6 +90,26 @@ async def delete_scenario(
     return {'scenario': scenario, 'deleted': True, 'generator_ids': affected}
 
 
+async def rename_scenario(
+    context: LiveContext, scenario: str, new_name: str
+) -> dict[str, Any] | ToolFailure:
+    """Rewrite a scenario tag on every generator that carries it."""
+    if context.read_only:
+        return read_only_failure({'name': scenario})
+    try:
+        affected = await asyncio.to_thread(
+            context.startup.rename_scenario, scenario, new_name
+        )
+    except StartupError as e:
+        return to_tool_error(e, context.generators_dir)
+    return {
+        'scenario': scenario,
+        'new_name': new_name,
+        'renamed': True,
+        'generator_ids': affected,
+    }
+
+
 def register(mcp: FastMCP, context: LiveContext, *, transport: str) -> None:
     """Register scenario-management tools on the server."""
 
@@ -202,6 +222,42 @@ def register(mcp: FastMCP, context: LiveContext, *, transport: str) -> None:
                 context, generator_id, scenario
             ),
             mcp_tool='remove_generator_from_scenario',
+            mcp_transport=transport,
+        )
+
+    @mcp.tool(name='rename_scenario')
+    async def _rename_scenario_tool(
+        scenario: str,
+        new_name: str,
+    ) -> dict[str, Any] | ToolFailure:
+        """Rename a scenario, rewriting its tag on every generator.
+
+        The generators keep their membership under the new name.
+        ``new_name`` must not be used by another scenario, so renaming
+        cannot merge two scenarios. Blocked when the server is
+        read-only.
+
+        Parameters
+        ----------
+        scenario : str
+            Scenario name to rename.
+
+        new_name : str
+            Name to rename the scenario to.
+
+        Returns
+        -------
+        dict[str, Any] | ToolFailure
+            ``{'scenario', 'new_name', 'renamed': True,
+            'generator_ids'}`` with the ids whose tag was rewritten, or
+            a structured failure if the server is read-only, the
+            scenario does not exist, or the new name is taken. Does not
+            raise.
+
+        """
+        return observe_failure(
+            await rename_scenario(context, scenario, new_name),
+            mcp_tool='rename_scenario',
             mcp_transport=transport,
         )
 

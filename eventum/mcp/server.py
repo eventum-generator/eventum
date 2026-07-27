@@ -17,6 +17,7 @@ from eventum.mcp.resources import workspace as workspace_resource
 from eventum.mcp.tools import discovery
 from eventum.mcp.tools import formatters as fmt_tools
 from eventum.mcp.tools import preview as preview_tools
+from eventum.mcp.tools import renaming as renaming_tools
 from eventum.mcp.tools import run as run_tools
 from eventum.mcp.tools import samples as sample_tools
 from eventum.mcp.tools import secrets as secrets_tools
@@ -28,7 +29,8 @@ _INSTRUCTIONS = (
     'template-context reference, the generator schema, and worked '
     'examples, then write, validate, preview, and run generators. Over '
     'HTTP it also manages running generators - register, start, stop, '
-    'unregister, and read their logs - groups them into scenarios, '
+    'unregister, rename, and read their logs - groups them into '
+    'scenarios, renames a project or a scenario, '
     'reads and edits the shared global state, and reads or updates the '
     'instance settings and lifecycle. Write tools are gated on a '
     'writable server: the HTTP mount is read-only unless '
@@ -36,8 +38,8 @@ _INSTRUCTIONS = (
     'writable unless started with `--read-only`. Tool failures '
     'are returned in-band as an object with an `error` field, not as a '
     'protocol error - check for it before using a result. Secret values '
-    'never cross the boundary - list secret names only, and direct the '
-    'user to the eventum-keyring CLI to add or read a value.'
+    'never cross the boundary - list or rename secret names only, and '
+    'direct the user to the eventum-keyring CLI to add or read a value.'
 )
 
 _REST_API_NOTE = (
@@ -78,7 +80,7 @@ def build_server(
         templating-reference, generator-schema, examples, and
         workspace-configs resources; the authoring prompts; and,
         when ``live`` is set, the live generator-management, scenario,
-        global-state, and instance-control tools; the instance
+        global-state, instance-control, and rename tools; the instance
         info/settings resources; and REST-API-fallback guidance in the
         server instructions.
 
@@ -120,6 +122,7 @@ def build_server(
         scenario_tools.register(mcp, context, transport=transport)
         global_state_tools.register(mcp, context, transport=transport)
         instance_tools.register(mcp, context, transport=transport)
+        renaming_tools.register(mcp, context, transport=transport)
         instance_resource.register(mcp, context)
         operations_prompts.register(mcp)
 
