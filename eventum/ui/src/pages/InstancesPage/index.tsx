@@ -50,7 +50,7 @@ export default function InstancesPage() {
   const projectNameFilter = searchParams.get('project') ?? '';
   const rawStatus = searchParams.get('status');
   const statusMode: StatusMode =
-    rawStatus === 'running' || rawStatus === 'inactive' ? rawStatus : 'all';
+    rawStatus === 'active' || rawStatus === 'inactive' ? rawStatus : 'all';
 
   const [rowSelection, setRowSelection] = useState<RowSelectionState>({});
   const [refreshTurns, setRefreshTurns] = useState(0);
@@ -377,7 +377,7 @@ export default function InstancesPage() {
                   }
                   data={[
                     { label: 'All', value: 'all' },
-                    { label: 'Running', value: 'running' },
+                    { label: 'Active', value: 'active' },
                     { label: 'Inactive', value: 'inactive' },
                   ]}
                 />

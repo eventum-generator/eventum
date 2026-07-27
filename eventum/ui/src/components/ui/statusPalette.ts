@@ -6,45 +6,47 @@ export type Variant = 'good' | 'warn' | 'bad' | 'done' | 'idle';
 // Map the status text from instance-status.ts to one token-driven variant.
 // This table is the only place a status's color is decided; instance-
 // status.ts only classifies the text/processing flag, not the color.
-// "done" is a terminal-success state at rest - it must read as calmer than
-// the live "good" (Active) so a finished instance is not mistaken for a
-// running one.
+// "done" is a terminal-success state at rest - whether an instance is still
+// running has to be answerable from its chip alone, with no running chip
+// nearby to compare against.
 const TEXT_TO_VARIANT: Record<string, Variant> = {
   Active: 'good',
   Starting: 'warn',
   Stopping: 'warn',
   Failed: 'bad',
   Finished: 'done',
-  Inactive: 'idle',
+  Idle: 'idle',
 };
 
-/** Mantine palette backing each variant, and whether the variant has a lit
- *  state. A chip reads `-light` for its fill and `-light-color` for its label,
- *  which keeps the text legible in both schemes; the dot of a lit variant
- *  jumps to shade 4 - the vivid end of the ramp - so a running instance reads
- *  as switched on rather than merely coloured. */
-const VARIANT_COLOR: Record<Variant, { color: string; lit: boolean }> = {
-  good: { color: 'green', lit: true },
-  warn: { color: 'yellow', lit: true },
-  bad: { color: 'red', lit: true },
-  // Terminal success at rest: teal is settled where green is lit, so a
-  // finished instance is not mistaken for a running one.
-  done: { color: 'teal', lit: false },
-  idle: { color: 'gray', lit: false },
+/** Chip palette and indicator shade per variant. `color` tints the chip and
+ *  colors its label - a chip reads `-light` for its fill and `-light-color`
+ *  for its label, which keeps the text legible in both schemes. `dot` names
+ *  the shade the indicator takes: shade 4 is the vivid end of a ramp, so a
+ *  live state reads as switched on.
+ *
+ *  A chip stays colored only while the instance is live. The states at rest
+ *  share the neutral chip and name their outcome through the indicator alone,
+ *  at a shade deep enough to read as switched off - a colored chip of any
+ *  shade reads as a live one once diluted to a tint, and in a table the two
+ *  sit rows apart with nothing to compare against. */
+const VARIANT_COLOR: Record<Variant, { color: string; dot: string }> = {
+  good: { color: 'green', dot: 'var(--mantine-color-green-4)' },
+  warn: { color: 'yellow', dot: 'var(--mantine-color-yellow-4)' },
+  bad: { color: 'gray', dot: 'var(--mantine-color-red-7)' },
+  done: { color: 'gray', dot: 'var(--mantine-color-green-6)' },
+  idle: { color: 'gray', dot: 'var(--mantine-color-gray-light-color)' },
 };
 
 export const VARIANT_STYLE: Record<
   Variant,
   { bg: string; fg: string; dot: string }
 > = Object.fromEntries(
-  Object.entries(VARIANT_COLOR).map(([variant, { color, lit }]) => [
+  Object.entries(VARIANT_COLOR).map(([variant, { color, dot }]) => [
     variant,
     {
       bg: `var(--mantine-color-${color}-light)`,
       fg: `var(--mantine-color-${color}-light-color)`,
-      dot: lit
-        ? `var(--mantine-color-${color}-4)`
-        : `var(--mantine-color-${color}-light-color)`,
+      dot,
     },
   ])
 ) as Record<Variant, { bg: string; fg: string; dot: string }>;

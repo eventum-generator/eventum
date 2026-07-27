@@ -158,21 +158,6 @@ const cyanColorTuple: MantineColorsTuple = [
   '#063f41',
 ];
 
-// Terminal success ("Finished"): a settled green-teal that reads calmer than
-// the lit green of a running instance.
-const tealColorTuple: MantineColorsTuple = [
-  '#e6f5f2',
-  '#c3e8e1',
-  '#93d6c9',
-  '#62c0af',
-  '#3aa393',
-  '#2a8d7e',
-  '#0f766e',
-  '#0b5f59',
-  '#084944',
-  '#06332f',
-];
-
 // Mantine reads these as the light scheme's panel colour and text colour.
 const white = '#ffffff';
 const black = '#16161c';
@@ -185,7 +170,7 @@ const shadows = {
 
 /* eslint-enable no-restricted-syntax */
 
-const SEMANTIC_COLORS = ['green', 'yellow', 'red', 'blue', 'teal'];
+const SEMANTIC_COLORS = ['green', 'yellow', 'red', 'blue'];
 
 const softLightTints = Object.fromEntries(
   SEMANTIC_COLORS.flatMap((color) => [
@@ -229,7 +214,6 @@ export const cssVariablesResolver: CSSVariablesResolver = () => ({
     '--mantine-color-green-light-color': 'var(--mantine-color-green-4)',
     '--mantine-color-yellow-light-color': 'var(--mantine-color-yellow-4)',
     '--mantine-color-blue-light-color': 'var(--mantine-color-blue-4)',
-    '--mantine-color-teal-light-color': 'var(--mantine-color-teal-4)',
     // Neutral chips stay muted rather than jumping to a near-white label.
     '--mantine-color-gray-light-color': 'var(--mantine-color-dark-2)',
     '--mantine-shadow-sm': shadows.dark,
@@ -288,7 +272,6 @@ export const theme = createTheme({
     yellow: yellowColorTuple,
     blue: blueColorTuple,
     cyan: cyanColorTuple,
-    teal: tealColorTuple,
   },
   primaryColor: 'primary',
   primaryShade: { light: 6, dark: 5 },

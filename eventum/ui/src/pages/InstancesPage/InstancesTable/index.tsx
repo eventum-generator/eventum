@@ -34,7 +34,7 @@ import {
   GeneratorsInfo,
 } from '@/api/routes/generators/schemas';
 
-export type StatusMode = 'all' | 'running' | 'inactive';
+export type StatusMode = 'all' | 'active' | 'inactive';
 
 /** Total pipeline errors: produce, write and format failures (drops,
  *  being intentional, are not counted). */
@@ -76,8 +76,9 @@ export const InstancesTable: FC<InstancesTableProps> = ({
   });
 
   // Status filtering runs here rather than through a column filter so it
-  // stays out of columns.tsx. "running" keeps live and transitioning
-  // instances; "inactive" keeps the rest (idle, finished, failed).
+  // stays out of columns.tsx. "active" keeps live and transitioning
+  // instances; "inactive" keeps every instance at rest (idle, finished,
+  // failed).
   const statusFilteredData = useMemo(() => {
     if (statusMode === 'all') {
       return data;
@@ -89,7 +90,7 @@ export const InstancesTable: FC<InstancesTableProps> = ({
         instance.status.is_initializing ||
         instance.status.is_stopping;
 
-      return statusMode === 'running' ? isLive : !isLive;
+      return statusMode === 'active' ? isLive : !isLive;
     });
   }, [data, statusMode]);
 

@@ -7,7 +7,7 @@ export function describeInstanceStatus(status: GeneratorStatus): {
   text: string;
   processing: boolean;
 } {
-  let text = 'Inactive';
+  let text = 'Idle';
   let processing = false;
 
   if (status.is_initializing) {
