@@ -1,7 +1,7 @@
 import z from 'zod';
 
-import { orPlaceholder } from '../../../placeholder';
 import { ENCODINGS } from '../../../encodings';
+import { orPlaceholder } from '../../../placeholder';
 import { BaseEventPluginConfigSchema } from '../base-config';
 
 export const ReplayEventPluginConfigSchema = BaseEventPluginConfigSchema.extend(

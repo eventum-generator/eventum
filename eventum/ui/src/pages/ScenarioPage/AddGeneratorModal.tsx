@@ -108,7 +108,7 @@ export const AddGeneratorModal: FC<AddGeneratorModalProps> = ({
         onError: (addError) => {
           showErrorNotification('Failed to add instance', addError);
         },
-      },
+      }
     );
   }
 

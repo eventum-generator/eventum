@@ -1,10 +1,14 @@
-import { MarkerType, type Edge, type Node } from '@xyflow/react';
+import { type Edge, MarkerType, type Node } from '@xyflow/react';
 
 import type { GeneratorStats } from '@/api/routes/generators/schemas';
 
 export const NODE_WIDTH = 250;
 const COLUMN_GAP = 120;
-const COLUMN_X = [0, NODE_WIDTH + COLUMN_GAP, (NODE_WIDTH + COLUMN_GAP) * 2] as const;
+const COLUMN_X = [
+  0,
+  NODE_WIDTH + COLUMN_GAP,
+  (NODE_WIDTH + COLUMN_GAP) * 2,
+] as const;
 
 /** Fixed Y offset of edge handles from node top — all handles share this offset. */
 export const HANDLE_Y = 20;
@@ -28,7 +32,10 @@ export interface PipelineNodeData extends Record<string, unknown> {
 function layoutColumn(count: number, anchorY: number): number[] {
   const span = (count - 1) * NODE_SPACING_Y;
   const firstAnchor = anchorY - span / 2;
-  return Array.from({ length: count }, (_, i) => firstAnchor + i * NODE_SPACING_Y - HANDLE_Y);
+  return Array.from(
+    { length: count },
+    (_, i) => firstAnchor + i * NODE_SPACING_Y - HANDLE_Y
+  );
 }
 
 const EDGE_STYLE = {
@@ -85,7 +92,11 @@ export function buildNodes(stats: GeneratorStats): Node<PipelineNodeData>[] {
       metrics: [
         { label: 'Produced', value: stats.event.produced },
         { label: 'Dropped', value: stats.event.dropped },
-        { label: 'Produce failed', value: stats.event.produce_failed, isError: stats.event.produce_failed > 0 },
+        {
+          label: 'Produce failed',
+          value: stats.event.produce_failed,
+          isError: stats.event.produce_failed > 0,
+        },
       ],
       colorType: 'event',
     },
@@ -102,8 +113,16 @@ export function buildNodes(stats: GeneratorStats): Node<PipelineNodeData>[] {
         pluginId: plugin.plugin_id,
         metrics: [
           { label: 'Written', value: plugin.written },
-          { label: 'Format failed', value: plugin.format_failed, isError: plugin.format_failed > 0 },
-          { label: 'Write failed', value: plugin.write_failed, isError: plugin.write_failed > 0 },
+          {
+            label: 'Format failed',
+            value: plugin.format_failed,
+            isError: plugin.format_failed > 0,
+          },
+          {
+            label: 'Write failed',
+            value: plugin.write_failed,
+            isError: plugin.write_failed > 0,
+          },
         ],
         colorType: 'output',
       },
@@ -149,7 +168,7 @@ export function buildEdges(stats: GeneratorStats): Edge[] {
 /** Update only metrics inside existing nodes — positions untouched. */
 export function updateNodesData(
   nodes: Node<PipelineNodeData>[],
-  stats: GeneratorStats,
+  stats: GeneratorStats
 ): Node<PipelineNodeData>[] {
   return nodes.map((node) => {
     const { data } = node;
@@ -174,7 +193,11 @@ export function updateNodesData(
             metrics: [
               { label: 'Produced', value: stats.event.produced },
               { label: 'Dropped', value: stats.event.dropped },
-              { label: 'Produce failed', value: stats.event.produce_failed, isError: stats.event.produce_failed > 0 },
+              {
+                label: 'Produce failed',
+                value: stats.event.produce_failed,
+                isError: stats.event.produce_failed > 0,
+              },
             ],
           },
         };
@@ -188,8 +211,16 @@ export function updateNodesData(
             ...data,
             metrics: [
               { label: 'Written', value: plugin.written },
-              { label: 'Format failed', value: plugin.format_failed, isError: plugin.format_failed > 0 },
-              { label: 'Write failed', value: plugin.write_failed, isError: plugin.write_failed > 0 },
+              {
+                label: 'Format failed',
+                value: plugin.format_failed,
+                isError: plugin.format_failed > 0,
+              },
+              {
+                label: 'Write failed',
+                value: plugin.write_failed,
+                isError: plugin.write_failed > 0,
+              },
             ],
           },
         };
@@ -200,5 +231,8 @@ export function updateNodesData(
 
 export function computeGraphHeight(stats: GeneratorStats): number {
   const maxCount = Math.max(stats.input.length, 1, stats.output.length);
-  return Math.max(MIN_GRAPH_HEIGHT, (maxCount - 1) * NODE_SPACING_Y + MAX_NODE_HEIGHT + GRAPH_PADDING);
+  return Math.max(
+    MIN_GRAPH_HEIGHT,
+    (maxCount - 1) * NODE_SPACING_Y + MAX_NODE_HEIGHT + GRAPH_PADDING
+  );
 }

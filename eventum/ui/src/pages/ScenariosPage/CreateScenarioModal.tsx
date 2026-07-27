@@ -29,15 +29,13 @@ export const CreateScenarioModal = () => {
 
   const existingScenarios = useMemo(
     () =>
-      new Set(
-        (startupEntries ?? []).flatMap((entry) => entry.scenarios ?? []),
-      ),
-    [startupEntries],
+      new Set((startupEntries ?? []).flatMap((entry) => entry.scenarios ?? [])),
+    [startupEntries]
   );
 
   const availableInstances = useMemo(
     () => (startupEntries ?? []).map((entry) => entry.id),
-    [startupEntries],
+    [startupEntries]
   );
 
   const form = useForm<FormValues>({
@@ -71,7 +69,7 @@ export const CreateScenarioModal = () => {
       }
       showSuccessNotification(
         'Created',
-        `Scenario "${name}" created with ${values.instances.length} instance(s)`,
+        `Scenario "${name}" created with ${values.instances.length} instance(s)`
       );
       modals.closeAll();
     } catch (error) {
@@ -109,11 +107,7 @@ export const CreateScenarioModal = () => {
         )}
 
         <Group justify="flex-end">
-          <Button
-            disabled={!form.isValid()}
-            loading={isCreating}
-            type="submit"
-          >
+          <Button disabled={!form.isValid()} loading={isCreating} type="submit">
             Create
           </Button>
         </Group>

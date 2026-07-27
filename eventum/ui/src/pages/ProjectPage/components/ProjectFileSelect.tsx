@@ -1,10 +1,4 @@
-import {
-  Alert,
-  Select,
-  SelectProps,
-  Skeleton,
-  Stack,
-} from '@mantine/core';
+import { Alert, Select, SelectProps, Skeleton, Stack } from '@mantine/core';
 import { FC, useMemo } from 'react';
 
 import { useGeneratorFileTree } from '@/api/hooks/useGeneratorConfigs';

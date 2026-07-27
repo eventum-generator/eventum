@@ -10,11 +10,7 @@ import {
   Title,
 } from '@mantine/core';
 import { modals } from '@mantine/modals';
-import {
-  IconBox,
-  IconBrandPython,
-  IconServer,
-} from '@tabler/icons-react';
+import { IconBox, IconBrandPython, IconServer } from '@tabler/icons-react';
 import { FC } from 'react';
 
 import { useInstanceInfo } from '@/api/hooks/useInstance';

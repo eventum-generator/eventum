@@ -1,4 +1,9 @@
-import { useMutation, useQueries, useQuery, useQueryClient } from '@tanstack/react-query';
+import {
+  useMutation,
+  useQueries,
+  useQuery,
+  useQueryClient,
+} from '@tanstack/react-query';
 
 import {
   addGeneratorToScenario,
@@ -59,8 +64,13 @@ export function useAddGeneratorToScenarioMutation() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: ({ name, generatorId }: { name: string; generatorId: string }) =>
-      addGeneratorToScenario(name, generatorId),
+    mutationFn: ({
+      name,
+      generatorId,
+    }: {
+      name: string;
+      generatorId: string;
+    }) => addGeneratorToScenario(name, generatorId),
     onSuccess: async () => {
       await queryClient.invalidateQueries({
         queryKey: SCENARIOS_QUERY_KEY,
@@ -76,8 +86,13 @@ export function useRemoveGeneratorFromScenarioMutation() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: ({ name, generatorId }: { name: string; generatorId: string }) =>
-      removeGeneratorFromScenario(name, generatorId),
+    mutationFn: ({
+      name,
+      generatorId,
+    }: {
+      name: string;
+      generatorId: string;
+    }) => removeGeneratorFromScenario(name, generatorId),
     onSuccess: async () => {
       await queryClient.invalidateQueries({
         queryKey: SCENARIOS_QUERY_KEY,
