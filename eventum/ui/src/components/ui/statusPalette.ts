@@ -27,9 +27,9 @@ const VARIANT_COLOR: Record<Variant, { color: string; lit: boolean }> = {
   good: { color: 'green', lit: true },
   warn: { color: 'yellow', lit: true },
   bad: { color: 'red', lit: true },
-  // Terminal success at rest: teal is settled where green is lit, so a
-  // finished instance is not mistaken for a running one.
-  done: { color: 'teal', lit: false },
+  // Terminal success at rest: the same green with its chroma pulled out - an
+  // unlit indicator, so a finished instance is not mistaken for a running one.
+  done: { color: 'sage', lit: false },
   idle: { color: 'gray', lit: false },
 };
 

@@ -16,7 +16,7 @@ Eventum Studio is a React + TypeScript SPA built on Mantine, react-query, Zod, a
 
 - **Palettes.** Each scale is a normal 10-shade Mantine ramp (0 lightest -> 9 darkest). `primaryShade` is `{ light: 6, dark: 5 }`, so shade 6 carries a role's light-scheme colour and shade 4 its dark-scheme one. Mantine then derives `-filled`, `-text`, `-light`, `-light-color` per scheme; never hand-pick a shade index at a call site.
 - **Neutrals.** The `dark` and `gray` ramps drive the whole chrome: `--mantine-color-body` (panels), `--mantine-color-default` (controls, dropdowns), `--mantine-color-default-hover`, `--mantine-color-default-border`, `--mantine-color-text`, `--mantine-color-dimmed`. `--ev-canvas` is the one app variable Mantine has no equivalent for - the page background behind the panels.
-- **Semantics.** Danger, success, warning and info are the `red` / `green` / `yellow` / `blue` palettes; terminal success is `teal`. Use the colour prop (`c="red"`, `color="green"`) over a raw variable wherever a Mantine component accepts one.
+- **Semantics.** Danger, success, warning and info are the `red` / `green` / `yellow` / `blue` palettes; terminal success is `sage` - the same green with its chroma pulled out, so a finished instance reads as an unlit indicator rather than a second live colour. Use the colour prop (`c="red"`, `color="green"`) over a raw variable wherever a Mantine component accepts one.
 - **Radius.** Two tiers: `md` for controls, `lg` for panels and modals (a `Paper` default). Don't set `radius` per call site.
 - **Order of override.** Theme `components` (`defaultProps`, `vars`) first; `cssVariablesResolver` for a variable Mantine resolves wrongly; a rule in `theme/components.css` only for parts with no variable at all.
 

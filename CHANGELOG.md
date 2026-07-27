@@ -32,6 +32,7 @@ All notable changes to this project will be documented in this file.
 #### Eventum Studio
 
 - **Gave file transfers their own request deadline** — every request from Studio shared a single 10-second deadline, so opening or uploading a large project file failed while the transfer was still running. Requests that carry file content now run without a deadline and the rest have 60 seconds; a request that does run out of time says so instead of reporting a generic failure
+- **Repainted the Finished status as an unlit green** — it carried a teal that read like Active's green once diluted into a status chip, so a stopped instance looked like it was still running. Finished now takes the running green with its colour pulled out, the way an indicator reads when it is switched off
 - **Added MCP controls to the Server settings section** — the HTTP server toggle, write-tool permission, mount path and allowed hosts are now editable in Studio; previously they lived only in `eventum.yml`, and saving settings from Studio reset them to defaults
 - **Cleared the cached project configuration on delete and create** — a project created with the name of a deleted one starts from a clean configuration instead of showing the old project's settings
 - **Restricted the Write timeout field to whole seconds** — it accepted fractional values that the configuration then rejected on save
