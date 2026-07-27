@@ -84,9 +84,9 @@ class HttpOutputPluginConfig(OutputPluginConfig, frozen=True):
     connect_timeout: int = Field(default=10, ge=1)
     request_timeout: int = Field(default=300, ge=1)
     verify: bool = Field(default=False)
-    ca_cert: Path | None = Field(default=None, min_length=1)
-    client_cert: Path | None = Field(default=None, min_length=1)
-    client_cert_key: Path | None = Field(default=None, min_length=1)
+    ca_cert: Path | None = Field(default=None)
+    client_cert: Path | None = Field(default=None)
+    client_cert_key: Path | None = Field(default=None)
     proxy_url: HttpUrl | None = Field(default=None)
     formatter: FormatterConfigT = Field(
         default_factory=lambda: JsonFormatterConfig(
