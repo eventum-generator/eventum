@@ -231,7 +231,11 @@ export const cssVariablesResolver: CSSVariablesResolver = () => ({
     '--mantine-color-green-light-color': 'var(--mantine-color-green-4)',
     '--mantine-color-yellow-light-color': 'var(--mantine-color-yellow-4)',
     '--mantine-color-blue-light-color': 'var(--mantine-color-blue-4)',
-    '--mantine-color-sage-light-color': 'var(--mantine-color-sage-4)',
+    // Terminal success is the exception: shade 4 is the vivid end of the ramp,
+    // which is exactly what an unlit indicator must not be. It holds the
+    // settled shade in both schemes, dim against the lit green of a running
+    // instance.
+    '--mantine-color-sage-light-color': 'var(--mantine-color-sage-6)',
     // Neutral chips stay muted rather than jumping to a near-white label.
     '--mantine-color-gray-light-color': 'var(--mantine-color-dark-2)',
     '--mantine-shadow-sm': shadows.dark,

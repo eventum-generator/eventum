@@ -1,8 +1,9 @@
+import { MantineTheme } from '@mantine/core';
 import { describe, expect, it } from 'vitest';
 
 import { VARIANT_STYLE, statusVariant } from './statusPalette';
 import { GeneratorStatus } from '@/api/routes/generators/schemas';
-import { theme } from '@/theme';
+import { cssVariablesResolver, theme } from '@/theme';
 
 const status = (overrides: Partial<GeneratorStatus>): GeneratorStatus => ({
   is_initializing: false,
@@ -65,8 +66,8 @@ function hueDistance(one: string, other: string): number {
   return Math.min(distance, 360 - distance);
 }
 
-// Shade 6 carries a role's light-scheme colour, shade 4 its dark-scheme one,
-// so these two are what a status indicator actually renders.
+// Shade 6 carries a role's light-scheme colour and shade 4 its dark-scheme
+// one, so these two are the shades a status indicator draws from.
 const RENDERED_SHADES = [4, 6];
 
 describe('statusVariant', () => {
@@ -92,6 +93,19 @@ describe('the finished status colour', () => {
       'var(--mantine-color-sage-light-color)'
     );
     expect(VARIANT_STYLE.good.dot).toBe('var(--mantine-color-green-4)');
+  });
+
+  it('stays on the settled shade in the dark scheme as well', () => {
+    const { dark } = cssVariablesResolver({} as MantineTheme);
+
+    // Every other semantic role jumps to the vivid end of its ramp in the
+    // dark scheme. Terminal success must not: that is the lit look.
+    expect(dark?.['--mantine-color-sage-light-color']).toBe(
+      'var(--mantine-color-sage-6)'
+    );
+    expect(dark?.['--mantine-color-green-light-color']).toBe(
+      'var(--mantine-color-green-4)'
+    );
   });
 
   it.each(RENDERED_SHADES)(
