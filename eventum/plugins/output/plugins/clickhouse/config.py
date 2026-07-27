@@ -57,7 +57,7 @@ class ClickhouseOutputPluginConfig(OutputPluginConfig, frozen=True):
         Client name that is prepended to the HTTP User Agent header,
         set this to track client queries in the ClickHouse query log.
 
-    verify : bool, default=False
+    verify : bool, default=True
         Whether to verify SSL certificate of ClickHouse server.
 
     ca_cert : Path | None, default=None

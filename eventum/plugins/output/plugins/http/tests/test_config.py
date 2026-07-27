@@ -7,6 +7,21 @@ from eventum.plugins.output.plugins.http.config import (
 )
 
 
+def test_verify_is_enabled_by_default() -> None:
+    """Certificate verification is on when `verify` is omitted."""
+    config = HttpOutputPluginConfig(url='https://localhost:8080')
+    assert config.verify is True
+
+
+def test_verify_can_be_disabled() -> None:
+    """Certificate verification is off when `verify` is disabled."""
+    config = HttpOutputPluginConfig(
+        url='https://localhost:8080',
+        verify=False,
+    )
+    assert config.verify is False
+
+
 def test_ca_cert_accepts_path() -> None:
     """A `ca_cert` path is accepted and stored as a `Path`."""
     config = HttpOutputPluginConfig(

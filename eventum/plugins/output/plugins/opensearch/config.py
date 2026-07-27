@@ -39,7 +39,7 @@ class OpensearchOutputPluginConfig(OutputPluginConfig, frozen=True):
     request_timeout : int, default=300
         Requests timeout in seconds.
 
-    verify: bool, default=False
+    verify: bool, default=True
         Whether to verify SSL certificate of the cluster nodes when
         connecting to them.
 
@@ -67,7 +67,7 @@ class OpensearchOutputPluginConfig(OutputPluginConfig, frozen=True):
     index: str = Field(min_length=1)
     connect_timeout: int = Field(default=10, ge=1)
     request_timeout: int = Field(default=300, ge=1)
-    verify: bool = Field(default=False)
+    verify: bool = Field(default=True)
     ca_cert: Path | None = Field(default=None)
     client_cert: Path | None = Field(default=None)
     client_cert_key: Path | None = Field(default=None)
