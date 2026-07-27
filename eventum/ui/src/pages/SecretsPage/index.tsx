@@ -116,7 +116,11 @@ export default function SecretsPage() {
                       </Table.Thead>
                       <Table.Tbody>
                         {secretNames.map((item) => (
-                          <SecretRow key={item} name={item} />
+                          <SecretRow
+                            key={item}
+                            name={item}
+                            existingNames={secretNames}
+                          />
                         ))}
                       </Table.Tbody>
                     </Table>

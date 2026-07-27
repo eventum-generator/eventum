@@ -48,6 +48,51 @@ class GeneratorManager:
 
             self._generators[params.id] = Generator(params)
 
+    def replace(
+        self,
+        generator_id: str,
+        params: GeneratorParameters,
+    ) -> None:
+        """Replace parameters of a managed generator.
+
+        The generator is rebuilt from the provided parameters and, when
+        `params.id` differs from `generator_id`, is managed under the
+        new id afterwards. Runtime state of the generator is not
+        carried over, so it must not be active.
+
+        Parameters
+        ----------
+        generator_id : str
+            ID of the generator to replace.
+
+        params : GeneratorParameters
+            New parameters for the generator.
+
+        Raises
+        ------
+        ManagingError
+            If the generator is not found, is initializing, running or
+            stopping, or another generator already uses `params.id`.
+
+        """
+        with self._lock:
+            generator = self.get_generator(generator_id)
+
+            if (
+                generator.is_initializing
+                or generator.is_running
+                or generator.is_stopping
+            ):
+                msg = 'Generator must be stopped before replacing'
+                raise ManagingError(msg)
+
+            if params.id != generator_id and params.id in self._generators:
+                msg = 'Generator with this id is already added'
+                raise ManagingError(msg)
+
+            del self._generators[generator_id]
+            self._generators[params.id] = Generator(params)
+
     def remove(self, generator_id: str) -> None:
         """Remove generator from list of managed generators. Stop it in
         case it is running.

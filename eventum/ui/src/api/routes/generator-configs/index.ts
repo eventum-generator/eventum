@@ -11,6 +11,7 @@ import {
   GeneratorDirsExtendedInfoSchema,
   GeneratorFileContent,
   GeneratorFileContentSchema,
+  GeneratorIdsSchema,
 } from './schemas';
 import { apiClient, TRANSFER_TIMEOUT } from '@/api/client';
 import '@/api/routes/instance/schemas';
@@ -66,6 +67,18 @@ export async function updateGeneratorConfig(
 
 export async function deleteGeneratorConfig(name: string) {
   await apiClient.delete(`/generator-configs/${name}`);
+}
+
+export async function renameGeneratorConfig(
+  name: string,
+  newName: string
+): Promise<string[]> {
+  return await validateResponse(
+    GeneratorIdsSchema,
+    apiClient.post(`/generator-configs/${encodeURIComponent(name)}/rename`, {
+      new_name: newName,
+    })
+  );
 }
 
 export async function getGeneratorConfigPath(name: string): Promise<string> {

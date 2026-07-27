@@ -15,6 +15,7 @@ import { notifications } from '@mantine/notifications';
 import {
   IconCheck,
   IconCopy,
+  IconCursorText,
   IconDeviceFloppy,
   IconEdit,
   IconEye,
@@ -24,6 +25,7 @@ import {
 } from '@tabler/icons-react';
 import React, { FC, useState } from 'react';
 
+import { RenameSecretModal } from './RenameSecretModal';
 import {
   useDeleteSecretValueMutation,
   useSecretValue,
@@ -34,6 +36,7 @@ import { CONFIRM } from '@/theme/copy';
 
 interface SecretRowProps {
   name: string;
+  existingNames: string[];
 }
 
 /** Fixed-length mask so a hidden value never leaks its real length. */
@@ -43,7 +46,7 @@ const MaskedValue: FC = () => (
   </Text>
 );
 
-const SecretRow: FC<SecretRowProps> = ({ name }) => {
+const SecretRow: FC<SecretRowProps> = ({ name, existingNames }) => {
   const [isValueShown, { open: showValue, close: hideValue }] =
     useDisclosure(false);
   const [isEditMode, setEditMode] = useState(false);
@@ -148,6 +151,19 @@ const SecretRow: FC<SecretRowProps> = ({ name }) => {
     form.setFieldValue('value', secretValue ?? '');
   }
 
+  function handleRename() {
+    modals.open({
+      title: 'Rename secret',
+      children: (
+        <RenameSecretModal
+          secretName={name}
+          existingSecretNames={existingNames}
+        />
+      ),
+      size: 'md',
+    });
+  }
+
   function handleDelete() {
     deleteSecretValue.mutate(
       { name: name },
@@ -208,6 +224,17 @@ const SecretRow: FC<SecretRowProps> = ({ name }) => {
               </Tooltip>
             )}
           </CopyButton>
+          <Tooltip label="Rename" withArrow position="right">
+            <ActionIcon
+              className="ev-copy-btn"
+              variant="subtle"
+              size="sm"
+              onClick={handleRename}
+              aria-label="Rename secret"
+            >
+              <IconCursorText size={14} color="var(--mantine-color-text)" />
+            </ActionIcon>
+          </Tooltip>
         </Group>
       </Table.Td>
       <Table.Td>

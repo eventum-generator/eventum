@@ -499,3 +499,112 @@ def test_startup_file_read_raises_on_conflicting_dotted_keys(
 
     assert '[0].batch.size' in exc.value.context['reason']  # noqa: S101
     assert exc.value.context['file_path'] == str(settings.path.startup)  # noqa: S101
+
+
+def test_rename_changes_id_in_place(
+    startup: Startup,
+    settings: Settings,
+) -> None:
+    """Renaming keeps entry position and all its other fields."""
+    _write_startup(
+        settings,
+        '- id: gen-1\n'
+        '  path: gen-1/generator.yml\n'
+        '  scenarios:\n'
+        '    - alpha\n'
+        '- id: gen-2\n'
+        '  path: gen-2/generator.yml\n',
+    )
+
+    startup.rename('gen-1', 'renamed')
+
+    dumped = yaml.safe_load(_read_startup(settings))
+    assert dumped[0] == {  # noqa: S101
+        'id': 'renamed',
+        'path': 'gen-1/generator.yml',
+        'scenarios': ['alpha'],
+    }
+    assert dumped[1]['id'] == 'gen-2'  # noqa: S101
+
+
+def test_rename_raises_not_found_for_unknown_id(
+    startup: Startup,
+    settings: Settings,
+) -> None:
+    """Renaming unknown id raises StartupNotFoundError."""
+    _write_startup(settings, '- id: gen-1\n  path: gen-1/generator.yml\n')
+
+    with pytest.raises(StartupNotFoundError):
+        startup.rename('missing', 'renamed')
+
+
+def test_rename_raises_conflict_on_taken_id(
+    startup: Startup,
+    settings: Settings,
+) -> None:
+    """Renaming onto an existing id raises and keeps the file."""
+    original = (
+        '- id: gen-1\n  path: gen-1/generator.yml\n'
+        '- id: gen-2\n  path: gen-2/generator.yml\n'
+    )
+    _write_startup(settings, original)
+
+    with pytest.raises(StartupConflictError):
+        startup.rename('gen-1', 'gen-2')
+
+    assert _read_startup(settings) == original  # noqa: S101
+
+
+def test_rebase_generator_dir_keeps_relative_form(
+    startup: Startup,
+    settings: Settings,
+) -> None:
+    """Relative paths stay relative after repointing."""
+    _write_startup(
+        settings,
+        '- id: gen-1\n  path: old/generator.yml\n'
+        '- id: gen-2\n  path: old/nested/generator.yml\n'
+        '- id: gen-3\n  path: other/generator.yml\n',
+    )
+
+    affected = startup.rebase_generator_dir('old', 'new')
+
+    assert affected == ['gen-1', 'gen-2']  # noqa: S101
+    dumped = yaml.safe_load(_read_startup(settings))
+    assert dumped[0]['path'] == 'new/generator.yml'  # noqa: S101
+    assert dumped[1]['path'] == 'new/nested/generator.yml'  # noqa: S101
+    assert dumped[2]['path'] == 'other/generator.yml'  # noqa: S101
+
+
+def test_rebase_generator_dir_keeps_absolute_form(
+    startup: Startup,
+    settings: Settings,
+) -> None:
+    """Absolute paths stay absolute after repointing."""
+    generators_dir = settings.path.generators_dir
+    _write_startup(
+        settings,
+        f'- id: gen-1\n  path: {generators_dir / "old" / "generator.yml"}\n',
+    )
+
+    affected = startup.rebase_generator_dir('old', 'new')
+
+    assert affected == ['gen-1']  # noqa: S101
+    dumped = yaml.safe_load(_read_startup(settings))
+    assert dumped[0]['path'] == str(  # noqa: S101
+        generators_dir / 'new' / 'generator.yml'
+    )
+
+
+def test_rebase_generator_dir_ignores_outside_paths(
+    startup: Startup,
+    settings: Settings,
+) -> None:
+    """Entries pointing outside the renamed directory are untouched."""
+    original = f'- id: gen-1\n  path: {settings.path.logs / "generator.yml"}\n'
+    _write_startup(settings, original)
+
+    affected = startup.rebase_generator_dir('old', 'new')
+
+    assert affected == []  # noqa: S101
+    assert yaml.safe_load(_read_startup(settings)) == yaml.safe_load(original)  # noqa: S101

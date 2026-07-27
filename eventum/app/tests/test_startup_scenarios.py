@@ -224,3 +224,98 @@ def test_delete_scenario_unknown_raises_and_keeps_file(
 
     assert exc.value.context['name'] == 'missing'
     assert _dump(settings) == yaml.safe_load(_TWO_GENERATORS)
+
+
+def test_rename_scenario_rewrites_tag_and_returns_ids(
+    startup: Startup, settings: Settings
+) -> None:
+    """Renaming rewrites the tag in every member and returns their ids."""
+    _write(settings, _TWO_GENERATORS)
+
+    affected = startup.rename_scenario('beta', 'delta')
+
+    assert affected == ['gen-1', 'gen-2']
+    dumped = _dump(settings)
+    assert dumped[0]['scenarios'] == ['alpha', 'delta']
+    assert dumped[1]['scenarios'] == ['delta']
+
+
+def test_rename_scenario_preserves_tag_position(
+    startup: Startup, settings: Settings
+) -> None:
+    """The renamed tag keeps its position in the entry list."""
+    _write(
+        settings,
+        '- id: gen-1\n'
+        '  path: gen-1/generator.yml\n'
+        '  scenarios:\n'
+        '    - alpha\n'
+        '    - beta\n'
+        '    - gamma\n',
+    )
+
+    startup.rename_scenario('beta', 'delta')
+
+    assert _dump(settings)[0]['scenarios'] == ['alpha', 'delta', 'gamma']
+
+
+def test_rename_scenario_unknown_raises_and_keeps_file(
+    startup: Startup, settings: Settings
+) -> None:
+    """Renaming an absent scenario raises and leaves the file intact."""
+    _write(settings, _TWO_GENERATORS)
+
+    with pytest.raises(ScenarioNotFoundError) as exc:
+        startup.rename_scenario('missing', 'delta')
+
+    assert exc.value.context['name'] == 'missing'
+    assert _dump(settings) == yaml.safe_load(_TWO_GENERATORS)
+
+
+def test_rename_scenario_taken_name_raises_and_keeps_file(
+    startup: Startup, settings: Settings
+) -> None:
+    """Renaming onto an existing scenario raises and keeps the file."""
+    _write(settings, _TWO_GENERATORS)
+
+    with pytest.raises(ScenarioConflictError) as exc:
+        startup.rename_scenario('alpha', 'beta')
+
+    assert exc.value.context['name'] == 'beta'
+    assert _dump(settings) == yaml.safe_load(_TWO_GENERATORS)
+
+
+def test_rename_scenario_to_same_name_raises_conflict(
+    startup: Startup, settings: Settings
+) -> None:
+    """Renaming a scenario to its current name is a conflict."""
+    _write(settings, _TWO_GENERATORS)
+
+    with pytest.raises(ScenarioConflictError):
+        startup.rename_scenario('alpha', 'alpha')
+
+    assert _dump(settings) == yaml.safe_load(_TWO_GENERATORS)
+
+
+def test_rename_scenario_preserves_other_entry_fields(
+    startup: Startup, settings: Settings
+) -> None:
+    """Entries keep their other fields when a tag is rewritten."""
+    _write(
+        settings,
+        '- id: gen-1\n'
+        '  path: gen-1/generator.yml\n'
+        '  autostart: false\n'
+        '  scenarios:\n'
+        '    - alpha\n',
+    )
+
+    startup.rename_scenario('alpha', 'delta')
+
+    entry = _dump(settings)[0]
+    assert entry == {
+        'id': 'gen-1',
+        'path': 'gen-1/generator.yml',
+        'autostart': False,
+        'scenarios': ['delta'],
+    }

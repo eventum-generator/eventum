@@ -32,8 +32,9 @@ class ScenarioNotFoundError(StartupError):
 
 
 class ScenarioConflictError(StartupError):
-    """Generator already carries the requested scenario tag.
+    """Requested scenario name is already in use.
 
-    Carries `name` (str, the scenario) and `value` (str, the generator
-    id) in `context`.
+    Carries `name` (str, the scenario) in `context`, plus `value`
+    (str, the generator id) when the conflict is about one generator
+    already carrying the tag.
     """

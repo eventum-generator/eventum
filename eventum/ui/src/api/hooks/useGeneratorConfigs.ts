@@ -23,6 +23,7 @@ import {
   listGeneratorDirs,
   moveGeneratorFile,
   putGeneratorFile,
+  renameGeneratorConfig,
   updateGeneratorConfig,
   uploadGeneratorFile,
 } from '@/api/routes/generator-configs';
@@ -125,6 +126,26 @@ export function useDeleteGeneratorConfigMutation() {
           queryClient.invalidateQueries({ queryKey: key, exact: true })
         )
       );
+    },
+  });
+}
+
+export function useRenameGeneratorConfigMutation() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({ name, newName }: { name: string; newName: string }) =>
+      renameGeneratorConfig(name, newName),
+    onSuccess: async (_, { name }) => {
+      dropProjectQueries(queryClient, name);
+
+      await Promise.all(
+        GENERATOR_CONFIG_DIRS_COMMON_QUERY_KEYS.map((key) =>
+          queryClient.invalidateQueries({ queryKey: key, exact: true })
+        )
+      );
+      await queryClient.invalidateQueries({ queryKey: ['startup'] });
+      await queryClient.invalidateQueries({ queryKey: ['generators'] });
     },
   });
 }

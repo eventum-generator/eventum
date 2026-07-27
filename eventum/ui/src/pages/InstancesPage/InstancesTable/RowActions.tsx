@@ -3,6 +3,7 @@ import { modals } from '@mantine/modals';
 import { notifications } from '@mantine/notifications';
 import {
   IconCopy,
+  IconCursorText,
   IconEdit,
   IconGauge,
   IconLogs,
@@ -14,6 +15,7 @@ import { FC, ReactNode } from 'react';
 import { Link } from 'react-router-dom';
 
 import { CloneInstanceModal } from '../CloneInstanceModal';
+import { RenameInstanceModal } from '../RenameInstanceModal';
 import { InstanceMetrics } from './metrics/InstanceMetrics';
 import {
   useDeleteGeneratorMutation,
@@ -58,6 +60,19 @@ export const RowActions: FC<RowActionsProps> = ({
         />
       ),
       size: 'lg',
+    });
+  }
+
+  function handleRename() {
+    modals.open({
+      title: 'Rename instance',
+      children: (
+        <RenameInstanceModal
+          instanceId={instanceId}
+          existingInstanceIds={existingInstanceIds}
+        />
+      ),
+      size: 'md',
     });
   }
 
@@ -214,6 +229,17 @@ export const RowActions: FC<RowActionsProps> = ({
           leftSection={<IconEdit size={14} />}
         >
           Edit
+        </Menu.Item>
+        <Menu.Item
+          leftSection={<IconCursorText size={14} />}
+          onClick={handleRename}
+          disabled={
+            instanceStatus.is_initializing ||
+            instanceStatus.is_running ||
+            instanceStatus.is_stopping
+          }
+        >
+          Rename
         </Menu.Item>
         <Menu.Item leftSection={<IconCopy size={14} />} onClick={handleClone}>
           Clone

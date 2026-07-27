@@ -1,11 +1,15 @@
 import { Button, Group, List, Menu, Stack, Text } from '@mantine/core';
 import { modals } from '@mantine/modals';
 import { notifications } from '@mantine/notifications';
-import { IconEdit, IconTrash } from '@tabler/icons-react';
+import { IconCursorText, IconEdit, IconTrash } from '@tabler/icons-react';
 import { FC, ReactNode } from 'react';
 import { Link } from 'react-router-dom';
 
-import { useDeleteGeneratorConfigMutation } from '@/api/hooks/useGeneratorConfigs';
+import { RenameProjectModal } from '../RenameProjectModal';
+import {
+  useDeleteGeneratorConfigMutation,
+  useGeneratorDirs,
+} from '@/api/hooks/useGeneratorConfigs';
 import { ShowErrorDetailsAnchor } from '@/components/ui/ShowErrorDetailsAnchor';
 import { ROUTE_PATHS } from '@/routing/paths';
 import { CONFIRM } from '@/theme/copy';
@@ -22,6 +26,23 @@ export const RowActions: FC<RowActionsProps> = ({
   generatorIds,
 }) => {
   const deleteGeneratorConfig = useDeleteGeneratorConfigMutation();
+
+  // Reads the list the table itself renders from, so no extra request.
+  const { data: generatorDirs } = useGeneratorDirs(true);
+
+  function handleRename() {
+    modals.open({
+      title: 'Rename project',
+      children: (
+        <RenameProjectModal
+          projectName={dirName}
+          existingProjectNames={(generatorDirs ?? []).map((dir) => dir.name)}
+          instanceIds={generatorIds}
+        />
+      ),
+      size: 'md',
+    });
+  }
 
   function handleDelete() {
     if (generatorIds.length > 0) {
@@ -96,6 +117,13 @@ export const RowActions: FC<RowActionsProps> = ({
           leftSection={<IconEdit size={14} />}
         >
           Edit
+        </Menu.Item>
+
+        <Menu.Item
+          leftSection={<IconCursorText size={14} />}
+          onClick={handleRename}
+        >
+          Rename
         </Menu.Item>
 
         <Menu.Divider />

@@ -131,3 +131,50 @@ def test_delete_scenario_unknown_is_404(client: TestClient) -> None:
     response = client.delete('/scenarios/absent')
 
     assert response.status_code == HTTPStatus.NOT_FOUND
+
+
+def test_rename_scenario(client: TestClient) -> None:
+    """Renaming a scenario rewrites the tag of every member."""
+    response = client.post(
+        '/scenarios/myscenario/rename',
+        json={'new_name': 'renamed'},
+    )
+
+    assert response.status_code == HTTPStatus.OK
+    assert client.get('/scenarios/').json() == ['renamed']
+    assert client.get('/scenarios/renamed').json()['generator_ids'] == [
+        'gen-1'
+    ]
+
+
+def test_rename_scenario_unknown_is_404(client: TestClient) -> None:
+    """Renaming an unknown scenario is a 404."""
+    response = client.post(
+        '/scenarios/absent/rename',
+        json={'new_name': 'renamed'},
+    )
+
+    assert response.status_code == HTTPStatus.NOT_FOUND
+
+
+def test_rename_scenario_taken_name_is_409(client: TestClient) -> None:
+    """Renaming onto an existing scenario is a 409."""
+    client.post('/scenarios/other/generators/gen-2')
+
+    response = client.post(
+        '/scenarios/myscenario/rename',
+        json={'new_name': 'other'},
+    )
+
+    assert response.status_code == HTTPStatus.CONFLICT
+    assert client.get('/scenarios/').json() == ['myscenario', 'other']
+
+
+def test_rename_scenario_blank_name_is_422(client: TestClient) -> None:
+    """A blank new name fails request validation."""
+    response = client.post(
+        '/scenarios/myscenario/rename',
+        json={'new_name': ''},
+    )
+
+    assert response.status_code == HTTPStatus.UNPROCESSABLE_CONTENT

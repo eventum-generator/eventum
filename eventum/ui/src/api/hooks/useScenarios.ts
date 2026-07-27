@@ -9,6 +9,7 @@ import {
   getScenarioGlobalState,
   listScenarios,
   removeGeneratorFromScenario,
+  renameScenario,
   updateScenarioGlobalState,
 } from '../routes/scenarios';
 
@@ -26,6 +27,23 @@ export function useDeleteScenarioMutation() {
 
   return useMutation({
     mutationFn: (name: string) => deleteScenario(name),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({
+        queryKey: SCENARIOS_QUERY_KEY,
+      });
+      await queryClient.invalidateQueries({
+        queryKey: ['startup'],
+      });
+    },
+  });
+}
+
+export function useRenameScenarioMutation() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({ name, newName }: { name: string; newName: string }) =>
+      renameScenario(name, newName),
     onSuccess: async () => {
       await queryClient.invalidateQueries({
         queryKey: SCENARIOS_QUERY_KEY,

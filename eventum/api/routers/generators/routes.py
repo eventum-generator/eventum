@@ -14,7 +14,11 @@ from fastapi import (
     status,
 )
 
-from eventum.api.dependencies.app import GeneratorManagerDep, SettingsDep
+from eventum.api.dependencies.app import (
+    GeneratorManagerDep,
+    SettingsDep,
+    StartupDep,
+)
 from eventum.api.routers.generators.dependencies import (
     CheckPathExistsDep,
     GeneratorDep,
@@ -32,6 +36,7 @@ from eventum.api.routers.generators.models import (
     GeneratorStatus,
     InputPluginStats,
     OutputPluginStats,
+    RenameGeneratorRequest,
 )
 from eventum.api.utils.log_streaming import stream_log_file_to_websocket
 from eventum.api.utils.response_description import merge_responses
@@ -41,6 +46,13 @@ from eventum.api.utils.websocket_annotations import (
     Rejects,
 )
 from eventum.app.manager import ManagingError
+from eventum.app.renaming import (
+    RenameBlockedError,
+    RenameConflictError,
+    RenameError,
+    RenameNotFoundError,
+    rename_instance,
+)
 from eventum.core.parameters import GeneratorParameters
 from eventum.logging.file_paths import construct_generator_logfile_path
 
@@ -180,6 +192,64 @@ async def update_generator(
     )
 
     generator_manager.add(params=params)
+
+
+@router.post(
+    '/{id}/rename',
+    description=(
+        'Rename generator. The definition in the startup file is renamed '
+        'along with the generator, and scenario membership is kept.'
+    ),
+    responses=merge_responses(
+        {404: {'description': 'Generator with provided id is not found'}},
+        {
+            409: {
+                'description': (
+                    'Generator with the new id already exists, or the '
+                    'generator is active'
+                ),
+            },
+            500: {
+                'description': (
+                    'Startup file cannot be read, validated, or written'
+                ),
+            },
+        },
+    ),
+)
+async def rename_generator(
+    id: Annotated[str, Path(description='Generator id', min_length=1)],
+    request: Annotated[
+        RenameGeneratorRequest,
+        Body(description='New generator id'),
+    ],
+    generator_manager: GeneratorManagerDep,
+    startup: StartupDep,
+) -> None:
+    try:
+        await asyncio.to_thread(
+            lambda: rename_instance(
+                manager=generator_manager,
+                startup=startup,
+                id=id,
+                new_id=request.new_id,
+            ),
+        )
+    except RenameNotFoundError as e:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=str(e),
+        ) from None
+    except (RenameConflictError, RenameBlockedError) as e:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=str(e),
+        ) from None
+    except RenameError as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=str(e),
+        ) from None
 
 
 @router.post(

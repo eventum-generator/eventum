@@ -56,6 +56,7 @@ class Startup:
 
         """
         self._file = StartupFile(file_path=file_path)
+        self._generators_dir = generators_dir
         self._mapper = StartupEntryMapper(
             generators_dir=generators_dir,
             generation_parameters=generation_parameters,
@@ -179,6 +180,40 @@ class Startup:
         with self._mutating() as raw:
             del raw[self._require_index(raw, id)]
 
+    def rename(self, id: str, new_id: str) -> None:
+        """Change the id of an existing entry.
+
+        The entry keeps its position in the file and all its other
+        fields, including scenario tags.
+
+        Parameters
+        ----------
+        id : str
+            Current id of the entry.
+
+        new_id : str
+            Id to rename the entry to.
+
+        Raises
+        ------
+        StartupError
+            If the file cannot be read, parsed, validated, or written.
+
+        StartupNotFoundError
+            If no entry with the provided id exists.
+
+        StartupConflictError
+            If an entry with the new id already exists.
+
+        """
+        with self._mutating() as raw:
+            index = self._require_index(raw, id)
+
+            if self._find_index(raw, new_id) is not None:
+                raise self._build_conflict_error(new_id)
+
+            raw[index]['id'] = new_id
+
     def bulk_delete(self, ids: Iterable[str]) -> list[str]:
         """Remove several entries.
 
@@ -205,6 +240,59 @@ class Startup:
             deleted = [entry['id'] for entry in raw if entry['id'] in targets]
             raw[:] = [entry for entry in raw if entry['id'] not in targets]
             return deleted
+
+    def rebase_generator_dir(self, name: str, new_name: str) -> list[str]:
+        """Repoint entries from one generator directory to another.
+
+        Each entry keeps the form its path is stored in - a relative
+        path stays relative, an absolute one stays absolute. Entries
+        pointing outside the renamed directory are left untouched.
+
+        Parameters
+        ----------
+        name : str
+            Current name of the generator directory.
+
+        new_name : str
+            Name the directory is renamed to.
+
+        Returns
+        -------
+        list[str]
+            Ids of entries that were repointed, in file order.
+
+        Raises
+        ------
+        StartupError
+            If the file cannot be read, parsed, validated, or written.
+
+        """
+        old_dir = self._generators_dir / name
+        new_dir = self._generators_dir / new_name
+
+        with self._mutating() as raw:
+            affected: list[str] = []
+
+            for entry in raw:
+                stored = Path(entry['path'])
+                absolute = (
+                    stored
+                    if stored.is_absolute()
+                    else self._generators_dir / stored
+                )
+
+                if not absolute.is_relative_to(old_dir):
+                    continue
+
+                rebased = new_dir / absolute.relative_to(old_dir)
+                entry['path'] = str(
+                    rebased
+                    if stored.is_absolute()
+                    else rebased.relative_to(self._generators_dir)
+                )
+                affected.append(entry['id'])
+
+            return affected
 
     def list_scenarios(self) -> list[str]:
         """List the distinct scenario names across all entries.
@@ -349,6 +437,64 @@ class Startup:
                 raise self._build_scenario_not_found_error(scenario)
             return affected
 
+    def rename_scenario(self, scenario: str, new_name: str) -> list[str]:
+        """Rename a scenario across every entry that carries it.
+
+        Parameters
+        ----------
+        scenario : str
+            Scenario name to rename.
+
+        new_name : str
+            Name to rename the scenario to. Must not be in use by any
+            other scenario, including `scenario` itself.
+
+        Returns
+        -------
+        list[str]
+            Ids of generators whose tag was rewritten, in file order.
+
+        Raises
+        ------
+        StartupError
+            If the file cannot be read, parsed, validated, or written.
+
+        ScenarioNotFoundError
+            If no entry carries the tag.
+
+        ScenarioConflictError
+            If any entry already carries the new name.
+
+        """
+        with self._mutating() as raw:
+            affected: list[str] = []
+            is_new_name_taken = False
+
+            for entry in raw:
+                scenarios = entry.get('scenarios', [])
+                if scenario in scenarios:
+                    affected.append(entry['id'])
+                if new_name in scenarios:
+                    is_new_name_taken = True
+
+            # Raising discards the in-place edits: _mutating skips the
+            # write when the block raises.
+            if not affected:
+                raise self._build_scenario_not_found_error(scenario)
+
+            if is_new_name_taken:
+                raise self._build_scenario_name_conflict_error(new_name)
+
+            for entry in raw:
+                scenarios = entry.get('scenarios', [])
+                if scenario in scenarios:
+                    entry['scenarios'] = [
+                        new_name if name == scenario else name
+                        for name in scenarios
+                    ]
+
+            return affected
+
     @staticmethod
     def _drop_scenario(entry: dict, scenario: str) -> None:
         """Remove a scenario from a raw entry, dropping an empty list."""
@@ -421,6 +567,14 @@ class Startup:
         return ScenarioConflictError(
             msg, context={'value': id, 'name': scenario}
         )
+
+    @staticmethod
+    def _build_scenario_name_conflict_error(
+        scenario: str,
+    ) -> ScenarioConflictError:
+        """Build a ScenarioConflictError for an already-used name."""
+        msg = 'Scenario with this name already exists'
+        return ScenarioConflictError(msg, context={'name': scenario})
 
     @staticmethod
     def _build_membership_not_found_error(

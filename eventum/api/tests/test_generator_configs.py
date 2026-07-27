@@ -1,5 +1,7 @@
 """Tests for generator configs API router."""
 
+from unittest.mock import MagicMock, patch
+
 import aiofiles
 import pytest
 import yaml
@@ -15,7 +17,11 @@ from eventum.app.models.parameters.server import (
     ServerParameters,
 )
 from eventum.app.models.settings import Settings
-from eventum.core.parameters import GenerationParameters
+from eventum.app.startup import Startup
+from eventum.core.parameters import (
+    GenerationParameters,
+    GeneratorParameters,
+)
 
 
 @pytest.fixture
@@ -43,10 +49,21 @@ def manager():
 
 
 @pytest.fixture
-def client(tmp_settings, manager):
+def startup(tmp_settings):
+    tmp_settings.path.startup.write_text('')
+    return Startup(
+        file_path=tmp_settings.path.startup,
+        generators_dir=tmp_settings.path.generators_dir,
+        generation_parameters=tmp_settings.generation,
+    )
+
+
+@pytest.fixture
+def client(tmp_settings, manager, startup):
     app = FastAPI()
     app.state.settings = tmp_settings
     app.state.generator_manager = manager
+    app.state.startup = startup
     app.include_router(router, prefix='/configs')
     with TestClient(app) as c:
         yield c
@@ -387,3 +404,117 @@ def test_get_file_os_error(client, tmp_settings, monkeypatch):
 def test_directory_traversal_blocked(client):
     response = client.get('/configs/..%2F..%2Fetc')
     assert response.status_code in (403, 404, 422)
+
+
+# --- POST /{name}/rename ---
+
+
+def test_rename_config(client, tmp_settings):
+    _create_config(tmp_settings, 'ren_gen')
+
+    response = client.post(
+        '/configs/ren_gen/rename', json={'new_name': 'renamed'}
+    )
+
+    assert response.status_code == 200
+    assert response.json() == []
+    assert not (tmp_settings.path.generators_dir / 'ren_gen').exists()
+    assert (
+        tmp_settings.path.generators_dir
+        / 'renamed'
+        / tmp_settings.path.generator_config_filename
+    ).is_file()
+
+
+def test_rename_config_repoints_startup_entry(
+    client,
+    tmp_settings,
+    startup,  # noqa: ARG001
+):
+    _create_config(tmp_settings, 'ren_gen')
+    tmp_settings.path.startup.write_text(
+        '- id: gen-1\n  path: ren_gen/generator.yml\n'
+    )
+
+    response = client.post(
+        '/configs/ren_gen/rename', json={'new_name': 'renamed'}
+    )
+
+    assert response.status_code == 200
+    assert yaml.safe_load(tmp_settings.path.startup.read_text()) == [
+        {'id': 'gen-1', 'path': 'renamed/generator.yml'}
+    ]
+
+
+def test_rename_config_not_found(client):
+    response = client.post(
+        '/configs/missing/rename', json={'new_name': 'renamed'}
+    )
+
+    assert response.status_code == 404
+
+
+def test_rename_config_name_taken(client, tmp_settings):
+    _create_config(tmp_settings, 'ren_gen')
+    _create_config(tmp_settings, 'taken')
+
+    response = client.post(
+        '/configs/ren_gen/rename', json={'new_name': 'taken'}
+    )
+
+    assert response.status_code == 409
+    assert (tmp_settings.path.generators_dir / 'ren_gen').is_dir()
+
+
+def test_rename_config_active_instance(client, tmp_settings, manager):
+    _create_config(tmp_settings, 'ren_gen')
+    with patch('eventum.app.manager.Generator') as generator_class:
+        generator_class.return_value = MagicMock(
+            params=GeneratorParameters(
+                id='gen-1',
+                path=(
+                    tmp_settings.path.generators_dir
+                    / 'ren_gen'
+                    / 'generator.yml'
+                ),
+            ),
+            is_initializing=False,
+            is_running=True,
+            is_stopping=False,
+        )
+        manager.add(
+            GeneratorParameters(
+                id='gen-1',
+                path=(
+                    tmp_settings.path.generators_dir
+                    / 'ren_gen'
+                    / 'generator.yml'
+                ),
+            )
+        )
+
+    response = client.post(
+        '/configs/ren_gen/rename', json={'new_name': 'renamed'}
+    )
+
+    assert response.status_code == 409
+    assert (tmp_settings.path.generators_dir / 'ren_gen').is_dir()
+
+
+def test_rename_config_blank_name(client, tmp_settings):
+    _create_config(tmp_settings, 'ren_gen')
+
+    response = client.post('/configs/ren_gen/rename', json={'new_name': ''})
+
+    assert response.status_code == 422
+
+
+def test_rename_config_nested_name(client, tmp_settings):
+    _create_config(tmp_settings, 'ren_gen')
+
+    response = client.post(
+        '/configs/ren_gen/rename', json={'new_name': 'nested/renamed'}
+    )
+
+    assert response.status_code == 422
+    assert (tmp_settings.path.generators_dir / 'ren_gen').is_dir()
