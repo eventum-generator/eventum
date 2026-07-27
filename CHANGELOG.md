@@ -61,6 +61,7 @@ All notable changes to this project will be documented in this file.
 - **Served a generator file as a snapshot of the moment it was requested** — reading an output file of a running generator aborted mid-response, because the response declared the file size before reading the file and the file kept growing. A file that cannot be read now answers with an error instead of a dropped connection
 - **Moved the scenario global-state scan to a worker thread** — a scenario with many generators opens instead of hanging and failing after about ten seconds
 - **Served the websocket API schema from memory** — the schema was written into the installed package on every application start, so an installation on a read-only filesystem refused to start over a documentation file, and the served schema carried the version and bind address of whoever last started the application. It is now held in memory and always describes the running instance
+- **Read host and runtime facts when they are requested** — the host name, IPv4 address, platform string, Python build and host boot time were captured once as the application loaded and published as defaults in the API schema, so the reference on the documentation site described the machine that exported it. They are now resolved per request and no longer appear in the schema
 
 ### 📝 Other Changes
 

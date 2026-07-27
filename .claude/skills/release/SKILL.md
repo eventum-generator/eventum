@@ -47,9 +47,12 @@ Two artifacts across two repos, each in its own voice:
 - `eventum` on `develop` - rename `## Unreleased` in `CHANGELOG.md` to `## <version> (<date>)` in YYYY-MM-DD form. When no `Unreleased` section exists, build the section from `git log <latest-tag>..HEAD`. Always re-check the resulting list against `git log <latest-tag>..HEAD` even when an `Unreleased` section was already present - small fixes often land without a CHANGELOG entry. Fill gaps, polish wording. Technical voice, for developers.
 - `../docs` - new page at `content/docs/changelog/<version>.mdx`, registered in `content/docs/changelog/meta.json`. User-facing voice: describe what changed for the end user (not developer) - not a one-to-one copy of the CHANGELOG entry. Commits land on a dedicated branch in step 6.
 
-### 3. Version bump
+### 3. Version bump and API reference
 
 - `eventum/__init__.py`: `__version__ = '<version>'`.
+- Export the OpenAPI schema and regenerate the reference pages, in that order and only after the bump - the schema carries `info.version`, so exporting first publishes the previous version. Commands are in `.claude/rules/backend/api.md`. Both outputs land in `../docs` and are committed in step 6.
+
+The export is mandatory: nothing else keeps the published reference in sync, so skipping it leaves the site describing an older API for the whole release cycle.
 
 ### 4. Verify
 
@@ -69,6 +72,7 @@ Show the user:
 
 - Version bump diff.
 - Changelog entries (CHANGELOG.md + docs MDX).
+- API reference diff summary - the exported schema and the regenerated pages.
 - Verification results.
 - What happens next: commits, push, two PRs, user merges both, tag, GitHub release, announcement.
 
@@ -91,9 +95,10 @@ In `../docs` (branch off `master`):
 ```bash
 git switch master && git pull
 git switch -c release/<version>
-git add -A && git commit -m "docs: changelog for <version>"
+git add content/docs/changelog && git commit -m "docs: changelog for <version>"
+git add public/schemas content/docs/api && git commit -m "docs(api): sync the API reference for <version>"
 git push -u origin release/<version>
-gh pr create --base master --head release/<version> --title "docs: changelog for <version>"
+gh pr create --base master --head release/<version> --title "docs: changelog and API reference for <version>"
 ```
 
 Report both PR URLs.
