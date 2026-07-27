@@ -49,6 +49,7 @@ Adding or modifying a plugin touches four places.
 - Wire inputs via `@mantine/form` + `zod4Resolver` so Zod errors surface as field errors.
 - Forms propagate changes through a parent `onChange` callback, not a submit.
 - Empty inputs for optional fields must land as `undefined`, not empty strings.
+- A `Switch` has no "unset" state, and configurations arrive without their unset fields. Set `checked` to fall back to the backend default, otherwise a field the user never touched is drawn as off whatever the plugin does.
 - For validation that only makes sense in the UI (e.g. friendlier error messages), extend the schema inside the form component. Don't touch the canonical schema under `api/routes/`.
 
 ## Editor autocomplete
