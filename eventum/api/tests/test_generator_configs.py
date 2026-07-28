@@ -215,56 +215,47 @@ def test_get_config_invalid_yaml(client, tmp_settings):
     assert response.status_code == 422
 
 
-def test_get_config_expands_dotted_keys(
+def test_get_config_with_fsm_conditions(
     client: TestClient,
     tmp_settings: Settings,
 ) -> None:
-    """Dotted spelling is served identically to the nested form."""
-    dotted_config = {
-        'input': [{'cron.expression': '* * * * *', 'cron.count': 1}],
-        'event': {'replay.path': 'events.log'},
-        'output': [{'stdout.formatter.format': 'plain'}],
+    """Condition state fields and param names are served as written."""
+    condition = {'ge': {'shared.step': 5}}
+    fsm_config = {
+        'input': [{'cron': {'expression': '* * * * *', 'count': 1}}],
+        'event': {
+            'template': {
+                'mode': 'fsm',
+                'params': {'host.name': 'srv-01'},
+                'templates': [
+                    {
+                        'login': {
+                            'template': 'login.jinja',
+                            'initial': True,
+                            'transitions': [
+                                {'to': 'logout', 'when': condition},
+                            ],
+                        },
+                    },
+                    {'logout': {'template': 'logout.jinja'}},
+                ],
+            },
+        },
+        'output': [{'stdout': {'formatter': {'format': 'plain'}}}],
     }
-    _create_config(tmp_settings, 'canonical_gen')
-    gen_dir = tmp_settings.path.generators_dir / 'dotted_gen'
+    gen_dir = tmp_settings.path.generators_dir / 'fsm_gen'
     gen_dir.mkdir()
     config_path = gen_dir / tmp_settings.path.generator_config_filename
-    config_path.write_text(yaml.dump(dotted_config, sort_keys=False))
+    config_path.write_text(yaml.dump(fsm_config, sort_keys=False))
 
-    dotted = client.get('/configs/dotted_gen')
-    canonical = client.get('/configs/canonical_gen')
+    response = client.get('/configs/fsm_gen')
 
-    assert dotted.status_code == 200  # noqa: PLR2004
-    assert dotted.json() == canonical.json()
+    assert response.status_code == 200  # noqa: PLR2004
+    template_config = response.json()['event']['template']
+    assert template_config['params'] == {'host.name': 'srv-01'}
 
-
-def test_get_config_conflicting_dotted_keys(
-    client: TestClient,
-    tmp_settings: Settings,
-) -> None:
-    """Conflicting spellings yield 422 naming the key path."""
-    gen_dir = tmp_settings.path.generators_dir / 'conflict_gen'
-    gen_dir.mkdir()
-    config_path = gen_dir / tmp_settings.path.generator_config_filename
-    config_path.write_text(
-        'input:\n'
-        '- cron:\n'
-        "    expression: '* * * * *'\n"
-        '    count: 1\n'
-        'event:\n'
-        '  replay.path: a.log\n'
-        '  replay:\n'
-        '    path: b.log\n'
-        'output:\n'
-        '- stdout:\n'
-        '    formatter:\n'
-        '      format: plain\n',
-    )
-
-    response = client.get('/configs/conflict_gen')
-
-    assert response.status_code == 422  # noqa: PLR2004
-    assert 'event.replay.path' in response.json()['detail']
+    transitions = template_config['templates'][0]['login']['transitions']
+    assert transitions[0]['when'] == condition
 
 
 # --- POST /{name} ---

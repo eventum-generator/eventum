@@ -13,7 +13,6 @@ from pydantic import ValidationError
 from eventum.core.config import GeneratorConfig
 from eventum.exceptions import ContextualError
 from eventum.security.manage import get_secret
-from eventum.utils.dotted_keys import DottedKeyError, expand_dotted_keys
 from eventum.utils.validation_prettier import prettify_validation_errors
 
 logger = structlog.stdlib.get_logger()
@@ -439,8 +438,7 @@ def load(path: Path, params: dict[str, Any]) -> GeneratorConfig:
     logger.debug('Parsing yaml content of config')
     try:
         config_data = yaml.load(substituted_content, yaml.SafeLoader)
-        config_data = expand_dotted_keys(config_data)
-    except (yaml.error.YAMLError, DottedKeyError) as e:
+    except yaml.error.YAMLError as e:
         msg = 'Failed to parse configuration YAML content'
         raise ConfigurationLoadError(
             msg,
