@@ -42,7 +42,7 @@ Eventum produces synthetic events and delivers them anywhere — in real time or
 </p>
 
 <p align="center">
-  <img src="https://raw.githubusercontent.com/eventum-generator/eventum/master/.github/assets/studio_dark.png" alt="Eventum Studio — event debugger" width="680" />
+  <img src="https://raw.githubusercontent.com/eventum-generator/eventum/master/.github/assets/studio_dark.png" alt="Eventum Studio — a template in the editor with its timestamp distribution below" width="680" />
 </p>
 
 ## Highlights
