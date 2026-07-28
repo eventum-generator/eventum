@@ -1,0 +1,108 @@
+input:
+  - cron:
+      expression: "*/5 * * * *"
+      count: 1
+
+event:
+  template:
+    mode: fsm
+    params:
+      host.name: srv-01
+    templates:
+      - login:
+          template: login.jinja
+          initial: true
+          transitions:
+            - to: activity
+              when:
+                eq:
+                  shared.status: ready
+            - to: activity
+              when:
+                gt:
+                  shared.request_count: 1000
+            - to: activity
+              when:
+                ge:
+                  shared.step: 5
+            - to: activity
+              when:
+                lt:
+                  locals.ttl: 0
+            - to: activity
+              when:
+                le:
+                  shared.attempts: 5
+            - to: activity
+              when:
+                matches:
+                  shared.path: "^/api/v[0-9]+/"
+      - activity:
+          template: activity.jinja
+          transitions:
+            - to: logout
+              when:
+                len_eq:
+                  shared.queue: 0
+            - to: logout
+              when:
+                len_gt:
+                  shared.items: 10
+            - to: logout
+              when:
+                len_ge:
+                  shared.event_buffer: 100
+            - to: logout
+              when:
+                len_lt:
+                  shared.buffer: 100
+            - to: logout
+              when:
+                len_le:
+                  shared.errors: 3
+            - to: logout
+              when:
+                contains:
+                  shared.error_codes: 500
+            - to: logout
+              when:
+                in:
+                  shared.status: ["timeout", "rate_limited"]
+            - to: logout
+              when:
+                has_tags: ["session"]
+            - to: logout
+              when:
+                before:
+                  hour: 9
+            - to: logout
+              when:
+                after:
+                  hour: 18
+            - to: logout
+              when:
+                never:
+      - logout:
+          template: logout.jinja
+          transitions:
+            - to: login
+              when:
+                and:
+                  - defined: shared.logout_ready
+                  - not:
+                      lt:
+                        globals.sessions: 1
+            - to: login
+              when:
+                or:
+                  - eq:
+                      locals.retries: 0
+                  - defined: shared.session_id
+            - to: login
+              when:
+                always:
+
+output:
+  - stdout:
+      formatter:
+        format: plain

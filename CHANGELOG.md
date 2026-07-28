@@ -43,6 +43,7 @@ All notable changes to this project will be documented in this file.
 
 #### Core
 
+- **Stopped splitting generator configuration keys on dots** — every key holding a dot was expanded into nested keys, so a state machine comparing a state field (`ge: {shared.step: 5}`) was rejected as invalid, and a template parameter, sample or template name written with a dot arrived reshaped. A generator configuration is now read exactly as written; the dot-separated shorthand for nested settings stays in `eventum.yml`, `startup.yml` and time-pattern files, and a generator configuration spells `formatter.format: plain` out as a nested block
 - **Closed streaming connections on graceful shutdown** — Ctrl+C with a live log view or a connected MCP client now exits in well under a second, instead of waiting out the shutdown timeout and printing cancellation errors
 - **Scoped the network and disk figures to the Eventum process** — the Disk I/O and Network tiles measured the whole host. Disk now comes from the process and network bytes are counted inside the application; CPU and memory stay host-level, and all counters are cumulative since startup
 
