@@ -1,4 +1,5 @@
 from pathlib import Path
+from unittest.mock import patch
 
 import pytest
 
@@ -18,6 +19,7 @@ INVALID_STRUCTURE_CONFIG_PATH = (
     BASE_PATH / 'static' / 'invalid_structure_config.yml'
 )
 FSM_CONDITIONS_CONFIG_PATH = BASE_PATH / 'static' / 'fsm_conditions_config.yml'
+NESTED_PARAMS_CONFIG_PATH = BASE_PATH / 'static' / 'nested_params_config.yml'
 
 
 def test_load():
@@ -50,6 +52,54 @@ def test_invalid_config_structure():
 def test_missing_parameters():
     with pytest.raises(ConfigurationLoadError):
         load(path=CONFIG_PATH, params={})
+
+
+def test_load_resolves_nested_param_names() -> None:
+    """Dotted token name addresses a path of nested params."""
+    with patch(
+        'eventum.core.config_loader.get_secret',
+        return_value='pass',
+    ) as get_secret:
+        config = load(
+            path=NESTED_PARAMS_CONFIG_PATH,
+            params={'opensearch': {'host': 'localhost', 'user': 'admin'}},
+        )
+
+    output = config.output[0]['opensearch']
+    assert output['hosts'] == ['localhost']
+    assert output['username'] == 'admin'
+    assert output['password'] == 'pass'
+    get_secret.assert_called_once_with('opensearch.password')
+
+
+def test_load_resolves_dotted_param_names() -> None:
+    """Dotted token name addresses a param spelled the same way."""
+    with patch('eventum.core.config_loader.get_secret', return_value='pass'):
+        config = load(
+            path=NESTED_PARAMS_CONFIG_PATH,
+            params={
+                'opensearch.host': 'localhost',
+                'opensearch.user': 'admin',
+            },
+        )
+
+    output = config.output[0]['opensearch']
+    assert output['hosts'] == ['localhost']
+    assert output['username'] == 'admin'
+
+
+def test_load_missing_nested_param_name() -> None:
+    """Unresolvable token name is reported as a missing param."""
+    with (
+        patch('eventum.core.config_loader.get_secret', return_value='pass'),
+        pytest.raises(ConfigurationLoadError) as exc,
+    ):
+        load(
+            path=NESTED_PARAMS_CONFIG_PATH,
+            params={'opensearch': {'host': 'localhost'}},
+        )
+
+    assert 'opensearch.user' in exc.value.context['reason']
 
 
 def test_load_keeps_dotted_keys_literal() -> None:
