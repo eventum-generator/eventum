@@ -43,6 +43,7 @@ All notable changes to this project will be documented in this file.
 
 #### Core
 
+- **Read the dotted name of a `${params.*}` or `${secrets.*}` token as a path** — `${params.opensearch.host}` matched only a parameter whose full name was `opensearch.host`, and even then substituted nothing, so a nested parameter (the form `startup.yml` documents) and a parameter or keyring secret named with a dot were both unreachable. A token name now addresses the value spelled exactly like it or the path of nested names; a name addressing nothing is reported as missing
 - **Closed streaming connections on graceful shutdown** — Ctrl+C with a live log view or a connected MCP client now exits in well under a second, instead of waiting out the shutdown timeout and printing cancellation errors
 - **Scoped the network and disk figures to the Eventum process** — the Disk I/O and Network tiles measured the whole host. Disk now comes from the process and network bytes are counted inside the application; CPU and memory stay host-level, and all counters are cumulative since startup
 

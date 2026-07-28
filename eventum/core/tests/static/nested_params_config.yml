@@ -1,0 +1,18 @@
+input:
+  - cron:
+      expression: "*/5 * * * *"
+      count: 1
+
+event:
+  replay:
+    path: events.log
+
+output:
+  - opensearch:
+      hosts:
+        - ${params.opensearch.host}
+      username: ${params.opensearch.user}
+      password: ${secrets.opensearch.password}
+      index: logs
+      formatter:
+        format: json
