@@ -54,7 +54,6 @@ from eventum.app.renaming import (
     RenameNotFoundError,
     rename_project,
 )
-from eventum.utils.dotted_keys import DottedKeyError, expand_dotted_keys
 from eventum.utils.fs_utils import (
     calculate_dir_size,
     get_dir_last_modification_time,
@@ -177,7 +176,6 @@ async def get_generator_config(
         config_data = await asyncio.to_thread(
             lambda: yaml.load(stream=raw_yaml, Loader=yaml.SafeLoader),
         )
-        config_data = expand_dotted_keys(config_data)
 
         return GeneratorConfig.model_validate(config_data)
     except OSError as e:
@@ -185,7 +183,7 @@ async def get_generator_config(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=(f'Configuration cannot be read due to OS error: {e}'),
         ) from None
-    except (yaml.error.YAMLError, DottedKeyError) as e:
+    except yaml.error.YAMLError as e:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
             detail=(f'Configuration cannot be read due to parsing error: {e}'),
