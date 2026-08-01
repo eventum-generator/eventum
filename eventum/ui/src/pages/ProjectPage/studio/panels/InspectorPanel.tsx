@@ -156,7 +156,9 @@ export const InspectorPanel: FC<InspectorPanelProps> = ({ style }) => {
   return (
     <div className="studio-panel studio-inspector" style={style}>
       <div className="studio-panel-header">
-        <span>Inspector · {STAGE_TITLE[activeStage]}</span>
+        <span className="studio-panel-title">
+          Inspector · {STAGE_TITLE[activeStage]}
+        </span>
       </div>
       <div className="studio-panel-body">
         <StageBody />

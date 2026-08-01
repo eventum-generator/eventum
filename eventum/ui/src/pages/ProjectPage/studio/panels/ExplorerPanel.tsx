@@ -119,7 +119,7 @@ export const ExplorerPanel: FC<ExplorerPanelProps> = ({ style }) => {
   return (
     <div className="studio-panel studio-explorer" style={style}>
       <div className="studio-panel-header">
-        <span>Explorer</span>
+        <span className="studio-panel-title">Explorer</span>
         <Group gap={2}>
           <Tooltip label="New file" withArrow>
             <ActionIcon

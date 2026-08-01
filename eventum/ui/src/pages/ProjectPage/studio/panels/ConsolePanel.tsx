@@ -119,7 +119,9 @@ export const ConsolePanel: FC<ConsolePanelProps> = ({
       data-collapsed={collapsed}
     >
       <div className="studio-panel-header">
-        <span>{stageTitle(activeStage, effectiveEventView)}</span>
+        <span className="studio-panel-title">
+          {stageTitle(activeStage, effectiveEventView)}
+        </span>
         <Group gap={8}>
           {!collapsed && showEventViewSwitch && (
             <SegmentedControl

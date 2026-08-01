@@ -77,7 +77,7 @@ export const EditorPanel: FC = () => {
   return (
     <div className="studio-panel studio-editor">
       <div className="studio-panel-header">
-        <span>Editor</span>
+        <span className="studio-panel-title">Editor</span>
         {openedItems.length > 0 && (
           <Button
             size="compact-xs"
