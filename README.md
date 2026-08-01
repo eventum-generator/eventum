@@ -131,7 +131,7 @@ Starts on port **9474** with **Eventum Studio** (web UI), **REST API**, and **mu
 **Eventum Studio** is the web UI included in application mode: edit generator configurations and templates, preview rendered events, and monitor running generators.
 
 <p align="center">
-  <img src="https://raw.githubusercontent.com/eventum-generator/eventum/master/.github/assets/studio_home_dark.png" alt="Eventum Studio — the home screen with recent projects and the state of every instance" width="680" />
+  <img src="https://raw.githubusercontent.com/eventum-generator/eventum/master/.github/assets/studio_project_dark.png" alt="Eventum Studio — an open project with four input plugins and the timestamp distribution they produce together" width="680" />
 </p>
 
 ## Documentation
