@@ -11,8 +11,9 @@ import {
   GeneratorDirsExtendedInfoSchema,
   GeneratorFileContent,
   GeneratorFileContentSchema,
+  GeneratorIdsSchema,
 } from './schemas';
-import { apiClient } from '@/api/client';
+import { TRANSFER_TIMEOUT, apiClient } from '@/api/client';
 import '@/api/routes/instance/schemas';
 import { validateResponse } from '@/api/wrappers';
 
@@ -68,6 +69,18 @@ export async function deleteGeneratorConfig(name: string) {
   await apiClient.delete(`/generator-configs/${name}`);
 }
 
+export async function renameGeneratorConfig(
+  name: string,
+  newName: string
+): Promise<string[]> {
+  return await validateResponse(
+    GeneratorIdsSchema,
+    apiClient.post(`/generator-configs/${encodeURIComponent(name)}/rename`, {
+      new_name: newName,
+    })
+  );
+}
+
 export async function getGeneratorConfigPath(name: string): Promise<string> {
   return await validateResponse(
     GeneratorConfigPathSchema,
@@ -90,6 +103,7 @@ export async function getGeneratorFile(
     GeneratorFileContentSchema,
     apiClient.get(`/generator-configs/${name}/file/${filepath}`, {
       responseType: 'text',
+      timeout: TRANSFER_TIMEOUT,
     })
   );
 }
@@ -115,6 +129,7 @@ export async function uploadGeneratorFile(
     headers: {
       'Content-Type': undefined,
     },
+    timeout: TRANSFER_TIMEOUT,
   });
 }
 
@@ -135,6 +150,7 @@ export async function putGeneratorFile(
     headers: {
       'Content-Type': undefined,
     },
+    timeout: TRANSFER_TIMEOUT,
   });
 }
 
@@ -160,8 +176,12 @@ export async function copyGeneratorFile(
   source: string,
   destination: string
 ) {
-  await apiClient.post(`/generator-configs/${name}/file-copy`, {
-    source,
-    destination,
-  });
+  await apiClient.post(
+    `/generator-configs/${name}/file-copy`,
+    {
+      source,
+      destination,
+    },
+    { timeout: TRANSFER_TIMEOUT }
+  );
 }

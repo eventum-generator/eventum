@@ -38,7 +38,7 @@ export const RemoveTemplateModal: FC<RemoveTemplateModalProps> = ({
             })}
           />
           {form.getValues().isRemoveFile && (
-            <Text size="sm" c="gray.6">
+            <Text size="sm" c="dimmed">
               File <b>{filePath}</b> will be removed
             </Text>
           )}

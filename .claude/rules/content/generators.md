@@ -1,8 +1,3 @@
----
-paths:
-  - "../content-packs/generators/**"
----
-
 # Generator Rules
 
 Content-packs (`../content-packs/`) is the companion repository shipping ready-to-use generators. A generator is a self-contained project under `generators/<category>-<source>/` producing realistic synthetic events that mimic a real data source.

@@ -15,7 +15,6 @@ import {
 import { isNotEmpty, useForm } from '@mantine/form';
 import { modals } from '@mantine/modals';
 import { notifications } from '@mantine/notifications';
-import { IconAlertSquareRounded } from '@tabler/icons-react';
 import { FC } from 'react';
 
 import {
@@ -25,6 +24,7 @@ import {
 import { useAddGeneratorMutation } from '@/api/hooks/useGenerators';
 import { useAddGeneratorToStartupMutation } from '@/api/hooks/useStartup';
 import { GeneratorParameters } from '@/api/routes/generators/schemas';
+import { AlertIcon } from '@/components/ui/AlertIcon';
 import { ShowErrorDetailsAnchor } from '@/components/ui/ShowErrorDetailsAnchor';
 import { ROUTE_PATHS } from '@/routing/paths';
 
@@ -82,7 +82,12 @@ export const CreateInstanceModal: FC<CreateInstanceModalProps> = ({
                 addGeneratorToStartup.mutate(
                   {
                     id: values.id,
-                    params: { ...values, path: resolvedPath, autostart: false, scenarios: [] },
+                    params: {
+                      ...values,
+                      path: resolvedPath,
+                      autostart: false,
+                      scenarios: [],
+                    },
                   },
                   {
                     onSuccess: () => {
@@ -152,7 +157,7 @@ export const CreateInstanceModal: FC<CreateInstanceModalProps> = ({
       <Container size="md">
         <Alert
           variant="default"
-          icon={<Box c="red" component={IconAlertSquareRounded}></Box>}
+          icon={<AlertIcon variant="error" />}
           title="Failed to load list of projects"
         >
           {generatorDirsError.message}

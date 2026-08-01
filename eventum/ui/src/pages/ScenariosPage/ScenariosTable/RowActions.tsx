@@ -1,20 +1,23 @@
 import { List, Menu, Text } from '@mantine/core';
 import { modals } from '@mantine/modals';
 import {
+  IconCursorText,
   IconEdit,
   IconPlayerPlay,
   IconPlayerStop,
   IconTrash,
 } from '@tabler/icons-react';
 import { FC, ReactNode } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 
+import { RenameScenarioModal } from '../RenameScenarioModal';
 import {
   useBulkStartGeneratorMutation,
   useBulkStopGeneratorMutation,
   useUpdateGeneratorStatus,
 } from '@/api/hooks/useGenerators';
 import { useDeleteScenarioMutation } from '@/api/hooks/useScenarios';
+import { useStartupGenerators } from '@/api/hooks/useStartup';
 import { ROUTE_PATHS } from '@/routing/paths';
 import {
   showErrorNotification,
@@ -27,7 +30,10 @@ interface RowActionsProps {
   generatorIds: string[];
   hasRunning: boolean;
   hasInactive: boolean;
-  getAffectedScenarios: (scenarioName: string, generatorIds: string[]) => string[];
+  getAffectedScenarios: (
+    scenarioName: string,
+    generatorIds: string[]
+  ) => string[];
 }
 
 export const RowActions: FC<RowActionsProps> = ({
@@ -38,17 +44,15 @@ export const RowActions: FC<RowActionsProps> = ({
   hasInactive,
   getAffectedScenarios,
 }) => {
-  const navigate = useNavigate();
   const deleteScenario = useDeleteScenarioMutation();
+
+  // Reads the query the page itself renders from, so no extra request.
+  // Passing names down as a prop would rebuild the table columns on
+  // every poll - see the note on getAffectedScenarios in the page.
+  const { data: startupEntries } = useStartupGenerators();
   const bulkStart = useBulkStartGeneratorMutation();
   const bulkStop = useBulkStopGeneratorMutation();
   const updateStatus = useUpdateGeneratorStatus();
-
-  function handleEdit() {
-    void navigate(
-      `${ROUTE_PATHS.SCENARIOS}/${encodeURIComponent(scenarioName)}`,
-    );
-  }
 
   function handleStart() {
     for (const id of generatorIds) {
@@ -67,10 +71,12 @@ export const RowActions: FC<RowActionsProps> = ({
       { ids: generatorIds },
       {
         onSuccess: () =>
-          showSuccessNotification('Success', `Scenario "${scenarioName}" started`),
-        onError: (e) =>
-          showErrorNotification('Failed to start scenario', e),
-      },
+          showSuccessNotification(
+            'Success',
+            `Scenario "${scenarioName}" started`
+          ),
+        onError: (e) => showErrorNotification('Failed to start scenario', e),
+      }
     );
   }
 
@@ -91,10 +97,12 @@ export const RowActions: FC<RowActionsProps> = ({
       { ids: generatorIds },
       {
         onSuccess: () =>
-          showSuccessNotification('Success', `Scenario "${scenarioName}" stopped`),
-        onError: (e) =>
-          showErrorNotification('Failed to stop scenario', e),
-      },
+          showSuccessNotification(
+            'Success',
+            `Scenario "${scenarioName}" stopped`
+          ),
+        onError: (e) => showErrorNotification('Failed to stop scenario', e),
+      }
     );
   }
 
@@ -124,29 +132,42 @@ export const RowActions: FC<RowActionsProps> = ({
     }
   }
 
+  function handleRename() {
+    modals.open({
+      title: 'Rename scenario',
+      children: (
+        <RenameScenarioModal
+          scenarioName={scenarioName}
+          existingScenarioNames={[
+            ...new Set(
+              (startupEntries ?? []).flatMap((entry) => entry.scenarios ?? [])
+            ),
+          ]}
+          instanceCount={generatorIds.length}
+        />
+      ),
+    });
+  }
+
   function handleDelete() {
     modals.openConfirmModal({
       title: 'Delete scenario',
       children: (
         <Text size="sm">
-          Delete scenario <b>{scenarioName}</b>? Generators will not be
-          deleted.
+          Delete scenario <b>{scenarioName}</b>? Generators will not be deleted.
         </Text>
       ),
       labels: { cancel: 'Cancel', confirm: 'Delete' },
       onConfirm: () => {
-        deleteScenario.mutate(
-          scenarioName,
-          {
-            onSuccess: () =>
-              showSuccessNotification(
-                'Deleted',
-                `Scenario "${scenarioName}" deleted`,
-              ),
-            onError: (deleteError) =>
-              showErrorNotification('Failed to delete scenario', deleteError),
-          },
-        );
+        deleteScenario.mutate(scenarioName, {
+          onSuccess: () =>
+            showSuccessNotification(
+              'Deleted',
+              `Scenario "${scenarioName}" deleted`
+            ),
+          onError: (deleteError) =>
+            showErrorNotification('Failed to delete scenario', deleteError),
+        });
       },
     });
   }
@@ -157,10 +178,18 @@ export const RowActions: FC<RowActionsProps> = ({
 
       <Menu.Dropdown>
         <Menu.Item
+          component={Link}
+          to={`${ROUTE_PATHS.SCENARIOS}/${encodeURIComponent(scenarioName)}`}
           leftSection={<IconEdit size={14} />}
-          onClick={handleEdit}
         >
           Edit
+        </Menu.Item>
+
+        <Menu.Item
+          leftSection={<IconCursorText size={14} />}
+          onClick={handleRename}
+        >
+          Rename
         </Menu.Item>
 
         <Menu.Item
@@ -182,7 +211,7 @@ export const RowActions: FC<RowActionsProps> = ({
         <Menu.Divider />
 
         <Menu.Item
-          color="red"
+          color="var(--mantine-color-red-text)"
           leftSection={<IconTrash size={14} />}
           onClick={handleDelete}
         >

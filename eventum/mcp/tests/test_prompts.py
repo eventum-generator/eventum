@@ -37,3 +37,28 @@ def test_live_ops_lists_the_workflow() -> None:
         'list_startup_generators',
     ):
         assert token in text
+
+
+def test_create_generator_surfaces_module_and_large_sample() -> None:
+    """The prompt names arbitrary imports and the large-sample path."""
+    text = create_generator_text()
+    assert 'module.<name>' in text
+    assert 'subprocess' in text
+    assert '/api/generator-configs/' in text
+
+
+def test_create_generator_explains_windowed_reads() -> None:
+    """The prompt tells the agent to page a file read."""
+    text = create_generator_text()
+    assert 'next_offset' in text
+    assert 'truncated' in text
+
+
+def test_live_ops_covers_modes_and_scenarios() -> None:
+    """The live-ops prompt explains run modes and scenarios."""
+    text = live_ops_text()
+    assert 'live mode' in text
+    assert 'sample mode' in text
+    assert 'scenarios' in text
+    assert 'list_scenarios' in text
+    assert 'update_settings' in text

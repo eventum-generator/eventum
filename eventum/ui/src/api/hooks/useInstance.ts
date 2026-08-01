@@ -12,10 +12,13 @@ import { Settings } from '@/api/routes/instance/schemas';
 const INSTANCE_SETTINGS_QUERY_KEY = ['instance', 'settings'];
 const INSTANCE_INFO_QUERY_KEY = ['instance', 'info'];
 
-export function useInstanceInfo() {
+export function useInstanceInfo(options?: {
+  refetchInterval?: number | false;
+}) {
   return useQuery({
     queryKey: INSTANCE_INFO_QUERY_KEY,
     queryFn: getInstanceInfo,
+    refetchInterval: options?.refetchInterval,
   });
 }
 

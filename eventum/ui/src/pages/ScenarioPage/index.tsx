@@ -1,6 +1,6 @@
 import {
+  ActionIcon,
   Alert,
-  Box,
   Button,
   Center,
   Container,
@@ -14,21 +14,27 @@ import {
 } from '@mantine/core';
 import { modals } from '@mantine/modals';
 import {
-  IconAlertSquareRounded,
   IconArrowLeft,
-  IconLayersSubtract,
   IconPlayerPlay,
   IconPlayerStop,
   IconPlus,
 } from '@tabler/icons-react';
 import { useCallback, useMemo, useState } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { Link, useParams } from 'react-router-dom';
 
 import { AddGeneratorModal } from './AddGeneratorModal';
 import { DataFlowDiagram } from './DataFlowDiagram';
-import { collectGlobalKeys } from './globals-usage';
 import { GeneratorCard } from './GeneratorCard';
 import { GlobalStatePanel } from './GlobalStatePanel';
+import { ScenarioEmptyState } from './ScenarioEmptyState';
+import { ScenarioStatusPill } from './ScenarioStatusPill';
+import { SectionHeader } from './SectionHeader';
+import { collectGlobalKeys } from './globals-usage';
+import {
+  startableCount,
+  stoppableCount,
+  summarizeScenarioStatuses,
+} from './scenario-status';
 import { useHighlightState } from './useHighlightState';
 import { useScenarioBulkActions } from './useScenarioBulkActions';
 import {
@@ -42,6 +48,7 @@ import {
 import { useStartupGenerators } from '@/api/hooks/useStartup';
 import { GeneratorStatus } from '@/api/routes/generators/schemas';
 import { StartupGeneratorParameters } from '@/api/routes/startup/schemas';
+import { AlertIcon } from '@/components/ui/AlertIcon';
 import { PageTitle } from '@/components/ui/PageTitle';
 import { ShowErrorDetailsAnchor } from '@/components/ui/ShowErrorDetailsAnchor';
 import { ROUTE_PATHS } from '@/routing/paths';
@@ -55,9 +62,9 @@ export default function ScenarioPage() {
     scenarioName: string;
   }>();
   const scenarioName = decodeURIComponent(rawScenarioName ?? '');
-  const navigate = useNavigate();
 
-  const { highlightedNodeId, highlightedEdgeId, highlightNode, highlightEdge } = useHighlightState();
+  const { highlightedNodeId, highlightedEdgeId, highlightNode, highlightEdge } =
+    useHighlightState();
   const [expandedCardId, setExpandedCardId] = useState<string | null>(null);
 
   const {
@@ -86,7 +93,10 @@ export default function ScenarioPage() {
     [scenarioEntries]
   );
 
-  const globalsUsageQueries = useMultiGlobalsUsage(scenarioName, scenarioGeneratorIds);
+  const globalsUsageQueries = useMultiGlobalsUsage(
+    scenarioName,
+    scenarioGeneratorIds
+  );
 
   const globalsUsageMap = useMemo(() => {
     const map = new Map<string, (typeof globalsUsageQueries)[number]['data']>();
@@ -104,38 +114,52 @@ export default function ScenarioPage() {
     return new Map(generators.map((g) => [g.id, g.status]));
   }, [generators]);
 
+  const statusCounts = useMemo(
+    () =>
+      summarizeScenarioStatuses(
+        scenarioEntries.map((entry) => generatorStatusMap.get(entry.id))
+      ),
+    [scenarioEntries, generatorStatusMap]
+  );
+
   const hasGlobalKeys = useMemo(
     () => collectGlobalKeys(globalsUsageMap).length > 0,
-    [globalsUsageMap],
+    [globalsUsageMap]
   );
 
   const { bulkStart, bulkStop } = useScenarioBulkActions(scenarioGeneratorIds);
   const updateStatus = useUpdateGeneratorStatus();
   const removeFromScenario = useRemoveGeneratorFromScenarioMutation();
 
-  const handleRemoveGenerator = useCallback((entry: StartupGeneratorParameters) => {
-    modals.openConfirmModal({
-      title: 'Remove from scenario',
-      children: (
-        <Text size="sm">
-          Remove <b>{entry.id}</b> from scenario <b>{scenarioName}</b>? The
-          instance will not be deleted.
-        </Text>
-      ),
-      labels: { cancel: 'Cancel', confirm: 'Remove' },
-      onConfirm: () => {
-        removeFromScenario.mutate(
-          { name: scenarioName, generatorId: entry.id },
-          {
-            onSuccess: () =>
-              showSuccessNotification('Success', 'Instance removed from scenario'),
-            onError: (error) =>
-              showErrorNotification('Failed to remove instance', error),
-          },
-        );
-      },
-    });
-  }, [scenarioName, removeFromScenario]);
+  const handleRemoveGenerator = useCallback(
+    (entry: StartupGeneratorParameters) => {
+      modals.openConfirmModal({
+        title: 'Remove from scenario',
+        children: (
+          <Text size="sm">
+            Remove <b>{entry.id}</b> from scenario <b>{scenarioName}</b>? The
+            instance will not be deleted.
+          </Text>
+        ),
+        labels: { cancel: 'Cancel', confirm: 'Remove' },
+        onConfirm: () => {
+          removeFromScenario.mutate(
+            { name: scenarioName, generatorId: entry.id },
+            {
+              onSuccess: () =>
+                showSuccessNotification(
+                  'Success',
+                  'Instance removed from scenario'
+                ),
+              onError: (error) =>
+                showErrorNotification('Failed to remove instance', error),
+            }
+          );
+        },
+      });
+    },
+    [scenarioName, removeFromScenario]
+  );
 
   function handleStartAll() {
     for (const id of scenarioGeneratorIds) {
@@ -156,9 +180,10 @@ export default function ScenarioPage() {
     bulkStart.mutate(
       { ids: scenarioGeneratorIds },
       {
-        onSuccess: () => showSuccessNotification('Success', 'All scenario instances started'),
+        onSuccess: () =>
+          showSuccessNotification('Success', 'All scenario instances started'),
         onError: (e) => showErrorNotification('Failed to start instances', e),
-      },
+      }
     );
   }
 
@@ -181,9 +206,10 @@ export default function ScenarioPage() {
     bulkStop.mutate(
       { ids: scenarioGeneratorIds },
       {
-        onSuccess: () => showSuccessNotification('Success', 'All scenario instances stopped'),
+        onSuccess: () =>
+          showSuccessNotification('Success', 'All scenario instances stopped'),
         onError: (e) => showErrorNotification('Failed to stop instances', e),
-      },
+      }
     );
   }
 
@@ -197,10 +223,16 @@ export default function ScenarioPage() {
 
   function handleDiagramInstanceClick(instanceId: string) {
     setExpandedCardId(instanceId);
-    document.querySelector(`#instance-card-${CSS.escape(instanceId)}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    document
+      .querySelector(`#instance-card-${CSS.escape(instanceId)}`)
+      ?.scrollIntoView({ behavior: 'smooth', block: 'center' });
   }
 
-  function handleHighlightEdge(generatorId: string, keyName: string, direction?: 'write' | 'read') {
+  function handleHighlightEdge(
+    generatorId: string,
+    keyName: string,
+    direction?: 'write' | 'read'
+  ) {
     if (generatorId && keyName) {
       const prefix = direction ?? 'write';
       highlightEdge(`${prefix}-${generatorId}-${keyName}`);
@@ -227,7 +259,7 @@ export default function ScenarioPage() {
         <PageTitle title="Scenario" />
         <Alert
           variant="default"
-          icon={<Box c="red" component={IconAlertSquareRounded}></Box>}
+          icon={<AlertIcon variant="error" />}
           title="Failed to load scenario"
         >
           {error?.message}
@@ -237,51 +269,71 @@ export default function ScenarioPage() {
     );
   }
 
+  const hasInstances = scenarioEntries.length > 0;
+
   return (
     <Container size="100%">
-      <Stack>
-        <Group justify="space-between" align="center">
-          <Title order={3} fw="bold">
-            {scenarioName}
-          </Title>
-          <Button
-            variant="default"
-            leftSection={<IconArrowLeft size={16} />}
-            onClick={() => void navigate(ROUTE_PATHS.SCENARIOS)}
-          >
-            Back
-          </Button>
+      <Stack gap="lg">
+        <Group justify="space-between" align="center" wrap="nowrap" gap="md">
+          <Group gap="sm" align="center" wrap="nowrap" style={{ minWidth: 0 }}>
+            <ActionIcon
+              variant="subtle"
+              size="lg"
+              component={Link}
+              to={ROUTE_PATHS.SCENARIOS}
+              title="Back to scenarios"
+            >
+              <IconArrowLeft size={20} color="var(--mantine-color-dimmed)" />
+            </ActionIcon>
+            <Title
+              order={2}
+              fz="1.5rem"
+              fw={650}
+              style={{ wordBreak: 'break-all' }}
+            >
+              {scenarioName}
+            </Title>
+            {hasInstances && (
+              <>
+                <ScenarioStatusPill counts={statusCounts} />
+                <Text size="sm" c="dimmed" style={{ flexShrink: 0 }}>
+                  {statusCounts.total}{' '}
+                  {statusCounts.total === 1 ? 'instance' : 'instances'} ·{' '}
+                  {statusCounts.running} running
+                </Text>
+              </>
+            )}
+          </Group>
+
+          {hasInstances && (
+            <Group gap="xs" wrap="nowrap">
+              <Button
+                variant="default"
+                leftSection={<IconPlayerStop size={16} />}
+                onClick={handleStopAll}
+                loading={bulkStop.isPending}
+                disabled={stoppableCount(statusCounts) === 0}
+              >
+                Stop all
+              </Button>
+              <Button
+                variant="default"
+                leftSection={<IconPlayerPlay size={16} />}
+                onClick={handleStartAll}
+                loading={bulkStart.isPending}
+                disabled={startableCount(statusCounts) === 0}
+              >
+                Start all
+              </Button>
+            </Group>
+          )}
         </Group>
 
-        {scenarioEntries.length === 0 ? (
-          <Paper withBorder p="md">
-            <Stack gap="sm">
-              <Group justify="space-between" align="center">
-                <Group gap="xs">
-                  <IconPlayerPlay size={18} />
-                  <Title order={5} fw="normal">Instances</Title>
-                </Group>
-                <Button
-                  variant="default"
-                  leftSection={<IconPlus size={16} />}
-                  onClick={handleOpenAddModal}
-                >
-                  Add
-                </Button>
-              </Group>
-              <Center py="xl">
-                <Stack align="center" gap="md">
-                  <IconLayersSubtract size={48} color="gray" />
-                  <Text c="dimmed" ta="center">
-                    Add your first instances to build a scenario
-                  </Text>
-                </Stack>
-              </Center>
-            </Stack>
-          </Paper>
+        {!hasInstances ? (
+          <ScenarioEmptyState onAdd={handleOpenAddModal} />
         ) : (
-          <Grid>
-            <Grid.Col span={7}>
+          <Grid gutter="md">
+            <Grid.Col span={{ base: 12, lg: 7 }}>
               <Stack>
                 {hasGlobalKeys && (
                   <DataFlowDiagram
@@ -295,44 +347,21 @@ export default function ScenarioPage() {
                 )}
                 <Paper withBorder p="md">
                   <Stack gap="sm">
-                    <Group justify="space-between" align="center">
-                      <Group gap="sm" align="center">
-                        <Group gap="xs">
-                          <IconPlayerPlay size={18} />
-                          <Title order={5} fw="normal">Instances</Title>
-                        </Group>
-                        <Text size="xs" c="dimmed">
-                          {scenarioEntries.length} instance{scenarioEntries.length !== 1 ? 's' : ''}
-                        </Text>
-                      </Group>
-                      <Group gap="xs">
-                        <Button
-                          variant="default"
-                          leftSection={<IconPlus size={16} />}
-                          onClick={handleOpenAddModal}
-                        >
-                          Add
-                        </Button>
-                        <Button
-                          variant="default"
-                          leftSection={<IconPlayerStop size={16} />}
-                          onClick={handleStopAll}
-                          loading={bulkStop.isPending}
-                          disabled={scenarioGeneratorIds.length === 0}
-                        >
-                          Stop All
-                        </Button>
-                        <Button
-                          variant="default"
-                          leftSection={<IconPlayerPlay size={16} />}
-                          onClick={handleStartAll}
-                          loading={bulkStart.isPending}
-                          disabled={scenarioGeneratorIds.length === 0}
-                        >
-                          Start All
-                        </Button>
-                      </Group>
-                    </Group>
+                    <SectionHeader
+                      icon={<IconPlayerPlay size={18} />}
+                      title="Instances"
+                      meta={`${statusCounts.total} ${
+                        statusCounts.total === 1 ? 'instance' : 'instances'
+                      }`}
+                    >
+                      <Button
+                        variant="subtle"
+                        leftSection={<IconPlus size={16} />}
+                        onClick={handleOpenAddModal}
+                      >
+                        Add
+                      </Button>
+                    </SectionHeader>
                     <Stack gap="sm">
                       {scenarioEntries.map((entry) => (
                         <div key={entry.id} id={`instance-card-${entry.id}`}>
@@ -358,7 +387,7 @@ export default function ScenarioPage() {
                 </Paper>
               </Stack>
             </Grid.Col>
-            <Grid.Col span={5}>
+            <Grid.Col span={{ base: 12, lg: 5 }}>
               <GlobalStatePanel scenarioName={scenarioName} />
             </Grid.Col>
           </Grid>

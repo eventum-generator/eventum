@@ -1,8 +1,3 @@
----
-paths:
-  - "../docs/content/blog/**/*.mdx"
----
-
 # Blog Post Rules
 
 Blog posts live in `../docs/content/blog/` - release announcements, launches, feature highlights. Journalistic storytelling, not reference.

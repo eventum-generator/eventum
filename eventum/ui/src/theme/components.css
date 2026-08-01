@@ -1,0 +1,205 @@
+/* Chrome that the theme object cannot express: a handful of Mantine parts
+   with no CSS variable of their own, plus the app's own element classes.
+   Loaded after @mantine/core/styles.css so equal-specificity rules win. */
+
+/* ========== Mantine parts without a variable ========== */
+
+/* Headings: tighter tracking across the app. */
+.mantine-Title-root {
+  letter-spacing: -0.02em;
+}
+
+/* Table headers are micro-labels, not data. */
+.mantine-Table-th {
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--mantine-color-dimmed);
+}
+
+/* Floating panels carry the same hairline as the controls that open them;
+   Mantine gives popovers a fainter one in the light scheme. */
+.mantine-Popover-dropdown {
+  --popover-border-color: var(--mantine-color-default-border);
+}
+
+/* Select and multi-select dropdowns follow Menu and Popover onto the control
+   surface; Mantine puts them on the panel colour, which flattens them against
+   the panel they open over. */
+.mantine-Combobox-dropdown {
+  background-color: var(--mantine-color-default);
+  border-color: var(--mantine-color-default-border);
+}
+.mantine-Combobox-option:hover:not([data-combobox-selected]) {
+  background-color: var(--mantine-color-default-hover);
+}
+
+/* Neutral alerts read as an inset block rather than another panel: Mantine's
+   default variant paints them the plain control surface. The tint is a faint
+   wash of the scheme's own muted colour - enough to set the block apart, not
+   enough to turn it into a grey slab. The semantic colour stays where it
+   belongs, on the icon. */
+.mantine-Alert-root[data-variant='default'] {
+  background-color: var(--ev-canvas);
+}
+
+/* Active nav item: accent rail alongside the soft background. */
+.mantine-NavLink-root[data-active] {
+  position: relative;
+}
+.mantine-NavLink-root[data-active]::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 6px;
+  bottom: 6px;
+  width: 3px;
+  border-radius: 0 3px 3px 0;
+  background: var(--mantine-color-primary-text);
+}
+
+/* Sidebar group headers (NavLinks with children carry data-expanded):
+   light muted micro-labels so the actual items lead. */
+.mantine-NavLink-root[data-expanded] .mantine-NavLink-label {
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--mantine-color-dimmed);
+}
+
+/* Sign-in brand gradient: a 3-stop purple->cyan that holds purple to 24% so
+   cyan only trails in as an accent, instead of the even split Mantine builds
+   from defaultGradient. !important beats the inline --button-bg. */
+.mantine-Button-root[data-variant='gradient'] {
+  --button-bg: linear-gradient(
+    12deg,
+    var(--mantine-color-primary-4) 0%,
+    var(--mantine-color-primary-4) 24%,
+    var(--mantine-color-cyan-4) 100%
+  ) !important;
+  --button-hover: var(--button-bg) !important;
+}
+.mantine-Button-root[data-variant='gradient']:not([data-disabled]):not(
+    [data-loading]
+  ):hover {
+  filter: brightness(1.08);
+}
+
+/* Scrollbars */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--mantine-color-placeholder) transparent;
+}
+
+/* ========== App element classes ========== */
+
+/* Copy affordance revealed on row hover (e.g. Secrets name) - hidden at rest
+   so the row stays calm, shown on hover or keyboard focus. */
+.ev-copy-btn {
+  opacity: 0;
+  transition: opacity 120ms ease;
+}
+.mantine-Table-tr:hover .ev-copy-btn,
+.ev-copy-btn:focus-visible {
+  opacity: 1;
+}
+
+/* Instance chips (Projects table): match the status pill metrics (height 24,
+   12px text) and keep the id lowercase, so both badge families read as one
+   system - the chip stays neutral and clickable, the status pill keeps its
+   semantic colour. */
+.mantine-Badge-root.ev-instance-chip {
+  height: 24px;
+  /* A neutral tint so the chip reads as a chip on a white panel too, where
+     the default variant would be white on white. */
+  background-color: var(--mantine-color-gray-light);
+}
+.ev-instance-chip .mantine-Badge-label {
+  font-size: 12px;
+  font-weight: 500;
+  text-transform: none;
+}
+.ev-chip-more .mantine-Badge-label {
+  color: var(--mantine-color-dimmed);
+}
+
+/* Badges rendered as links (breadcrumbs, instance chips): show a pointer
+   (Mantine's root cursor:default otherwise wins over the <a> default) and
+   brighten on hover. */
+a.mantine-Badge-root {
+  cursor: pointer;
+}
+a.mantine-Badge-root:hover {
+  color: var(--mantine-color-primary-text);
+  border-color: var(--mantine-color-placeholder);
+}
+a.ev-chip-more:hover .mantine-Badge-label {
+  color: var(--mantine-color-primary-text);
+}
+
+/* Record / navigation links: one style everywhere. Plain text colour at rest
+   so dense tables and meta lines stay calm, highlighting to the accent on
+   hover, never underlined. `a.` beats Mantine's .mantine-Anchor-root colour. */
+a.ev-record-link {
+  color: inherit;
+  transition: color 120ms ease;
+}
+a.ev-record-link:hover {
+  color: var(--mantine-color-primary-text);
+}
+
+/* Clickable list rows (Home recent projects / instances): a neutral hover
+   state layer so the row reads as an active click target, matching table-row
+   and menu-item hover. (Mantine v8 drops the `styles={{root:{'&:hover'}}}`
+   nested-selector form, so the hover must live in real CSS.) */
+.ev-row-button {
+  transition: background-color 120ms ease;
+}
+.ev-row-button:hover {
+  background-color: var(--mantine-color-default-hover);
+}
+
+/* Clickable tiles (Home explore): accent border on hover. */
+.ev-tile-button {
+  transition: border-color 120ms ease;
+}
+.ev-tile-button:hover {
+  border-color: var(--mantine-color-primary-text);
+}
+
+/* Instance status indicator. The call site passes the palette colours in as
+   --ev-dot and --ev-dot-glow. A live instance wears a halo of its own colour
+   (the ring the debugger's running dot carries); the states at rest have
+   none, so being lit is what reads as running. */
+.ev-status-dot {
+  display: block;
+  width: var(--ev-dot-size, 7px);
+  height: var(--ev-dot-size, 7px);
+  border-radius: 50%;
+  flex-shrink: 0;
+  background: var(--ev-dot);
+}
+.ev-status-dot[data-glow='true'] {
+  box-shadow: 0 0 0 3px var(--ev-dot-glow);
+}
+
+/* Mid-transition (starting / stopping): the halo breathes. */
+.ev-status-dot[data-processing='true'] {
+  animation: ev-pulse 2s infinite;
+}
+@keyframes ev-pulse {
+  0%,
+  100% {
+    box-shadow: 0 0 0 3px var(--ev-dot-glow);
+  }
+  70% {
+    box-shadow: 0 0 0 8px transparent;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .ev-status-dot[data-processing='true'] {
+    animation: none;
+  }
+}

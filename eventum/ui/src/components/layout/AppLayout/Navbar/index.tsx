@@ -1,7 +1,7 @@
 import { Box, Divider, NavLink, Stack } from '@mantine/core';
 import { IconHome } from '@tabler/icons-react';
 import { FC } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
 
 import {
   BOTTOM_NAVIGATION_DATA,
@@ -11,7 +11,7 @@ import {
 import { ROUTE_PATHS } from '@/routing/paths';
 
 export const Navbar: FC = () => {
-  const navigate = useNavigate();
+  const { pathname } = useLocation();
 
   return (
     <Stack gap="0" h="100%" justify="space-between">
@@ -19,16 +19,18 @@ export const Navbar: FC = () => {
         <NavLink
           label="Home"
           leftSection={<IconHome size="19px" />}
-          active={location.pathname === ROUTE_PATHS.ROOT}
-          onClick={() => void navigate(ROUTE_PATHS.ROOT)}
+          active={pathname === ROUTE_PATHS.ROOT}
+          component={Link}
+          to={ROUTE_PATHS.ROOT}
         />
         {TOP_NAVIGATION_DATA.map((item) => (
           <NavLink
             label={item.label}
             key={item.label}
             leftSection={<item.icon size="19px" />}
-            active={location.pathname.startsWith(item.pathname)}
-            onClick={() => void navigate(item.pathname)}
+            active={pathname.startsWith(item.pathname)}
+            component={Link}
+            to={item.pathname}
           />
         ))}
         {NAVIGATION_DATA.map((group) => (
@@ -40,8 +42,9 @@ export const Navbar: FC = () => {
                   label={item.label}
                   key={item.label}
                   leftSection={<item.icon size="19px" />}
-                  active={location.pathname.startsWith(item.pathname)}
-                  onClick={() => void navigate(item.pathname)}
+                  active={pathname.startsWith(item.pathname)}
+                  component={Link}
+                  to={item.pathname}
                 />
               ))}
             </NavLink>

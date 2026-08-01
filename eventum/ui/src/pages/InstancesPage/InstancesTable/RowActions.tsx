@@ -2,6 +2,8 @@ import { Menu, Text } from '@mantine/core';
 import { modals } from '@mantine/modals';
 import { notifications } from '@mantine/notifications';
 import {
+  IconCopy,
+  IconCursorText,
   IconEdit,
   IconGauge,
   IconLogs,
@@ -10,9 +12,11 @@ import {
   IconTrash,
 } from '@tabler/icons-react';
 import { FC, ReactNode } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 
-import { MetricsModal } from './MetricsModal';
+import { CloneInstanceModal } from '../CloneInstanceModal';
+import { RenameInstanceModal } from '../RenameInstanceModal';
+import { InstanceMetrics } from './metrics/InstanceMetrics';
 import {
   useDeleteGeneratorMutation,
   useStartGeneratorMutation,
@@ -25,33 +29,57 @@ import { GeneratorStatus } from '@/api/routes/generators/schemas';
 import { LogsModal } from '@/components/modals/LogsModal';
 import { ShowErrorDetailsAnchor } from '@/components/ui/ShowErrorDetailsAnchor';
 import { ROUTE_PATHS } from '@/routing/paths';
+import { CONFIRM } from '@/theme/copy';
 
 interface RowActionsProps {
   target: ReactNode;
   instanceId: string;
   instanceStatus: GeneratorStatus;
+  existingInstanceIds: string[];
 }
 
 export const RowActions: FC<RowActionsProps> = ({
   target,
   instanceId,
   instanceStatus,
+  existingInstanceIds,
 }) => {
-  const navigate = useNavigate();
   const startGenerator = useStartGeneratorMutation();
   const stopGenerator = useStopGeneratorMutation();
   const deleteGenerator = useDeleteGeneratorMutation();
   const deleteGeneratorFromStartup = useDeleteGeneratorFromStartupMutation();
   const updateGeneratorStatus = useUpdateGeneratorStatus();
 
-  function handleEdit() {
-    void navigate(`${ROUTE_PATHS.INSTANCES}/${instanceId}`);
+  function handleClone() {
+    modals.open({
+      title: 'Clone instance',
+      children: (
+        <CloneInstanceModal
+          sourceInstanceId={instanceId}
+          existingInstanceIds={existingInstanceIds}
+        />
+      ),
+      size: 'lg',
+    });
+  }
+
+  function handleRename() {
+    modals.open({
+      title: 'Rename instance',
+      children: (
+        <RenameInstanceModal
+          instanceId={instanceId}
+          existingInstanceIds={existingInstanceIds}
+        />
+      ),
+      size: 'md',
+    });
   }
 
   function handleShowMetrics() {
     modals.open({
       title: `Instance metrics`,
-      children: <MetricsModal instanceId={instanceId} />,
+      children: <InstanceMetrics instanceId={instanceId} />,
       size: '70vw',
     });
   }
@@ -195,8 +223,26 @@ export const RowActions: FC<RowActionsProps> = ({
       <Menu.Target>{target}</Menu.Target>
 
       <Menu.Dropdown>
-        <Menu.Item leftSection={<IconEdit size={14} />} onClick={handleEdit}>
+        <Menu.Item
+          component={Link}
+          to={`${ROUTE_PATHS.INSTANCES}/${instanceId}`}
+          leftSection={<IconEdit size={14} />}
+        >
           Edit
+        </Menu.Item>
+        <Menu.Item
+          leftSection={<IconCursorText size={14} />}
+          onClick={handleRename}
+          disabled={
+            instanceStatus.is_initializing ||
+            instanceStatus.is_running ||
+            instanceStatus.is_stopping
+          }
+        >
+          Rename
+        </Menu.Item>
+        <Menu.Item leftSection={<IconCopy size={14} />} onClick={handleClone}>
+          Clone
         </Menu.Item>
 
         <Menu.Divider />
@@ -239,18 +285,18 @@ export const RowActions: FC<RowActionsProps> = ({
         <Menu.Divider />
 
         <Menu.Item
-          color="red"
+          color="var(--mantine-color-red-text)"
           leftSection={<IconTrash size={14} />}
           onClick={() =>
             modals.openConfirmModal({
-              title: 'Deleting instance',
+              title: CONFIRM.deleteInstance.title,
               children: (
-                <Text size="sm">
-                  Instance <b>{instanceId}</b> will be deleted. Do you want to
-                  continue?
-                </Text>
+                <Text size="sm">{CONFIRM.deleteInstance.body(instanceId)}</Text>
               ),
-              labels: { cancel: 'Cancel', confirm: 'Confirm' },
+              labels: {
+                cancel: CONFIRM.deleteInstance.cancel,
+                confirm: CONFIRM.deleteInstance.confirm,
+              },
               onConfirm: handleDelete,
             })
           }

@@ -7,15 +7,17 @@ import {
   Radio,
   Stack,
   Switch,
+  TagsInput,
   Text,
   TextInput,
   Tooltip,
 } from '@mantine/core';
 import { UseFormReturnType } from '@mantine/form';
-import { IconAlertTriangle, IconLockExclamation } from '@tabler/icons-react';
+import { IconLockExclamation } from '@tabler/icons-react';
 import { FC } from 'react';
 
 import { ServerParameters } from '@/api/routes/instance/schemas';
+import { AlertIcon } from '@/components/ui/AlertIcon';
 import { LabelWithTooltip } from '@/components/ui/LabelWithTooltip';
 
 interface ServerParametersSectionProps {
@@ -35,8 +37,8 @@ export const ServerParametersSection: FC<ServerParametersSectionProps> = ({
               tooltip="Eventum API is used for external app control and for serving web interface"
             />
           }
-          {...form.getInputProps('api_enabled', { type: 'checkbox' })}
-          key={form.key('api_enabled')}
+          {...form.getInputProps('api.enabled', { type: 'checkbox' })}
+          key={form.key('api.enabled')}
         />
         <Switch
           label={
@@ -45,16 +47,16 @@ export const ServerParametersSection: FC<ServerParametersSectionProps> = ({
               tooltip="Whether to enable web interface service that you are currently use"
             />
           }
-          {...form.getInputProps('ui_enabled', { type: 'checkbox' })}
-          key={form.key('ui_enabled')}
+          {...form.getInputProps('ui.enabled', { type: 'checkbox' })}
+          key={form.key('ui.enabled')}
         />
       </Group>
 
       <Alert
         variant="default"
-        icon={<Box c="orange" component={IconAlertTriangle}></Box>}
+        icon={<AlertIcon variant="warn" />}
         title="Disabling API"
-        hidden={form.getValues().api_enabled}
+        hidden={form.getValues().api?.enabled}
       >
         Web interface will not be functional after disabling API.
       </Alert>
@@ -69,8 +71,8 @@ export const ServerParametersSection: FC<ServerParametersSectionProps> = ({
           placeholder="hostname or IP"
           disabled={
             !(
-              form.getValues().api_enabled === true ||
-              form.getValues().ui_enabled === true
+              form.getValues().api?.enabled === true ||
+              form.getValues().ui?.enabled === true
             )
           }
           {...form.getInputProps('host')}
@@ -89,8 +91,8 @@ export const ServerParametersSection: FC<ServerParametersSectionProps> = ({
           max={65_535}
           disabled={
             !(
-              form.getValues().api_enabled === true ||
-              form.getValues().ui_enabled === true
+              form.getValues().api?.enabled === true ||
+              form.getValues().ui?.enabled === true
             )
           }
           {...form.getInputProps('port')}
@@ -105,8 +107,8 @@ export const ServerParametersSection: FC<ServerParametersSectionProps> = ({
         label="Enable SSL"
         disabled={
           !(
-            form.getValues().api_enabled === true ||
-            form.getValues().ui_enabled === true
+            form.getValues().api?.enabled === true ||
+            form.getValues().ui?.enabled === true
           )
         }
         {...form.getInputProps('ssl.enabled', {
@@ -133,8 +135,8 @@ export const ServerParametersSection: FC<ServerParametersSectionProps> = ({
               <Radio
                 disabled={
                   !(
-                    form.getValues().api_enabled === true ||
-                    form.getValues().ui_enabled === true
+                    form.getValues().api?.enabled === true ||
+                    form.getValues().ui?.enabled === true
                   ) || !form.getValues().ssl?.enabled
                 }
                 value="none"
@@ -153,8 +155,8 @@ export const ServerParametersSection: FC<ServerParametersSectionProps> = ({
               <Radio
                 disabled={
                   !(
-                    form.getValues().api_enabled === true ||
-                    form.getValues().ui_enabled === true
+                    form.getValues().api?.enabled === true ||
+                    form.getValues().ui?.enabled === true
                   ) || !form.getValues().ssl?.enabled
                 }
                 value="optional"
@@ -173,8 +175,8 @@ export const ServerParametersSection: FC<ServerParametersSectionProps> = ({
               <Radio
                 disabled={
                   !(
-                    form.getValues().api_enabled === true ||
-                    form.getValues().ui_enabled === true
+                    form.getValues().api?.enabled === true ||
+                    form.getValues().ui?.enabled === true
                   ) || !form.getValues().ssl?.enabled
                 }
                 value="required"
@@ -194,8 +196,8 @@ export const ServerParametersSection: FC<ServerParametersSectionProps> = ({
         placeholder="/path/to/ca-cert.pem"
         disabled={
           !(
-            form.getValues().api_enabled === true ||
-            form.getValues().ui_enabled === true
+            form.getValues().api?.enabled === true ||
+            form.getValues().ui?.enabled === true
           ) || !form.getValues().ssl?.enabled
         }
         {...form.getInputProps('ssl.ca_cert')}
@@ -211,8 +213,8 @@ export const ServerParametersSection: FC<ServerParametersSectionProps> = ({
         placeholder="/path/to/cert.pem"
         disabled={
           !(
-            form.getValues().api_enabled === true ||
-            form.getValues().ui_enabled === true
+            form.getValues().api?.enabled === true ||
+            form.getValues().ui?.enabled === true
           ) || !form.getValues().ssl?.enabled
         }
         {...form.getInputProps('ssl.cert')}
@@ -228,8 +230,8 @@ export const ServerParametersSection: FC<ServerParametersSectionProps> = ({
         placeholder="/path/to/key.pem"
         disabled={
           !(
-            form.getValues().api_enabled === true ||
-            form.getValues().ui_enabled === true
+            form.getValues().api?.enabled === true ||
+            form.getValues().ui?.enabled === true
           ) || !form.getValues().ssl?.enabled
         }
         {...form.getInputProps('ssl.cert_key')}
@@ -249,8 +251,8 @@ export const ServerParametersSection: FC<ServerParametersSectionProps> = ({
           }
           disabled={
             !(
-              form.getValues().api_enabled === true ||
-              form.getValues().ui_enabled === true
+              form.getValues().api?.enabled === true ||
+              form.getValues().ui?.enabled === true
             )
           }
           {...form.getInputProps('auth.user')}
@@ -265,8 +267,8 @@ export const ServerParametersSection: FC<ServerParametersSectionProps> = ({
           }
           disabled={
             !(
-              form.getValues().api_enabled === true ||
-              form.getValues().ui_enabled === true
+              form.getValues().api?.enabled === true ||
+              form.getValues().ui?.enabled === true
             )
           }
           {...form.getInputProps('auth.password')}
@@ -275,12 +277,75 @@ export const ServerParametersSection: FC<ServerParametersSectionProps> = ({
       </Group>
       <Alert
         variant="default"
-        icon={<Box c="orange" component={IconLockExclamation} />}
+        icon={<Box c="yellow" component={IconLockExclamation} />}
         title="Security notification"
       >
         Username and password are parameters in configuration file that stored
         in <b>plain text</b>.
       </Alert>
+
+      <Text size="sm" fw="bold" mt="md">
+        MCP
+      </Text>
+      <Group>
+        <Switch
+          label={
+            <LabelWithTooltip
+              label="Enable MCP server"
+              tooltip="Mount the MCP server over HTTP so connected agents can manage Eventum"
+            />
+          }
+          {...form.getInputProps('mcp.enabled', { type: 'checkbox' })}
+          key={form.key('mcp.enabled')}
+        />
+        <Switch
+          label={
+            <LabelWithTooltip
+              label="Allow write tools"
+              tooltip="Permit MCP write tools over HTTP. A connected agent can write and preview generators, and some plugins execute code on the host"
+            />
+          }
+          disabled={!form.getValues().mcp?.enabled}
+          {...form.getInputProps('mcp.allow_write', { type: 'checkbox' })}
+          key={form.key('mcp.allow_write')}
+        />
+      </Group>
+      <Alert
+        variant="default"
+        icon={<AlertIcon variant="warn" />}
+        title="Write tools enabled"
+        hidden={!form.getValues().mcp?.allow_write}
+      >
+        A connected agent can write and preview generators, and some plugins
+        execute code on the host. Enable only on trusted networks with trusted
+        agents.
+      </Alert>
+      <TextInput
+        label={
+          <LabelWithTooltip
+            label="Mount path"
+            tooltip="Mount path for the MCP HTTP endpoint"
+          />
+        }
+        placeholder="/mcp"
+        disabled={!form.getValues().mcp?.enabled}
+        {...form.getInputProps('mcp.path')}
+        key={form.key('mcp.path')}
+      />
+      <TagsInput
+        label={
+          <LabelWithTooltip
+            label="Allowed hosts"
+            tooltip="Allowed Host header values for DNS-rebinding protection. Leave empty to disable the check (suitable behind a trusted reverse proxy)"
+          />
+        }
+        placeholder="Press Enter to submit a host"
+        disabled={!form.getValues().mcp?.enabled}
+        {...form.getInputProps('mcp.allowed_hosts')}
+        value={form.getValues().mcp?.allowed_hosts ?? []}
+        onChange={(value) => form.setFieldValue('mcp.allowed_hosts', value)}
+        key={form.key('mcp.allowed_hosts')}
+      />
     </Stack>
   );
 };

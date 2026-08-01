@@ -11,6 +11,7 @@ import {
   getGeneratorStatus,
   getRunningGeneratorsStats,
   listGenerators,
+  renameGenerator,
   startGenerator,
   stopGenerator,
   updateGenerator,
@@ -82,17 +83,39 @@ export function useDeleteGeneratorMutation() {
   });
 }
 
-export function useGeneratorStatus(id: string) {
-  return useQuery({
-    queryKey: [...GENERATORS_QUERY_KEY, id, 'status'],
-    queryFn: () => getGeneratorStatus(id),
+export function useRenameGeneratorMutation() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({ id, newId }: { id: string; newId: string }) =>
+      renameGenerator(id, newId),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({
+        queryKey: GENERATORS_QUERY_KEY,
+        exact: true,
+      });
+      await queryClient.invalidateQueries({ queryKey: ['startup'] });
+      await queryClient.invalidateQueries({ queryKey: ['scenarios'] });
+    },
   });
 }
 
-export function useGeneratorStats(id: string) {
+export function useGeneratorStatus(
+  id: string,
+  options?: { refetchInterval?: number | false }
+) {
+  return useQuery({
+    queryKey: [...GENERATORS_QUERY_KEY, id, 'status'],
+    queryFn: () => getGeneratorStatus(id),
+    refetchInterval: options?.refetchInterval,
+  });
+}
+
+export function useGeneratorStats(id: string, options?: { enabled?: boolean }) {
   return useQuery({
     queryKey: [...GENERATORS_QUERY_KEY, id, 'stats'],
     queryFn: () => getGeneratorStats(id),
+    enabled: options?.enabled ?? true,
   });
 }
 
@@ -200,4 +223,3 @@ export function useUpdateGeneratorStatus() {
     },
   });
 }
-

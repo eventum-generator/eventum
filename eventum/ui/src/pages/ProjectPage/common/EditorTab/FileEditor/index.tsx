@@ -1,50 +1,74 @@
-import { autocompletion } from '@codemirror/autocomplete';
-import { jinja } from '@codemirror/lang-jinja';
-import { json } from '@codemirror/lang-json';
-import { markdown } from '@codemirror/lang-markdown';
-import { python } from '@codemirror/lang-python';
-import { yaml } from '@codemirror/lang-yaml';
 import { keymap } from '@codemirror/view';
-import {
-  Alert,
-  Box,
-  Skeleton,
-  Stack,
-  useMantineColorScheme,
-} from '@mantine/core';
+import { Alert, Box, Skeleton, useMantineColorScheme } from '@mantine/core';
 import { notifications } from '@mantine/notifications';
-import { IconAlertSquareRounded } from '@tabler/icons-react';
-import { vscodeDark, vscodeLight } from '@uiw/codemirror-theme-vscode';
 import CodeMirror from '@uiw/react-codemirror';
-import { FC, useEffect, useState } from 'react';
+import bytes from 'bytes';
+import { FC, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 
-import { jinjaCompletion } from './completions';
+import { SearchPanel } from './SearchPanel';
+import { SearchPanelHandle, searchPanel } from './SearchPanel/extension';
+import { languageExtensions } from './language';
 import {
   useGeneratorFileContent,
+  useGeneratorFileTree,
   usePutGeneratorFileMutation,
 } from '@/api/hooks/useGeneratorConfigs';
+import { findFileNode } from '@/api/routes/generator-configs/modules/file-tree';
+import { AlertIcon } from '@/components/ui/AlertIcon';
 import { ShowErrorDetailsAnchor } from '@/components/ui/ShowErrorDetailsAnchor';
 import { useProjectName } from '@/pages/ProjectPage/hooks/useProjectName';
+import { cmTheme } from '@/theme/codemirror';
+
+// Files above this size are not requested at all: transferring one takes
+// as long as the link needs, and the editor cannot usefully display it.
+// Generator output files are the usual case - they grow without a bound.
+const MAX_EDITABLE_SIZE = 10 * 1024 * 1024;
 
 export interface FileEditorProps {
   filePath: string;
   setSaved: (saved: boolean) => void;
+  height?: string;
+  registerSave?: (save: () => void) => void;
 }
 
-export const FileEditor: FC<FileEditorProps> = ({ filePath, setSaved }) => {
+export const FileEditor: FC<FileEditorProps> = ({
+  filePath,
+  setSaved,
+  height = '65vh',
+  registerSave,
+}) => {
   const { colorScheme } = useMantineColorScheme();
   const { projectName } = useProjectName();
+
+  // The file tree carries the size of every file, so an oversized file is
+  // recognized before its content is requested. Until the tree resolves
+  // the size is unknown and the request waits.
+  const { data: fileTree, isPending: isFileTreePending } =
+    useGeneratorFileTree(projectName);
+  const fileSize =
+    fileTree === undefined
+      ? null
+      : (findFileNode(fileTree, filePath)?.size_in_bytes ?? null);
+  const isTooLarge = fileSize !== null && fileSize > MAX_EDITABLE_SIZE;
+
   const {
     data: fileContent,
     isLoading: isContentLoading,
     isError: isContentError,
     error: contentError,
     isSuccess: isContentSuccess,
-  } = useGeneratorFileContent(projectName, filePath);
+  } = useGeneratorFileContent(projectName, filePath, {
+    enabled: !isFileTreePending && !isTooLarge,
+  });
   const updateFile = usePutGeneratorFileMutation();
 
   const [content, setContent] = useState<string>('');
   const [isTouched, setTouched] = useState(false);
+
+  const [searchHandle, setSearchHandle] = useState<SearchPanelHandle | null>(
+    null
+  );
 
   useEffect(() => {
     if (isContentSuccess) {
@@ -84,72 +108,94 @@ export const FileEditor: FC<FileEditorProps> = ({ filePath, setSaved }) => {
     );
   }
 
-  const saveKeymap = keymap.of([
-    {
-      key: 'Mod-s',
-      preventDefault: true,
-      run: () => {
-        handleSave();
-        return true;
-      },
-    },
-  ]);
+  // Expose the current save to the studio (visible Save button, Save all).
+  const saveRef = useRef(handleSave);
+  saveRef.current = handleSave;
+  useEffect(() => {
+    registerSave?.(() => saveRef.current());
+  }, [registerSave]);
 
-  const extensions = [];
+  // The editor rebuilds its whole configuration whenever this array or the
+  // change handler changes identity, so both stay stable while the file is
+  // edited. The keymap goes through the save ref for the same reason: the
+  // save closes over the content and is rebuilt on every keystroke.
+  const extensions = useMemo(
+    () => [
+      ...languageExtensions(filePath),
+      keymap.of([
+        {
+          key: 'Mod-s',
+          preventDefault: true,
+          run: () => {
+            saveRef.current();
+            return true;
+          },
+        },
+      ]),
+      // The search panel is a CodeMirror panel with a React body: the
+      // extension hands over the element it mounted, the controls are
+      // rendered into it.
+      searchPanel({
+        onOpen: setSearchHandle,
+        onClose: (closed) =>
+          setSearchHandle((current) => (current === closed ? null : current)),
+      }),
+    ],
+    [filePath]
+  );
 
-  if (filePath.endsWith('.jinja')) {
-    extensions.push(
-      jinja(),
-      autocompletion({
-        override: [jinjaCompletion],
-      })
+  const handleChange = useCallback((value: string) => {
+    setContent(value);
+    setTouched(true);
+  }, []);
+
+  if (isTooLarge) {
+    return (
+      <Box p="md">
+        <Alert
+          variant="default"
+          icon={<AlertIcon variant="warn" />}
+          title="File is too large to open"
+        >
+          {bytes(fileSize)} exceeds the editor limit of{' '}
+          {bytes(MAX_EDITABLE_SIZE)}. Open the file outside of Studio.
+        </Alert>
+      </Box>
     );
-  } else if (filePath.endsWith('.py')) {
-    extensions.push(python());
-  } else if (filePath.endsWith('.json')) {
-    extensions.push(json());
-  } else if (/\.ya?ml$/.test(filePath)) {
-    extensions.push(yaml());
-  } else if (filePath.endsWith('.md')) {
-    extensions.push(markdown());
   }
 
-  extensions.push(saveKeymap);
-
-  if (isContentLoading) {
-    return <Skeleton h="60vh" />;
+  if (isFileTreePending || isContentLoading) {
+    return <Skeleton h={height} />;
   }
 
   if (isContentError) {
     return (
-      <Alert
-        variant="default"
-        icon={<Box c="red" component={IconAlertSquareRounded}></Box>}
-        title="Failed to load file content"
-      >
-        {contentError.message}
-        <ShowErrorDetailsAnchor error={contentError} prependDot />
-      </Alert>
+      <Box p="md">
+        <Alert
+          variant="default"
+          icon={<AlertIcon variant="error" />}
+          title="Failed to load file content"
+        >
+          {contentError.message}
+          <ShowErrorDetailsAnchor error={contentError} prependDot />
+        </Alert>
+      </Box>
     );
   }
 
   if (isContentSuccess) {
     return (
-      <Stack gap="xs">
+      <>
         <CodeMirror
           value={content}
-          onChange={(value) => {
-            setContent(value);
-
-            if (!isTouched) {
-              setTouched(true);
-            }
-          }}
-          height="65vh"
+          onChange={handleChange}
+          height={height}
           extensions={extensions}
-          theme={colorScheme === 'dark' ? vscodeDark : vscodeLight}
+          theme={cmTheme(colorScheme)}
         />
-      </Stack>
+        {searchHandle &&
+          createPortal(<SearchPanel handle={searchHandle} />, searchHandle.dom)}
+      </>
     );
   }
 

@@ -10,7 +10,7 @@ import { Box, Stack, Text } from '@mantine/core';
 import { modals } from '@mantine/modals';
 import { notifications } from '@mantine/notifications';
 import { dirname, join } from 'pathe';
-import { FC, useEffect } from 'react';
+import { CSSProperties, FC, useEffect } from 'react';
 
 import { TreeItem } from './TreeItem';
 import {
@@ -19,11 +19,13 @@ import {
   useMoveGeneratorFileMutation,
   useUploadGeneratorFileMutation,
 } from '@/api/hooks/useGeneratorConfigs';
+import { useInstanceSettings } from '@/api/hooks/useInstance';
 import { createFileTreeLookup } from '@/api/routes/generator-configs/modules/file-tree';
 import { FileNode } from '@/api/routes/generator-configs/schemas';
 import { ShowErrorDetailsAnchor } from '@/components/ui/ShowErrorDetailsAnchor';
 import { useFileTree } from '@/pages/ProjectPage/hooks/useFileTree';
 import { useProjectName } from '@/pages/ProjectPage/hooks/useProjectName';
+import { CONFIRM } from '@/theme/copy';
 
 interface TreeProps {
   fileTreeLookup: ReturnType<typeof createFileTreeLookup>;
@@ -38,6 +40,18 @@ export const Tree: FC<TreeProps> = ({ fileTreeLookup }) => {
   const uploadFile = useUploadGeneratorFileMutation();
   const createDir = useCreateGeneratorDirectoryMutation();
   const deleteFile = useDeleteGeneratorFileMutation();
+
+  const { data: instanceSettings } = useInstanceSettings();
+  const configFilename =
+    instanceSettings?.path.generator_config_filename ?? 'generator.yml';
+
+  function notifyConfigProtected() {
+    notifications.show({
+      title: 'Protected file',
+      message: `"${configFilename}" is required to open the project and cannot be renamed, moved or deleted.`,
+      color: 'yellow',
+    });
+  }
 
   function showError(error: unknown, message: string) {
     notifications.show({
@@ -136,14 +150,20 @@ export const Tree: FC<TreeProps> = ({ fileTreeLookup }) => {
     initialState: {},
     rootItemId: '',
     getItemName: (item) => item.getItemData().name,
-    isItemFolder: (item) => item.getItemData().is_dir,
+    // The root item ('') has no data entry in the lookup, so treat it as a
+    // folder explicitly - otherwise headless-tree rejects drops onto the root
+    // level (reparenting a nested item back out to the top).
+    isItemFolder: (item) => item.getId() === '' || item.getItemData().is_dir,
     openOnDropDelay: 500,
+    canReorder: true,
+    canDrag: (items) => items.every((item) => item.getId() !== configFilename),
     indent: 20,
     dataLoader: {
       getItem: (itemId) =>
         fileTreeLookup.items.get(itemId) ?? {
           name: '',
           is_dir: false,
+          size_in_bytes: null,
           children: [],
         },
       getChildren: (itemId) => fileTreeLookup.children.get(itemId) ?? [],
@@ -152,6 +172,11 @@ export const Tree: FC<TreeProps> = ({ fileTreeLookup }) => {
       setSelectedItem(item);
     },
     onRename: (item, newName) => {
+      if (item.getId() === configFilename) {
+        notifyConfigProtected();
+        return;
+      }
+
       const oldName = item.getItemName();
       const directory = dirname(item.getId());
 
@@ -160,13 +185,20 @@ export const Tree: FC<TreeProps> = ({ fileTreeLookup }) => {
       handleMoveFile(source, destination);
     },
     onDrop: (items, target) => {
-      const destination = target.item.getId();
+      const targetId = target.item.getId();
+      const isRoot = targetId === '';
+
+      // Only reparent into folders (or the project root); never onto a file.
+      if (!isRoot && !target.item.isFolder()) {
+        return;
+      }
+
+      const destination = isRoot ? '.' : targetId;
 
       for (const item of items) {
         const source = item.getId();
-        const sourceDirectory = dirname(source);
 
-        if (sourceDirectory === destination) {
+        if (dirname(source) === destination) {
           continue;
         }
 
@@ -192,15 +224,21 @@ export const Tree: FC<TreeProps> = ({ fileTreeLookup }) => {
 
           if (items.length > 0) {
             const item = items[0]!;
+
+            if (item.getId() === configFilename) {
+              notifyConfigProtected();
+              return;
+            }
+
             modals.openConfirmModal({
-              title: 'Deleting file',
+              title: CONFIRM.deleteFile.title,
               children: (
-                <Text size="sm">
-                  File &quot;<b>{item.getId()}</b>&quot; will be deleted. Do you
-                  want to continue?
-                </Text>
+                <Text size="sm">{CONFIRM.deleteFile.body(item.getId())}</Text>
               ),
-              labels: { confirm: 'Confirm', cancel: 'Cancel' },
+              labels: {
+                confirm: CONFIRM.deleteFile.confirm,
+                cancel: CONFIRM.deleteFile.cancel,
+              },
               onConfirm: () => handleDeleteFile(item.getId()),
             });
           }
@@ -231,21 +269,38 @@ export const Tree: FC<TreeProps> = ({ fileTreeLookup }) => {
   }, [tree, fileTreeLookup]);
 
   return (
-    <Stack {...tree.getContainerProps()} className="tree" gap="0">
-      {tree.getItems().map((item) => (
-        <Box
-          {...item.getProps()}
-          key={item.getId()}
-          ml={`${item.getItemMeta().level * 10}px`}
-        >
-          <TreeItem
-            item={item}
-            onCreateDir={handleCreateDir}
-            onCreateFile={handleCreateEmptyFile}
-            onDeleteFile={handleDeleteFile}
-          />
-        </Box>
-      ))}
+    <Stack
+      {...tree.getContainerProps()}
+      className="tree"
+      gap="0"
+      pos="relative"
+    >
+      {tree.getItems().map((item) => {
+        const itemProps = item.getProps();
+        const itemStyle = itemProps.style as CSSProperties | undefined;
+        // Indent via paddingLeft matched to `indent` (not margin) so the item
+        // box left edge stays at the container edge - headless-tree derives the
+        // drop level from that, which the drag-to-root gesture depends on.
+        return (
+          <Box
+            {...itemProps}
+            key={item.getId()}
+            style={{
+              ...itemStyle,
+              paddingLeft: `${item.getItemMeta().level * 20}px`,
+            }}
+          >
+            <TreeItem
+              item={item}
+              isConfigFile={item.getId() === configFilename}
+              onCreateDir={handleCreateDir}
+              onCreateFile={handleCreateEmptyFile}
+              onDeleteFile={handleDeleteFile}
+            />
+          </Box>
+        );
+      })}
+      <div style={tree.getDragLineStyle()} className="dragline" />
     </Stack>
   );
 };

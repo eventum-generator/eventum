@@ -1,11 +1,11 @@
-import { Alert, Box, Skeleton, Stack } from '@mantine/core';
-import { IconAlertSquareRounded } from '@tabler/icons-react';
+import { Alert, Skeleton, Stack } from '@mantine/core';
 import { FC, useMemo } from 'react';
 
 import { useProjectName } from '../../hooks/useProjectName';
 import { Tree } from './Tree';
 import { useGeneratorFileTree } from '@/api/hooks/useGeneratorConfigs';
 import { createFileTreeLookup } from '@/api/routes/generator-configs/modules/file-tree';
+import { AlertIcon } from '@/components/ui/AlertIcon';
 import { ShowErrorDetailsAnchor } from '@/components/ui/ShowErrorDetailsAnchor';
 
 export const FileTree: FC = () => {
@@ -38,7 +38,7 @@ export const FileTree: FC = () => {
       {isFileTreeError && (
         <Alert
           variant="default"
-          icon={<Box c="red" component={IconAlertSquareRounded}></Box>}
+          icon={<AlertIcon variant="error" />}
           title="Failed to load list of project files"
         >
           {fileTreeError.message}

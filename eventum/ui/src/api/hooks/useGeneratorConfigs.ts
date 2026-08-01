@@ -1,4 +1,5 @@
 import {
+  QueryClient,
   UseQueryResult,
   useMutation,
   useQuery,
@@ -22,6 +23,7 @@ import {
   listGeneratorDirs,
   moveGeneratorFile,
   putGeneratorFile,
+  renameGeneratorConfig,
   updateGeneratorConfig,
   uploadGeneratorFile,
 } from '@/api/routes/generator-configs';
@@ -30,11 +32,23 @@ const GENERATOR_CONFIG_DIRS_QUERY_KEY = ['generator-config-dirs'];
 const GENERATOR_CONFIG_DIRS_EXTENDED_QUERY_KEY = [
   'generator-config-dirs-extended',
 ];
+const GENERATOR_CONFIG_DIR_FILES_QUERY_KEY = ['generator-config-dir-files'];
 
 const GENERATOR_CONFIG_DIRS_COMMON_QUERY_KEYS = [
   GENERATOR_CONFIG_DIRS_QUERY_KEY,
   GENERATOR_CONFIG_DIRS_EXTENDED_QUERY_KEY,
 ];
+
+// Per-project config and file-tree caches are keyed by name and outlive
+// the project; drop them so a new project reusing the name starts clean.
+function dropProjectQueries(queryClient: QueryClient, name: string) {
+  queryClient.removeQueries({
+    queryKey: [...GENERATOR_CONFIG_DIRS_QUERY_KEY, name],
+  });
+  queryClient.removeQueries({
+    queryKey: [...GENERATOR_CONFIG_DIR_FILES_QUERY_KEY, name],
+  });
+}
 
 export function useGeneratorDirs(
   extended: false
@@ -72,7 +86,9 @@ export function useCreateGeneratorConfigMutation() {
   return useMutation({
     mutationFn: ({ name, config }: { name: string; config: GeneratorConfig }) =>
       createGeneratorConfig(name, config),
-    onSuccess: async () => {
+    onSuccess: async (_, { name }) => {
+      dropProjectQueries(queryClient, name);
+
       await Promise.all(
         GENERATOR_CONFIG_DIRS_COMMON_QUERY_KEYS.map((key) =>
           queryClient.invalidateQueries({ queryKey: key, exact: true })
@@ -102,12 +118,34 @@ export function useDeleteGeneratorConfigMutation() {
 
   return useMutation({
     mutationFn: ({ name }: { name: string }) => deleteGeneratorConfig(name),
-    onSuccess: async () => {
+    onSuccess: async (_, { name }) => {
+      dropProjectQueries(queryClient, name);
+
       await Promise.all(
         GENERATOR_CONFIG_DIRS_COMMON_QUERY_KEYS.map((key) =>
           queryClient.invalidateQueries({ queryKey: key, exact: true })
         )
       );
+    },
+  });
+}
+
+export function useRenameGeneratorConfigMutation() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({ name, newName }: { name: string; newName: string }) =>
+      renameGeneratorConfig(name, newName),
+    onSuccess: async (_, { name }) => {
+      dropProjectQueries(queryClient, name);
+
+      await Promise.all(
+        GENERATOR_CONFIG_DIRS_COMMON_QUERY_KEYS.map((key) =>
+          queryClient.invalidateQueries({ queryKey: key, exact: true })
+        )
+      );
+      await queryClient.invalidateQueries({ queryKey: ['startup'] });
+      await queryClient.invalidateQueries({ queryKey: ['generators'] });
     },
   });
 }
@@ -118,8 +156,6 @@ export function useGeneratorConfigPathMutation() {
   });
 }
 
-const GENERATOR_CONFIG_DIR_FILES_QUERY_KEY = ['generator-config-dir-files'];
-
 export function useGeneratorFileTree(name: string) {
   return useQuery({
     queryKey: [...GENERATOR_CONFIG_DIR_FILES_QUERY_KEY, name],
@@ -127,10 +163,15 @@ export function useGeneratorFileTree(name: string) {
   });
 }
 
-export function useGeneratorFileContent(name: string, filepath: string) {
+export function useGeneratorFileContent(
+  name: string,
+  filepath: string,
+  options?: { enabled?: boolean }
+) {
   return useQuery({
     queryKey: [...GENERATOR_CONFIG_DIR_FILES_QUERY_KEY, name, filepath],
     queryFn: () => getGeneratorFile(name, filepath),
+    enabled: options?.enabled ?? true,
   });
 }
 
@@ -188,6 +229,12 @@ export function usePutGeneratorFileMutation() {
       await queryClient.invalidateQueries({
         queryKey: [...GENERATOR_CONFIG_DIR_FILES_QUERY_KEY, name],
         exact: true,
+      });
+      // Re-validate the parsed config: editing a file (the config file in
+      // particular) may fix a broken config - leaving recovery mode - or
+      // break a valid one, so the studio reflects the file's real state.
+      await queryClient.invalidateQueries({
+        queryKey: [...GENERATOR_CONFIG_DIRS_QUERY_KEY, name],
       });
     },
   });

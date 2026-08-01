@@ -6,7 +6,12 @@ import { FC } from 'react';
 import type { GeneratorStats } from '@/api/routes/generators/schemas';
 
 function formatUptime(seconds: number): string {
-  const { days = 0, hours = 0, minutes = 0, seconds: secs = 0 } = intervalToDuration({
+  const {
+    days = 0,
+    hours = 0,
+    minutes = 0,
+    seconds: secs = 0,
+  } = intervalToDuration({
     start: 0,
     end: seconds * 1000,
   });
@@ -16,9 +21,12 @@ function formatUptime(seconds: number): string {
   return `${secs}s`;
 }
 
-function StatCard({ value, label }: { value: string | number; label: string }) {
+function StatCard({
+  value,
+  label,
+}: Readonly<{ value: string | number; label: string }>) {
   return (
-    <Paper withBorder p="xs" radius="md">
+    <Paper withBorder p="xs">
       <Text size="md" fw={600} lh={1.2}>
         {value}
       </Text>
@@ -38,7 +46,9 @@ export const SummaryBar: FC<SummaryBarProps> = ({ stats }) => {
     <div>
       <Group justify="space-between" mb="sm">
         <div>
-          <Text size="md" fw={600}>{stats.id}</Text>
+          <Text size="md" fw={600}>
+            {stats.id}
+          </Text>
           <Group gap="xs" mt={2}>
             <IconClock size={14} color="var(--mantine-color-dimmed)" />
             <Text size="xs" c="dimmed">

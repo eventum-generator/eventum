@@ -1,8 +1,3 @@
----
-paths:
-  - "eventum/plugins/output/**/*.py"
----
-
 # Output Plugin Rules
 
 Output plugins deliver event strings to a destination (file, socket, broker, etc.). Output plugins have an explicit async lifecycle: `_open` to acquire the destination, `_write` to push batches, `_close` to release.

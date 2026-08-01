@@ -1,8 +1,3 @@
----
-paths:
-  - "eventum/plugins/**/*.py"
----
-
 # Plugin Rules
 
 Common rules for all plugin types. Type-specific plugin contracts live in `.claude/rules/backend/plugins/{input,event,output}.md` and are auto-loaded when working under `eventum/plugins/<type>/`.
@@ -47,3 +42,5 @@ eventum/plugins/<type>/plugins/<name>/
 ## Cross-cutting updates
 
 - Any user-facing change - new plugin or config field change - must be mirrored in the UI (Zod schema + form) and docs (MDX page). See `frontend/ui.md` "Plugin UI" and `docs/mdx.md` rules.
+- Plugin configs are part of the generator-config API models, so a config change also changes the published OpenAPI schema. Re-export it as described in `backend/api.md` "OpenAPI export".
+- Changing a field **default** is a UI change too. A configuration is read back without its unset fields, so Studio never receives the default - a form that shows it holds its own copy. Update the `checked` fallback of the matching switch and any tooltip that spells the default out, or the form will keep stating the old value.

@@ -26,6 +26,13 @@ from eventum.mcp.observability import observe_failure
 
 _ALLOWED_EXTENSIONS = frozenset({'.yml', '.yaml', '.jinja', '.csv', '.json'})
 
+# A generator directory holds files of any size - an output file of a
+# long run, a large sample - and a whole file would land in the agent's
+# context. Reads are windowed instead, with the same budget the log tail
+# uses, and the agent pages through anything larger.
+_DEFAULT_READ_BYTES = 64 * 1024
+_MAX_READ_BYTES = 256 * 1024
+
 
 def _check_extension(rel: Path, relative_path: str) -> ToolFailure | None:
     """Reject a path whose suffix is not in the allow-list.
@@ -122,8 +129,10 @@ def read_generator_file(
     context: AuthoringContext,
     name: str,
     relative_path: str,
-) -> str | ToolFailure:
-    """Return the text content of a file in a generator directory.
+    offset: int = 0,
+    limit: int = _DEFAULT_READ_BYTES,
+) -> dict[str, Any] | ToolFailure:
+    """Return a bounded window of a file in a generator directory.
 
     Parameters
     ----------
@@ -136,10 +145,17 @@ def read_generator_file(
     relative_path : str
         Path to the file relative to the generator directory.
 
+    offset : int, default 0
+        Byte offset to read from.
+
+    limit : int, default 65536
+        Maximum number of bytes to return, capped at 262144.
+
     Returns
     -------
-    str
-        File contents.
+    dict[str, Any]
+        Window content under `content`, with `offset`, `next_offset`,
+        `size_in_bytes` and `truncated` describing what is left.
 
     ToolFailure
         If the path escapes the generator directory, the file does not
@@ -167,9 +183,21 @@ def read_generator_file(
         )
 
     try:
-        return workspace.read_text(path)
+        window = workspace.read_text_window(
+            path,
+            offset=max(offset, 0),
+            limit=max(1, min(limit, _MAX_READ_BYTES)),
+        )
     except WorkspaceError as e:
         return to_tool_error(e, context.generators_dir)
+
+    return {
+        'content': window.content,
+        'offset': window.offset,
+        'next_offset': window.next_offset,
+        'size_in_bytes': window.size_in_bytes,
+        'truncated': window.next_offset is not None,
+    }
 
 
 def write_generator_file(
@@ -416,8 +444,17 @@ def register(
     def _read_generator_file_tool(
         name: str,
         relative_path: str,
-    ) -> str | ToolFailure:
-        """Return the text content of a file in a generator directory.
+        offset: int = 0,
+        limit: int = _DEFAULT_READ_BYTES,
+    ) -> dict[str, Any] | ToolFailure:
+        """Read a file in a generator directory, one window at a time.
+
+        A generator directory can hold files of any size - the output of
+        a long run, a large sample - so a call returns at most ``limit``
+        bytes. When ``truncated`` is true, call again with ``offset``
+        set to the returned ``next_offset`` to read the next window. A
+        window that stops short of the end of the file ends on a
+        complete line.
 
         Parameters
         ----------
@@ -428,16 +465,23 @@ def register(
             Path to the file relative to the generator directory
             (e.g. ``'templates/event.jinja'``).
 
+        offset : int, default 0
+            Byte offset to read from.
+
+        limit : int, default 65536
+            Maximum number of bytes to return, capped at 262144.
+
         Returns
         -------
-        str | ToolFailure
-            File contents, or a structured failure if the path is
-            invalid, the extension is not allowed, or the file does not
-            exist. Does not raise.
+        dict[str, Any] | ToolFailure
+            Window content under ``content``, with ``offset``,
+            ``next_offset``, ``size_in_bytes`` and ``truncated``; or a
+            structured failure if the path is invalid, the extension is
+            not allowed, or the file does not exist. Does not raise.
 
         """
         return observe_failure(
-            read_generator_file(context, name, relative_path),
+            read_generator_file(context, name, relative_path, offset, limit),
             mcp_tool='read_generator_file',
             mcp_transport=transport,
         )
@@ -454,7 +498,10 @@ def register(
         the server is read-only without touching the filesystem. Name
         the config file ``generator.yml`` unless this server is
         configured with another config filename - validate, preview,
-        and run load that filename.
+        and run load that filename. For a large CSV or JSON sample,
+        prefer an out-of-band upload (the REST file API over HTTP, or
+        a direct disk write when running locally) and reference it
+        from the config; passing big content here is slow.
 
         Parameters
         ----------

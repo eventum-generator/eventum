@@ -20,3 +20,21 @@ class StartupNotFoundError(StartupError):
 
 class StartupConflictError(StartupError):
     """Generator with the same id is already in the startup file."""
+
+
+class ScenarioNotFoundError(StartupError):
+    """Referenced scenario, or a generator's membership in it, is absent.
+
+    Carries `name` (str, the scenario) in `context`, plus `value`
+    (str, the generator id) when the failure is about one generator's
+    membership rather than the scenario as a whole.
+    """
+
+
+class ScenarioConflictError(StartupError):
+    """Requested scenario name is already in use.
+
+    Carries `name` (str, the scenario) in `context`, plus `value`
+    (str, the generator id) when the conflict is about one generator
+    already carrying the tag.
+    """

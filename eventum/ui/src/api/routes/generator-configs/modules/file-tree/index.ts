@@ -55,6 +55,26 @@ export function flattenFileTree(
   return result;
 }
 
+export function findFileNode(
+  fileTree: FileNode[],
+  path: string
+): FileNode | undefined {
+  let nodes: FileNode[] | null = fileTree;
+  let node: FileNode | undefined;
+
+  for (const segment of path.split('/')) {
+    node = nodes?.find((candidate) => candidate.name === segment);
+
+    if (node === undefined) {
+      return undefined;
+    }
+
+    nodes = node.children;
+  }
+
+  return node;
+}
+
 export function createFileTreeLookup(fileTree: FileNode[]) {
   const items = new Map<string, FileNode>();
   const children = new Map<string, string[]>();

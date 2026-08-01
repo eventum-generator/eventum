@@ -18,7 +18,7 @@ from eventum.app.models.settings import Settings
 from eventum.core.parameters import GenerationParameters
 
 
-@pytest.fixture()
+@pytest.fixture
 def settings(tmp_path):
     return Settings(
         server=ServerParameters(
@@ -35,7 +35,7 @@ def settings(tmp_path):
     )
 
 
-@pytest.fixture()
+@pytest.fixture
 def hooks(tmp_path):
     return {
         'get_settings_file_path': lambda: tmp_path / 'settings.yml',
@@ -70,7 +70,7 @@ def test_build_api_app_has_routers(settings, hooks):
 def test_build_api_app_schema_error(settings, hooks):
     with (
         patch(
-            'eventum.api.main.register_asyncapi_schema',
+            'eventum.api.main.generate_asyncapi_schema',
             side_effect=RuntimeError('schema fail'),
         ),
         pytest.raises(APISchemaGenerationError),

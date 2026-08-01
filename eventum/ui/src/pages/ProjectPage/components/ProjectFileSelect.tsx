@@ -1,16 +1,9 @@
-import {
-  Alert,
-  Box,
-  Select,
-  SelectProps,
-  Skeleton,
-  Stack,
-} from '@mantine/core';
-import { IconAlertSquareRounded } from '@tabler/icons-react';
+import { Alert, Select, SelectProps, Skeleton, Stack } from '@mantine/core';
 import { FC, useMemo } from 'react';
 
 import { useGeneratorFileTree } from '@/api/hooks/useGeneratorConfigs';
 import { flattenFileTree } from '@/api/routes/generator-configs/modules/file-tree';
+import { AlertIcon } from '@/components/ui/AlertIcon';
 import { ShowErrorDetailsAnchor } from '@/components/ui/ShowErrorDetailsAnchor';
 import { useProjectName } from '@/pages/ProjectPage/hooks/useProjectName';
 
@@ -55,7 +48,7 @@ export const ProjectFileSelect: FC<SelectProps & ProjectFileSelectProps> = ({
       {isFileTreeError && (
         <Alert
           variant="default"
-          icon={<Box c="red" component={IconAlertSquareRounded}></Box>}
+          icon={<AlertIcon variant="error" />}
           title="Failed to load list of project files"
         >
           {fileTreeError.message}

@@ -1,8 +1,3 @@
----
-paths:
-  - "../content-packs/generators/**/templates/**/*.jinja"
----
-
 # Template Plugin Rules
 
 The template event plugin renders events from Jinja2 templates per timestamp. All existing content-pack generators use it.
@@ -11,7 +6,7 @@ The template event plugin renders events from Jinja2 templates per timestamp. Al
 
 - Name templates after what they produce: distinct per event type (`syscall-execve.json.jinja`), or plain `event.json.jinja` for a single-event generator.
 - Entries under `templates:` use descriptive keys (`access_success`) - aliases that appear in logs, independent of the file path.
-- Shared macros live in `templates/macros/*.jinja`, imported via `{% import 'macros/common.jinja' as common %}`.
+- Shared macros live in `templates/_base.json.jinja` (or under `templates/macros/`). Import paths are resolved from the generator root, so they include the `templates/` prefix - e.g. `{% from 'templates/_base.json.jinja' import render with context %}`.
 
 ## Picking modes
 

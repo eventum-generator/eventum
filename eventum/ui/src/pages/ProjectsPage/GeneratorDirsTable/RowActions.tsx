@@ -1,13 +1,18 @@
 import { Button, Group, List, Menu, Stack, Text } from '@mantine/core';
 import { modals } from '@mantine/modals';
 import { notifications } from '@mantine/notifications';
-import { IconEdit, IconTrash } from '@tabler/icons-react';
+import { IconCursorText, IconEdit, IconTrash } from '@tabler/icons-react';
 import { FC, ReactNode } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 
-import { useDeleteGeneratorConfigMutation } from '@/api/hooks/useGeneratorConfigs';
+import { RenameProjectModal } from '../RenameProjectModal';
+import {
+  useDeleteGeneratorConfigMutation,
+  useGeneratorDirs,
+} from '@/api/hooks/useGeneratorConfigs';
 import { ShowErrorDetailsAnchor } from '@/components/ui/ShowErrorDetailsAnchor';
 import { ROUTE_PATHS } from '@/routing/paths';
+import { CONFIRM } from '@/theme/copy';
 
 interface RowActionsProps {
   target: ReactNode;
@@ -21,10 +26,22 @@ export const RowActions: FC<RowActionsProps> = ({
   generatorIds,
 }) => {
   const deleteGeneratorConfig = useDeleteGeneratorConfigMutation();
-  const navigate = useNavigate();
 
-  function handleEdit(projectName: string) {
-    void navigate(`${ROUTE_PATHS.PROJECTS}/${projectName}`);
+  // Reads the list the table itself renders from, so no extra request.
+  const { data: generatorDirs } = useGeneratorDirs(true);
+
+  function handleRename() {
+    modals.open({
+      title: 'Rename project',
+      children: (
+        <RenameProjectModal
+          projectName={dirName}
+          existingProjectNames={(generatorDirs ?? []).map((dir) => dir.name)}
+          instanceIds={generatorIds}
+        />
+      ),
+      size: 'md',
+    });
   }
 
   function handleDelete() {
@@ -55,14 +72,13 @@ export const RowActions: FC<RowActionsProps> = ({
     }
 
     modals.openConfirmModal({
-      title: 'Deleting project',
-      children: (
-        <Text size="sm">
-          Project <b>{dirName}</b> will be deleted. Do you want to continue?
-        </Text>
-      ),
+      title: CONFIRM.deleteProject.title,
+      children: <Text size="sm">{CONFIRM.deleteProject.body(dirName)}</Text>,
       size: 'md',
-      labels: { cancel: 'Cancel', confirm: 'Confirm' },
+      labels: {
+        cancel: CONFIRM.deleteProject.cancel,
+        confirm: CONFIRM.deleteProject.confirm,
+      },
       onConfirm: () =>
         deleteGeneratorConfig.mutate(
           { name: dirName },
@@ -96,16 +112,24 @@ export const RowActions: FC<RowActionsProps> = ({
 
       <Menu.Dropdown>
         <Menu.Item
+          component={Link}
+          to={`${ROUTE_PATHS.PROJECTS}/${dirName}`}
           leftSection={<IconEdit size={14} />}
-          onClick={() => handleEdit(dirName)}
         >
           Edit
+        </Menu.Item>
+
+        <Menu.Item
+          leftSection={<IconCursorText size={14} />}
+          onClick={handleRename}
+        >
+          Rename
         </Menu.Item>
 
         <Menu.Divider />
 
         <Menu.Item
-          color="red"
+          color="var(--mantine-color-red-text)"
           leftSection={<IconTrash size={14} />}
           onClick={handleDelete}
         >

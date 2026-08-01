@@ -1,32 +1,41 @@
 import {
   ActionIcon,
   Alert,
-  Box,
   Button,
   Center,
-  Checkbox,
   Container,
   Group,
   Loader,
   Paper,
+  SegmentedControl,
   Stack,
   TagsInput,
+  Text,
   TextInput,
 } from '@mantine/core';
 import { modals } from '@mantine/modals';
-import { IconAlertSquareRounded, IconSearch, IconX } from '@tabler/icons-react';
-import { useState } from 'react';
+import { IconSearch, IconX } from '@tabler/icons-react';
+import { useMemo } from 'react';
 
 import { CreateProjectModal } from './CreateProjectModal';
-import { GeneratorDirsTable } from './GeneratorDirsTable';
+import { GeneratorDirsTable, UsageMode } from './GeneratorDirsTable';
+import { ProjectsEmptyState } from './ProjectsEmptyState';
 import { useGeneratorDirs } from '@/api/hooks/useGeneratorConfigs';
+import { AlertIcon } from '@/components/ui/AlertIcon';
 import { PageTitle } from '@/components/ui/PageTitle';
 import { ShowErrorDetailsAnchor } from '@/components/ui/ShowErrorDetailsAnchor';
+import { useTableQueryParams } from '@/utils/useTableQueryParams';
 
 export default function ProjectsPage() {
-  const [projectNameFilter, setProjectNameFilter] = useState('');
-  const [instanceFilter, setInstanceFilter] = useState<string[]>([]);
-  const [anyInstanceFilter, setAnyInstanceFilter] = useState(false);
+  const { searchParams, setParams } = useTableQueryParams();
+  const projectNameFilter = searchParams.get('q') ?? '';
+  const rawUsage = searchParams.get('usage');
+  const usageMode: UsageMode =
+    rawUsage === 'used' || rawUsage === 'unused' ? rawUsage : 'all';
+  const instanceFilter = useMemo(() => {
+    const raw = searchParams.get('instances');
+    return raw ? raw.split(',').filter(Boolean) : [];
+  }, [searchParams]);
 
   const {
     data: generatorDirs,
@@ -50,7 +59,7 @@ export default function ProjectsPage() {
         <PageTitle title="Projects" />
         <Alert
           variant="default"
-          icon={<Box c="red" component={IconAlertSquareRounded}></Box>}
+          icon={<AlertIcon variant="error" />}
           title="Failed to load projects list"
         >
           {generatorDirsError.message}
@@ -61,6 +70,33 @@ export default function ProjectsPage() {
   }
 
   if (isGeneratorDirsSuccess) {
+    const openCreateModal = () =>
+      modals.open({
+        title: 'New project',
+        children: (
+          <CreateProjectModal
+            existingProjectNames={generatorDirs.map((item) => item.name)}
+          />
+        ),
+        size: 'lg',
+      });
+
+    const total = generatorDirs.length;
+
+    if (total === 0) {
+      return (
+        <Container size="100%">
+          <Stack>
+            <PageTitle title="Projects" />
+            <ProjectsEmptyState onCreate={openCreateModal} />
+          </Stack>
+        </Container>
+      );
+    }
+
+    const inUse = generatorDirs.filter(
+      (item) => item.generator_ids.length > 0
+    ).length;
     const uniqueInstances = new Set(
       generatorDirs.flatMap((item) => item.generator_ids)
     );
@@ -68,7 +104,12 @@ export default function ProjectsPage() {
     return (
       <Container size="100%">
         <Stack>
-          <PageTitle title="Projects" />
+          <Group align="baseline" gap="sm">
+            <PageTitle title="Projects" />
+            <Text size="sm" c="dimmed">
+              {total} {total === 1 ? 'project' : 'projects'} · {inUse} in use
+            </Text>
+          </Group>
 
           <Paper withBorder p="sm">
             <Group justify="space-between">
@@ -78,7 +119,7 @@ export default function ProjectsPage() {
                   rightSection={
                     <ActionIcon
                       variant="transparent"
-                      onClick={() => setProjectNameFilter('')}
+                      onClick={() => setParams({ q: null })}
                       data-input-section
                     >
                       <IconX size={16} />
@@ -86,7 +127,9 @@ export default function ProjectsPage() {
                   }
                   placeholder="search by name..."
                   value={projectNameFilter}
-                  onChange={(event) => setProjectNameFilter(event.target.value)}
+                  onChange={(event) =>
+                    setParams({ q: event.target.value || null })
+                  }
                 />
                 <TagsInput
                   leftSection={<IconSearch size={16} />}
@@ -94,34 +137,26 @@ export default function ProjectsPage() {
                   clearable
                   data={[...uniqueInstances].sort((a, b) => a.localeCompare(b))}
                   value={instanceFilter}
-                  onChange={(values) => setInstanceFilter(values)}
-                  disabled={anyInstanceFilter}
+                  onChange={(values) => setParams({ instances: values })}
+                  disabled={usageMode === 'unused'}
                 />
-                <Checkbox
-                  label="Any used"
-                  checked={anyInstanceFilter}
-                  onChange={(event) =>
-                    setAnyInstanceFilter(event.currentTarget.checked)
-                  }
+                <SegmentedControl
+                  value={usageMode}
+                  onChange={(value) => {
+                    const mode = value as UsageMode;
+                    setParams({
+                      usage: mode === 'all' ? null : mode,
+                      ...(mode === 'unused' ? { instances: null } : {}),
+                    });
+                  }}
+                  data={[
+                    { label: 'All', value: 'all' },
+                    { label: 'In use', value: 'used' },
+                    { label: 'Unused', value: 'unused' },
+                  ]}
                 />
               </Group>
-              <Button
-                onClick={() =>
-                  modals.open({
-                    title: 'New project',
-                    children: (
-                      <CreateProjectModal
-                        existingProjectNames={generatorDirs.map(
-                          (item) => item.name
-                        )}
-                      />
-                    ),
-                    size: 'lg',
-                  })
-                }
-              >
-                Create new
-              </Button>
+              <Button onClick={openCreateModal}>Create new</Button>
             </Group>
           </Paper>
 
@@ -129,7 +164,7 @@ export default function ProjectsPage() {
             data={generatorDirs}
             projectNameFilter={projectNameFilter}
             instancesFilter={instanceFilter}
-            anyInstanceFilter={anyInstanceFilter}
+            usageMode={usageMode}
           />
         </Stack>
       </Container>

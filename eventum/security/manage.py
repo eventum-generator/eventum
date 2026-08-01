@@ -18,6 +18,14 @@ KEYRING_SERVICE_NAME = 'eventum'
 logger = structlog.stdlib.get_logger()
 
 
+class SecretNotFoundError(ValueError):
+    """Secret with the requested name is missing in keyring."""
+
+
+class SecretConflictError(ValueError):
+    """Secret with the requested name is already in keyring."""
+
+
 @lru_cache
 def get_keyring_password() -> str:
     """Get password for keyring.
@@ -243,3 +251,63 @@ def remove_secret(name: str, path: Path | None = None) -> None:
         )
     except Exception as e:
         raise OSError(e) from e
+
+
+def rename_secret(
+    name: str,
+    new_name: str,
+    path: Path | None = None,
+) -> None:
+    """Rename secret in keyring, keeping its value.
+
+    The secret is written under the new name before the old name is
+    removed, so a failure never loses the value.
+
+    Parameters
+    ----------
+    name : str
+        Current name of the secret.
+
+    new_name : str
+        Name to rename the secret to.
+
+    path : Path | None, default=None
+        Path to keyring file, default location is used if none is
+        provided and security setting cryptfile_location is none.
+
+    Raises
+    ------
+    ValueError
+        If name or new name of secret is blank.
+
+    SecretNotFoundError
+        If no secret with the provided name is in keyring.
+
+    SecretConflictError
+        If a secret with the new name is already in keyring, including
+        the case when the new name equals the current one.
+
+    EnvironmentError
+        If any error occurs during accessing keyring.
+
+    """
+    logger.info('Secret is renamed', secret=name, value=new_name)
+
+    if not name or not new_name:
+        msg = 'Name of secret cannot be blank'
+        raise ValueError(msg)
+
+    existing_names = list_secrets(path)
+
+    if name not in existing_names:
+        msg = 'Secret is missing'
+        raise SecretNotFoundError(msg)
+
+    if new_name in existing_names:
+        msg = 'Secret with this name already exists'
+        raise SecretConflictError(msg)
+
+    set_secret(
+        name=new_name, value=get_secret(name=name, path=path), path=path
+    )
+    remove_secret(name=name, path=path)

@@ -7,7 +7,7 @@ interface PageTitleProps {
 
 export const PageTitle: FC<PageTitleProps> = ({ title }) => {
   return (
-    <Title order={2} fw="normal">
+    <Title order={2} fz="1.5rem" fw={650}>
       {title}
     </Title>
   );

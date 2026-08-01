@@ -1,9 +1,14 @@
 from pathlib import Path
+from unittest.mock import patch
 
 import pytest
 
 from eventum.core.config import GeneratorConfig
 from eventum.core.config_loader import ConfigurationLoadError, load
+from eventum.plugins.event.plugins.template.config import (
+    TemplateEventPluginConfig,
+    TemplatePickingMode,
+)
 
 BASE_PATH = Path(__file__).parent
 
@@ -13,10 +18,8 @@ INVALID_YAML_CONFIG_PATH = BASE_PATH / 'static' / 'invalid_yaml_config.yml'
 INVALID_STRUCTURE_CONFIG_PATH = (
     BASE_PATH / 'static' / 'invalid_structure_config.yml'
 )
-DOTTED_KEYS_CONFIG_PATH = BASE_PATH / 'static' / 'dotted_keys_config.yml'
-CONFLICTING_DOTTED_KEYS_CONFIG_PATH = (
-    BASE_PATH / 'static' / 'conflicting_dotted_keys_config.yml'
-)
+FSM_CONDITIONS_CONFIG_PATH = BASE_PATH / 'static' / 'fsm_conditions_config.yml'
+NESTED_PARAMS_CONFIG_PATH = BASE_PATH / 'static' / 'nested_params_config.yml'
 
 
 def test_load():
@@ -51,30 +54,71 @@ def test_missing_parameters():
         load(path=CONFIG_PATH, params={})
 
 
-def test_load_expands_dotted_keys() -> None:
-    """Dotted spellings load identically to the nested form."""
-    config = load(path=DOTTED_KEYS_CONFIG_PATH, params={})
+def test_load_resolves_nested_param_names() -> None:
+    """Dotted token name addresses a path of nested params."""
+    with patch(
+        'eventum.core.config_loader.get_secret',
+        return_value='pass',
+    ) as get_secret:
+        config = load(
+            path=NESTED_PARAMS_CONFIG_PATH,
+            params={'opensearch': {'host': 'localhost', 'user': 'admin'}},
+        )
 
-    canonical = GeneratorConfig.model_validate(
-        {
-            'input': [{'cron': {'expression': '*/5 * * * *', 'count': 1}}],
-            'event': {
-                'template': {
-                    'mode': 'all',
-                    'params': {},
-                    'samples': {},
-                    'templates': [{'test': {'template': 'test.jinja'}}],
-                },
+    output = config.output[0]['opensearch']
+    assert output['hosts'] == ['localhost']
+    assert output['username'] == 'admin'
+    assert output['password'] == 'pass'
+    get_secret.assert_called_once_with('opensearch.password')
+
+
+def test_load_resolves_dotted_param_names() -> None:
+    """Dotted token name addresses a param spelled the same way."""
+    with patch('eventum.core.config_loader.get_secret', return_value='pass'):
+        config = load(
+            path=NESTED_PARAMS_CONFIG_PATH,
+            params={
+                'opensearch.host': 'localhost',
+                'opensearch.user': 'admin',
             },
-            'output': [{'stdout': {'formatter': {'format': 'plain'}}}],
-        },
+        )
+
+    output = config.output[0]['opensearch']
+    assert output['hosts'] == ['localhost']
+    assert output['username'] == 'admin'
+
+
+def test_load_missing_nested_param_name() -> None:
+    """Unresolvable token name is reported as a missing param."""
+    with (
+        patch('eventum.core.config_loader.get_secret', return_value='pass'),
+        pytest.raises(ConfigurationLoadError) as exc,
+    ):
+        load(
+            path=NESTED_PARAMS_CONFIG_PATH,
+            params={'opensearch': {'host': 'localhost'}},
+        )
+
+    assert 'opensearch.user' in exc.value.context['reason']
+
+
+def test_load_keeps_dotted_keys_literal() -> None:
+    """Keys are taken as written, without splitting them on dots."""
+    config = load(path=FSM_CONDITIONS_CONFIG_PATH, params={})
+    template_config = config.event['template']
+
+    assert template_config['params'] == {'host.name': 'srv-01'}
+
+    transitions = template_config['templates'][0]['login']['transitions']
+    assert transitions[0]['when'] == {'eq': {'shared.status': 'ready'}}
+
+
+def test_load_validates_documented_fsm_conditions() -> None:
+    """Every documented fsm condition passes plugin validation."""
+    config = load(path=FSM_CONDITIONS_CONFIG_PATH, params={})
+
+    plugin_config = TemplateEventPluginConfig.model_validate(
+        config.event['template'],
     )
-    assert config == canonical
 
-
-def test_load_conflicting_dotted_keys() -> None:
-    """Conflicting spellings raise with the key path in reason."""
-    with pytest.raises(ConfigurationLoadError) as exc:
-        load(path=CONFLICTING_DOTTED_KEYS_CONFIG_PATH, params={})
-
-    assert 'output[0].stdout.formatter.format' in exc.value.context['reason']
+    assert plugin_config.root.mode == TemplatePickingMode.FSM

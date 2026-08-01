@@ -1,5 +1,8 @@
 """Tests for generator configs API router."""
 
+from unittest.mock import MagicMock, patch
+
+import aiofiles
 import pytest
 import yaml
 from fastapi import FastAPI
@@ -14,7 +17,11 @@ from eventum.app.models.parameters.server import (
     ServerParameters,
 )
 from eventum.app.models.settings import Settings
-from eventum.core.parameters import GenerationParameters
+from eventum.app.startup import Startup
+from eventum.core.parameters import (
+    GenerationParameters,
+    GeneratorParameters,
+)
 
 
 @pytest.fixture
@@ -42,10 +49,21 @@ def manager():
 
 
 @pytest.fixture
-def client(tmp_settings, manager):
+def startup(tmp_settings):
+    tmp_settings.path.startup.write_text('')
+    return Startup(
+        file_path=tmp_settings.path.startup,
+        generators_dir=tmp_settings.path.generators_dir,
+        generation_parameters=tmp_settings.generation,
+    )
+
+
+@pytest.fixture
+def client(tmp_settings, manager, startup):
     app = FastAPI()
     app.state.settings = tmp_settings
     app.state.generator_manager = manager
+    app.state.startup = startup
     app.include_router(router, prefix='/configs')
     with TestClient(app) as c:
         yield c
@@ -197,56 +215,47 @@ def test_get_config_invalid_yaml(client, tmp_settings):
     assert response.status_code == 422
 
 
-def test_get_config_expands_dotted_keys(
+def test_get_config_with_fsm_conditions(
     client: TestClient,
     tmp_settings: Settings,
 ) -> None:
-    """Dotted spelling is served identically to the nested form."""
-    dotted_config = {
-        'input': [{'cron.expression': '* * * * *', 'cron.count': 1}],
-        'event': {'replay.path': 'events.log'},
-        'output': [{'stdout.formatter.format': 'plain'}],
+    """Condition state fields and param names are served as written."""
+    condition = {'ge': {'shared.step': 5}}
+    fsm_config = {
+        'input': [{'cron': {'expression': '* * * * *', 'count': 1}}],
+        'event': {
+            'template': {
+                'mode': 'fsm',
+                'params': {'host.name': 'srv-01'},
+                'templates': [
+                    {
+                        'login': {
+                            'template': 'login.jinja',
+                            'initial': True,
+                            'transitions': [
+                                {'to': 'logout', 'when': condition},
+                            ],
+                        },
+                    },
+                    {'logout': {'template': 'logout.jinja'}},
+                ],
+            },
+        },
+        'output': [{'stdout': {'formatter': {'format': 'plain'}}}],
     }
-    _create_config(tmp_settings, 'canonical_gen')
-    gen_dir = tmp_settings.path.generators_dir / 'dotted_gen'
+    gen_dir = tmp_settings.path.generators_dir / 'fsm_gen'
     gen_dir.mkdir()
     config_path = gen_dir / tmp_settings.path.generator_config_filename
-    config_path.write_text(yaml.dump(dotted_config, sort_keys=False))
+    config_path.write_text(yaml.dump(fsm_config, sort_keys=False))
 
-    dotted = client.get('/configs/dotted_gen')
-    canonical = client.get('/configs/canonical_gen')
+    response = client.get('/configs/fsm_gen')
 
-    assert dotted.status_code == 200  # noqa: PLR2004
-    assert dotted.json() == canonical.json()
+    assert response.status_code == 200  # noqa: PLR2004
+    template_config = response.json()['event']['template']
+    assert template_config['params'] == {'host.name': 'srv-01'}
 
-
-def test_get_config_conflicting_dotted_keys(
-    client: TestClient,
-    tmp_settings: Settings,
-) -> None:
-    """Conflicting spellings yield 422 naming the key path."""
-    gen_dir = tmp_settings.path.generators_dir / 'conflict_gen'
-    gen_dir.mkdir()
-    config_path = gen_dir / tmp_settings.path.generator_config_filename
-    config_path.write_text(
-        'input:\n'
-        '- cron:\n'
-        "    expression: '* * * * *'\n"
-        '    count: 1\n'
-        'event:\n'
-        '  replay.path: a.log\n'
-        '  replay:\n'
-        '    path: b.log\n'
-        'output:\n'
-        '- stdout:\n'
-        '    formatter:\n'
-        '      format: plain\n',
-    )
-
-    response = client.get('/configs/conflict_gen')
-
-    assert response.status_code == 422  # noqa: PLR2004
-    assert 'event.replay.path' in response.json()['detail']
+    transitions = template_config['templates'][0]['login']['transitions']
+    assert transitions[0]['when'] == condition
 
 
 # --- POST /{name} ---
@@ -323,9 +332,180 @@ def test_get_file_tree(client, tmp_settings):
     assert 'templates' in names
 
 
+def test_get_file_tree_reports_sizes(client, tmp_settings):
+    gen_dir = _create_config(tmp_settings, 'size_gen')
+    (gen_dir / 'sample.csv').write_bytes(b'a,b,c')
+
+    response = client.get('/configs/size_gen/file-tree')
+    assert response.status_code == 200
+
+    nodes = {node['name']: node for node in response.json()}
+    assert nodes['sample.csv']['size_in_bytes'] == len(b'a,b,c')
+
+
+# --- GET /{name}/file/{filepath} ---
+
+
+def test_get_file(client, tmp_settings):
+    gen_dir = _create_config(tmp_settings, 'read_gen')
+    (gen_dir / 'notes.txt').write_text('file content')
+
+    response = client.get('/configs/read_gen/file/notes.txt')
+    assert response.status_code == 200
+    assert response.text == 'file content'
+    assert response.headers['content-type'] == 'text/plain; charset=utf-8'
+
+
+def test_get_file_declares_no_length(client, tmp_settings):
+    # A file a generator is writing to changes its size at any moment,
+    # so a declared length stops matching the body being sent and the
+    # response is aborted mid-body.
+    gen_dir = _create_config(tmp_settings, 'length_gen')
+    (gen_dir / 'output.ndjson').write_text('{"a": 1}\n')
+
+    response = client.get('/configs/length_gen/file/output.ndjson')
+    assert response.status_code == 200
+    assert 'content-length' not in response.headers
+
+
+def test_get_file_not_found(client, tmp_settings):
+    _create_config(tmp_settings, 'missing_file_gen')
+
+    response = client.get('/configs/missing_file_gen/file/absent.txt')
+    assert response.status_code == 404
+
+
+def test_get_file_os_error(client, tmp_settings, monkeypatch):
+    gen_dir = _create_config(tmp_settings, 'error_gen')
+    (gen_dir / 'notes.txt').write_text('file content')
+
+    def raise_os_error(*args, **kwargs):
+        raise OSError('permission denied')
+
+    monkeypatch.setattr(aiofiles, 'open', raise_os_error)
+
+    response = client.get('/configs/error_gen/file/notes.txt')
+    assert response.status_code == 500
+    assert 'OS error' in response.json()['detail']
+
+
 # --- Directory traversal ---
 
 
 def test_directory_traversal_blocked(client):
     response = client.get('/configs/..%2F..%2Fetc')
     assert response.status_code in (403, 404, 422)
+
+
+# --- POST /{name}/rename ---
+
+
+def test_rename_config(client, tmp_settings):
+    _create_config(tmp_settings, 'ren_gen')
+
+    response = client.post(
+        '/configs/ren_gen/rename', json={'new_name': 'renamed'}
+    )
+
+    assert response.status_code == 200
+    assert response.json() == []
+    assert not (tmp_settings.path.generators_dir / 'ren_gen').exists()
+    assert (
+        tmp_settings.path.generators_dir
+        / 'renamed'
+        / tmp_settings.path.generator_config_filename
+    ).is_file()
+
+
+def test_rename_config_repoints_startup_entry(
+    client,
+    tmp_settings,
+    startup,  # noqa: ARG001
+):
+    _create_config(tmp_settings, 'ren_gen')
+    tmp_settings.path.startup.write_text(
+        '- id: gen-1\n  path: ren_gen/generator.yml\n'
+    )
+
+    response = client.post(
+        '/configs/ren_gen/rename', json={'new_name': 'renamed'}
+    )
+
+    assert response.status_code == 200
+    assert yaml.safe_load(tmp_settings.path.startup.read_text()) == [
+        {'id': 'gen-1', 'path': 'renamed/generator.yml'}
+    ]
+
+
+def test_rename_config_not_found(client):
+    response = client.post(
+        '/configs/missing/rename', json={'new_name': 'renamed'}
+    )
+
+    assert response.status_code == 404
+
+
+def test_rename_config_name_taken(client, tmp_settings):
+    _create_config(tmp_settings, 'ren_gen')
+    _create_config(tmp_settings, 'taken')
+
+    response = client.post(
+        '/configs/ren_gen/rename', json={'new_name': 'taken'}
+    )
+
+    assert response.status_code == 409
+    assert (tmp_settings.path.generators_dir / 'ren_gen').is_dir()
+
+
+def test_rename_config_active_instance(client, tmp_settings, manager):
+    _create_config(tmp_settings, 'ren_gen')
+    with patch('eventum.app.manager.Generator') as generator_class:
+        generator_class.return_value = MagicMock(
+            params=GeneratorParameters(
+                id='gen-1',
+                path=(
+                    tmp_settings.path.generators_dir
+                    / 'ren_gen'
+                    / 'generator.yml'
+                ),
+            ),
+            is_initializing=False,
+            is_running=True,
+            is_stopping=False,
+        )
+        manager.add(
+            GeneratorParameters(
+                id='gen-1',
+                path=(
+                    tmp_settings.path.generators_dir
+                    / 'ren_gen'
+                    / 'generator.yml'
+                ),
+            )
+        )
+
+    response = client.post(
+        '/configs/ren_gen/rename', json={'new_name': 'renamed'}
+    )
+
+    assert response.status_code == 409
+    assert (tmp_settings.path.generators_dir / 'ren_gen').is_dir()
+
+
+def test_rename_config_blank_name(client, tmp_settings):
+    _create_config(tmp_settings, 'ren_gen')
+
+    response = client.post('/configs/ren_gen/rename', json={'new_name': ''})
+
+    assert response.status_code == 422
+
+
+def test_rename_config_nested_name(client, tmp_settings):
+    _create_config(tmp_settings, 'ren_gen')
+
+    response = client.post(
+        '/configs/ren_gen/rename', json={'new_name': 'nested/renamed'}
+    )
+
+    assert response.status_code == 422
+    assert (tmp_settings.path.generators_dir / 'ren_gen').is_dir()

@@ -178,3 +178,72 @@ def test_get_generator_missing_raises():
     manager = GeneratorManager()
     with pytest.raises(ManagingError):
         manager.get_generator('absent')
+
+
+@patch('eventum.app.manager.Generator')
+def test_replace_generator_rekeys_and_rebuilds(mock_generator_class, manager):
+    stopped = MagicMock(
+        is_initializing=False, is_running=False, is_stopping=False
+    )
+    rebuilt = MagicMock()
+    mock_generator_class.side_effect = [stopped, rebuilt]
+
+    manager.add(FakeParams('gen1'))
+    new_params = FakeParams('gen2')
+    manager.replace('gen1', new_params)
+
+    assert manager.generator_ids == ['gen2']
+    assert manager.get_generator('gen2') is rebuilt
+    assert mock_generator_class.call_args.args == (new_params,)
+
+
+@patch('eventum.app.manager.Generator')
+def test_replace_generator_keeps_id_when_unchanged(
+    mock_generator_class, manager
+):
+    stopped = MagicMock(
+        is_initializing=False, is_running=False, is_stopping=False
+    )
+    rebuilt = MagicMock()
+    mock_generator_class.side_effect = [stopped, rebuilt]
+
+    manager.add(FakeParams('gen1'))
+    manager.replace('gen1', FakeParams('gen1'))
+
+    assert manager.generator_ids == ['gen1']
+    assert manager.get_generator('gen1') is rebuilt
+
+
+@patch('eventum.app.manager.Generator')
+def test_replace_generator_unknown_raises(_, manager):
+    with pytest.raises(ManagingError):
+        manager.replace('absent', FakeParams('gen2'))
+
+
+@patch('eventum.app.manager.Generator')
+def test_replace_generator_active_raises(mock_generator_class, manager):
+    mock_generator_class.return_value = MagicMock(
+        is_initializing=False, is_running=True, is_stopping=False
+    )
+
+    manager.add(FakeParams('gen1'))
+
+    with pytest.raises(ManagingError):
+        manager.replace('gen1', FakeParams('gen2'))
+
+    assert manager.generator_ids == ['gen1']
+
+
+@patch('eventum.app.manager.Generator')
+def test_replace_generator_taken_id_raises(mock_generator_class, manager):
+    mock_generator_class.return_value = MagicMock(
+        is_initializing=False, is_running=False, is_stopping=False
+    )
+
+    manager.add(FakeParams('gen1'))
+    manager.add(FakeParams('gen2'))
+
+    with pytest.raises(ManagingError):
+        manager.replace('gen1', FakeParams('gen2'))
+
+    assert manager.generator_ids == ['gen1', 'gen2']

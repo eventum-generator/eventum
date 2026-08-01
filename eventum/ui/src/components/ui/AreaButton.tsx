@@ -26,7 +26,7 @@ export const AreaButton: FC<AreaButtonProps> = ({
           <ButtonIcon size={18} />
           {name}
         </Group>
-        <Text fz="sm" c="gray.6">
+        <Text fz="sm" c="dimmed">
           {description}
         </Text>
       </Stack>

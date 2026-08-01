@@ -1,172 +1,110 @@
-import {
-  Alert,
-  Box,
-  Container,
-  Grid,
-  Group,
-  Indicator,
-  MantineColor,
-  Skeleton,
-  Stack,
-  Text,
-  Title,
-} from '@mantine/core';
-import { IconAlertSquareRounded } from '@tabler/icons-react';
-import { useEffect } from 'react';
+import { Alert, Container, Skeleton, Stack } from '@mantine/core';
+import { ReactNode, useEffect } from 'react';
 
-import { InstancesStatsPanel } from './InstancesStatsPanel';
-import { InstancesStatusesPanel } from './InstancesStatusesPanel';
-import { LastInstancesListPanel } from './LastInstancesListPanel';
-import { PerformancePanel } from './PerformancePanel';
-import {
-  useGenerators,
-  useRunningGeneratorsStats,
-} from '@/api/hooks/useGenerators';
+import { ErrorsChart } from './ErrorsChart';
+import { InstanceLoad } from './InstanceLoad';
+import { NoRunningGenerators } from './NoRunningGenerators';
+import { PipelineFlow } from './PipelineFlow';
+import { ResourceTiles } from './ResourceTiles';
+import { ThroughputChart } from './ThroughputChart';
+import { useMetricsHistory } from './history';
+import { aggregateFlow } from './metrics';
+import { useRunningGeneratorsStats } from '@/api/hooks/useGenerators';
 import { useInstanceInfo } from '@/api/hooks/useInstance';
+import { AlertIcon } from '@/components/ui/AlertIcon';
+import { PageTitle } from '@/components/ui/PageTitle';
 import { ShowErrorDetailsAnchor } from '@/components/ui/ShowErrorDetailsAnchor';
 
 export default function MonitoringPage() {
   const {
     data: instanceInfo,
-    isLoading: isInstanceInfoLoading,
-    isError: isInstanceInfoError,
-    isSuccess: isInstanceInfoSuccess,
-    error: instanceInfoError,
-    refetch: refetchInstanceInfo,
+    dataUpdatedAt: instanceUpdatedAt,
+    isError: isInfoError,
+    error: infoError,
+    isLoading: isInfoLoading,
+    refetch: refetchInfo,
   } = useInstanceInfo();
-
-  const {
-    data: generators,
-    isLoading: isGeneratorsLoading,
-    isError: isGeneratorsError,
-    error: generatorsError,
-    isSuccess: isGeneratorsSuccess,
-    refetch: refetchGenerators,
-  } = useGenerators();
-
   const {
     data: generatorsStats,
-    isLoading: isGeneratorsStatsLoading,
-    isError: isGeneratorsStatsError,
-    error: generatorsStatsError,
-    isSuccess: isGeneratorsStatsSuccess,
-    refetch: refetchGeneratorsStats,
+    dataUpdatedAt: statsUpdatedAt,
+    isLoading: isStatsLoading,
+    refetch: refetchStats,
   } = useRunningGeneratorsStats();
 
   useEffect(() => {
-    const timeout = setInterval(() => {
-      void refetchInstanceInfo();
-      void refetchGenerators();
-      void refetchGeneratorsStats();
-    }, 10_000);
+    const interval = setInterval(() => {
+      void refetchInfo();
+      void refetchStats();
+    }, 5000);
 
-    return () => clearInterval(timeout);
+    return () => clearInterval(interval);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  let indicatorText = 'Stale';
-  let indicatorColor: MantineColor = 'gray.6';
+  const stats = generatorsStats ?? [];
 
-  if (isInstanceInfoSuccess) {
-    indicatorText = 'Connected';
-    indicatorColor = 'green.6';
-  } else if (isInstanceInfoLoading) {
-    indicatorText = 'Updating ...';
-    indicatorColor = 'yellow.6';
-  } else if (isInstanceInfoError) {
-    indicatorText = 'Disconnected';
-    indicatorColor = 'red.6';
+  const { resources, flow, load, current } = useMetricsHistory({
+    instanceInfo,
+    instanceUpdatedAt,
+    stats,
+    statsUpdatedAt,
+  });
+
+  const flowAgg = aggregateFlow(stats);
+  const inputPlugins = stats.reduce((n, s) => n + s.input.length, 0);
+
+  let liveSection: ReactNode;
+  if (isStatsLoading) {
+    liveSection = <Skeleton h={220} radius="lg" />;
+  } else if (stats.length === 0) {
+    liveSection = <NoRunningGenerators />;
+  } else {
+    liveSection = (
+      <>
+        <PipelineFlow flow={flowAgg} inputPlugins={inputPlugins} />
+
+        <ThroughputChart
+          flow={flow}
+          inputEps={current.inputEps}
+          outputEps={current.outputEps}
+        />
+
+        {current.failing && <ErrorsChart flow={flow} />}
+
+        <InstanceLoad load={load} />
+      </>
+    );
   }
 
   return (
     <Container size="100%">
-      <Stack>
-        <Group justify="space-between">
-          <Title order={2} fw="500">
-            Monitoring
-          </Title>
+      <Stack gap="md">
+        <PageTitle title="Monitoring" />
 
-          <Group wrap="nowrap" gap="12px">
-            <Indicator
-              color={indicatorColor}
-              position="middle-center"
-              size="8px"
-              processing
+        {isInfoError && (
+          <Alert
+            variant="default"
+            icon={<AlertIcon variant="error" />}
+            title="Failed to load instance info"
+          >
+            {infoError.message}
+            <ShowErrorDetailsAnchor error={infoError} prependDot />
+          </Alert>
+        )}
+
+        {liveSection}
+
+        {isInfoLoading && !instanceInfo ? (
+          <Skeleton h={160} radius="lg" />
+        ) : (
+          instanceInfo && (
+            <ResourceTiles
+              info={instanceInfo}
+              resources={resources}
+              current={current}
             />
-            <Text c="gray.6" size="sm">
-              {indicatorText}
-            </Text>
-          </Group>
-        </Group>
-
-        <Grid columns={12}>
-          <Grid.Col span={9}>
-            <Stack>
-              <Box>
-                {isInstanceInfoError && (
-                  <Alert
-                    variant="default"
-                    icon={
-                      <Box c="red" component={IconAlertSquareRounded}></Box>
-                    }
-                    title="Failed to load app instance info"
-                  >
-                    {instanceInfoError.message}
-                    <ShowErrorDetailsAnchor
-                      error={instanceInfoError}
-                      prependDot
-                    />
-                  </Alert>
-                )}
-                {isInstanceInfoLoading && <Skeleton h="280px" />}
-                {isInstanceInfoSuccess && (
-                  <PerformancePanel instanceInfo={instanceInfo} />
-                )}
-              </Box>
-
-              <Box>
-                {isGeneratorsStatsError && (
-                  <Alert
-                    variant="default"
-                    icon={
-                      <Box c="red" component={IconAlertSquareRounded}></Box>
-                    }
-                    title="Failed to load stats of generator instances"
-                  >
-                    {generatorsStatsError.message}
-                    <ShowErrorDetailsAnchor
-                      error={generatorsStatsError}
-                      prependDot
-                    />
-                  </Alert>
-                )}
-                {isGeneratorsStatsLoading && <Skeleton h="280px" />}
-                {isGeneratorsStatsSuccess && (
-                  <InstancesStatsPanel generatorsStats={generatorsStats} />
-                )}
-              </Box>
-            </Stack>
-          </Grid.Col>
-          <Grid.Col span={3}>
-            {isGeneratorsError && (
-              <Alert
-                variant="default"
-                icon={<Box c="red" component={IconAlertSquareRounded}></Box>}
-                title="Failed to load statuses of generator instances"
-              >
-                {generatorsError.message}
-                <ShowErrorDetailsAnchor error={generatorsError} prependDot />
-              </Alert>
-            )}
-            {isGeneratorsLoading && <Skeleton h="85vh" />}
-            {isGeneratorsSuccess && (
-              <Stack>
-                <InstancesStatusesPanel generators={generators} />
-                <LastInstancesListPanel generators={generators} />
-              </Stack>
-            )}
-          </Grid.Col>
-        </Grid>
+          )
+        )}
       </Stack>
     </Container>
   );

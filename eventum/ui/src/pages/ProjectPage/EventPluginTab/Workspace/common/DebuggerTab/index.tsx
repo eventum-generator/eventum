@@ -1,14 +1,11 @@
 import { CodeHighlight } from '@mantine/code-highlight';
 import {
   Button,
-  Center,
   Checkbox,
   Code,
-  Divider,
   Group,
   NumberInput,
   Select,
-  Stack,
   TagsInput,
   Text,
   TextInput,
@@ -18,6 +15,13 @@ import { notifications } from '@mantine/notifications';
 import { IconBug, IconBugOff, IconPlayerPlay } from '@tabler/icons-react';
 import { FC, useState } from 'react';
 
+import {
+  ToolBody,
+  ToolEmpty,
+  ToolPane,
+  ToolShell,
+  ToolSpacer,
+} from '../../../../studio/panels/console/primitives';
 import { useGetPluginConfig } from '../../../hooks/useGetPluginConfig';
 import {
   useInitializeEventPluginMutation,
@@ -32,7 +36,18 @@ import { LabelWithTooltip } from '@/components/ui/LabelWithTooltip';
 import { ShowErrorDetailsAnchor } from '@/components/ui/ShowErrorDetailsAnchor';
 import { useProjectName } from '@/pages/ProjectPage/hooks/useProjectName';
 
-export const DebuggerTab: FC = () => {
+interface DebuggerTabProps {
+  /** Controlled plugin-initialized flag; lifted so sibling views (State) can
+   *  gate on it and it survives view/stage switches. Falls back to internal
+   *  state when used standalone. */
+  initialized?: boolean;
+  onInitializedChange?: (value: boolean) => void;
+}
+
+export const DebuggerTab: FC<DebuggerTabProps> = ({
+  initialized,
+  onInitializedChange,
+}) => {
   const produceParamsForm = useForm<{
     timestamp: string;
     autoTimestamp: boolean;
@@ -60,7 +75,9 @@ export const DebuggerTab: FC = () => {
   const initializePlugin = useInitializeEventPluginMutation();
   const releasePlugin = useReleaseEventPluginMutation();
 
-  const [isPluginInitialized, setPluginInitialized] = useState<boolean>(false);
+  const [localInitialized, setLocalInitialized] = useState<boolean>(false);
+  const isPluginInitialized = initialized ?? localInitialized;
+  const setPluginInitialized = onInitializedChange ?? setLocalInitialized;
 
   const [producedEventsInfo, setProducedEventsInfo] =
     useState<ProducedEventsInfo>();
@@ -181,18 +198,22 @@ export const DebuggerTab: FC = () => {
     );
   }
 
+  const events = producedEventsInfo?.events ?? [];
+  const errors = producedEventsInfo?.errors ?? [];
+
   return (
-    <Stack>
-      <Group align="end" justify="space-between">
-        <Group wrap="nowrap" align="start">
+    <ToolShell
+      toolbar={
+        <>
           <TextInput
+            w={250}
             label={
               <LabelWithTooltip
                 label="Event timestamp"
                 tooltip="Timestamp from an input plugin. Note, that at actual runtime, timezone from generator settings will be used."
               />
             }
-            rightSectionWidth="70px"
+            rightSectionWidth="62px"
             rightSection={
               <Checkbox
                 label="Auto"
@@ -207,13 +228,15 @@ export const DebuggerTab: FC = () => {
             {...produceParamsForm.getInputProps('timestamp')}
           />
           <TagsInput
+            w={260}
             label={
               <LabelWithTooltip
                 label="Tags"
                 tooltip="Tag list from an input plugin"
               />
             }
-            placeholder="Press Enter to submit a tag"
+            placeholder="Enter to add"
+            styles={{ input: { maxHeight: 92, overflowY: 'auto' } }}
             {...produceParamsForm.getInputProps('tags')}
           />
           <NumberInput
@@ -227,134 +250,130 @@ export const DebuggerTab: FC = () => {
             allowDecimal={false}
             min={1}
             max={100}
-            w="100px"
+            w={90}
             {...produceParamsForm.getInputProps('eventsCount')}
           />
-        </Group>
-        <Group wrap="nowrap">
-          {!isPluginInitialized && (
-            <Button
-              variant="default"
-              title="Start debugging with new instance of event plugin"
-              leftSection={<IconBug size={16} />}
-              disabled={isPluginInitialized || produceEvents.isPending}
-              loading={initializePlugin.isPending}
-              onClick={handleStart}
-            >
-              Start
-            </Button>
-          )}
-          {isPluginInitialized && (
-            <Button
-              variant="default"
-              title="Stop debugging"
-              leftSection={<IconBugOff size={16} />}
-              disabled={!isPluginInitialized || produceEvents.isPending}
-              loading={releasePlugin.isPending}
-              onClick={handleStop}
-            >
-              Stop
-            </Button>
-          )}
-          <Button
-            variant="default"
-            title="Produce event using provided parameters"
-            leftSection={<IconPlayerPlay size={16} />}
-            onClick={handleProduce}
-            disabled={
-              !produceParamsForm.isValid() ||
-              !isPluginInitialized ||
-              initializePlugin.isPending ||
-              releasePlugin.isPending
-            }
-            loading={produceEvents.isPending}
-          >
-            Produce
-          </Button>
-        </Group>
-      </Group>
-
-      {producedEventsInfo !== undefined ? (
-        <Stack gap="xs">
-          <Stack gap="4px">
-            <Text size="sm" fw="bold">
-              Events
-            </Text>
-            <Divider />
-          </Stack>
-          <Select
-            data={[
-              'csv',
-              'json',
-              'log',
-              'markdown',
-              'toml',
-              'tsv',
-              'xml',
-              'yaml',
-            ]}
-            value={syntaxHighlighting}
-            onChange={setSyntaxHighlighting}
-            label="Syntax highlighting"
-            maw="200px"
-            clearable
-          />
-          {producedEventsInfo.events.length > 0 ? (
-            producedEventsInfo.events.map((event, index) => (
-              <CodeHighlight
-                key={index}
-                code={event}
-                language={syntaxHighlighting ?? undefined}
-                defaultExpanded
-                withExpandButton
-                collapseCodeLabel="Collapse"
-                expandCodeLabel="Expand"
-              />
-            ))
-          ) : (
-            <Center>
-              <Text size="sm" c="gray.6">
-                No events
+          <ToolSpacer />
+          <Group gap="md" wrap="nowrap" className="tool-ctl">
+            <Group gap={7} wrap="nowrap">
+              <span className="tool-status-dot" data-on={isPluginInitialized} />
+              <Text size="xs" c={isPluginInitialized ? undefined : 'dimmed'}>
+                {isPluginInitialized ? 'Running' : 'Stopped'}
               </Text>
-            </Center>
-          )}
-
-          <Stack gap="4px">
-            <Text size="sm" fw="bold">
-              Errors
-            </Text>
-            <Divider />
-          </Stack>
-          {producedEventsInfo.errors.length > 0 ? (
-            producedEventsInfo.errors.map((error, index) => (
-              <Code block key={index}>
-                {`At event #${error.index + 1}: ${error.message} - ${error.context.reason ?? 'unknown reason'}\n\n`}
-                {error.context.traceback ?? 'No traceback info\n\n'}
-
-                {'\nAdditional context:\n'}
-                {Object.entries(error.context)
-                  .filter(([name]) => !['traceback', 'reason'].includes(name))
-                  .map(([name, value]) => `- ${name}: ${value}\n`)}
-              </Code>
-            ))
-          ) : (
-            <Center>
-              <Text size="sm" c="gray.6">
-                No errors
-              </Text>
-            </Center>
-          )}
-        </Stack>
+            </Group>
+            <Group gap={8} wrap="nowrap">
+              {isPluginInitialized ? (
+                <Button
+                  variant="default"
+                  title="Stop debugging"
+                  leftSection={<IconBugOff size={15} />}
+                  disabled={produceEvents.isPending}
+                  loading={releasePlugin.isPending}
+                  onClick={handleStop}
+                >
+                  Stop
+                </Button>
+              ) : (
+                <Button
+                  variant="default"
+                  title="Start debugging with new instance of event plugin"
+                  leftSection={<IconBug size={15} />}
+                  disabled={produceEvents.isPending}
+                  loading={initializePlugin.isPending}
+                  onClick={handleStart}
+                >
+                  Start
+                </Button>
+              )}
+              <Button
+                title="Produce event using provided parameters"
+                leftSection={<IconPlayerPlay size={15} />}
+                onClick={handleProduce}
+                disabled={
+                  !produceParamsForm.isValid() ||
+                  !isPluginInitialized ||
+                  initializePlugin.isPending ||
+                  releasePlugin.isPending
+                }
+                loading={produceEvents.isPending}
+              >
+                Produce
+              </Button>
+            </Group>
+          </Group>
+        </>
+      }
+    >
+      {producedEventsInfo === undefined ? (
+        <ToolBody empty>
+          <ToolEmpty icon={<IconBug size={28} />}>
+            Start the plugin instance, then produce events to inspect the
+            generated output and any errors.
+          </ToolEmpty>
+        </ToolBody>
       ) : (
-        <Stack gap="xs">
-          <Divider />
-          <Center>
-            <Text size="sm" c="gray.6">
-              No produced events
-            </Text>
-          </Center>
-        </Stack>
+        <ToolBody>
+          <ToolPane
+            title="Events"
+            grow={1.5}
+            actions={
+              <Select
+                w={140}
+                placeholder="Syntax"
+                data={[
+                  'csv',
+                  'json',
+                  'log',
+                  'markdown',
+                  'toml',
+                  'tsv',
+                  'xml',
+                  'yaml',
+                ]}
+                value={syntaxHighlighting}
+                onChange={setSyntaxHighlighting}
+                clearable
+              />
+            }
+          >
+            {events.length > 0 ? (
+              <div className="tool-list">
+                {events.map((event, index) => (
+                  <CodeHighlight
+                    key={index}
+                    code={event}
+                    language={syntaxHighlighting ?? undefined}
+                    withCopyButton
+                  />
+                ))}
+              </div>
+            ) : (
+              <ToolEmpty>No events produced for these parameters.</ToolEmpty>
+            )}
+          </ToolPane>
+          <ToolPane title="Errors">
+            {errors.length > 0 ? (
+              <div className="tool-list">
+                {errors.map((error, index) => (
+                  <Code block key={index}>
+                    {`At event #${error.index + 1}: ${error.message} - ${error.context.reason ?? 'unknown reason'}\n\n`}
+                    {error.context.traceback ?? 'No traceback info\n\n'}
+
+                    {'\nAdditional context:\n'}
+                    {Object.entries(error.context)
+                      .filter(
+                        ([name]) => !['traceback', 'reason'].includes(name)
+                      )
+                      .map(([name, value]) => `- ${name}: ${value}\n`)}
+                  </Code>
+                ))}
+              </div>
+            ) : (
+              <ToolEmpty>No errors.</ToolEmpty>
+            )}
+          </ToolPane>
+        </ToolBody>
       )}
-    </Stack>
+    </ToolShell>
   );
 };

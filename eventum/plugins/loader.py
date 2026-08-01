@@ -7,10 +7,13 @@ It is expected that plugins register themselves using class hooks.
 Therefore during loading specific plugins, module with plugin is
 imported to execute that hook if that plugin is not currently presented
 in registry. This is so called "plugin invocation".
+
+Plugin invocation is serialized across threads, see `_import_lock`.
 """
 
 import importlib
 from functools import cache
+from threading import RLock
 from types import ModuleType
 
 import structlog
@@ -23,6 +26,16 @@ from eventum.plugins.registry import PluginInfo, PluginsRegistry
 from eventum.utils.package_utils import get_subpackage_names
 
 logger = structlog.stdlib.get_logger()
+
+# Importing a plugin module builds its config classes, and building a
+# Pydantic model mutates class attributes shared with the models of
+# other plugins. Without the GIL two threads doing it at once can see
+# a class dictionary change under them, so plugin modules are imported
+# one at a time. Import lock of the interpreter does not cover this: it
+# serializes imports of one module, not of two modules sharing a base.
+# The lock is reentrant for a plugin module that loads another plugin
+# at import time.
+_import_lock = RLock()
 
 
 def _construct_plugin_module_name(package: ModuleType, name: str) -> str:
@@ -94,7 +107,8 @@ def _invoke_plugin(package: ModuleType, name: str) -> None:
 
     log.debug('Importing module', module_name=module_name)
     try:
-        importlib.import_module(module_name)
+        with _import_lock:
+            importlib.import_module(module_name)
     except ModuleNotFoundError:
         msg = 'Plugin not found'
         raise PluginNotFoundError(

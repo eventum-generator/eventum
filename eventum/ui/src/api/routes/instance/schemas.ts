@@ -51,9 +51,35 @@ export const AuthParametersSchema = z.object({
   password: z.preprocess(emptyToUndefined, z.string().min(1).optional()),
 });
 
+export const UIParametersSchema = z.object({
+  enabled: z.boolean().optional(),
+});
+
+export const APIParametersSchema = z.object({
+  enabled: z.boolean().optional(),
+});
+
+export const MCPParametersSchema = z.object({
+  enabled: z.boolean().optional(),
+  allow_write: z.boolean().optional(),
+  path: z.preprocess(
+    emptyToUndefined,
+    z
+      .string()
+      .min(1)
+      .refine((v) => v.startsWith('/'), 'Path must start with "/"')
+      .refine(
+        (v) => v.length === 1 || !v.endsWith('/'),
+        'Path must not end with "/"'
+      )
+      .optional()
+  ),
+  allowed_hosts: z.array(z.string()).optional(),
+});
+
 export const ServerParametersSchema = z.object({
-  ui_enabled: z.boolean().optional(),
-  api_enabled: z.boolean().optional(),
+  ui: UIParametersSchema.optional(),
+  api: APIParametersSchema.optional(),
   host: z.preprocess(emptyToUndefined, z.string().min(1).optional()),
   port: z.preprocess(
     emptyToUndefined,
@@ -61,6 +87,7 @@ export const ServerParametersSchema = z.object({
   ),
   ssl: SSLParametersSchema.optional(),
   auth: AuthParametersSchema.optional(),
+  mcp: MCPParametersSchema.optional(),
 });
 export type ServerParameters = z.infer<typeof ServerParametersSchema>;
 

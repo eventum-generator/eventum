@@ -25,3 +25,16 @@ export async function setSecretValue(name: string, value: string) {
 export async function deleteSecretValue(name: string) {
   await apiClient.delete(`/secrets/${name}`);
 }
+
+export async function getSecretReferences(name: string): Promise<SecretNames> {
+  return await validateResponse(
+    SecretNamesSchema,
+    apiClient.get(`/secrets/${encodeURIComponent(name)}/references`)
+  );
+}
+
+export async function renameSecret(name: string, newName: string) {
+  await apiClient.post(`/secrets/${encodeURIComponent(name)}/rename`, {
+    new_name: newName,
+  });
+}

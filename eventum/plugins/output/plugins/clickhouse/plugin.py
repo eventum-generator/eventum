@@ -1,11 +1,10 @@
 """Definition of clickhouse output plugin."""
 
 from collections.abc import Sequence
-from typing import TYPE_CHECKING, Any, override
+from typing import TYPE_CHECKING, override
 
 from clickhouse_connect import get_async_client
 from clickhouse_connect.driver.binding import quote_identifier as quote
-from clickhouse_connect.driver.httputil import get_pool_manager
 
 from eventum.plugins.output.base.plugin import OutputPlugin, OutputPluginParams
 from eventum.plugins.output.exceptions import PluginOpenError, PluginWriteError
@@ -14,8 +13,9 @@ from eventum.plugins.output.plugins.clickhouse.config import (
 )
 
 if TYPE_CHECKING:
+    from pathlib import Path
+
     from clickhouse_connect.driver.asyncclient import AsyncClient
-    from urllib3.poolmanager import PoolManager
 
 
 class ClickhouseOutputPlugin(
@@ -35,51 +35,24 @@ class ClickhouseOutputPlugin(
             [quote(config.database), quote(config.table)],
         )
         self._client: AsyncClient
-        self._pool_mgr: PoolManager
 
-    def _create_pool_manager(self) -> PoolManager:
-        """Create urllib3 pool manager sized for concurrent writes.
+    def _resolve_optional_path(self, path: Path | None) -> str | None:
+        """Resolve optional user provided path to absolute path string."""
+        if path is None:
+            return None
 
-        Notes
-        -----
-        `clickhouse_connect.get_async_client` builds its own pool
-        manager with `maxsize=8` by default, which becomes a bottleneck
-        under Eventum's concurrent output writes. When a custom
-        `pool_mgr` is passed, TLS and proxy options must be configured
-        on the pool itself - the client skips applying them otherwise.
-
-        """
-        options: dict[str, Any] = {
-            'maxsize': self._config.pool_maxsize,
-            'verify': self._config.verify,
-        }
-        if self._config.ca_cert is not None:
-            options['ca_cert'] = str(self.resolve_path(self._config.ca_cert))
-        if self._config.client_cert is not None:
-            options['client_cert'] = str(
-                self.resolve_path(self._config.client_cert),
-            )
-        if self._config.client_cert_key is not None:
-            options['client_cert_key'] = str(
-                self.resolve_path(self._config.client_cert_key),
-            )
-        if self._config.server_host_name is not None:
-            if self._config.verify:
-                options['assert_hostname'] = self._config.server_host_name
-            options['server_hostname'] = self._config.server_host_name
-        if self._config.proxy_url is not None:
-            proxy_url = str(self._config.proxy_url)
-            if self._config.protocol == 'https':
-                options['https_proxy'] = proxy_url
-            else:
-                options['http_proxy'] = proxy_url
-
-        return get_pool_manager(**options)
+        return str(self.resolve_path(path))
 
     @override
     async def _open(self) -> None:
+        proxy_url = (
+            str(self._config.proxy_url)
+            if self._config.proxy_url is not None
+            else None
+        )
+        uses_https = self._config.protocol == 'https'
+
         try:
-            self._pool_mgr = self._create_pool_manager()
             self._client = await get_async_client(
                 host=self._config.host,
                 port=self._config.port,
@@ -92,18 +65,21 @@ class ClickhouseOutputPlugin(
                 send_receive_timeout=self._config.request_timeout,
                 client_name=self._config.client_name,
                 verify=self._config.verify,
-                client_cert=(
-                    self.resolve_path(self._config.client_cert)
-                    if self._config.client_cert
-                    else None
+                ca_cert=self._resolve_optional_path(self._config.ca_cert),
+                client_cert=self._resolve_optional_path(
+                    self._config.client_cert,
                 ),
-                client_cert_key=(
-                    self.resolve_path(self._config.client_cert_key)
-                    if self._config.client_cert_key
-                    else None
+                client_cert_key=self._resolve_optional_path(
+                    self._config.client_cert_key,
                 ),
+                server_host_name=self._config.server_host_name,
                 tls_mode=self._config.tls_mode,
-                pool_mgr=self._pool_mgr,
+                http_proxy=None if uses_https else proxy_url,
+                https_proxy=proxy_url if uses_https else None,
+                # Client talks to a single host, so the total and the
+                # per host limits are the same value
+                connector_limit=self._config.pool_maxsize,
+                connector_limit_per_host=self._config.pool_maxsize,
             )
         except Exception as e:
             msg = 'Cannot initialize ClickHouse client'
@@ -117,7 +93,6 @@ class ClickhouseOutputPlugin(
     @override
     async def _close(self) -> None:
         await self._client.close()
-        self._pool_mgr.clear()
 
     @override
     async def _write(self, events: Sequence[str]) -> int:

@@ -157,3 +157,9 @@ class BulkStartResponse(BaseModel, extra='forbid', frozen=True):
 
     running_generator_ids: list[str]
     non_running_generator_ids: list[str]
+
+
+class RenameGeneratorRequest(BaseModel, extra='forbid', frozen=True):
+    """New id for an existing generator."""
+
+    new_id: str = Field(min_length=1, description='New generator id')

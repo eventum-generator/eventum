@@ -30,7 +30,7 @@ export const ResponsibleCopyButton: FC<ResponsibleCopyButtonProps> = ({
           position={tooltipPosition}
         >
           <ActionIcon
-            color={copied ? 'teal' : 'gray'}
+            color={copied ? 'green' : 'gray'}
             variant={copied ? 'filled' : 'default'}
             onClick={copy}
             size={size}

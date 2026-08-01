@@ -6,6 +6,7 @@ from datetime import datetime
 from pathlib import Path
 from types import SimpleNamespace
 from typing import Any
+from unittest.mock import MagicMock
 from zoneinfo import ZoneInfo
 
 import pytest
@@ -154,6 +155,8 @@ def _ctx(
         generation=GenerationParameters(),
         logs_dir=tmp_path,
         log_format='plain',
+        settings=MagicMock(),
+        hooks=MagicMock(),
     )
 
 
@@ -536,6 +539,8 @@ async def test_get_generator_logs_json_format(tmp_path: Path) -> None:
         generation=GenerationParameters(),
         logs_dir=tmp_path,
         log_format='json',
+        settings=MagicMock(),
+        hooks=MagicMock(),
     )
     (tmp_path / 'generator_g1.json').write_text('{"e":"hi"}\n')
     result = await get_generator_logs(ctx, 'g1')

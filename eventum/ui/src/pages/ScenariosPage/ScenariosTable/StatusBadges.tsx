@@ -1,63 +1,60 @@
-import { Group, Indicator, Text } from '@mantine/core';
+import { Group } from '@mantine/core';
 import { FC, ReactNode } from 'react';
 
 import { ScenarioRow } from './types';
+import { StatusChip } from '@/components/ui/StatusChip';
 
 interface StatusBadgesProps {
   readonly row: ScenarioRow;
 }
 
+/**
+ * Aggregate status of a scenario's instances, rendered as one count chip
+ * per non-empty bucket. A scenario groups many instances, so unlike an
+ * instance's single StatusPill it may show several chips at once (e.g.
+ * "3 active" + "1 starting"); an all-inactive scenario collapses to a
+ * single idle chip.
+ */
 export const StatusBadges: FC<StatusBadgesProps> = ({ row }) => {
-  const parts: ReactNode[] = [];
+  const chips: ReactNode[] = [];
 
   if (row.runningCount > 0) {
-    parts.push(
-      <Group key="running" gap="sm" align="center" wrap="nowrap">
-        <Indicator
-          color="green.6"
-          size={8}
-          position="middle-center"
-          />
-        <Text size="sm">{row.runningCount} active</Text>
-      </Group>
-    );
-  }
-
-  if (row.stoppingCount > 0) {
-    parts.push(
-      <Group key="stopping" gap="sm" align="center" wrap="nowrap">
-        <Indicator color="yellow.7" size={8} position="middle-center" />
-        <Text size="sm">{row.stoppingCount} stopping</Text>
-      </Group>
+    chips.push(
+      <StatusChip key="running" variant="good">
+        {row.runningCount} active
+      </StatusChip>
     );
   }
 
   if (row.initializingCount > 0) {
-    parts.push(
-      <Group key="initializing" gap="sm" align="center" wrap="nowrap">
-        <Indicator color="yellow.7" size={8} position="middle-center" />
-        <Text size="sm">{row.initializingCount} starting</Text>
-      </Group>
+    chips.push(
+      <StatusChip key="starting" variant="warn">
+        {row.initializingCount} starting
+      </StatusChip>
     );
   }
 
-  if (row.stoppedCount > 0 && (row.runningCount > 0 || row.initializingCount > 0 || row.stoppingCount > 0)) {
-    parts.push(
-      <Group key="stopped" gap="sm" align="center" wrap="nowrap">
-        <Indicator color="gray.6" size={8} position="middle-center" />
-        <Text size="sm">{row.stoppedCount} inactive</Text>
-      </Group>
+  if (row.stoppingCount > 0) {
+    chips.push(
+      <StatusChip key="stopping" variant="warn">
+        {row.stoppingCount} stopping
+      </StatusChip>
     );
   }
 
-  if (parts.length === 0) {
-    return (
-      <Group gap="sm" align="center" wrap="nowrap">
-        <Indicator color="gray.6" size={8} position="middle-center" />
-        <Text size="sm">Inactive</Text>
-      </Group>
+  // Show the inactive remainder only when it sits next to active buckets;
+  // an entirely inactive scenario is covered by the fallback chip below.
+  if (row.stoppedCount > 0 && chips.length > 0) {
+    chips.push(
+      <StatusChip key="inactive" variant="idle">
+        {row.stoppedCount} inactive
+      </StatusChip>
     );
   }
 
-  return <Group gap="md">{parts}</Group>;
+  if (chips.length === 0) {
+    return <StatusChip variant="idle">Inactive</StatusChip>;
+  }
+
+  return <Group gap="xs">{chips}</Group>;
 };

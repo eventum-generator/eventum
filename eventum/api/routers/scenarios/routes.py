@@ -4,14 +4,11 @@ import asyncio
 from pathlib import Path
 from typing import Annotated, Any
 
-import aiofiles
 import structlog
-import yaml
 from fastapi import APIRouter, Body, HTTPException, status
 from fastapi import Path as FastApiPath
-from jinja2 import TemplateSyntaxError
 
-from eventum.api.dependencies.app import SettingsDep
+from eventum.api.dependencies.app import SettingsDep, StartupDep
 from eventum.api.routers.generator_configs.globals_detector import (
     GlobalsUsage,
     detect_globals_usage,
@@ -24,13 +21,17 @@ from eventum.api.routers.scenarios.models import (
     GlobalsReferenceResponse,
     GlobalsUsageResponse,
     GlobalsWarningResponse,
+    RenameScenarioRequest,
     ScenarioResponse,
 )
-from eventum.api.routers.startup.dependencies import (
-    StartupGeneratorsParametersListDep,
-    get_startup_generator_parameters_list,
-)
 from eventum.api.utils.response_description import merge_responses
+from eventum.app.startup import (
+    ScenarioConflictError,
+    ScenarioNotFoundError,
+    StartupError,
+    StartupNotFoundError,
+)
+from eventum.app.workspace import WorkspaceError, resolve_generator_dir
 from eventum.plugins.event.plugins.template.plugin import TemplateEventPlugin
 from eventum.utils.json_utils import normalize_types
 
@@ -38,82 +39,168 @@ logger = structlog.stdlib.get_logger()
 
 router = APIRouter()
 
+_TEMPLATE_SUFFIXES = ('.j2', '.jinja')
+
+_STARTUP_ERROR_RESPONSES: dict[int | str, dict[str, Any]] = {
+    500: {
+        'description': (
+            'Startup file cannot be read, parsed, validated, or written'
+        ),
+    },
+}
+
+
+def _collect_globals_usage(generator_dir: Path) -> GlobalsUsage:
+    """Scan a generator directory for Jinja2 templates and detect
+    globals usage across all of them.
+
+    Walks the directory tree once, reads each template, and runs AST
+    detection. Performs blocking filesystem IO and CPU-bound parsing,
+    so it must run in a worker thread to avoid blocking the event
+    loop.
+
+    Parameters
+    ----------
+    generator_dir : Path
+        Resolved generator directory to scan.
+
+    Returns
+    -------
+    GlobalsUsage
+        Merged writes, reads, and warnings from all templates.
+
+    """
+    usage = GlobalsUsage()
+
+    for filepath in generator_dir.rglob('*'):
+        if filepath.suffix not in _TEMPLATE_SUFFIXES or not filepath.is_file():
+            continue
+
+        rel_path = str(filepath.relative_to(generator_dir))
+        try:
+            source = filepath.read_text(encoding='utf-8')
+        except OSError:
+            logger.warning('Failed to read template file', path=str(filepath))
+            continue
+
+        usage.merge(detect_globals_usage(source, rel_path))
+
+    return usage
+
 
 @router.get(
     '/',
     description='List all scenarios',
+    responses=_STARTUP_ERROR_RESPONSES,
 )
-async def list_scenarios(
-    generators_parameters: StartupGeneratorsParametersListDep,
-) -> list[str]:
-    generators_parameters_model, _ = generators_parameters
-    scenario_names: set[str] = set()
-
-    for params in generators_parameters_model.root:
-        for scenario in params.scenarios or []:
-            scenario_names.add(scenario)
-
-    return sorted(scenario_names)
+async def list_scenarios(startup: StartupDep) -> list[str]:
+    try:
+        return await asyncio.to_thread(startup.list_scenarios)
+    except StartupError as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=str(e),
+        ) from None
 
 
 @router.get(
     '/{name}',
     description='Get scenario details',
-    responses=check_scenario_exists.responses,
+    responses=merge_responses(
+        _STARTUP_ERROR_RESPONSES,
+        {404: {'description': 'Scenario not found'}},
+    ),
 )
 async def get_scenario(
-    name: CheckScenarioExistsDep,
-    generators_parameters: StartupGeneratorsParametersListDep,
+    name: Annotated[
+        str, FastApiPath(description='Scenario name', min_length=1)
+    ],
+    startup: StartupDep,
 ) -> ScenarioResponse:
-    generators_parameters_model, _ = generators_parameters
-    generator_ids = [
-        params.id
-        for params in generators_parameters_model.root
-        if name in (params.scenarios or [])
-    ]
+    try:
+        generator_ids = await asyncio.to_thread(
+            startup.get_scenario_generators, name
+        )
+    except StartupError as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=str(e),
+        ) from None
+    if not generator_ids:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f'Scenario not found: {name}',
+        )
     return ScenarioResponse(name=name, generator_ids=generator_ids)
+
+
+@router.post(
+    '/{name}/rename',
+    description=(
+        'Rename scenario (rewrite tag in all generators that carry it)'
+    ),
+    responses=merge_responses(
+        _STARTUP_ERROR_RESPONSES,
+        {404: {'description': 'Scenario not found'}},
+        {409: {'description': 'Scenario with the new name already exists'}},
+    ),
+)
+async def rename_scenario(
+    name: Annotated[
+        str, FastApiPath(description='Scenario name', min_length=1)
+    ],
+    request: Annotated[
+        RenameScenarioRequest,
+        Body(description='New scenario name'),
+    ],
+    startup: StartupDep,
+) -> None:
+    try:
+        await asyncio.to_thread(
+            startup.rename_scenario, name, request.new_name
+        )
+    except ScenarioNotFoundError:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f'Scenario not found: {name}',
+        ) from None
+    except ScenarioConflictError:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=f'Scenario already exists: {request.new_name}',
+        ) from None
+    except StartupError as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=str(e),
+        ) from None
 
 
 @router.delete(
     '/{name}',
     description='Delete scenario (remove tag from all generators)',
     responses=merge_responses(
-        check_scenario_exists.responses,
-        get_startup_generator_parameters_list.responses,
-        {500: {'description': 'Cannot modify startup file due to OS error'}},
+        _STARTUP_ERROR_RESPONSES,
+        {404: {'description': 'Scenario not found'}},
     ),
 )
 async def delete_scenario(
-    name: CheckScenarioExistsDep,
-    generators_parameters: StartupGeneratorsParametersListDep,
-    settings: SettingsDep,
+    name: Annotated[
+        str, FastApiPath(description='Scenario name', min_length=1)
+    ],
+    startup: StartupDep,
 ) -> None:
-    generators_parameters_model, generators_parameters_raw_content = (
-        generators_parameters
-    )
-
-    for i, params in enumerate(generators_parameters_model.root):
-        if name in (params.scenarios or []):
-            raw_entry = generators_parameters_raw_content[i]
-            scenarios = [
-                s for s in raw_entry.get('scenarios', []) if s != name
-            ]
-            if scenarios:
-                raw_entry['scenarios'] = scenarios
-            else:
-                raw_entry.pop('scenarios', None)
-
-    new_content = await asyncio.to_thread(
-        lambda: yaml.dump(generators_parameters_raw_content, sort_keys=False),
-    )
-
     try:
-        async with aiofiles.open(settings.path.startup, 'w') as f:
-            await f.write(new_content)
-    except OSError as e:
+        await asyncio.to_thread(startup.delete_scenario, name)
+    except ScenarioNotFoundError:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f'Scenario not found: {name}',
+        ) from None
+    except StartupError as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f'Cannot modify startup file due to OS error: {e}',
+            detail=str(e),
         ) from None
 
 
@@ -121,10 +208,9 @@ async def delete_scenario(
     '/{name}/generators/{generator_id}',
     description='Add generator to scenario',
     responses=merge_responses(
-        get_startup_generator_parameters_list.responses,
+        _STARTUP_ERROR_RESPONSES,
         {404: {'description': 'Generator with this ID is not defined'}},
         {409: {'description': 'Generator is already in this scenario'}},
-        {500: {'description': 'Cannot modify startup file due to OS error'}},
     ),
     status_code=status.HTTP_201_CREATED,
 )
@@ -135,48 +221,24 @@ async def add_generator_to_scenario(
     generator_id: Annotated[
         str, FastApiPath(description='Generator ID', min_length=1)
     ],
-    generators_parameters: StartupGeneratorsParametersListDep,
-    settings: SettingsDep,
+    startup: StartupDep,
 ) -> None:
-    generators_parameters_model, generators_parameters_raw_content = (
-        generators_parameters
-    )
-
-    target_index: int | None = None
-    for i, params in enumerate(generators_parameters_model.root):
-        if params.id == generator_id:
-            target_index = i
-            break
-
-    if target_index is None:
+    try:
+        await asyncio.to_thread(startup.tag_scenario, generator_id, name)
+    except StartupNotFoundError:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail='Generator with this ID is not defined',
-        )
-
-    target_params = generators_parameters_model.root[target_index]
-    if name in (target_params.scenarios or []):
+        ) from None
+    except ScenarioConflictError:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
             detail='Generator is already in this scenario',
-        )
-
-    raw_entry = generators_parameters_raw_content[target_index]
-    scenarios = raw_entry.get('scenarios', [])
-    scenarios.append(name)
-    raw_entry['scenarios'] = scenarios
-
-    new_content = await asyncio.to_thread(
-        lambda: yaml.dump(generators_parameters_raw_content, sort_keys=False),
-    )
-
-    try:
-        async with aiofiles.open(settings.path.startup, 'w') as f:
-            await f.write(new_content)
-    except OSError as e:
+        ) from None
+    except StartupError as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f'Cannot modify startup file due to OS error: {e}',
+            detail=str(e),
         ) from None
 
 
@@ -184,58 +246,34 @@ async def add_generator_to_scenario(
     '/{name}/generators/{generator_id}',
     description='Remove generator from scenario',
     responses=merge_responses(
-        check_scenario_exists.responses,
-        get_startup_generator_parameters_list.responses,
+        _STARTUP_ERROR_RESPONSES,
         {
             404: {
                 'description': 'Generator with this ID is not in this scenario'
             }
         },
-        {500: {'description': 'Cannot modify startup file due to OS error'}},
     ),
 )
 async def remove_generator_from_scenario(
-    name: CheckScenarioExistsDep,
+    name: Annotated[
+        str, FastApiPath(description='Scenario name', min_length=1)
+    ],
     generator_id: Annotated[
         str, FastApiPath(description='Generator ID', min_length=1)
     ],
-    generators_parameters: StartupGeneratorsParametersListDep,
-    settings: SettingsDep,
+    startup: StartupDep,
 ) -> None:
-    generators_parameters_model, generators_parameters_raw_content = (
-        generators_parameters
-    )
-
-    target_index: int | None = None
-    for i, params in enumerate(generators_parameters_model.root):
-        if params.id == generator_id and name in (params.scenarios or []):
-            target_index = i
-            break
-
-    if target_index is None:
+    try:
+        await asyncio.to_thread(startup.untag_scenario, generator_id, name)
+    except ScenarioNotFoundError:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail='Generator with this ID is not in this scenario',
-        )
-
-    raw_entry = generators_parameters_raw_content[target_index]
-    scenarios = [s for s in raw_entry.get('scenarios', []) if s != name]
-    if scenarios:
-        raw_entry['scenarios'] = scenarios
-    else:
-        raw_entry.pop('scenarios', None)
-
-    new_content = await asyncio.to_thread(
-        lambda: yaml.dump(generators_parameters_raw_content, sort_keys=False),
-    )
-
-    try:
-        async with aiofiles.open(settings.path.startup, 'w') as f:
-            await f.write(new_content)
-    except OSError as e:
+        ) from None
+    except StartupError as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f'Cannot modify startup file due to OS error: {e}',
+            detail=str(e),
         ) from None
 
 
@@ -266,42 +304,25 @@ async def get_generator_globals_usage(
     ],
     settings: SettingsDep,
 ) -> GlobalsUsageResponse:
-    generator_dir = (settings.path.generators_dir / generator_name).resolve()
-
-    if not generator_dir.is_relative_to(settings.path.generators_dir):
+    try:
+        generator_dir = resolve_generator_dir(
+            settings.path.generators_dir, generator_name
+        )
+    except WorkspaceError:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail=(
                 'Accessing directories outside generators_dir is not allowed'
             ),
-        )
+        ) from None
 
     if not generator_dir.is_dir():
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f'Generator configuration not found: {generator_name}',
         )
-    usage = GlobalsUsage()
 
-    template_files: list[tuple[Path, str]] = []
-    for pattern in ('**/*.j2', '**/*.jinja'):
-        for filepath in generator_dir.glob(pattern):
-            if filepath.is_file():
-                rel_path = str(filepath.relative_to(generator_dir))
-                template_files.append((filepath, rel_path))
-
-    for filepath, rel_path in template_files:
-        try:
-            async with aiofiles.open(filepath, encoding='utf-8') as f:
-                source = await f.read()
-            template_usage = await asyncio.to_thread(
-                detect_globals_usage, source, rel_path
-            )
-            usage.merge(template_usage)
-        except OSError:
-            logger.warning('Failed to read template file', path=str(filepath))
-        except TemplateSyntaxError:
-            logger.warning('Failed to parse template file', path=str(filepath))
+    usage = await asyncio.to_thread(_collect_globals_usage, generator_dir)
 
     return GlobalsUsageResponse(
         writes=[

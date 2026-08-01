@@ -1,15 +1,6 @@
-import {
-  Alert,
-  Box,
-  Button,
-  Center,
-  Skeleton,
-  Stack,
-  Text,
-} from '@mantine/core';
+import { Alert, Button, Center, Skeleton, Stack, Text } from '@mantine/core';
 import { isNotEmpty, useForm } from '@mantine/form';
 import { notifications } from '@mantine/notifications';
-import { IconAlertSquareRounded, IconAlertTriangle } from '@tabler/icons-react';
 import { FC } from 'react';
 import YAML from 'yaml';
 
@@ -26,6 +17,7 @@ import {
   TriangularDistributionParametersSchema,
   UniformDistributionParametersSchema,
 } from '@/api/routes/generator-configs/schemas/plugins/input/configs/time_patterns';
+import { AlertIcon } from '@/components/ui/AlertIcon';
 import { ShowErrorDetailsAnchor } from '@/components/ui/ShowErrorDetailsAnchor';
 import { useProjectName } from '@/pages/ProjectPage/hooks/useProjectName';
 
@@ -155,7 +147,7 @@ export const TimePatternParams: FC<TimePatternParamsProps> = ({ filePath }) => {
     return (
       <Alert
         variant="default"
-        icon={<Box c="red" component={IconAlertSquareRounded}></Box>}
+        icon={<AlertIcon variant="error" />}
         title="Failed to load file"
       >
         {fileContentError.message}
@@ -177,7 +169,7 @@ export const TimePatternParams: FC<TimePatternParamsProps> = ({ filePath }) => {
       return (
         <Alert
           variant="default"
-          icon={<Box c="orange" component={IconAlertTriangle}></Box>}
+          icon={<AlertIcon variant="warn" />}
           title="Cannot display"
         >
           Structure of file is not recognized as time pattern
@@ -205,7 +197,7 @@ export const TimePatternParams: FC<TimePatternParamsProps> = ({ filePath }) => {
             </Button>
             {form.isDirty() && (
               <Center>
-                <Text size="sm" c="gray.6">
+                <Text size="sm" c="dimmed">
                   There are unsaved changes
                 </Text>
               </Center>

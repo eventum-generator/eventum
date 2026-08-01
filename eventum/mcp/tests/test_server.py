@@ -17,6 +17,7 @@ _EXPECTED_TOOLS = {
     'get_formatter_schema',
     'describe_sample',
     'list_secret_names',
+    'list_secret_references',
     'list_generators',
     'list_generator_files',
     'read_generator_file',
@@ -120,6 +121,28 @@ _EXPECTED_LIVE_TOOLS = {
     'unregister_generator',
     'get_generator_logs',
     'list_startup_generators',
+    'rename_generator',
+    'rename_generator_config',
+    'rename_secret',
+    'list_scenarios',
+    'get_scenario',
+    'add_generator_to_scenario',
+    'remove_generator_from_scenario',
+    'delete_scenario',
+    'rename_scenario',
+    'get_global_state',
+    'get_global_state_key',
+    'set_global_state',
+    'delete_global_state_key',
+    'clear_global_state',
+    'update_settings',
+    'stop_instance',
+    'restart_instance',
+}
+
+_EXPECTED_LIVE_RESOURCES = {
+    'eventum://instance/info',
+    'eventum://instance/settings',
 }
 
 
@@ -134,6 +157,8 @@ def live_ctx(tmp_path: Path) -> ServerLiveContext:
         generation=MagicMock(),
         logs_dir=tmp_path,
         log_format='plain',
+        settings=MagicMock(),
+        hooks=MagicMock(),
     )
 
 
@@ -153,6 +178,22 @@ def test_live_server_registers_live_tools(
     names = {t.name for t in anyio.run(server.list_tools)}
     assert names >= _EXPECTED_LIVE_TOOLS
     assert names >= _EXPECTED_TOOLS
+
+
+def test_live_server_registers_instance_resources(
+    live_ctx: ServerLiveContext,
+) -> None:
+    """The HTTP live server adds the instance info/settings resources."""
+    server = build_server(live_ctx, transport='http', live=True)
+    uris = {str(r.uri) for r in anyio.run(server.list_resources)}
+    assert uris >= _EXPECTED_LIVE_RESOURCES
+
+
+def test_stdio_has_no_instance_resources(ctx: FileAuthoringContext) -> None:
+    """The stdio server exposes no instance resources."""
+    server = build_server(ctx, transport='stdio')
+    uris = {str(r.uri) for r in anyio.run(server.list_resources)}
+    assert uris.isdisjoint(_EXPECTED_LIVE_RESOURCES)
 
 
 def test_live_requires_live_context(ctx: FileAuthoringContext) -> None:
@@ -175,3 +216,33 @@ def test_stdio_has_no_live_ops_prompt(ctx: FileAuthoringContext) -> None:
     server = build_server(ctx, transport='stdio')
     names = {p.name for p in anyio.run(server.list_prompts)}
     assert 'live_ops' not in names
+
+
+def test_live_server_instructions_mention_rest_api(
+    live_ctx: ServerLiveContext,
+) -> None:
+    """The HTTP live server points the agent at the REST API."""
+    server = build_server(live_ctx, transport='http', live=True)
+    instructions = server.instructions or ''
+    assert 'REST API' in instructions
+    assert '/api/openapi.json' in instructions
+
+
+def test_stdio_instructions_omit_rest_api(
+    ctx: FileAuthoringContext,
+) -> None:
+    """The stdio server does not advertise a REST API fallback."""
+    server = build_server(ctx, transport='stdio')
+    instructions = server.instructions or ''
+    assert '/api/openapi.json' not in instructions
+
+
+def test_write_generator_file_warns_about_large_samples(
+    ctx: FileAuthoringContext,
+) -> None:
+    """The write tool steers large samples to an out-of-band upload."""
+    server = build_server(ctx, transport='stdio')
+    tools = anyio.run(server.list_tools)
+    tool = next(t for t in tools if t.name == 'write_generator_file')
+    description = tool.description or ''
+    assert 'out-of-band' in description

@@ -14,7 +14,6 @@ from eventum.core.config_loader import (
     extract_secrets,
 )
 
-
 # --- _extract_tokens ---
 
 
@@ -106,6 +105,51 @@ def test_prepare_params_empty_used():
     assert result == {}
 
 
+def test_prepare_params_resolves_nested_path():
+    result = _prepare_params(
+        used_params=['opensearch.host'],
+        provided_params={'opensearch': {'host': 'localhost', 'port': 9200}},
+    )
+    assert result == {'opensearch': {'host': 'localhost'}}
+
+
+def test_prepare_params_resolves_dotted_name():
+    result = _prepare_params(
+        used_params=['opensearch.host'],
+        provided_params={'opensearch.host': 'localhost'},
+    )
+    assert result == {'opensearch': {'host': 'localhost'}}
+
+
+def test_prepare_params_prefers_exact_name():
+    result = _prepare_params(
+        used_params=['a.b'],
+        provided_params={'a.b': 1, 'a': {'b': 2}},
+    )
+    assert result == {'a': {'b': 1}}
+
+
+def test_prepare_params_keeps_dotted_keys_of_value():
+    result = _prepare_params(
+        used_params=['headers'],
+        provided_params={'headers': {'x.trace': 'id'}},
+    )
+    assert result == {'headers': {'x.trace': 'id'}}
+
+
+def test_prepare_params_missing_nested_path_raises():
+    with pytest.raises(ValueError, match='missing'):
+        _prepare_params(used_params=['a.b'], provided_params={'a': 1})
+
+
+def test_prepare_params_overlapping_names_raise():
+    with pytest.raises(ValueError, match='overlaps'):
+        _prepare_params(
+            used_params=['a', 'a.b'],
+            provided_params={'a': 1, 'a.b': 2},
+        )
+
+
 # --- _prepare_secrets ---
 
 
@@ -115,6 +159,14 @@ def test_prepare_secrets_success(mock_get_secret):
     result = _prepare_secrets(used_secrets=['api_key'])
     assert result == {'api_key': 'secret_value'}
     mock_get_secret.assert_called_once_with('api_key')
+
+
+@patch('eventum.core.config_loader.get_secret')
+def test_prepare_secrets_dotted_name(mock_get_secret):
+    mock_get_secret.return_value = 'secret_value'
+    result = _prepare_secrets(used_secrets=['db.password'])
+    assert result == {'db': {'password': 'secret_value'}}
+    mock_get_secret.assert_called_once_with('db.password')
 
 
 @patch('eventum.core.config_loader.get_secret')

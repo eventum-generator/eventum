@@ -1,8 +1,3 @@
----
-paths:
-  - "eventum/api/**"
----
-
 # API Development Rules
 
 ## Entry point
@@ -40,4 +35,23 @@ Auth is attached at `include_router()` level, not per-route. Use `HttpAuthDepend
 
 ## OpenAPI export
 
-After any route change: re-export `docs/public/schemas/eventum-openapi.json` and run `pnpm generate-api-docs` in `docs/`. Files under `docs/content/docs/api/**` are auto-generated - never edit them directly.
+`../docs/public/schemas/eventum-openapi.json` is the schema the documentation site renders its API reference from. It is a committed file that changes only when someone exports it, so it drifts from the code silently.
+
+Export it after any change that the schema carries - a route, its request or response models, its descriptions, or a plugin config model - and again at release time, so the published reference names the released version. `info.version` comes from the package version: at release time export after the version bump, never before.
+
+Take the schema from a running instance; the endpoint needs no authentication:
+
+```bash
+uv run eventum run -c <eventum.yml>
+curl -s http://<host>:<port>/api/openapi.json \
+    | uv run python -m json.tool --indent 4 \
+    > ../docs/public/schemas/eventum-openapi.json
+```
+
+Then regenerate the reference pages in `../docs`:
+
+```bash
+pnpm generate-api-docs
+```
+
+The schema and the pages both live in the docs repository, so they ship in a branch and PR of that repository. Files under `docs/content/docs/api/**` are auto-generated - never edit them directly.

@@ -1,6 +1,5 @@
 import {
   Alert,
-  Box,
   Button,
   Group,
   Skeleton,
@@ -10,7 +9,6 @@ import {
 import { useForm } from '@mantine/form';
 import { modals } from '@mantine/modals';
 import { notifications } from '@mantine/notifications';
-import { IconAlertSquareRounded } from '@tabler/icons-react';
 import { FC, useMemo } from 'react';
 import YAML from 'yaml';
 
@@ -20,6 +18,7 @@ import {
 } from '@/api/hooks/useGeneratorConfigs';
 import { flattenFileTree } from '@/api/routes/generator-configs/modules/file-tree';
 import { TimePatternConfig } from '@/api/routes/generator-configs/schemas/plugins/input/configs/time_patterns';
+import { AlertIcon } from '@/components/ui/AlertIcon';
 import { ShowErrorDetailsAnchor } from '@/components/ui/ShowErrorDetailsAnchor';
 import { useProjectName } from '@/pages/ProjectPage/hooks/useProjectName';
 
@@ -151,7 +150,7 @@ export const AddNewPatternModal: FC<AddNewPatternModalProps> = ({
       {isFileTreeError && (
         <Alert
           variant="default"
-          icon={<Box c="red" component={IconAlertSquareRounded}></Box>}
+          icon={<AlertIcon variant="error" />}
           title="Failed to load list of project files"
         >
           {fileTreeError.message}

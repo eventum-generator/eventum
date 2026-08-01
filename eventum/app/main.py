@@ -17,6 +17,7 @@ from eventum.app.startup import (
 )
 from eventum.exceptions import ContextualError
 from eventum.security.manage import SECURITY_SETTINGS
+from eventum.utils import net_accounting
 
 logger = structlog.stdlib.get_logger()
 
@@ -73,7 +74,7 @@ class App:
     def _server_enabled(self) -> bool:
         """Whether any server-hosted service is enabled."""
         server = self._settings.server
-        return server.api_enabled or server.ui_enabled or server.mcp.enabled
+        return server.api.enabled or server.ui.enabled or server.mcp.enabled
 
     def start(self) -> None:
         """Start the app.
@@ -84,6 +85,8 @@ class App:
             If error occurs during initialization.
 
         """
+        net_accounting.install()
+
         logger.info('Loading generators list')
         generators_params = self._load_startup_generators_params()
 
@@ -272,11 +275,16 @@ class App:
 
         """
         from eventum.server.main import build_server_app
+        from eventum.server.shutdown import reset_sse_drain
+
+        # Clear any sticky shutdown flag left by a previous in-process
+        # run (e.g. a SIGHUP restart) so fresh SSE streams stay open.
+        reset_sse_drain()
 
         server_app = build_server_app(
             enabled_services={
-                'api': self._settings.server.api_enabled,
-                'ui': self._settings.server.ui_enabled,
+                'api': self._settings.server.api.enabled,
+                'ui': self._settings.server.ui.enabled,
                 'mcp': self._settings.server.mcp.enabled,
             },
             generator_manager=self._manager,
@@ -356,12 +364,19 @@ class App:
     def _stop_server(self) -> None:
         """Stop application server.
 
-        Requests graceful shutdown. If the server does not stop within
-        the timeout window, forces exit so long-lived connections (e.g.
-        streaming WebSockets) cannot block termination indefinitely.
+        Signals SSE streams to drain and requests graceful shutdown. If
+        the server does not stop within the timeout window, forces exit
+        so long-lived connections cannot block termination indefinitely.
         """
         if self._server is None:
             return
+
+        from eventum.server.shutdown import request_sse_drain
+
+        # Drain MCP SSE streams up front: uvicorn waits for connections
+        # before running lifespan shutdown, so without this an open SSE
+        # stream blocks until the graceful-shutdown timeout expires.
+        request_sse_drain()
 
         self._server.should_exit = True
 

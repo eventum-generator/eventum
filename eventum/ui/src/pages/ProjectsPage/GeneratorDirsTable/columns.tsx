@@ -1,4 +1,4 @@
-import { ActionIcon, Badge, Group, Text } from '@mantine/core';
+import { ActionIcon } from '@mantine/core';
 import { IconDotsVertical } from '@tabler/icons-react';
 import { createColumnHelper } from '@tanstack/react-table';
 import bytes from 'bytes';
@@ -6,6 +6,9 @@ import { formatDistanceToNow } from 'date-fns';
 
 import { RowActions } from './RowActions';
 import { GeneratorDirsExtendedInfo } from '@/api/routes/generator-configs/schemas';
+import { InstanceBadges } from '@/components/ui/InstanceBadges';
+import { RecordNameLink } from '@/components/ui/RecordNameLink';
+import { ROUTE_PATHS } from '@/routing/paths';
 
 const columnHelper = createColumnHelper<GeneratorDirsExtendedInfo[number]>();
 
@@ -15,7 +18,11 @@ export const columns = [
     id: 'name',
     enableSorting: true,
     enableColumnFilter: true,
-    cell: (info) => info.getValue(),
+    cell: (info) => (
+      <RecordNameLink to={`${ROUTE_PATHS.PROJECTS}/${info.getValue()}`}>
+        {info.getValue()}
+      </RecordNameLink>
+    ),
   }),
   columnHelper.accessor('generator_ids', {
     header: 'Instances',
@@ -25,12 +32,18 @@ export const columns = [
     filterFn: (
       row,
       columnId,
-      filterValue: { instancesFilter: string[]; anyInstanceFilter: boolean }
+      filterValue: {
+        instancesFilter: string[];
+        usageMode: 'all' | 'used' | 'unused';
+      }
     ) => {
       const rowValue: string[] = row.getValue(columnId);
 
-      if (filterValue.anyInstanceFilter) {
-        return rowValue.length > 0;
+      if (filterValue.usageMode === 'used' && rowValue.length === 0) {
+        return false;
+      }
+      if (filterValue.usageMode === 'unused' && rowValue.length > 0) {
+        return false;
       }
 
       if (filterValue.instancesFilter.length === 0) return true;
@@ -39,32 +52,14 @@ export const columns = [
         rowValue.includes(selectedItem)
       );
     },
-    cell: (info) => {
-      const generatorIds = info.getValue();
-
-      if (generatorIds.length === 0) {
-        return (
-          <Text c="gray.6" size="sm">
-            Not used
-          </Text>
-        );
-      }
-
-      return (
-        <Group gap="xs">
-          {generatorIds.map((generator_id) => (
-            <Badge
-              size="md"
-              variant="default"
-              key={generator_id}
-              style={{ textTransform: 'initial' }}
-            >
-              <Text size="xs">{generator_id}</Text>
-            </Badge>
-          ))}
-        </Group>
-      );
-    },
+    cell: (info) => (
+      <InstanceBadges
+        ids={info.getValue()}
+        moreTo={`${ROUTE_PATHS.INSTANCES}?project=${encodeURIComponent(
+          info.row.original.name
+        )}`}
+      />
+    ),
   }),
   columnHelper.accessor('last_modified', {
     header: 'Modified',

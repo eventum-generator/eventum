@@ -16,9 +16,9 @@ import { FC } from 'react';
 
 import { ProjectFileSelect } from '../../components/ProjectFileSelect';
 import { FormatterParams } from './components/FormatterParams';
-import { FileOutputPluginConfigSchema } from '@/api/routes/generator-configs/schemas/plugins/output/configs/file';
 import {
   HTTPOutputPluginConfig,
+  HTTPOutputPluginConfigSchema,
   HTTP_METHODS,
 } from '@/api/routes/generator-configs/schemas/plugins/output/configs/http';
 import { LabelWithTooltip } from '@/components/ui/LabelWithTooltip';
@@ -34,7 +34,7 @@ export const HTTPOutputPluginParams: FC<HTTPOutputPluginParamsProps> = ({
 }) => {
   const form = useForm<HTTPOutputPluginConfig>({
     initialValues: initialConfig,
-    validate: zod4Resolver(FileOutputPluginConfigSchema),
+    validate: zod4Resolver(HTTPOutputPluginConfigSchema),
     onValuesChange: onChange,
     validateInputOnChange: true,
   });
@@ -219,6 +219,11 @@ export const HTTPOutputPluginParams: FC<HTTPOutputPluginParamsProps> = ({
               />
             }
             {...form.getInputProps('verify', { type: 'checkbox' })}
+            checked={
+              typeof form.values.verify === 'boolean'
+                ? form.values.verify
+                : true
+            }
           />
 
           <ProjectFileSelect

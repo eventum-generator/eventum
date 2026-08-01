@@ -57,7 +57,7 @@ class ClickhouseOutputPluginConfig(OutputPluginConfig, frozen=True):
         Client name that is prepended to the HTTP User Agent header,
         set this to track client queries in the ClickHouse query log.
 
-    verify : bool, default=False
+    verify : bool, default=True
         Whether to verify SSL certificate of ClickHouse server.
 
     ca_cert : Path | None, default=None
@@ -123,9 +123,9 @@ class ClickhouseOutputPluginConfig(OutputPluginConfig, frozen=True):
     request_timeout: int = Field(default=300, ge=1)
     client_name: str | None = Field(default=None, min_length=1)
     verify: bool = Field(default=True)
-    ca_cert: Path | None = Field(default=None, min_length=1)
-    client_cert: Path | None = Field(default=None, min_length=1)
-    client_cert_key: Path | None = Field(default=None, min_length=1)
+    ca_cert: Path | None = Field(default=None)
+    client_cert: Path | None = Field(default=None)
+    client_cert_key: Path | None = Field(default=None)
     server_host_name: str | None = Field(default=None, min_length=1)
     tls_mode: Literal['proxy', 'strict', 'mutual'] | None = Field(default=None)
     proxy_url: HttpUrl | None = Field(default=None)

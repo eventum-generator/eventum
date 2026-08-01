@@ -14,6 +14,8 @@ export interface TemplateStateProps {
   onDeleteKey: (key: string) => void;
   onClear: () => void;
   isClearPending: boolean;
+  warningTitle?: string;
+  warningMessage?: string;
 }
 
 export const TemplateState: FC<TemplateStateProps> = ({
@@ -28,6 +30,8 @@ export const TemplateState: FC<TemplateStateProps> = ({
   onDeleteKey,
   onClear,
   isClearPending,
+  warningTitle,
+  warningMessage,
 }) => {
   return (
     <KeyValueTable
@@ -45,6 +49,8 @@ export const TemplateState: FC<TemplateStateProps> = ({
       titleOrder={6}
       isClearPending={isClearPending}
       errorTitle="Failed to load state, ensure debugger is started"
+      warningTitle={warningTitle}
+      warningMessage={warningMessage}
       compact
     />
   );

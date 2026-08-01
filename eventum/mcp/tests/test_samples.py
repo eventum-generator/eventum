@@ -49,6 +49,32 @@ async def test_describe_sample_csv(ctx: FileAuthoringContext) -> None:
     assert result['example_rows'] == [['Paris', 'FR'], ['Lyon', 'FR']]
 
 
+async def test_describe_sample_refuses_an_oversized_file(
+    ctx: FileAuthoringContext,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A file over the ceiling is refused instead of being parsed.
+
+    This is the regression guard: the whole file used to be parsed to
+    count its rows, so pointing the tool at an output file of a long run
+    loaded it into memory.
+    """
+    content = 'city,country\nParis,FR\nLyon,FR\n'
+    ceiling = len(content) - 1
+    monkeypatch.setattr('eventum.mcp.tools.samples._MAX_SAMPLE_BYTES', ceiling)
+    name = _make_gen(ctx, content)
+
+    result = await describe_sample(
+        ctx, name=name, relative_path='samples/data.csv'
+    )
+
+    assert isinstance(result, ToolFailure)
+    assert result.error == 'Sample file is too large to introspect'
+    assert result.details['size_in_bytes'] == len(content)
+    assert result.details['max_size_in_bytes'] == ceiling
+    assert 'read_generator_file' in result.details['hint']
+
+
 async def test_describe_sample_traversal_rejected(
     ctx: FileAuthoringContext,
 ) -> None:

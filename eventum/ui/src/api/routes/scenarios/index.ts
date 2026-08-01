@@ -1,10 +1,9 @@
 import z from 'zod';
 
 import { GlobalsUsageSchema, ScenarioResponseSchema } from './schemas';
+import type { GlobalsUsage, ScenarioResponse } from './schemas';
 import { apiClient } from '@/api/client';
 import { validateResponse } from '@/api/wrappers';
-
-import type { GlobalsUsage, ScenarioResponse } from './schemas';
 
 export async function listScenarios(): Promise<string[]> {
   return await validateResponse(
@@ -22,6 +21,15 @@ export async function getScenario(name: string): Promise<ScenarioResponse> {
 
 export async function deleteScenario(name: string): Promise<void> {
   await apiClient.delete(`/scenarios/${encodeURIComponent(name)}`);
+}
+
+export async function renameScenario(
+  name: string,
+  newName: string
+): Promise<void> {
+  await apiClient.post(`/scenarios/${encodeURIComponent(name)}/rename`, {
+    new_name: newName,
+  });
 }
 
 export async function addGeneratorToScenario(

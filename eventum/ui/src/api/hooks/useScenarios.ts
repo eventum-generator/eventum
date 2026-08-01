@@ -1,4 +1,9 @@
-import { useMutation, useQueries, useQuery, useQueryClient } from '@tanstack/react-query';
+import {
+  useMutation,
+  useQueries,
+  useQuery,
+  useQueryClient,
+} from '@tanstack/react-query';
 
 import {
   addGeneratorToScenario,
@@ -9,6 +14,7 @@ import {
   getScenarioGlobalState,
   listScenarios,
   removeGeneratorFromScenario,
+  renameScenario,
   updateScenarioGlobalState,
 } from '../routes/scenarios';
 
@@ -37,12 +43,34 @@ export function useDeleteScenarioMutation() {
   });
 }
 
+export function useRenameScenarioMutation() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({ name, newName }: { name: string; newName: string }) =>
+      renameScenario(name, newName),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({
+        queryKey: SCENARIOS_QUERY_KEY,
+      });
+      await queryClient.invalidateQueries({
+        queryKey: ['startup'],
+      });
+    },
+  });
+}
+
 export function useAddGeneratorToScenarioMutation() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: ({ name, generatorId }: { name: string; generatorId: string }) =>
-      addGeneratorToScenario(name, generatorId),
+    mutationFn: ({
+      name,
+      generatorId,
+    }: {
+      name: string;
+      generatorId: string;
+    }) => addGeneratorToScenario(name, generatorId),
     onSuccess: async () => {
       await queryClient.invalidateQueries({
         queryKey: SCENARIOS_QUERY_KEY,
@@ -58,8 +86,13 @@ export function useRemoveGeneratorFromScenarioMutation() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: ({ name, generatorId }: { name: string; generatorId: string }) =>
-      removeGeneratorFromScenario(name, generatorId),
+    mutationFn: ({
+      name,
+      generatorId,
+    }: {
+      name: string;
+      generatorId: string;
+    }) => removeGeneratorFromScenario(name, generatorId),
     onSuccess: async () => {
       await queryClient.invalidateQueries({
         queryKey: SCENARIOS_QUERY_KEY,

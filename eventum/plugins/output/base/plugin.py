@@ -204,6 +204,10 @@ class OutputPlugin(Plugin[ConfigT, ParamsT], register=False):
             self._format_failed += len(events)
             raise
 
+        # count events rejected by formatter, whether individually or
+        # as an entire batch by aggregating formatters
+        self._format_failed += len(events) - formatting_result.formatted_count
+
         if not formatting_result.events:
             return 0
 
@@ -222,6 +226,11 @@ class OutputPlugin(Plugin[ConfigT, ParamsT], register=False):
             written = formatting_result.formatted_count
 
         self._written += written
+        self._write_failed += max(
+            formatting_result.formatted_count - written,
+            0,
+        )
+
         return written
 
     @abstractmethod
@@ -254,6 +263,9 @@ class OutputPlugin(Plugin[ConfigT, ParamsT], register=False):
         Notes
         -----
         See `write` method for more info.
+
+        Returned number must include only events that reached the
+        destination, the rest of them are counted as failed.
 
         """
         ...

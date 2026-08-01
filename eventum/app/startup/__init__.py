@@ -12,6 +12,8 @@ base directory before persistence.
 """
 
 from eventum.app.startup.exceptions import (
+    ScenarioConflictError,
+    ScenarioNotFoundError,
     StartupConflictError,
     StartupError,
     StartupNotFoundError,
@@ -23,6 +25,8 @@ from eventum.app.startup.models import (
 from eventum.app.startup.service import Startup
 
 __all__ = [
+    'ScenarioConflictError',
+    'ScenarioNotFoundError',
     'Startup',
     'StartupConflictError',
     'StartupError',

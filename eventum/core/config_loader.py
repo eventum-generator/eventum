@@ -13,12 +13,13 @@ from pydantic import ValidationError
 from eventum.core.config import GeneratorConfig
 from eventum.exceptions import ContextualError
 from eventum.security.manage import get_secret
-from eventum.utils.dotted_keys import DottedKeyError, expand_dotted_keys
 from eventum.utils.validation_prettier import prettify_validation_errors
 
 logger = structlog.stdlib.get_logger()
 
 TOKEN_PATTERN = re.compile(pattern=r'\${\s*?(\S*?)\s*?}')
+
+_MISSING = object()
 
 
 class ConfigurationLoadError(ContextualError):
@@ -140,6 +141,84 @@ def extract_secrets(content: str) -> list[str]:
     return secrets
 
 
+def _resolve_param(name: str, provided_params: dict[str, Any]) -> Any:
+    """Get param value addressed by the name used in a token.
+
+    The name addresses either a param spelled exactly like it, or a
+    path of nested param names.
+
+    Parameters
+    ----------
+    name : str
+        Param name used in substitution.
+
+    provided_params : dict[str, Any]
+        Params provided by user.
+
+    Returns
+    -------
+    Any
+        Param value, or `_MISSING` if the name addresses no value.
+
+    """
+    if name in provided_params:
+        return provided_params[name]
+
+    value: Any = provided_params
+    for part in name.split('.'):
+        if not isinstance(value, dict) or part not in value:
+            return _MISSING
+
+        value = value[part]
+
+    return value
+
+
+def _set_token_value(
+    context: dict[str, Any],
+    name: str,
+    value: Any,
+) -> None:
+    """Put value into rendering context under the path of the name.
+
+    Parameters
+    ----------
+    context : dict[str, Any]
+        Rendering context to fill.
+
+    name : str
+        Name used in substitution, its parts address nesting levels.
+
+    value : Any
+        Value to put.
+
+    Raises
+    ------
+    ValueError
+        If the path is already occupied by the value of another name.
+
+    """
+    msg = f'Name `{name}` overlaps with another used name'
+
+    *parts, leaf = name.split('.')
+
+    node = context
+    for part in parts:
+        child = node.setdefault(part, {})
+
+        if isinstance(child, dict):
+            node = child
+            continue
+
+        raise ValueError(msg)
+
+    occupied = node.get(leaf, _MISSING)
+    if occupied is not _MISSING and occupied != value:
+        raise ValueError(msg)
+
+    node[leaf] = value
+
+
 def _prepare_params(
     used_params: Iterable[str],
     provided_params: dict[str, Any],
@@ -163,22 +242,24 @@ def _prepare_params(
     Raises
     ------
     ValueError
-        If some parameters are missing.
+        If some parameters are missing or their names overlap.
 
     """
-    used_params = set(used_params)
     rendering_params: dict[str, Any] = {}
+    missing_params: set[str] = set()
 
-    if used_params:
-        all_params = set(provided_params.keys())
+    for param in sorted(set(used_params)):
+        value = _resolve_param(param, provided_params)
 
-        if not all_params.issuperset(used_params):
-            missing_params = used_params - all_params
-            msg = f'Parameters {missing_params} are missing'
-            raise ValueError(msg)
+        if value is _MISSING:
+            missing_params.add(param)
+            continue
 
-        for param in used_params:
-            rendering_params[param] = provided_params[param]
+        _set_token_value(rendering_params, param, value)
+
+    if missing_params:
+        msg = f'Parameters {missing_params} are missing'
+        raise ValueError(msg)
 
     return rendering_params
 
@@ -200,21 +281,20 @@ def _prepare_secrets(used_secrets: Iterable[str]) -> dict[str, Any]:
     Raises
     ------
     ValueError
-        If some secrets are missing or cannot be read from keyring.
+        If some secrets are missing, cannot be read from keyring or
+        their names overlap.
 
     """
-    used_secrets = set(used_secrets)
     rendering_secrets: dict[str, Any] = {}
 
-    if used_secrets:
-        for secret in used_secrets:
-            try:
-                value = get_secret(secret)
-            except (OSError, ValueError) as e:
-                msg = f'Cannot obtain secret `{secret}`: {e}'
-                raise ValueError(msg) from None
+    for secret in sorted(set(used_secrets)):
+        try:
+            value = get_secret(secret)
+        except (OSError, ValueError) as e:
+            msg = f'Cannot obtain secret `{secret}`: {e}'
+            raise ValueError(msg) from None
 
-            rendering_secrets[secret] = value
+        _set_token_value(rendering_secrets, secret, value)
 
     return rendering_secrets
 
@@ -358,8 +438,7 @@ def load(path: Path, params: dict[str, Any]) -> GeneratorConfig:
     logger.debug('Parsing yaml content of config')
     try:
         config_data = yaml.load(substituted_content, yaml.SafeLoader)
-        config_data = expand_dotted_keys(config_data)
-    except (yaml.error.YAMLError, DottedKeyError) as e:
+    except yaml.error.YAMLError as e:
         msg = 'Failed to parse configuration YAML content'
         raise ConfigurationLoadError(
             msg,

@@ -48,14 +48,15 @@ import { UdpOutputPluginDefaultConfig } from './default-configs/output/udp';
 
 /** Scale down filled brand icons to visually match stroked Tabler icons. */
 function brandIcon(BaseIcon: IconType): IconType {
-  const Scaled = forwardRef<SVGSVGElement, React.ComponentPropsWithoutRef<IconType>>(
-    ({ size, ...rest }, ref) =>
-      createElement(BaseIcon, {
-        ...rest,
-        ref,
-        size:
-          typeof size === 'number' ? Math.round(size * 0.82) : size,
-      }),
+  const Scaled = forwardRef<
+    SVGSVGElement,
+    React.ComponentPropsWithoutRef<IconType>
+  >(({ size, ...rest }, ref) =>
+    createElement(BaseIcon, {
+      ...rest,
+      ref,
+      size: typeof size === 'number' ? Math.round(size * 0.82) : size,
+    })
   );
   Scaled.displayName = `BrandIcon(${BaseIcon.displayName ?? 'Icon'})`;
   return Scaled;

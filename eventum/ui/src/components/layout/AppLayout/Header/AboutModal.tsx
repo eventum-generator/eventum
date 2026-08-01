@@ -1,6 +1,5 @@
 import {
   Alert,
-  Box,
   Button,
   Center,
   Divider,
@@ -11,15 +10,11 @@ import {
   Title,
 } from '@mantine/core';
 import { modals } from '@mantine/modals';
-import {
-  IconAlertSquareRounded,
-  IconBox,
-  IconBrandPython,
-  IconServer,
-} from '@tabler/icons-react';
+import { IconBox, IconBrandPython, IconServer } from '@tabler/icons-react';
 import { FC } from 'react';
 
 import { useInstanceInfo } from '@/api/hooks/useInstance';
+import { AlertIcon } from '@/components/ui/AlertIcon';
 import { ResponsibleCopyButton } from '@/components/ui/ResponsibleCopyButton';
 
 export const AboutModal: FC = () => {
@@ -44,7 +39,7 @@ export const AboutModal: FC = () => {
       <Alert
         mt="md"
         variant="default"
-        icon={<Box c="red" component={IconAlertSquareRounded}></Box>}
+        icon={<AlertIcon variant="error" />}
         title="Failed to get instance information"
       >
         {instanceInfoError.message}

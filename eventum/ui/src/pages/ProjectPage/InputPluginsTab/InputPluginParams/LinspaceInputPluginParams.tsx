@@ -101,6 +101,11 @@ export const LinspaceInputPluginParams: FC<LinspaceInputPluginParamsProps> = ({
           />
         }
         {...form.getInputProps('endpoint', { type: 'checkbox' })}
+        checked={
+          typeof form.values.endpoint === 'boolean'
+            ? form.values.endpoint
+            : true
+        }
       />
 
       <TagsInput

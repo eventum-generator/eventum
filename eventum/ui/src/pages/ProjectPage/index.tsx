@@ -1,123 +1,29 @@
-import {
-  Alert,
-  Anchor,
-  Box,
-  Button,
-  Center,
-  Container,
-  Group,
-  Loader,
-  Stack,
-  Tabs,
-  Text,
-  Title,
-} from '@mantine/core';
-import { modals } from '@mantine/modals';
-import { notifications } from '@mantine/notifications';
-import {
-  IconAlertSquareRounded,
-  IconArrowLeft,
-  IconArrowsSplit2,
-  IconClockPlay,
-  IconCube,
-} from '@tabler/icons-react';
-import isEqual from 'lodash/isEqual';
-import { useEffect, useMemo, useState } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { Alert, Anchor, Center, Container, Loader, Text } from '@mantine/core';
+import { Link, useParams } from 'react-router-dom';
 
-import { EventPluginTab } from './EventPluginTab';
-import { InputPluginsTab } from './InputPluginsTab';
-import { OutputPluginsTab } from './OutputPluginsTab';
 import { FileTreeProvider } from './context/FileTreeContext';
 import { ProjectNameProvider } from './context/ProjectNameContext';
-import {
-  useGeneratorConfig,
-  useUpdateGeneratorConfigMutation,
-} from '@/api/hooks/useGeneratorConfigs';
-import { GeneratorConfig } from '@/api/routes/generator-configs/schemas';
+import { StudioProvider } from './studio/StudioProvider';
+import { StudioShell } from './studio/StudioShell';
+import { APIError } from '@/api/errors';
+import { useGeneratorConfig } from '@/api/hooks/useGeneratorConfigs';
+import { AlertIcon } from '@/components/ui/AlertIcon';
 import { ShowErrorDetailsAnchor } from '@/components/ui/ShowErrorDetailsAnchor';
 import { ROUTE_PATHS } from '@/routing/paths';
 
 export default function ProjectPage() {
   const { projectName } = useParams() as { projectName: string };
-  const navigate = useNavigate();
-
-  const [config, setConfig] = useState<GeneratorConfig>();
 
   const {
     data: generatorConfig,
-    isSuccess: isGeneratorConfigSuccess,
-    isError: isGeneratorConfigError,
-    error: generatorConfigError,
-    isLoading: isGeneratorConfigLoading,
+    isSuccess,
+    isError,
+    error,
+    isLoading,
+    refetch: refetchConfig,
   } = useGeneratorConfig(projectName);
 
-  useEffect(() => {
-    if (isGeneratorConfigSuccess) {
-      setConfig({ ...generatorConfig });
-    }
-  }, [generatorConfig, isGeneratorConfigSuccess, setConfig]);
-
-  const updateGeneratorConfig = useUpdateGeneratorConfigMutation();
-
-  const hasUnsavedChanges = useMemo(() => {
-    if (!isGeneratorConfigSuccess) {
-      return false;
-    }
-
-    return !isEqual(generatorConfig, config);
-  }, [generatorConfig, config, isGeneratorConfigSuccess]);
-
-  function handleSave() {
-    if (config === undefined) {
-      return;
-    }
-
-    updateGeneratorConfig.mutate(
-      { name: projectName, config: config },
-      {
-        onSuccess: () => {
-          notifications.show({
-            title: 'Success',
-            message: 'Project is saved',
-            color: 'green',
-          });
-        },
-        onError: (error) => {
-          notifications.show({
-            title: 'Error',
-            message: (
-              <>
-                Failed to save project
-                <ShowErrorDetailsAnchor error={error} prependDot />
-              </>
-            ),
-            color: 'red',
-          });
-        },
-      }
-    );
-  }
-
-  function handleBack() {
-    if (hasUnsavedChanges) {
-      modals.openConfirmModal({
-        title: 'Unsaved changes',
-        children: (
-          <Text size="sm">
-            All unsaved changes in project <b>{projectName}</b> will be lost. Do
-            you want to continue?
-          </Text>
-        ),
-        labels: { cancel: 'Cancel', confirm: 'Confirm' },
-        onConfirm: () => void navigate(ROUTE_PATHS.PROJECTS),
-      });
-    } else {
-      void navigate(ROUTE_PATHS.PROJECTS);
-    }
-  }
-
-  if (isGeneratorConfigLoading) {
+  if (isLoading) {
     return (
       <Center>
         <Loader size="lg" />
@@ -125,19 +31,43 @@ export default function ProjectPage() {
     );
   }
 
-  if (isGeneratorConfigError) {
+  if (isError) {
+    // A config that cannot be parsed/read (422) or errored on the server (500)
+    // still has an editable project directory, so open the studio in recovery
+    // mode to let the user fix the file that locked them out. A missing project
+    // (404) or other errors have nothing to recover and keep the plain error.
+    const status =
+      error instanceof APIError ? error.response?.status : undefined;
+
+    if (status === 422 || status === 500) {
+      return (
+        <ProjectNameProvider initialProjectName={projectName}>
+          <FileTreeProvider>
+            <StudioProvider
+              key="recovery"
+              serverConfig={null}
+              configError={error}
+              onReloadConfig={() => void refetchConfig()}
+            >
+              <StudioShell />
+            </StudioProvider>
+          </FileTreeProvider>
+        </ProjectNameProvider>
+      );
+    }
+
     return (
       <Container size="md">
         <Alert
           variant="default"
-          icon={<Box c="red" component={IconAlertSquareRounded}></Box>}
+          icon={<AlertIcon variant="error" />}
           title="Failed to open project"
         >
-          {generatorConfigError.message}
-          <ShowErrorDetailsAnchor error={generatorConfigError} prependDot />
-          <Anchor onClick={() => void navigate(ROUTE_PATHS.PROJECTS)}>
+          {error.message}
+          <ShowErrorDetailsAnchor error={error} prependDot />
+          <Anchor component={Link} to={ROUTE_PATHS.PROJECTS}>
             <Text size="sm" ta="end">
-              ← Go Back
+              &larr; Go Back
             </Text>
           </Anchor>
         </Alert>
@@ -145,90 +75,17 @@ export default function ProjectPage() {
     );
   }
 
-  if (isGeneratorConfigSuccess && config !== undefined) {
+  if (isSuccess) {
     return (
       <ProjectNameProvider initialProjectName={projectName}>
         <FileTreeProvider>
-          <Container size="100%" mt="xs">
-            <Stack>
-              <Group justify="space-between">
-                <Title order={3} fw="bold">
-                  {projectName}
-                </Title>
-                <Group>
-                  <Button
-                    variant="default"
-                    leftSection={<IconArrowLeft size={16} />}
-                    onClick={handleBack}
-                  >
-                    Back
-                  </Button>
-                  <Button
-                    onClick={handleSave}
-                    disabled={!hasUnsavedChanges}
-                    loading={updateGeneratorConfig.isPending}
-                    title={
-                      hasUnsavedChanges
-                        ? 'There are unsaved changes'
-                        : 'No unsaved changes'
-                    }
-                  >
-                    Save
-                  </Button>
-                </Group>
-              </Group>
-              <Tabs defaultValue="input" mt="lg">
-                <Tabs.List>
-                  <Tabs.Tab
-                    value="input"
-                    leftSection={<IconClockPlay size={14} />}
-                  >
-                    Input plugins
-                  </Tabs.Tab>
-                  <Tabs.Tab value="event" leftSection={<IconCube size={14} />}>
-                    Event plugin
-                  </Tabs.Tab>
-                  <Tabs.Tab
-                    value="output"
-                    leftSection={<IconArrowsSplit2 size={14} />}
-                  >
-                    Output plugins
-                  </Tabs.Tab>
-                </Tabs.List>
-
-                <Box mt="md">
-                  <Tabs.Panel value="input">
-                    <InputPluginsTab
-                      initialInputPluginsConfig={generatorConfig.input}
-                      onInputPluginsConfigChange={(config) =>
-                        setConfig((prev) => ({ ...prev!, input: config }))
-                      }
-                    />
-                  </Tabs.Panel>
-                  <Tabs.Panel value="event">
-                    <EventPluginTab
-                      initialEventPluginConfig={generatorConfig.event}
-                      onEventPluginConfigChange={(config) =>
-                        setConfig((prev) => ({ ...prev!, event: config }))
-                      }
-                    />
-                  </Tabs.Panel>
-                  <Tabs.Panel value="output">
-                    <OutputPluginsTab
-                      initialOutputPluginsConfig={generatorConfig.output}
-                      onOutputPluginsConfigChange={(config) =>
-                        setConfig((prev) => ({ ...prev!, output: config }))
-                      }
-                    />
-                  </Tabs.Panel>
-                </Box>
-              </Tabs>
-            </Stack>
-          </Container>
+          <StudioProvider key="ready" serverConfig={generatorConfig}>
+            <StudioShell />
+          </StudioProvider>
         </FileTreeProvider>
       </ProjectNameProvider>
     );
   }
 
-  return <></>;
+  return null;
 }

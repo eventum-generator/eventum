@@ -1,8 +1,3 @@
----
-paths:
-  - "eventum/server/**/*.py"
----
-
 # Server Rules
 
 ## Transport only

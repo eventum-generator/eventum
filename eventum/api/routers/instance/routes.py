@@ -3,28 +3,25 @@
 import asyncio
 from typing import Annotated
 
-import aiofiles
-import yaml
 from fastapi import (
     APIRouter,
     Body,
     HTTPException,
     Query,
     WebSocket,
-    WebSocketDisconnect,
     WebSocketException,
     status,
 )
 
 from eventum.api.dependencies.app import InstanceHooksDep, SettingsDep
 from eventum.api.routers.instance.models import InstanceInfo
-from eventum.api.utils.file_streaming import stream_file
+from eventum.api.utils.log_streaming import stream_log_file_to_websocket
 from eventum.api.utils.websocket_annotations import (
     AsyncAPIMessage,
     Receives,
     Rejects,
 )
-from eventum.app.models.settings import Settings
+from eventum.app.models.settings import Settings, write_settings
 from eventum.logging.file_paths import construct_main_logfile_path
 
 router = APIRouter()
@@ -72,16 +69,8 @@ async def update_settings(
             detail=f'Error occurred during settings file path resolution: {e}',
         ) from None
 
-    content = await asyncio.to_thread(
-        lambda: yaml.dump(
-            settings.model_dump(mode='json', exclude_unset=True),
-            sort_keys=False,
-        ),
-    )
-
     try:
-        async with aiofiles.open(path, 'w') as f:
-            await f.write(content)
+        await asyncio.to_thread(write_settings, settings, path)
     except OSError as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -162,15 +151,8 @@ async def stream_main_logs(
             reason='Log file does not exist',
         )
 
-    try:
-        async for content in stream_file(path=path, end_offset=end_offset):
-            try:
-                await websocket.send_text(content)
-            except WebSocketDisconnect:
-                break
-    except OSError as e:
-        if websocket.client_state.name == 'CONNECTED':
-            raise WebSocketException(
-                code=status.WS_1011_INTERNAL_ERROR,
-                reason=f'Failed to read log file due to OS error: {e}',
-            ) from None
+    await stream_log_file_to_websocket(
+        websocket=websocket,
+        path=path,
+        end_offset=end_offset,
+    )

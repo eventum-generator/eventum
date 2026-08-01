@@ -43,13 +43,13 @@ class OpensearchOutputPluginConfig(OutputPluginConfig, frozen=True):
         Whether to verify SSL certificate of the cluster nodes when
         connecting to them.
 
-    ca_cert: str | None, default=None
+    ca_cert: Path | None, default=None
         Path to CA certificate.
 
-    client_cert: str | None, default=None
+    client_cert: Path | None, default=None
         Path to client certificate.
 
-    client_cert_key: str | None, default=None
+    client_cert_key: Path | None, default=None
         Path to client certificate key.
 
     proxy_url : HttpUrl | None, default=None
@@ -67,10 +67,10 @@ class OpensearchOutputPluginConfig(OutputPluginConfig, frozen=True):
     index: str = Field(min_length=1)
     connect_timeout: int = Field(default=10, ge=1)
     request_timeout: int = Field(default=300, ge=1)
-    verify: bool = Field(default=False)
-    ca_cert: Path | None = Field(default=None, min_length=1)
-    client_cert: Path | None = Field(default=None, min_length=1)
-    client_cert_key: Path | None = Field(default=None, min_length=1)
+    verify: bool = Field(default=True)
+    ca_cert: Path | None = Field(default=None)
+    client_cert: Path | None = Field(default=None)
+    client_cert_key: Path | None = Field(default=None)
     proxy_url: HttpUrl | None = Field(default=None)
     formatter: FormatterConfigT = Field(
         default_factory=lambda: JsonFormatterConfig(

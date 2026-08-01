@@ -1,28 +1,29 @@
 import {
   Alert,
   Box,
-  Button,
   Center,
-  Checkbox,
   Container,
-  Group,
-  JsonInput,
   Loader,
-  Paper,
   Stack,
-  Switch,
+  Tabs,
   Text,
-  Title,
 } from '@mantine/core';
-import { UseFormReturnType, useForm } from '@mantine/form';
+import { useForm } from '@mantine/form';
 import { modals } from '@mantine/modals';
-import { notifications } from '@mantine/notifications';
-import { IconAlertSquareRounded, IconArrowLeft } from '@tabler/icons-react';
+import {
+  IconLayoutDashboard,
+  IconLogs,
+  IconSettings,
+} from '@tabler/icons-react';
 import { zod4Resolver } from 'mantine-form-zod-resolver';
 import { useEffect } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 
-import { GenerationParametersSection } from '../SettingsPage/GenerationParametersSection';
+import { InstanceHeader } from './InstanceHeader';
+import { useInstanceHistory } from './dashboard/useInstanceHistory';
+import { LogsTab } from './tabs/LogsTab';
+import { OverviewTab } from './tabs/OverviewTab';
+import { SettingsTab } from './tabs/SettingsTab';
 import {
   useGenerator,
   useGeneratorStatus,
@@ -30,23 +31,45 @@ import {
   useStopGeneratorMutation,
   useUpdateGeneratorMutation,
 } from '@/api/hooks/useGenerators';
+import { useScenarios } from '@/api/hooks/useScenarios';
 import {
   useStartupGenerator,
   useUpdateGeneratorInStartupMutation,
 } from '@/api/hooks/useStartup';
 import { GeneratorParametersSchema } from '@/api/routes/generators/schemas';
-import { GenerationParameters } from '@/api/routes/instance/schemas';
 import {
   StartupGeneratorParameters,
   StartupGeneratorParametersSchema,
 } from '@/api/routes/startup/schemas';
-import { LabelWithTooltip } from '@/components/ui/LabelWithTooltip';
+import { AlertIcon } from '@/components/ui/AlertIcon';
 import { ShowErrorDetailsAnchor } from '@/components/ui/ShowErrorDetailsAnchor';
+import { UnsavedChangesPrompt } from '@/components/ui/UnsavedChangesPrompt';
 import { ROUTE_PATHS } from '@/routing/paths';
+import { CONFIRM } from '@/theme/copy';
+import {
+  showErrorNotification,
+  showSuccessNotification,
+} from '@/utils/notifications';
+
+const TABS = new Set(['overview', 'logs', 'settings']);
 
 export default function InstancePage() {
   const { instanceId } = useParams() as { instanceId: string };
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
+
+  const tab = searchParams.get('tab') ?? 'overview';
+  const activeTab = TABS.has(tab) ? tab : 'overview';
+
+  function setTab(value: string | null) {
+    setSearchParams(
+      (prev) => {
+        prev.set('tab', value ?? 'overview');
+        return prev;
+      },
+      { replace: true }
+    );
+  }
 
   const {
     data: status,
@@ -54,7 +77,7 @@ export default function InstancePage() {
     isError: isStatusError,
     isSuccess: isStatusSuccess,
     error: statusError,
-  } = useGeneratorStatus(instanceId);
+  } = useGeneratorStatus(instanceId, { refetchInterval: 4000 });
 
   const {
     data: generatorParams,
@@ -72,6 +95,17 @@ export default function InstancePage() {
     isSuccess: isStartupGeneratorParamsSuccess,
   } = useStartupGenerator(instanceId);
 
+  const { data: allScenarios } = useScenarios();
+
+  // Poll live stats + accumulate throughput history at the page shell (not the
+  // Overview panel) so the graph keeps its points across tab switches.
+  const {
+    stats: liveStats,
+    flow,
+    inputEps,
+    outputEps,
+  } = useInstanceHistory(instanceId, status?.is_running ?? false);
+
   const form = useForm<StartupGeneratorParameters>({
     mode: 'uncontrolled',
     validate: zod4Resolver(StartupGeneratorParametersSchema),
@@ -85,6 +119,9 @@ export default function InstancePage() {
       isStartupGeneratorParamsSuccess &&
       !form.initialized
     ) {
+      // Scenarios membership is managed separately (immediate add/remove);
+      // the form carries the initial value only to satisfy its type - no
+      // form input edits it, and saving re-reads the live value.
       form.initialize({
         ...generatorParams,
         autostart: startupGeneratorParams.autostart,
@@ -101,172 +138,93 @@ export default function InstancePage() {
 
   const updateGenerator = useUpdateGeneratorMutation();
   const updateGeneratorInStartup = useUpdateGeneratorInStartupMutation();
-
-  function handleSave() {
-    const generatorParams = GeneratorParametersSchema.parse(form.getValues());
-    const startupGeneratorParams = form.getValues();
-
-    updateGenerator.mutate(
-      { id: instanceId, params: generatorParams },
-      {
-        onSuccess: () => {
-          updateGeneratorInStartup.mutate(
-            { id: instanceId, params: startupGeneratorParams },
-            {
-              onSuccess: () => {
-                form.resetDirty();
-                notifications.show({
-                  title: 'Success',
-                  message: 'Instance is saved',
-                  color: 'green',
-                });
-              },
-              onError: (error) => {
-                notifications.show({
-                  title: 'Error',
-                  message: (
-                    <>
-                      Failed to save instance
-                      <ShowErrorDetailsAnchor error={error} prependDot />
-                    </>
-                  ),
-                  color: 'red',
-                });
-              },
-            }
-          );
-        },
-        onError: (error) => {
-          notifications.show({
-            title: 'Error',
-            message: (
-              <>
-                Failed to save instance
-                <ShowErrorDetailsAnchor error={error} prependDot />
-              </>
-            ),
-            color: 'red',
-          });
-        },
-      }
-    );
-  }
-
   const stopGenerator = useStopGeneratorMutation();
   const startGenerator = useStartGeneratorMutation();
 
-  function handleSaveWithRestart() {
-    const params = GeneratorParametersSchema.parse(form.getValues());
-    const startupGeneratorParams = form.getValues();
+  function buildStartupParams(): StartupGeneratorParameters {
+    // Preserve current scenario membership from the query, never the form.
+    return {
+      ...form.getValues(),
+      scenarios: startupGeneratorParams?.scenarios ?? [],
+    };
+  }
 
-    stopGenerator.mutate(
-      { id: instanceId },
+  function persist(afterSave?: () => void) {
+    const params = GeneratorParametersSchema.parse(form.getValues());
+    const startupParams = buildStartupParams();
+
+    updateGenerator.mutate(
+      { id: instanceId, params },
       {
         onSuccess: () => {
-          updateGenerator.mutate(
-            { id: instanceId, params: params },
+          updateGeneratorInStartup.mutate(
+            { id: instanceId, params: startupParams },
             {
               onSuccess: () => {
-                updateGeneratorInStartup.mutate(
-                  { id: instanceId, params: startupGeneratorParams },
-                  {
-                    onSuccess: () => {
-                      form.resetDirty();
-                      notifications.show({
-                        title: 'Success',
-                        message: 'Instance is saved',
-                        color: 'green',
-                      });
-                      startGenerator.mutate(
-                        { id: instanceId },
-                        {
-                          onSuccess: () => {
-                            notifications.show({
-                              title: 'Success',
-                              message: 'Instance is started',
-                              color: 'green',
-                            });
-                          },
-                          onError: (error) => {
-                            notifications.show({
-                              title: 'Error',
-                              message: (
-                                <>
-                                  Failed to start instance
-                                  <ShowErrorDetailsAnchor
-                                    error={error}
-                                    prependDot
-                                  />
-                                </>
-                              ),
-                              color: 'red',
-                            });
-                          },
-                        }
-                      );
-                    },
-                    onError: (error) => {
-                      notifications.show({
-                        title: 'Error',
-                        message: (
-                          <>
-                            Failed to save instance
-                            <ShowErrorDetailsAnchor error={error} prependDot />
-                          </>
-                        ),
-                        color: 'red',
-                      });
-                    },
-                  }
-                );
+                form.resetDirty();
+                showSuccessNotification('Success', 'Instance is saved');
+                afterSave?.();
               },
-              onError: (error) => {
-                notifications.show({
-                  title: 'Error',
-                  message: (
-                    <>
-                      Failed to save instance
-                      <ShowErrorDetailsAnchor error={error} prependDot />
-                    </>
-                  ),
-                  color: 'red',
-                });
-              },
+              onError: (error) =>
+                showErrorNotification('Failed to save instance', error),
             }
           );
         },
-        onError: (error) => {
-          notifications.show({
-            title: 'Error',
-            message: (
-              <>
-                Failed to stop instance
-                <ShowErrorDetailsAnchor error={error} prependDot />
-              </>
-            ),
-            color: 'red',
-          });
-        },
+        onError: (error) =>
+          showErrorNotification('Failed to save instance', error),
       }
     );
   }
 
-  function handleBack() {
-    if (form.isDirty()) {
+  function handleSave() {
+    if (form.validate().hasErrors) {
+      return;
+    }
+
+    if (status?.is_initializing || status?.is_running) {
       modals.openConfirmModal({
-        title: 'Unsaved changes',
-        children: (
-          <Text size="sm">
-            All unsaved changes in instance <b>{instanceId}</b> will be lost. Do
-            you want to continue?
-          </Text>
-        ),
-        labels: { cancel: 'Cancel', confirm: 'Confirm' },
-        onConfirm: () => void navigate(ROUTE_PATHS.INSTANCES),
+        title: CONFIRM.restartInstance.title,
+        children: <Text size="sm">{CONFIRM.restartInstance.body}</Text>,
+        labels: {
+          cancel: CONFIRM.restartInstance.cancel,
+          confirm: CONFIRM.restartInstance.confirm,
+        },
+        onConfirm: () =>
+          stopGenerator.mutate(
+            { id: instanceId },
+            {
+              onSuccess: () =>
+                persist(() =>
+                  startGenerator.mutate(
+                    { id: instanceId },
+                    {
+                      onSuccess: () =>
+                        showSuccessNotification(
+                          'Success',
+                          'Instance is started'
+                        ),
+                      onError: (error) =>
+                        showErrorNotification(
+                          'Failed to start instance',
+                          error
+                        ),
+                    }
+                  )
+                ),
+              onError: (error) =>
+                showErrorNotification('Failed to stop instance', error),
+            }
+          ),
       });
     } else {
-      void navigate(ROUTE_PATHS.INSTANCES);
+      persist();
     }
+  }
+
+  // Leaving with unsaved changes is guarded globally by UnsavedChangesPrompt
+  // (covers the sidebar and every other navigation, not just this button).
+  function handleBack() {
+    void navigate(ROUTE_PATHS.INSTANCES);
   }
 
   if (
@@ -281,199 +239,124 @@ export default function InstancePage() {
     );
   }
 
-  if (isGeneratorParamsError) {
+  const loadError = isGeneratorParamsError
+    ? {
+        title: 'Failed to get instance parameters',
+        error: generatorParamsError,
+      }
+    : isStartupGeneratorParamsError
+      ? {
+          title: 'Failed to get startup instance parameters',
+          error: startupGeneratorParamsError,
+        }
+      : isStatusError
+        ? { title: 'Failed to get instance status', error: statusError }
+        : null;
+
+  if (loadError) {
     return (
       <Container size="md">
         <Alert
           variant="default"
-          icon={<Box c="red" component={IconAlertSquareRounded}></Box>}
-          title="Failed to get instance parameters"
+          icon={<AlertIcon variant="error" />}
+          title={loadError.title}
         >
-          {generatorParamsError.message}
-          <ShowErrorDetailsAnchor error={generatorParamsError} prependDot />
+          {loadError.error?.message}
+          {loadError.error && (
+            <ShowErrorDetailsAnchor error={loadError.error} prependDot />
+          )}
         </Alert>
       </Container>
     );
   }
 
-  if (isStartupGeneratorParamsError) {
-    return (
-      <Container size="md">
-        <Alert
-          variant="default"
-          icon={<Box c="red" component={IconAlertSquareRounded}></Box>}
-          title="Failed to get startup instance parameters"
-        >
-          {startupGeneratorParamsError.message}
-          <ShowErrorDetailsAnchor
-            error={startupGeneratorParamsError}
-            prependDot
-          />
-        </Alert>
-      </Container>
-    );
+  if (
+    !generatorParams ||
+    !startupGeneratorParams ||
+    !status ||
+    !isGeneratorParamsSuccess ||
+    !isStatusSuccess ||
+    !form.initialized
+  ) {
+    return null;
   }
 
-  if (isStatusError) {
-    return (
-      <Container size="md">
-        <Alert
-          variant="default"
-          icon={<Box c="red" component={IconAlertSquareRounded}></Box>}
-          title="Failed to get instance status"
-        >
-          {statusError.message}
-          <ShowErrorDetailsAnchor error={statusError} prependDot />
-        </Alert>
-      </Container>
-    );
-  }
+  const liveMode = generatorParams.live_mode ?? false;
+  const memberScenarios = startupGeneratorParams.scenarios ?? [];
+  const isDirty = form.isDirty();
+  const isSaving =
+    updateGenerator.isPending ||
+    updateGeneratorInStartup.isPending ||
+    stopGenerator.isPending ||
+    startGenerator.isPending;
 
-  if (isGeneratorParamsSuccess && isStatusSuccess && form.initialized) {
-    return (
-      <Container size="100%" mt="xs">
-        <Stack>
-          <Group justify="space-between">
-            <Title order={3} fw="bold">
-              {instanceId}
-            </Title>
-            <Group>
-              <Button
-                variant="default"
-                leftSection={<IconArrowLeft size={16} />}
-                onClick={handleBack}
-              >
-                Back
-              </Button>
-              <Button
-                onClick={() => {
-                  if (status.is_initializing || status.is_running) {
-                    modals.openConfirmModal({
-                      title: 'Updating instance',
-                      children: (
-                        <Text size="sm">
-                          Instance <b>{instanceId}</b> is currently running. It
-                          will be restarted for saving changes. Do you want to
-                          continue?
-                        </Text>
-                      ),
-                      labels: { cancel: 'Cancel', confirm: 'Confirm' },
-                      onConfirm: handleSaveWithRestart,
-                    });
-                  } else {
-                    handleSave();
-                  }
-                }}
-                disabled={!form.isDirty()}
-                loading={
-                  updateGenerator.isPending ||
-                  updateGeneratorInStartup.isPending ||
-                  stopGenerator.isPending ||
-                  startGenerator.isPending
-                }
-                title={
-                  form.isDirty()
-                    ? 'There are unsaved changes'
-                    : 'No unsaved changes'
-                }
-              >
-                Save
-              </Button>
-            </Group>
-          </Group>
+  return (
+    <Container size="100%">
+      <Stack gap="lg">
+        <UnsavedChangesPrompt when={isDirty} />
+        <InstanceHeader
+          instanceId={instanceId}
+          status={status}
+          isDirty={isDirty}
+          isSaving={isSaving}
+          onSave={handleSave}
+          onBack={handleBack}
+        />
 
-          <Paper withBorder p="sm">
-            <Stack gap="xs">
-              <Title order={4} fw={500}>
-                Generator parameters
-              </Title>
+        <Tabs value={activeTab} onChange={setTab} keepMounted={false}>
+          <Tabs.List>
+            <Tabs.Tab
+              value="overview"
+              leftSection={<IconLayoutDashboard size={16} />}
+            >
+              Overview
+            </Tabs.Tab>
+            <Tabs.Tab
+              value="settings"
+              leftSection={<IconSettings size={16} />}
+              rightSection={
+                isDirty ? (
+                  <Box
+                    style={{
+                      width: 6,
+                      height: 6,
+                      borderRadius: '50%',
+                      background: 'var(--mantine-color-primary-text)',
+                    }}
+                  />
+                ) : null
+              }
+            >
+              Settings
+            </Tabs.Tab>
+            <Tabs.Tab value="logs" leftSection={<IconLogs size={16} />}>
+              Logs
+            </Tabs.Tab>
+          </Tabs.List>
 
-              <Group>
-                <Switch
-                  label={
-                    <LabelWithTooltip
-                      label="Live mode"
-                      tooltip="Whether to use live mode and generate events at moments defined by timestamp
-                values or sample mode to generate all events at a time"
-                    />
-                  }
-                  {...form.getInputProps('live_mode', { type: 'checkbox' })}
-                />
-                <Switch
-                  label={
-                    <LabelWithTooltip
-                      label="Skip past"
-                      tooltip="Whether to skip past timestamps when starting generation in live mode"
-                    />
-                  }
-                  {...form.getInputProps('skip_past', { type: 'checkbox' })}
-                />
-                <Checkbox
-                  label={
-                    <LabelWithTooltip
-                      label="Auto start"
-                      tooltip="Whether to automatically start the generator on application start up"
-                    />
-                  }
-                  {...form.getInputProps('autostart', { type: 'checkbox' })}
-                />
-              </Group>
-
-              <JsonInput
-                label="Parameters"
-                description="Parameters that can be used in generator configuration file"
-                placeholder="{ ... }"
-                validationError="Invalid JSON"
-                minRows={4}
-                autosize
-                defaultValue={JSON.stringify(
-                  form.getValues().params ?? '',
-                  undefined,
-                  2
-                )}
-                onChange={(value) => {
-                  if (value === '') {
-                    form.setFieldValue('params', undefined);
-                  }
-
-                  let parsedValue: unknown;
-                  try {
-                    parsedValue = JSON.parse(value);
-                  } catch {
-                    return;
-                  }
-
-                  if (typeof parsedValue !== 'object') {
-                    return;
-                  }
-
-                  form.setFieldValue(
-                    'params',
-                    parsedValue as Record<string, unknown>
-                  );
-                }}
-                error={form.errors.params}
-              />
-            </Stack>
-          </Paper>
-
-          <Paper withBorder p="sm">
-            <Stack gap="xs">
-              <Title order={4} fw={500}>
-                Generation parameters
-              </Title>
-
-              <GenerationParametersSection
-                form={
-                  form as unknown as UseFormReturnType<GenerationParameters>
-                }
-              />
-            </Stack>
-          </Paper>
-        </Stack>
-      </Container>
-    );
-  }
-
-  return null;
+          <Tabs.Panel value="overview" pt="lg">
+            <OverviewTab
+              instanceId={instanceId}
+              status={status}
+              generatorParams={generatorParams}
+              liveMode={liveMode}
+              autostart={startupGeneratorParams.autostart ?? false}
+              memberScenarios={memberScenarios}
+              allScenarios={allScenarios ?? []}
+              stats={liveStats}
+              flow={flow}
+              inputEps={inputEps}
+              outputEps={outputEps}
+            />
+          </Tabs.Panel>
+          <Tabs.Panel value="settings" pt="lg">
+            <SettingsTab form={form} />
+          </Tabs.Panel>
+          <Tabs.Panel value="logs" pt="lg">
+            <LogsTab instanceId={instanceId} />
+          </Tabs.Panel>
+        </Tabs>
+      </Stack>
+    </Container>
+  );
 }

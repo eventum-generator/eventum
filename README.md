@@ -45,6 +45,7 @@ Eventum produces synthetic events and delivers them anywhere — in real time or
 </p>
 
 <p align="center">
+  <img src="https://raw.githubusercontent.com/eventum-generator/eventum/master/.github/assets/studio_dark.png" alt="Eventum Studio — a template in the editor with its timestamp distribution below" width="680" />
   <a href="https://app.arcade.software/share/QjQVk47rN7AJd5Eft38x"><strong>▶ Launch the interactive tutorial</strong></a>
 </p>
 

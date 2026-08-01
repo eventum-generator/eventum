@@ -12,12 +12,12 @@ import {
   Title,
 } from '@mantine/core';
 import { isNotEmpty, useForm } from '@mantine/form';
-import { IconAlertSquareRounded } from '@tabler/icons-react';
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 
 import { APIError } from '@/api/errors';
 import { useLoginMutation } from '@/api/hooks/useAuth';
+import { AlertIcon } from '@/components/ui/AlertIcon';
 import { ROUTE_PATHS } from '@/routing/paths';
 
 export default function SignInPage() {
@@ -66,7 +66,7 @@ export default function SignInPage() {
   return (
     <Center h="100vh" w="100vw">
       <Container>
-        <Paper withBorder radius="md" w={'400px'}>
+        <Paper withBorder w={'400px'}>
           <form onSubmit={form.onSubmit(handleSubmit)}>
             <Stack m="xl" gap="0">
               <Box ta="center">
@@ -87,7 +87,7 @@ export default function SignInPage() {
                 <Alert
                   mt="md"
                   variant="default"
-                  icon={<Box c="red" component={IconAlertSquareRounded} />}
+                  icon={<AlertIcon variant="error" />}
                 >
                   {commonError}
                 </Alert>

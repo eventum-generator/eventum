@@ -1,26 +1,36 @@
 import {
   Alert,
   Box,
+  Button,
   Center,
   Container,
-  Grid,
+  Divider,
+  Flex,
+  Group,
   Loader,
+  NavLink,
   Paper,
   Stack,
   Text,
   Title,
+  Transition,
 } from '@mantine/core';
 import { useForm } from '@mantine/form';
 import { modals } from '@mantine/modals';
 import { notifications } from '@mantine/notifications';
-import { IconAlertSquareRounded } from '@tabler/icons-react';
+import {
+  IconAdjustmentsHorizontal,
+  IconFolders,
+  IconLogs,
+  IconServer2,
+  type TablerIcon,
+} from '@tabler/icons-react';
 import { zod4Resolver } from 'mantine-form-zod-resolver';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 
 import { GenerationParametersSection } from './GenerationParametersSection';
 import { LoggingParametersSection } from './LoggingParametersSection';
 import { PathParametersSection } from './PathParametersSection';
-import { SavePanel } from './SavePanelContent';
 import { ServerParametersSection } from './ServerParametersSection';
 import {
   useInstanceSettings,
@@ -38,10 +48,53 @@ import {
   ServerParametersSchema,
   Settings,
 } from '@/api/routes/instance/schemas';
-import { FloatingPanel } from '@/components/ui/FloatingPanel';
-import { FloatingTableOfContents } from '@/components/ui/FloatingTableOfContents';
+import { AlertIcon } from '@/components/ui/AlertIcon';
 import { PageTitle } from '@/components/ui/PageTitle';
 import { ShowErrorDetailsAnchor } from '@/components/ui/ShowErrorDetailsAnchor';
+import { CONFIRM } from '@/theme/copy';
+
+type SectionId = 'server' | 'generation' | 'path' | 'log';
+
+interface SectionMeta {
+  id: SectionId;
+  label: string;
+  icon: TablerIcon;
+  description: string;
+}
+
+const SECTIONS: SectionMeta[] = [
+  {
+    id: 'server',
+    label: 'Server',
+    icon: IconServer2,
+    description:
+      'API, web UI, TLS, authentication and MCP access to this instance.',
+  },
+  {
+    id: 'generation',
+    label: 'Generation',
+    icon: IconAdjustmentsHorizontal,
+    description:
+      'Defaults applied to every generator - ordering, batching and queues.',
+  },
+  {
+    id: 'path',
+    label: 'Paths',
+    icon: IconFolders,
+    description: 'Filesystem locations this instance reads from and writes to.',
+  },
+  {
+    id: 'log',
+    label: 'Logging',
+    icon: IconLogs,
+    description: 'Severity, format and rotation of this instance logs.',
+  },
+];
+
+function initialSection(): SectionId {
+  const hash = globalThis.location.hash.replace('#', '');
+  return SECTIONS.some((s) => s.id === hash) ? (hash as SectionId) : 'server';
+}
 
 export default function SettingsPage() {
   const ServerParamsForm = useForm<ServerParameters>({
@@ -65,6 +118,8 @@ export default function SettingsPage() {
     validate: zod4Resolver(PathParametersSchema),
     validateInputOnChange: true,
   });
+
+  const [activeSection, setActiveSection] = useState<SectionId>(initialSection);
 
   const {
     data: instanceSettings,
@@ -99,7 +154,7 @@ export default function SettingsPage() {
       <Container size="md">
         <Alert
           variant="default"
-          icon={<Box c="red" component={IconAlertSquareRounded}></Box>}
+          icon={<AlertIcon variant="error" />}
           title="Failed to get instance settings"
         >
           {settingsError.message}
@@ -107,6 +162,23 @@ export default function SettingsPage() {
         </Alert>
       </Container>
     );
+  }
+
+  function selectSection(id: SectionId) {
+    setActiveSection(id);
+    globalThis.history.replaceState(null, '', `#${id}`);
+  }
+
+  function confirmSave() {
+    modals.openConfirmModal({
+      title: CONFIRM.restartInstance.title,
+      children: <Text size="sm">{CONFIRM.restartInstance.body}</Text>,
+      onConfirm: handleSubmit,
+      labels: {
+        cancel: CONFIRM.restartInstance.cancel,
+        confirm: CONFIRM.restartInstance.confirm,
+      },
+    });
   }
 
   function handleSubmit() {
@@ -168,85 +240,118 @@ export default function SettingsPage() {
   }
 
   if (isSettingsSuccess && ServerParamsForm.initialized) {
+    const dirtyById: Record<SectionId, boolean> = {
+      server: ServerParamsForm.isDirty(),
+      generation: generationParamsForm.isDirty(),
+      path: pathParamsForm.isDirty(),
+      log: logParamsForm.isDirty(),
+    };
+    const anyDirty =
+      dirtyById.server ||
+      dirtyById.generation ||
+      dirtyById.path ||
+      dirtyById.log;
+    const current = SECTIONS.find((s) => s.id === activeSection);
+    if (!current) {
+      return null;
+    }
+
     return (
-      <>
-        <Container size="xl" mb="600px">
-          <Grid gutter="xl">
-            <Grid.Col span="auto">
-              <form>
-                <Stack>
-                  <PageTitle title="Settings" />
-                  <Paper withBorder p="sm">
-                    <Stack gap="xs">
-                      <Title order={4} fw={500}>
-                        Server parameters
-                      </Title>
-                      <ServerParametersSection form={ServerParamsForm} />
-                    </Stack>
-                  </Paper>
+      <Container size="xl" mb="xl">
+        <Stack gap="lg">
+          <Box
+            py="sm"
+            style={{
+              position: 'sticky',
+              top: 60,
+              zIndex: 30,
+              background: 'var(--ev-canvas)',
+              borderBottom: '1px solid var(--mantine-color-default-border)',
+            }}
+          >
+            <Group
+              justify="space-between"
+              align="center"
+              wrap="nowrap"
+              mih={40}
+            >
+              <PageTitle title="Settings" />
+              <Transition mounted={anyDirty} transition="pop" duration={150}>
+                {(styles) => (
+                  <Button onClick={confirmSave} style={styles}>
+                    Save
+                  </Button>
+                )}
+              </Transition>
+            </Group>
+          </Box>
 
-                  <Paper withBorder p="sm">
-                    <Stack gap="xs">
-                      <Title order={4} fw={500}>
-                        Generation parameters
-                      </Title>
-                      <GenerationParametersSection
-                        form={generationParamsForm}
-                      />
-                    </Stack>
-                  </Paper>
-
-                  <Paper withBorder p="sm">
-                    <Stack gap="xs">
-                      <Title order={4} fw={500}>
-                        Path parameters
-                      </Title>
-                      <PathParametersSection form={pathParamsForm} />
-                    </Stack>
-                  </Paper>
-
-                  <Paper withBorder p="sm">
-                    <Stack gap="xs">
-                      <Title order={4} fw={500}>
-                        Logging parameters
-                      </Title>
-                      <LoggingParametersSection form={logParamsForm} />
-                    </Stack>
-                  </Paper>
-                </Stack>
-
-                <FloatingPanel
-                  mounted={
-                    ServerParamsForm.isDirty() ||
-                    generationParamsForm.isDirty() ||
-                    pathParamsForm.isDirty() ||
-                    logParamsForm.isDirty()
-                  }
-                >
-                  <SavePanel
-                    onSave={() =>
-                      modals.openConfirmModal({
-                        title: 'Settings update',
-                        children: (
-                          <Text size="sm">
-                            Instance will be restarted. Do you want to continue?
-                          </Text>
-                        ),
-                        onConfirm: handleSubmit,
-                        labels: { cancel: 'Cancel', confirm: 'Confirm' },
-                      })
+          <Flex gap="xl" align="flex-start">
+            <Box
+              w={230}
+              style={{
+                flexShrink: 0,
+                position: 'sticky',
+                top: 128,
+                alignSelf: 'flex-start',
+              }}
+            >
+              <Stack gap={2}>
+                {SECTIONS.map((section) => (
+                  <NavLink
+                    key={section.id}
+                    label={section.label}
+                    active={activeSection === section.id}
+                    leftSection={<section.icon size={18} stroke={1.6} />}
+                    rightSection={
+                      dirtyById[section.id] ? (
+                        <Box
+                          w={7}
+                          h={7}
+                          bdrs={999}
+                          bg="var(--mantine-color-primary-text)"
+                          aria-label="unsaved changes"
+                        />
+                      ) : null
                     }
+                    onClick={() => selectSection(section.id)}
+                    style={{ borderRadius: 'var(--mantine-radius-md)' }}
                   />
-                </FloatingPanel>
-              </form>
-            </Grid.Col>
+                ))}
+              </Stack>
+            </Box>
 
-            <Grid.Col span={3}>
-              <FloatingTableOfContents selector=":is(h4)" />
-            </Grid.Col>
-          </Grid>
-        </Container>
-      </>
+            <Box style={{ flex: 1, minWidth: 0, maxWidth: 820 }}>
+              <Paper withBorder p="lg">
+                <Stack gap="md">
+                  <Box>
+                    <Title order={3} fw={600} fz="1.125rem">
+                      {current.label}
+                    </Title>
+                    <Text size="sm" c="dimmed" mt={4}>
+                      {current.description}
+                    </Text>
+                  </Box>
+                  <Divider />
+
+                  {activeSection === 'server' && (
+                    <ServerParametersSection form={ServerParamsForm} />
+                  )}
+                  {activeSection === 'generation' && (
+                    <GenerationParametersSection form={generationParamsForm} />
+                  )}
+                  {activeSection === 'path' && (
+                    <PathParametersSection form={pathParamsForm} />
+                  )}
+                  {activeSection === 'log' && (
+                    <LoggingParametersSection form={logParamsForm} />
+                  )}
+                </Stack>
+              </Paper>
+            </Box>
+          </Flex>
+        </Stack>
+      </Container>
     );
   }
 
