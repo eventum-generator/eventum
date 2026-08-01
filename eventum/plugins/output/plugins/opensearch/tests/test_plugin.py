@@ -80,6 +80,39 @@ def write_many_response():
     }
 
 
+@pytest.fixture
+def write_many_rejecting_response():
+    return {
+        'took': 42,
+        'errors': True,
+        'items': [
+            {
+                'index': {
+                    '_index': 'test_index',
+                    '_id': 'QYQmtY8B-vfSDQ_Fw4u9',
+                    '_version': 1,
+                    'result': 'created',
+                    '_shards': {'total': 1, 'successful': 1, 'failed': 0},
+                    '_seq_no': 0,
+                    '_primary_term': 17,
+                    'status': 201,
+                }
+            },
+            {
+                'index': {
+                    '_index': 'test_index',
+                    '_id': 'QoQmtY8B-vfSDQ_Fw4u9',
+                    'status': 400,
+                    'error': {
+                        'type': 'mapper_parsing_exception',
+                        'reason': 'failed to parse field [value]',
+                    },
+                }
+            },
+        ],
+    }
+
+
 @pytest.mark.asyncio
 async def test_opensearch_write(httpx_mock: HTTPXMock, config, write_response):
     httpx_mock.add_response(
@@ -144,6 +177,35 @@ async def test_opensearch_write_many(
         '{"@timestamp": "2024-01-01T00:00:01.000Z", "value": 2}\n'
     )
     assert written == 2
+    assert plugin.write_failed == 0
+
+
+@pytest.mark.asyncio
+async def test_opensearch_write_many_partially_rejected(
+    httpx_mock: HTTPXMock, config, write_many_rejecting_response
+):
+    httpx_mock.add_response(
+        method='POST',
+        url=re.compile(r'https://localhost:9200/.*'),
+        status_code=200,
+        json=write_many_rejecting_response,
+    )
+
+    plugin = OpensearchOutputPlugin(config=config, params={'id': 1})
+    await plugin.open()
+
+    written = await plugin.write(
+        [
+            '{"@timestamp": "2024-01-01T00:00:00.000Z", "value": 1}',
+            '{"@timestamp": "2024-01-01T00:00:01.000Z", "value": "text"}',
+        ]
+    )
+    await plugin.close()
+
+    assert len(httpx_mock.get_requests()) == 1
+    assert written == 1
+    assert plugin.written == 1
+    assert plugin.write_failed == 1
 
 
 @pytest.mark.asyncio
