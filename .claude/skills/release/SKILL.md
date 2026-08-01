@@ -60,9 +60,12 @@ The export is mandatory: nothing else keeps the published reference in sync, so 
 uv run ruff check .
 uv run ruff format --check .
 uv run mypy eventum/
-uv run pytest
-cd ../docs && pnpm build
+uv run pytest --ignore=tests/integration
+(cd eventum/ui && pnpm test --run)
+(cd ../docs && pnpm build)
 ```
+
+`tests/integration` is always skipped - it's for CI/CD pipeline only.
 
 All green is required to advance. On failure, fix in step 2 or 3 and re-run; if three cycles do not converge, stop and surface to the user.
 
