@@ -19,8 +19,11 @@
   <a href="https://codecov.io/gh/eventum-generator/eventum"><img src="https://codecov.io/gh/eventum-generator/eventum/graph/badge.svg" alt="Coverage" /></a>
   <a href="https://pypi.org/project/eventum-generator"><img src="https://img.shields.io/pypi/v/eventum-generator?color=3873a3" alt="PyPI" /></a>
   <a href="https://pypi.org/project/eventum-generator"><img src="https://img.shields.io/pypi/pyversions/eventum-generator?color=3873a3" alt="Python" /></a>
+  <img src="https://img.shields.io/badge/platform-🐧%20Linux%20%7C%20🐳%20Docker-lightgrey" alt="Platform: Linux | Docker" />
   <a href="https://hub.docker.com/r/rnv812/eventum-generator"><img src="https://img.shields.io/docker/v/rnv812/eventum-generator?label=docker&color=2986ff" alt="Docker" /></a>
   <a href="https://pepy.tech/projects/eventum-generator"><img src="https://static.pepy.tech/badge/eventum-generator?color=8282ef" alt="Downloads" /></a>
+  <a href="https://deepwiki.com/eventum-generator/eventum"><img src="https://deepwiki.com/badge.svg" alt="Ask DeepWiki"></a>
+  <a href="https://www.bestpractices.dev/projects/13171"><img src="https://www.bestpractices.dev/projects/13171/baseline"></a>
   <a href="https://github.com/eventum-generator/eventum/blob/master/LICENSE"><img src="https://img.shields.io/github/license/eventum-generator/eventum?color=8282ef" alt="License" /></a>
 </p>
 
@@ -35,7 +38,7 @@
 
 ---
 
-Eventum produces synthetic events and delivers them anywhere — in real time or in batch. Generate a continuous stream of logs for your SIEM, seed a staging database with realistic data, or stress-test a pipeline with high-throughput traffic. Define everything in YAML, no code required.
+Eventum produces synthetic events and delivers them anywhere — in real time or in batch. Generate a continuous stream of logs for your SIEM, seed a staging database with realistic data, or stress-test a pipeline with high-throughput traffic.
 
 <p align="center">
   <img src="https://raw.githubusercontent.com/eventum-generator/eventum/master/.github/assets/pipeline.svg" alt="Input → Event → Output pipeline" width="680" />
@@ -43,6 +46,7 @@ Eventum produces synthetic events and delivers them anywhere — in real time or
 
 <p align="center">
   <img src="https://raw.githubusercontent.com/eventum-generator/eventum/master/.github/assets/studio_dark.png" alt="Eventum Studio — a template in the editor with its timestamp distribution below" width="680" />
+  <a href="https://app.arcade.software/share/QjQVk47rN7AJd5Eft38x"><strong>▶ Launch the interactive tutorial</strong></a>
 </p>
 
 ## Highlights
@@ -53,10 +57,15 @@ Eventum produces synthetic events and delivers them anywhere — in real time or
 - **Two modes** — stream events in real time at their scheduled timestamps, or generate everything as fast as possible
 - **Built-in web UI** — [Eventum Studio](https://eventum.run) for visual editing, event preview, and monitoring
 - **REST API** — start, stop, and manage generators programmatically
+- **MCP server** — manage generators and author configurations from AI assistants via the Model Context Protocol
 - **Encrypted secrets** — credentials stored securely via an encrypted keyring
 - **Docker ready** — multi-stage builds, runs anywhere
 
 ## Quick start
+
+<p align="center">
+  <img src="https://raw.githubusercontent.com/eventum-generator/eventum/master/.github/assets/demo.gif" alt="Eventum CLI generating events in live mode" width="680" />
+</p>
 
 **Install**
 
@@ -94,7 +103,7 @@ output:
 **Run**
 
 ```bash
-eventum generate --path generator.yml --live-mode
+eventum generate --path generator.yml --id demo
 ```
 
 ```
@@ -117,6 +126,14 @@ eventum run -c eventum.yml
 ```
 
 Starts on port **9474** with **Eventum Studio** (web UI), **REST API**, and **multi-generator orchestration** — each generator runs independently with its own schedule, templates, and outputs.
+
+## Eventum Studio
+
+**Eventum Studio** is the web UI included in application mode: edit generator configurations and templates, preview rendered events, and monitor running generators.
+
+<p align="center">
+  <img src="https://raw.githubusercontent.com/eventum-generator/eventum/master/.github/assets/studio_dark.png" alt="Eventum Studio — event debugger" width="680" />
+</p>
 
 ## Documentation
 
