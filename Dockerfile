@@ -15,12 +15,16 @@ RUN uv sync
 # Stage 2: Build React UI
 FROM node:24-slim AS ui-build
 
+# Corepack installs the pnpm version pinned by the packageManager field
+ENV COREPACK_ENABLE_DOWNLOAD_PROMPT=0
+RUN corepack enable
+
 WORKDIR /app/eventum/ui/
-COPY eventum/ui/package*.json ./
-RUN npm ci --legacy-peer-deps
+COPY eventum/ui/package.json eventum/ui/pnpm-lock.yaml ./
+RUN pnpm install --frozen-lockfile
 
 COPY eventum/ui/ ./
-RUN npm run build
+RUN pnpm build
 
 
 # Stage 3: Assemble final image

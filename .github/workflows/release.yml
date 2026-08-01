@@ -62,17 +62,20 @@ jobs:
         with:
           python-version: ${{ env.PYTHON_VERSION }}
           freethreaded: true
+      - uses: pnpm/action-setup@v4
+        with:
+          package_json_file: eventum/ui/package.json
       - uses: actions/setup-node@v4
         with:
           node-version: "24"
-          cache: npm
-          cache-dependency-path: eventum/ui/package-lock.json
+          cache: pnpm
+          cache-dependency-path: eventum/ui/pnpm-lock.yaml
 
       - name: Build UI
         working-directory: eventum/ui
         run: |
-          npm ci --legacy-peer-deps
-          npm run build
+          pnpm install --frozen-lockfile
+          pnpm build
 
       - name: Verify UI build
         run: |
