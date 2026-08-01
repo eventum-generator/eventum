@@ -86,15 +86,31 @@ describe('the status chip', () => {
 
 describe('the finished indicator', () => {
   it('takes the running green, deep instead of vivid', () => {
-    expect(VARIANT_STYLE.done.dot).toBe('var(--mantine-color-green-6)');
+    expect(VARIANT_STYLE.done.dot).toBe('var(--mantine-color-green-8)');
     expect(VARIANT_STYLE.good.dot).toBe('var(--mantine-color-green-4)');
   });
 
   it('is deep enough to read as switched off', () => {
     // Both indicators come from one ramp, so hue cannot carry the difference -
     // brightness does.
-    expect(luminance(shade('green', 6))).toBeLessThan(
+    expect(luminance(shade('green', 8))).toBeLessThan(
       luminance(shade('green', 4)) * 0.5
     );
   });
+});
+
+describe('the halo', () => {
+  it.each(['good', 'warn'] as const)(
+    'lights the indicator of %s, the state of a live instance',
+    (variant) => {
+      expect(VARIANT_STYLE[variant].glow).toBeDefined();
+    }
+  );
+
+  it.each(['done', 'bad', 'idle'] as const)(
+    'leaves %s unlit, since the instance is not live',
+    (variant) => {
+      expect(VARIANT_STYLE[variant].glow).toBeUndefined();
+    }
+  );
 });

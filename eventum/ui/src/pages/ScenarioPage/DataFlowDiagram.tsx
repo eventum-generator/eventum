@@ -1,4 +1,4 @@
-import { Group, Indicator, Paper, Stack, Text } from '@mantine/core';
+import { Group, Paper, Stack, Text } from '@mantine/core';
 import { IconDatabase, IconPlayerPlay, IconRoute } from '@tabler/icons-react';
 import {
   Background,
@@ -13,13 +13,16 @@ import {
   ReactFlow,
 } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
-import { memo, useMemo } from 'react';
+import { CSSProperties, memo, useMemo } from 'react';
 
 import { SectionHeader } from './SectionHeader';
 import { collectGlobalKeys } from './globals-usage';
 import { GeneratorStatus } from '@/api/routes/generators/schemas';
 import { REACT_FLOW_CONTROLS_CSS } from '@/components/ui/reactFlowControlsCss';
-import { statusDotColor } from '@/components/ui/statusPalette';
+import {
+  statusDotColor,
+  statusDotGlowOrNone,
+} from '@/components/ui/statusPalette';
 import { describeInstanceStatus } from '@/pages/InstancesPage/InstancesTable/common/instance-status';
 
 // ---------------------------------------------------------------------------
@@ -44,6 +47,7 @@ interface DataFlowDiagramProps {
 type InstanceNodeData = {
   label: string;
   statusColor: string;
+  statusGlow: string | undefined;
   processing: boolean;
   highlighted: boolean;
 };
@@ -161,11 +165,17 @@ const InstanceNode = memo(({ data }: NodeProps<InstanceNodeType>) => (
           {data.label}
         </Text>
       </Group>
-      <Indicator
-        color={data.statusColor}
-        size={8}
-        position="middle-center"
-        processing={data.processing}
+      <span
+        className="ev-status-dot"
+        data-glow={!!data.statusGlow}
+        data-processing={data.processing}
+        style={
+          {
+            '--ev-dot-size': '8px',
+            '--ev-dot': data.statusColor,
+            '--ev-dot-glow': data.statusGlow,
+          } as CSSProperties
+        }
       />
     </Group>
   </Paper>
@@ -240,6 +250,7 @@ function buildInstanceNodes(
       data: {
         label: entry.id,
         statusColor: statusDotColor(status),
+        statusGlow: statusDotGlowOrNone(status),
         processing,
         highlighted: highlightedNodeId === nodeId,
       },

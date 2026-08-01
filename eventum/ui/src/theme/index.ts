@@ -185,6 +185,18 @@ const softLightTints = Object.fromEntries(
   ])
 );
 
+// The halo a live status indicator wears. It has to read as light coming off
+// the dot, so it is built per scheme rather than reused from the chip fill:
+// on the dark canvas that is the vivid end of the ramp at low opacity, while
+// on white the same deep tint greys out - there it takes a denser share of a
+// paler shade instead. Only the states that can be live carry one.
+const LIVE_COLORS = ['green', 'yellow'];
+
+const glowTints = (build: (color: string) => string) =>
+  Object.fromEntries(
+    LIVE_COLORS.map((color) => [`--ev-glow-${color}`, build(color)])
+  );
+
 // The few variables Mantine either leaves too dark for our canvas or points
 // at a shade that does not exist in a 5/6 primary shade setup.
 export const cssVariablesResolver: CSSVariablesResolver = () => ({
@@ -197,6 +209,10 @@ export const cssVariablesResolver: CSSVariablesResolver = () => ({
     // --mantine-color-body is the panel colour, which panels, the app shell
     // and modals all read.
     '--ev-canvas': 'var(--mantine-color-gray-0)',
+    ...glowTints(
+      (color) =>
+        `color-mix(in srgb, var(--mantine-color-${color}-3) 45%, transparent)`
+    ),
     // Shade 0 is the page canvas, so hover has to be one step further.
     '--mantine-color-default-hover': 'var(--mantine-color-gray-1)',
     // Mantine tints soft semantic surfaces at 10% in the light scheme, which
@@ -207,6 +223,7 @@ export const cssVariablesResolver: CSSVariablesResolver = () => ({
   },
   dark: {
     '--ev-canvas': 'var(--mantine-color-dark-9)',
+    ...glowTints((color) => `var(--mantine-color-${color}-light)`),
     // Mantine points these at shade 8, which is nearly black on our canvas.
     '--mantine-color-error': 'var(--mantine-color-red-4)',
     '--mantine-color-primary-light-color': 'var(--mantine-color-primary-4)',

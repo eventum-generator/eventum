@@ -1,5 +1,5 @@
 import { Box, Group, Text } from '@mantine/core';
-import { FC } from 'react';
+import { CSSProperties, FC } from 'react';
 
 import './InstanceStatusSummary.css';
 import {
@@ -13,20 +13,30 @@ interface ChipProps {
   count: number;
   label: string;
   color: string;
+  /** Halo color, set only on a bucket that counts live instances. */
+  glow?: string;
   small?: boolean;
 }
 
-function Chip({ count, label, color, small = false }: Readonly<ChipProps>) {
+function Chip({
+  count,
+  label,
+  color,
+  glow,
+  small = false,
+}: Readonly<ChipProps>) {
   return (
     <Group gap={7} wrap="nowrap">
       <Box
-        style={{
-          width: small ? 7 : 9,
-          height: small ? 7 : 9,
-          borderRadius: '50%',
-          background: color,
-          flexShrink: 0,
-        }}
+        className="ev-status-dot"
+        data-glow={!!glow}
+        style={
+          {
+            '--ev-dot-size': small ? '7px' : '9px',
+            '--ev-dot': color,
+            '--ev-dot-glow': glow,
+          } as CSSProperties
+        }
       />
       <Text size={small ? 'xs' : 'sm'} c="dimmed">
         <Text
@@ -70,6 +80,7 @@ export const InstanceStatusSummary: FC<InstanceStatusSummaryProps> = ({
         count={s.active}
         label="active"
         color={dot(s.active, VARIANT_STYLE.good.dot)}
+        glow={s.active > 0 ? VARIANT_STYLE.good.glow : undefined}
       />
       <div className="iss-branch">
         <Chip

@@ -169,23 +169,37 @@ a.ev-record-link:hover {
   border-color: var(--mantine-color-primary-text);
 }
 
-/* Pulse behind the dot of an instance that is starting or stopping. */
+/* Instance status indicator. The call site passes the palette colours in as
+   --ev-dot and --ev-dot-glow. A live instance wears a halo of its own colour
+   (the ring the debugger's running dot carries); the states at rest have
+   none, so being lit is what reads as running. */
+.ev-status-dot {
+  display: block;
+  width: var(--ev-dot-size, 7px);
+  height: var(--ev-dot-size, 7px);
+  border-radius: 50%;
+  flex-shrink: 0;
+  background: var(--ev-dot);
+}
+.ev-status-dot[data-glow='true'] {
+  box-shadow: 0 0 0 3px var(--ev-dot-glow);
+}
+
+/* Mid-transition (starting / stopping): the halo breathes. */
+.ev-status-dot[data-processing='true'] {
+  animation: ev-pulse 2s infinite;
+}
 @keyframes ev-pulse {
-  0% {
-    box-shadow: 0 0 0 0 var(--mantine-color-green-light);
+  0%,
+  100% {
+    box-shadow: 0 0 0 3px var(--ev-dot-glow);
   }
   70% {
-    box-shadow: 0 0 0 5px transparent;
-  }
-  100% {
-    box-shadow: 0 0 0 0 transparent;
+    box-shadow: 0 0 0 8px transparent;
   }
 }
 @media (prefers-reduced-motion: reduce) {
-  @keyframes ev-pulse {
-    0%,
-    100% {
-      box-shadow: none;
-    }
+  .ev-status-dot[data-processing='true'] {
+    animation: none;
   }
 }

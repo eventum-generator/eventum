@@ -1,6 +1,6 @@
-import { FC } from 'react';
+import { CSSProperties, FC } from 'react';
 
-import { statusDotColorOrIdle } from './statusPalette';
+import { statusDotColorOrIdle, statusDotGlowOrNone } from './statusPalette';
 import { GeneratorStatus } from '@/api/routes/generators/schemas';
 import { describeInstanceStatus } from '@/pages/InstancesPage/InstancesTable/common/instance-status';
 
@@ -20,17 +20,19 @@ export interface StatusDotProps {
 export const StatusDot: FC<StatusDotProps> = ({ status, pulse = false }) => {
   const processing =
     pulse && !!status && describeInstanceStatus(status).processing;
+  const glow = statusDotGlowOrNone(status);
 
   return (
     <span
-      style={{
-        display: 'block',
-        width: 7,
-        height: 7,
-        borderRadius: '50%',
-        background: statusDotColorOrIdle(status),
-        animation: processing ? 'ev-pulse 2s infinite' : undefined,
-      }}
+      className="ev-status-dot"
+      data-glow={!!glow}
+      data-processing={processing}
+      style={
+        {
+          '--ev-dot': statusDotColorOrIdle(status),
+          '--ev-dot-glow': glow,
+        } as CSSProperties
+      }
     />
   );
 };

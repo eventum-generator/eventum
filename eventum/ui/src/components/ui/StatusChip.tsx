@@ -1,10 +1,12 @@
-import { FC, ReactNode } from 'react';
+import { CSSProperties, FC, ReactNode } from 'react';
 
 import { VARIANT_STYLE, Variant } from './statusPalette';
 
 interface StatusChipProps {
   /** Semantic variant driving the soft background, text and dot color. */
   variant: Variant;
+  /** Animate the default dot while the state is mid-transition. */
+  processing?: boolean;
   /** Dot node rendered before the label. Defaults to a static dot in the
    *  variant's color; pass a custom node (e.g. a pulsing StatusDot) to
    *  override. `null` hides the dot entirely. */
@@ -17,7 +19,12 @@ interface StatusChipProps {
  * instance StatusPill and the scenario status chips. Keeps every status
  * label in the app on the same shape, height and palette.
  */
-export const StatusChip: FC<StatusChipProps> = ({ variant, dot, children }) => {
+export const StatusChip: FC<StatusChipProps> = ({
+  variant,
+  processing = false,
+  dot,
+  children,
+}) => {
   const s = VARIANT_STYLE[variant];
 
   return (
@@ -38,13 +45,12 @@ export const StatusChip: FC<StatusChipProps> = ({ variant, dot, children }) => {
     >
       {dot === undefined ? (
         <span
-          style={{
-            width: 7,
-            height: 7,
-            borderRadius: '50%',
-            background: s.dot,
-            flexShrink: 0,
-          }}
+          className="ev-status-dot"
+          data-glow={!!s.glow}
+          data-processing={processing}
+          style={
+            { '--ev-dot': s.dot, '--ev-dot-glow': s.glow } as CSSProperties
+          }
         />
       ) : (
         dot
