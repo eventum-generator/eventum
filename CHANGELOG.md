@@ -2,7 +2,7 @@
 
 All notable changes to this project will be documented in this file.
 
-## Unreleased
+## 2.7.0 (2026-08-01)
 
 ### 🚀 New Features
 
@@ -27,6 +27,11 @@ All notable changes to this project will be documented in this file.
 
 - **Added rename tools for projects, generators, scenarios and secrets** — over HTTP an agent can rename each of them with the same guards the UI applies: a renamed project moves its directory and repoints the generators using it (all of which must be stopped), a renamed generator keeps its parameters and scenario membership, a renamed scenario has its tag rewritten everywhere, and a renamed secret keeps its value without ever exposing it. `list_secret_references` reports the projects reading a secret, so the agent can name what a rename breaks; `${secrets.*}` tokens are never rewritten. Adding and reading a secret value stay outside MCP
 - **Added tools for scenarios, global state, settings and instance control** — over HTTP an agent can manage scenarios (list, inspect, add or remove a generator, delete), read and edit the shared global state, read host/runtime info and the running settings (credentials redacted, absolute paths shortened), patch the settings file, and stop or restart the instance. Write tools stay gated behind `server.mcp.allow_write`; credentials cannot be changed over MCP, settings apply on the next restart, and stopping or restarting ends the agent's own connection
+
+#### API/CLI
+
+- **Added rename endpoints for projects, instances, scenarios and secrets** — `POST /<resource>/{key}/rename` on each of the four resources, carrying the same guards: renaming a project reports the instances it repointed and is refused while any of them is active, renaming an instance is refused while it runs, and a name already taken is refused as a conflict. `GET /secrets/{name}/references` lists the projects reading a secret as `${secrets.<name>}`
+- **Reported file sizes in the generator file tree** — every file node carries its size, so a client can decide what to do with a file before requesting it; a file whose size cannot be read is reported as unknown instead of failing the whole tree
 
 ### 🐛 Bug Fixes
 
@@ -55,7 +60,7 @@ All notable changes to this project will be documented in this file.
 
 - **Restored parallel generation alongside the `clickhouse` output** — loading the plugin on free-threaded Python re-enabled the GIL for the whole process, so every generator lost parallelism, not only the one writing to ClickHouse. The ClickHouse client is now required at a version whose compiled modules keep the GIL disabled
 - **Serialized the loading of plugins across generators** — starting several generators at once could leave one of them Failed during plugin initialization with an internal error naming nothing the user controls, while its siblings using the same plugin started normally, and a manual restart of that generator recovered it. On free-threaded Python two generators loading their plugins at the same moment interfered inside the construction of the configuration classes; a plugin is now loaded by one generator at a time
-- **Dropped the unsatisfiable constraint on the certificate fields of the `clickhouse`, `opensearch` and `http` outputs** — `ca_cert`, `client_cert` and `client_cert_key` carried a text-length constraint that cannot apply to a path, so any value failed with a type error while the configuration was read, leaving certificate-based TLS unusable (thanks to @SAY-5!)
+- **Dropped the unsatisfiable constraint on the certificate fields of the `clickhouse`, `opensearch` and `http` outputs** — `ca_cert`, `client_cert` and `client_cert_key` carried a text-length constraint that cannot apply to a path, so any value failed with a type error while the configuration was read, leaving certificate-based TLS unusable (Thanks to [Sai Asish Y](https://github.com/SAY-5) for the PR!)
 - **Turned certificate verification on by default in the `opensearch` and `http` outputs** — `verify` defaulted to `false`, so an `https://` endpoint was trusted without any check unless verification was requested explicitly, while `clickhouse` and `tcp` checked the same connection. A generator writing to an endpoint with a self-signed or internal-CA certificate now fails with a certificate error: point `ca_cert` at the issuing CA, or set `verify: false` to keep the connection unchecked
 - **Reported a failed bind of the `http` input as a generation error** — a generator whose port was already taken produced no timestamps and no diagnosis; it now fails with the bind address and the server exit code
 - **Counted every event an output failed to deliver** — an output that loses events one by one - a request the collector rejects, a document the bulk response refuses, a message the broker drops, an event that cannot be encoded - logged each loss and subtracted it from its written count, but recorded it nowhere else, so an instance delivering nothing read exactly like an idle one: fewer written events than produced, every failure counter at zero. Those events now land in `write_failed`
