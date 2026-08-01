@@ -201,11 +201,24 @@ export const TreeItem: FC<TreeItemProps> = ({
               }}
             />
           ) : (
-            <Text size="sm">{item.getItemName()}</Text>
+            // A long name is cut with an ellipsis rather than wrapped onto a
+            // second line, so every row keeps one height; the full name stays
+            // reachable on hover.
+            <Text
+              size="sm"
+              truncate="end"
+              title={item.getItemName()}
+              style={{ minWidth: 0 }}
+            >
+              {item.getItemName()}
+            </Text>
           )}
           {fileSize !== null && !item.isRenaming() && (
-            <Text size="xs" c="dimmed" ml="auto" style={{ flexShrink: 0 }}>
-              {bytes(fileSize)}
+            // Metadata: the smallest step of the type scale, dimmed, and
+            // rounded to whole units - the exact byte count is not what the
+            // reader is scanning the tree for.
+            <Text fz={11} c="dimmed" ml="auto" style={{ flexShrink: 0 }}>
+              {bytes(fileSize, { decimalPlaces: 0 })}
             </Text>
           )}
         </Group>
