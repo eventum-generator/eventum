@@ -22,7 +22,10 @@ export default function FooterOnlyLayout({
   return (
     <AppShell>
       <AppShell.Main>{children}</AppShell.Main>
-      <AppShell.Footer bd="0">
+      {/* The page under this layout is bare canvas, so the footer sits on the
+          canvas colour too - AppShell paints its sections the panel colour,
+          which would draw a lighter strip across the bottom. */}
+      <AppShell.Footer bd="0" bg="var(--ev-canvas)">
         <Group justify="space-between" mx="50px" my="20px">
           <Text c="dimmed" size="sm">
             © {new Date().getFullYear()} Eventum Generator.{' '}
