@@ -12,6 +12,9 @@ import {
 import { ShowErrorDetailsAnchor } from '@/components/ui/ShowErrorDetailsAnchor';
 import { CONFIRM } from '@/theme/copy';
 
+/** Lifecycle move the user has just asked the instance to make. */
+export type InstanceTransition = 'restarting' | 'stopping';
+
 /** One control row: title + description on the left, action button on the
  *  right. */
 const ControlRow: FC<{
@@ -32,13 +35,20 @@ const ControlRow: FC<{
   </Group>
 );
 
-export const DangerZone: FC = () => {
+interface DangerZoneProps {
+  /** Called once the instance has accepted the request, so the page can
+   *  show the move it is making. */
+  onTransition: (transition: InstanceTransition) => void;
+}
+
+export const DangerZone: FC<DangerZoneProps> = ({ onTransition }) => {
   const restartInstance = useRestartInstanceMutation();
   const stopInstance = useStopInstanceMutation();
 
   function handleRestart() {
     restartInstance.mutate(undefined, {
       onSuccess: () => {
+        onTransition('restarting');
         notifications.show({
           title: 'Info',
           message:
@@ -64,6 +74,7 @@ export const DangerZone: FC = () => {
   function handleStop() {
     stopInstance.mutate(undefined, {
       onSuccess: () => {
+        onTransition('stopping');
         notifications.show({
           title: 'Info',
           message: 'Stopping the instance',
