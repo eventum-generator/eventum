@@ -95,6 +95,41 @@ async def test_plugin_wrong_code(httpx_mock: HTTPXMock):
         '{"@timestamp": "2024-01-01T00:00:00.000Z", "value": 1}'
     )
     assert written == 0
+    assert plugin.write_failed == 1
+
+
+@pytest.mark.asyncio
+async def test_plugin_counts_rejected_events(httpx_mock: HTTPXMock):
+    httpx_mock.add_response(
+        method='POST',
+        url=re.compile(r'http://localhost:8000/.*'),
+        status_code=500,
+        text='Upstream storage is unavailable.',
+        is_reusable=True,
+    )
+
+    config = HttpOutputPluginConfig(
+        url=HttpUrl('http://localhost:8000/endpoint'),  # type: ignore
+        headers={'Content-Type': 'application/json'},
+        formatter=JsonFormatterConfig(format=Format.JSON, indent=0),
+    )
+    plugin = HttpOutputPlugin(config=config, params={'id': 1})
+
+    await plugin.open()
+
+    written = await plugin.write(
+        events=[
+            '{"@timestamp": "2024-01-01T00:00:00.000Z", "value": 1}',
+            '{"@timestamp": "2024-01-01T00:00:01.000Z", "value": 2}',
+            '{"@timestamp": "2024-01-01T00:00:02.000Z", "value": 3}',
+        ]
+    )
+    await plugin.close()
+
+    assert len(httpx_mock.get_requests()) == 3
+    assert written == 0
+    assert plugin.written == 0
+    assert plugin.write_failed == 3
 
 
 def test_plugin_certificate_paths_resolved(tls_config):
