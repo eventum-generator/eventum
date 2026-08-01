@@ -59,10 +59,11 @@ class PluginsRegistry:
 
         """
         logger.debug('Registering plugin', parameters=asdict(plugin_info))
-        if plugin_info.type not in cls._registry:
-            cls._registry[plugin_info.type] = {}
 
-        cls._registry[plugin_info.type][plugin_info.name] = plugin_info
+        # Single step: checking the type before inserting it can drop a
+        # registration made by another thread in between.
+        plugins = cls._registry.setdefault(plugin_info.type, {})
+        plugins[plugin_info.name] = plugin_info
 
     @classmethod
     def get_plugin_info(cls, type: str, name: str) -> PluginInfo:

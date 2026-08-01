@@ -1,4 +1,5 @@
 import importlib
+import threading
 
 import pytest
 
@@ -44,13 +45,73 @@ def test_registry_clearing():
     assert not PluginsRegistry.is_registered('input', 'test')
 
 
+class InterleavingRegistry(dict):
+    """Registry storage that suspends the thread reading it first.
+
+    Reading the registry before writing to it is exactly what makes a
+    registration lose a concurrent one, so the reader is held until
+    another registration of the same type completes. A registration
+    that reads and writes in a single step never reads the storage,
+    leaving nothing to interleave.
+    """
+
+    def __init__(self) -> None:
+        super().__init__()
+        self.read = threading.Event()
+        self.other_registered = threading.Event()
+
+    def __contains__(self, key: object) -> bool:
+        result = super().__contains__(key)
+
+        if not self.read.is_set():
+            self.read.set()
+            self.other_registered.wait(timeout=5)
+
+        return result
+
+
+def test_registration_does_not_drop_concurrent_one(monkeypatch):
+    """Plugin registered while another registration is in progress."""
+    registry = InterleavingRegistry()
+    monkeypatch.setattr(PluginsRegistry, '_registry', registry)
+
+    def register_suspended() -> None:
+        PluginsRegistry.register_plugin(
+            PluginInfo(
+                name='suspended',
+                cls=object,
+                config_cls=object,
+                type='input',
+            )
+        )
+
+    thread = threading.Thread(target=register_suspended, daemon=True)
+    thread.start()
+
+    # Expires without suspending anyone when registration is atomic.
+    registry.read.wait(timeout=1)
+
+    PluginsRegistry.register_plugin(
+        PluginInfo(
+            name='completed',
+            cls=object,
+            config_cls=object,
+            type='input',
+        )
+    )
+    registry.other_registered.set()
+    thread.join(timeout=5)
+
+    assert not thread.is_alive()
+    assert set(registry['input']) == {'completed', 'suspended'}
+
+
 def test_plugin_registration():
     PluginsRegistry.clear()
 
     assert not PluginsRegistry.is_registered('input', 'cron')
 
-    import eventum.plugins.input.plugins.cron.config as config
-    import eventum.plugins.input.plugins.cron.plugin as plugin
+    from eventum.plugins.input.plugins.cron import config, plugin
 
     importlib.reload(plugin)
 
