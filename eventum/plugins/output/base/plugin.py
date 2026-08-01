@@ -204,6 +204,10 @@ class OutputPlugin(Plugin[ConfigT, ParamsT], register=False):
             self._format_failed += len(events)
             raise
 
+        # count events rejected by formatter, whether individually or
+        # as an entire batch by aggregating formatters
+        self._format_failed += len(events) - formatting_result.formatted_count
+
         if not formatting_result.events:
             return 0
 

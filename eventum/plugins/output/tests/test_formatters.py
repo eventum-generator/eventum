@@ -180,6 +180,37 @@ def test_template_batch_formatter():
     )
 
 
+def test_template_batch_formatter_with_render_error():
+    formatter = TemplateBatchFormatter(
+        config=TemplateFormatterConfig(
+            format=Format.TEMPLATE_BATCH, template='{{ 1 / 0 }}'
+        ),
+        params={'base_path': Path.cwd()},
+    )
+
+    events = ['event1', 'event2', 'event3']
+    result = formatter.format_events(events)
+
+    assert result.events == []
+    assert result.formatted_count == 0
+    assert len(result.errors) == 1
+    assert isinstance(result.errors[0], FormatError)
+
+
+def test_json_batch_formatter_with_all_events_rejected():
+    formatter = JsonBatchFormatter(
+        config=JsonFormatterConfig(format=Format.JSON_BATCH, indent=2),
+        params={'base_path': Path.cwd()},
+    )
+
+    events = ['invalid json', 'also invalid json']
+    result = formatter.format_events(events)
+
+    assert result.events == []
+    assert result.formatted_count == 0
+    assert len(result.errors) == 2
+
+
 def test_eventum_http_input_formatter():
     formatter = EventumHttpInputFormatter(
         config=SimpleFormatterConfig(format=Format.EVENTUM_HTTP_INPUT),

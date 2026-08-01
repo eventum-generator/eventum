@@ -245,6 +245,13 @@ class JsonBatchFormatter(
             except msgspec.DecodeError as e:
                 errors.append(FormatError(str(e), original_event=event))
 
+        if not validated_events:
+            return FormattingResult(
+                events=[],
+                formatted_count=0,
+                errors=errors,
+            )
+
         event = msgspec.json.format(
             f'[{",".join(validated_events)}]',
             indent=self._config.indent,
@@ -411,22 +418,23 @@ class TemplateBatchFormatter(
 
     @override
     def format_events(self, events: Sequence[str]) -> FormattingResult:
-        formatted_events: list[str] = []
-        errors: list[FormatError] = []
-
         try:
-            formatted_events.append(self._template.render(events=events))
+            formatted_event = self._template.render(events=events)
         except Exception as e:  # noqa: BLE001
-            errors.append(
-                FormatError(
-                    f'Failed render template: {e.__class__.__name__}: {e}',
-                ),
+            return FormattingResult(
+                events=[],
+                formatted_count=0,
+                errors=[
+                    FormatError(
+                        f'Failed render template: {e.__class__.__name__}: {e}',
+                    ),
+                ],
             )
 
         return FormattingResult(
-            events=formatted_events,
+            events=[formatted_event],
             formatted_count=len(events),
-            errors=errors,
+            errors=[],
         )
 
 
