@@ -45,7 +45,6 @@ Eventum produces synthetic events and delivers them anywhere — in real time or
 </p>
 
 <p align="center">
-  <img src="https://raw.githubusercontent.com/eventum-generator/eventum/master/.github/assets/studio_dark.png" alt="Eventum Studio — a template in the editor with its timestamp distribution below" width="680" />
   <a href="https://app.arcade.software/share/QjQVk47rN7AJd5Eft38x"><strong>▶ Launch the interactive tutorial</strong></a>
 </p>
 
@@ -132,7 +131,7 @@ Starts on port **9474** with **Eventum Studio** (web UI), **REST API**, and **mu
 **Eventum Studio** is the web UI included in application mode: edit generator configurations and templates, preview rendered events, and monitor running generators.
 
 <p align="center">
-  <img src="https://raw.githubusercontent.com/eventum-generator/eventum/master/.github/assets/studio_dark.png" alt="Eventum Studio — event debugger" width="680" />
+  <img src="https://raw.githubusercontent.com/eventum-generator/eventum/master/.github/assets/studio_home_dark.png" alt="Eventum Studio — the home screen with recent projects and the state of every instance" width="680" />
 </p>
 
 ## Documentation
