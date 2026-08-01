@@ -21,6 +21,7 @@ All notable changes to this project will be documented in this file.
 - **Made Studio navigation link-based** — record names, sidebar items, breadcrumbs, home cards and in-page links are real links, so middle-click and Ctrl/Cmd-click open them in a new browser tab; middle-click also closes an editor tab. Selecting a record name no longer opens it, so names stay copyable
 - **Added file sizes to the project file tree** — every file shows its size next to its name, and a file over 10 MB is not opened in the editor: the tab reports the size and the limit instead of transferring a file the editor cannot display. Generator output files are the usual case
 - **Rebuilt the editor search panel** — Ctrl/Cmd-F opens a compact panel floating over the top-right corner of the editor instead of a strip stretched across its bottom edge. The query field counts the matches and marks a malformed expression, case, regular-expression and whole-word matching are icon toggles, and the replace row is revealed on demand
+- **Lit the indicator of a live instance** — a running, starting or stopping instance carries a halo around its status indicator everywhere it appears: Home, Monitoring, Instances, Scenarios and the scenario diagram. The states at rest carry none, so a live instance reads without comparing it to anything
 
 #### MCP
 
@@ -40,6 +41,8 @@ All notable changes to this project will be documented in this file.
 - **Accepted cron expressions carrying random values or parameters** — `0 0 R * *` and `${params.schedule}` were rejected as invalid although the generator runs them; the field checked what could be spelled out in words rather than what the generator accepts. Both are accepted now, with a note under the field saying the schedule is resolved at run time
 - **Validated the HTTP output form against its own rules** — the form checked its values against the file output's rules instead, so a malformed URL or an out-of-range response code drew no inline error and surfaced only once the configuration was read
 - **Matched the plugin switches to the generator's defaults** — a field the configuration does not mention was drawn as off, so Verify SSL on the `http`, `opensearch`, `clickhouse` and `tcp` outputs read as unchecked while the generator was verifying the certificate, and Include end point on the `linspace` input read as off while the range included it. A switch now shows what the field resolves to, and an untouched field is still left out of the configuration
+- **Reported the restart and the stop on the Management page** — the page went on claiming the instance was running and then reported a failure to reach it. Its status now switches to Restarting or Stopping, and the page loads afresh a moment later, so it shows the instance as it stands - running again, or unreachable
+- **Cut long file names in the project file tree** — a name wider than the panel wrapped onto a second line and broke the row rhythm; it is trimmed with an ellipsis now and shown in full on hover. The file size beside it is rounded to whole units and set smaller, as metadata rather than as part of the name
 
 #### Core
 
