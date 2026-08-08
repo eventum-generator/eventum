@@ -193,7 +193,7 @@ export const GenerationParametersSection: FC<
               label={
                 <LabelWithTooltip
                   label="Batch delay"
-                  tooltip="Maximum time for single batch to accumulate incoming timestamps"
+                  tooltip="Maximum time span of timestamps for single batch. In live mode timestamps that are already due are batched by size instead"
                 />
               }
               placeholder="seconds"
