@@ -154,9 +154,14 @@ class EventStage:
                         throttler(
                             logger.warning,
                             (
-                                'Events queue is full, consider decreasing '
-                                'EPS or changing batching settings to avoid '
-                                'time lag with actual event timestamps'
+                                'Events queue is full, events are '
+                                'produced later than their timestamps'
+                            ),
+                            hint=(
+                                'Output stage is not keeping up with the '
+                                'generation rate, consider checking the '
+                                'output target performance or decreasing '
+                                'the rate'
                             ),
                         )
 
