@@ -4,8 +4,13 @@ All notable changes to this project will be documented in this file.
 
 ## Unreleased
 
+### 🚀 New Features
+
+- **Bounded what a shell command started from a template can consume** — a `subprocess.run` call now runs under a timeout of 30 seconds when the template passes none and at most 300 seconds when it asks for more, a command that runs out of time is killed together with the processes it spawned, and a command writing more than 8 MiB to one of its output streams is stopped with an error instead of having all of it held in memory. A call without an explicit timeout used to stall its generator indefinitely, leave background processes running and grow the memory of the whole instance
+
 ### 🐛 Bug Fixes
 
+- **Released the global template state lock at the end of every event** — a template that called `globals.acquire()` and never reached `globals.release()`, most often because rendering failed in between, held the process-wide lock for good, freezing every other generator that reads or writes global state along with the Studio and MCP views of it. Templates can also drop their own holds through `globals.release_if_held()`
 - **Stopped escaping non-ASCII text in configuration files** — a project saved through Studio, the API or MCP had its Cyrillic and other non-ASCII values written out as `\uXXXX` sequences, in `generator.yml` as well as in the instance settings and the startup file. Values are now stored as they were entered, and JSON-format logs and MCP resources report them the same way
 - **Fixed reading and writing files outside a UTF-8 environment** — configurations, templates, samples, time patterns and log files were read and written in whatever encoding the host locale happened to set, which mangled non-ASCII content or failed outright. All of them are now UTF-8 regardless of the host, and a configuration that cannot be decoded is reported as an encoding error instead of an unhandled failure
 - **Bound the plugin parameters form to the plugin instead of its position in the list** — deleting an input or output plugin left the form filled with the deleted plugin's values, and the next edit wrote them over the plugin that took its place. Deleting a plugin listed above the selected one also moved the selection to a neighbour

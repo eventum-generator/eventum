@@ -4,8 +4,11 @@ template renders, different templates and generators.
 
 from abc import ABC, abstractmethod
 from copy import copy
-from threading import RLock
+from threading import RLock, get_ident
 from typing import Any, override
+
+_NO_OWNER = 0
+"""Thread identifier meaning no thread holds the state lock manually."""
 
 
 class State(ABC):
@@ -162,6 +165,9 @@ class MultiThreadState(State):
         self._state: dict[str, Any] = initial or {}
         self._state_to_update: dict[str, Any] = {}
 
+        self._owner = _NO_OWNER
+        self._holds = 0
+
     @override
     def get(self, key: str, default: Any | None = None) -> Any:
         with self._lock:
@@ -213,9 +219,48 @@ class MultiThreadState(State):
         """Acquire state lock."""
         self._lock.acquire()
 
+        self._owner = get_ident()
+        self._holds += 1
+
     def release(self) -> None:
-        """Release state lock."""
+        """Release state lock.
+
+        Raises
+        ------
+        RuntimeError
+            If the lock is not acquired by the calling thread.
+
+        """
+        if self._owner != get_ident():
+            msg = 'Cannot release state lock that is not acquired'
+            raise RuntimeError(msg)
+
+        self._holds -= 1
+
+        if self._holds == 0:
+            self._owner = _NO_OWNER
+
         self._lock.release()
+
+    def release_if_held(self) -> int:
+        """Release every hold the calling thread has on the state lock.
+
+        Returns
+        -------
+        int
+            Number of released holds, zero if the calling thread does
+            not hold the lock.
+
+        """
+        if self._owner != get_ident():
+            return 0
+
+        holds = self._holds
+
+        for _ in range(holds):
+            self.release()
+
+        return holds
 
     @override
     def __getitem__(self, key: Any) -> Any:
