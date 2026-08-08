@@ -50,6 +50,7 @@ Two artifacts across two repos, each in its own voice:
 ### 3. Version bump and API reference
 
 - `eventum/__init__.py`: `__version__ = '<version>'`.
+- On a minor or major release, `.github/ISSUE_TEMPLATE/bug_report.yml`: add `<major>.<minor>.x` at the top of the **Version** dropdown, drop the oldest of the three explicit entries and roll it into the catch-all below them (`2.4.x or older` becomes `2.5.x or older`). Reporters pick the version from that list, so a missing entry sends them to the wrong one.
 - Export the OpenAPI schema and regenerate the reference pages, in that order and only after the bump - the schema carries `info.version`, so exporting first publishes the previous version. Commands are in `.claude/rules/backend/api.md`. Both outputs land in `../docs` and are committed in step 6.
 
 The export is mandatory: nothing else keeps the published reference in sync, so skipping it leaves the site describing an older API for the whole release cycle.

@@ -1,6 +1,6 @@
 ---
 name: issue
-description: File a GitHub issue in the eventum-generator org with the tracker sidebar filled in - issue type, board fields, assignee, labels.
+description: File a GitHub issue in the eventum-generator org with the tracker sidebar filled in - issue type, board fields, assignee.
 ---
 
 ## Input
@@ -10,7 +10,7 @@ description: File a GitHub issue in the eventum-generator org with the tracker s
 
 ## Output
 
-- Issue in `eventum-generator/<repo>` carrying a typed body, and on the [Task tracker](https://github.com/orgs/eventum-generator/projects/4) board with Type, Status, Priority, Component, Size, assignee and labels set.
+- Issue in `eventum-generator/<repo>` carrying a typed body, and on the [Task tracker](https://github.com/orgs/eventum-generator/projects/4) board with Type, Status, Priority, Component, Size and assignee set.
 
 ## When to use
 
@@ -36,29 +36,28 @@ If a match exists, report it and stop - a comment on the open issue beats a seco
 
 | Field | Value |
 |---|---|
-| Type | `Bug` for a defect, `Feature` for a user-facing addition, `Task` for internal work - refactor, CI, tooling, tests, schema sync |
+| Type | `Bug` - behaviour contradicts what Eventum documents or promises. `Feature` - a capability that does not exist yet. `Improvement` - existing behaviour, docs or code made better: UX, performance, error messages, refactoring, tests, CI. The three are exhaustive; nothing else is filed |
 | Component | `Eventum Studio` (`ui/`), `Core` (`core/`, `app/`), `Plugins` (`plugins/`), `API/MCP/CLI` (`api/`, `cli/`, `server/`, `mcp/`), `Other` (build, CI, docs repo) |
 | Priority | `High` when data is lost, a release is blocked or a user is stuck with no workaround; `Low` for cosmetics and nice-to-haves; `Medium` otherwise |
 | Size | `XS` one-line change, `S` one module plus a test, `M` several modules, `L` cross-cutting (backend plus UI plus docs), `XL` needs splitting first - propose the split instead of filing it |
-| Status | `Todo` for work meant to be picked up, `Backlog` for someday |
-| Labels | `bug` for Bug, `feature` for Feature, none for Task. `eventum` carries only `bug`, `feature`, `question`, `duplicate` - check another repo with `gh label list --repo eventum-generator/<repo>` |
+| Status | Always `Backlog` |
 | Assignee | `rnv812` unless the user says otherwise |
 
-Pick Component from where the fix lands, not from where the symptom shows: a Studio switch drawn from a wrong backend default is `Plugins` if the default moves, `Eventum Studio` if the form does.
+Pick Component from where the fix lands, not from where the symptom shows.
 
 ### 3. Draft
 
-Title: `[Bug]: ` / `[Feature]: ` / `[Task]: ` followed by a lowercase phrase naming the defect or the outcome, not the symptom. "Formatter rejections of individual events never reach the format_failed metric", not "metrics look wrong".
+Title: a plain phrase naming the defect or the outcome, not the symptom - "Formatter rejections of individual events never reach the format_failed metric", not "metrics look wrong". No `[Bug]: ` prefix; the issue type carries the classification and shows on the board card.
 
 Sections are `##`, chosen by type:
 
 - **Bug** - `Summary`, `Reproduction`, `Root cause` (when found), `Impact` or `Why it matters`, `Fix`, `Related`
 - **Feature** - `Summary`, `Current state`, `Scope`, `Out of scope`, `To sync`
-- **Task** - `Summary`, `Impact`, `Scope`
+- **Improvement** - `Summary`, `Current state`, `Impact`, `Scope` - take what applies
 
 `Summary` always opens and carries the evidence - `path/file.py:120-125`, the failing snippet, the real log line. `Fix` names a direction, not a patch. `To sync` lists the cross-cutting artifacts the change drags along: OpenAPI schema, Zod schema, docs page, `CHANGELOG.md`, tests. `Related` links prior issues and PRs.
 
-The forms under `.github/ISSUE_TEMPLATE/` serve outside reporters filing through the web UI. Do not reproduce their headings here.
+The forms under `.github/ISSUE_TEMPLATE/` define the minimum facts an issue has to carry, not its layout: what happens and how to reproduce it, the version, the area, and the config or log that shows it. Cover the same facts under the headings above - a filed issue that skips the reproduction path or the affected version is incomplete whichever way it was opened. The form's **Area** maps onto the board's `Component`, with `Documentation` and `Not sure` landing on `Other`.
 
 Style follows `CLAUDE.md`: dense, factual, no marketing tone, single hyphen instead of an em dash, no AI attribution.
 
@@ -74,11 +73,10 @@ Write the body to a temporary file outside the repository and create the issue:
 gh issue create --repo eventum-generator/<repo> \
     --title "<title>" \
     --body-file <tmpfile> \
-    --label <label> \
     --assignee rnv812
 ```
 
-Drop `--label` for a Task - the tracker leaves those unlabelled.
+No labels: the type classifies the issue, and `bug` / `feature` alongside it would be a second copy of the same fact. `duplicate` and `question` stay for triage.
 
 `gh issue create` cannot set the issue type, and the board fields need the item id, so four calls follow. Set the type:
 
@@ -122,7 +120,6 @@ gh api graphql -f query='
     issue(number: <n>) {
       issueType { name }
       assignees(first: 5) { nodes { login } }
-      labels(first: 5) { nodes { name } }
       projectItems(first: 5) {
         nodes {
           fieldValues(first: 20) {
@@ -137,7 +134,7 @@ gh api graphql -f query='
       }
     }
   }
-}' --jq '.data.repository.issue | {type: .issueType.name, assignees: [.assignees.nodes[].login], labels: [.labels.nodes[].name], fields: [.projectItems.nodes[].fieldValues.nodes[] | select(.name) | {(.field.name): .name}]}'
+}' --jq '.data.repository.issue | {type: .issueType.name, assignees: [.assignees.nodes[].login], fields: [.projectItems.nodes[].fieldValues.nodes[] | select(.name) | {(.field.name): .name}]}'
 ```
 
 Every one of Type, Status, Priority, Component, Size and the assignee must come back non-empty. Fix what is missing, then report the issue URL.
@@ -149,7 +146,7 @@ Verified 2026-08-08. Issue types and the board are org-level, so the same ids se
 | Entity | Id |
 |---|---|
 | Project (Task tracker, number 4) | `PVT_kwDOCiUXlc4BP0JC` |
-| Issue type Task / Bug / Feature | `IT_kwDOCiUXlc4BVM0X` / `IT_kwDOCiUXlc4BVM0Y` / `IT_kwDOCiUXlc4BVM0Z` |
+| Issue type Improvement / Bug / Feature | `IT_kwDOCiUXlc4BVM0X` / `IT_kwDOCiUXlc4BVM0Y` / `IT_kwDOCiUXlc4BVM0Z` |
 | Field Status | `PVTSSF_lADOCiUXlc4BP0JCzg-HW5U` - Backlog `f75ad846`, Todo `61e4505c`, In progress `47fc9ee4`, Done `98236657` |
 | Field Priority | `PVTSSF_lADOCiUXlc4BP0JCzg-HXEM` - High `79628723`, Medium `0a877460`, Low `da944a9c` |
 | Field Component | `PVTSSF_lADOCiUXlc4BP0JCzg-HX4I` - Eventum Studio `5a9396fe`, Core `73c7da0c`, Plugins `b0be8b34`, API/MCP/CLI `a93c596c`, Other `79a07051` |
@@ -166,6 +163,7 @@ gh api graphql -f query='
 
 ## Notes
 
+- The forms carry a hardcoded version list. The `release` skill adds the new minor to `.github/ISSUE_TEMPLATE/bug_report.yml` and drops the oldest.
 - GitHub's Relationships sidebar has no public API. Express dependencies in the body (`Blocked by #N`, `Unblocks #N`); they show up in the timeline.
 - Milestones stay unset - the tracker does not use them.
 - Implementation belongs to the `implement-issue` skill. This one stops at the filed issue.
