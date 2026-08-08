@@ -24,6 +24,7 @@ import {
   StudioShellContext,
   StudioShellValue,
 } from './context';
+import { nextSelectedIndex } from './selection';
 import { useUpdateGeneratorConfigMutation } from '@/api/hooks/useGeneratorConfigs';
 import { PLUGIN_DEFAULT_CONFIGS } from '@/api/routes/generator-configs/modules/plugins/registry';
 import {
@@ -47,6 +48,22 @@ interface StudioProviderProps {
 
 const pluginNames = (plugins: Record<string, unknown>[]): string[] =>
   plugins.map((plugin) => Object.keys(plugin)[0]!);
+
+// Plugins are addressed by position, but a position is not an identity: a
+// removal shifts every plugin after it into a slot that used to hold another
+// one. Each added plugin therefore gets an id that stays with it, so views
+// can key on the plugin itself instead of on the slot it occupies.
+let pluginInstanceCounter = 0;
+
+const nextPluginId = (): string => `plugin-${++pluginInstanceCounter}`;
+
+const pluginIds = (count: number): string[] =>
+  Array.from({ length: count }, () => nextPluginId());
+
+const withoutIndex = <T,>(items: T[], index: number): T[] => [
+  ...items.slice(0, index),
+  ...items.slice(index + 1),
+];
 
 // A structurally-valid but empty config, used only to satisfy the config
 // context type while in recovery mode. It is never persisted - saveConfig is
@@ -75,6 +92,12 @@ export const StudioProvider: FC<StudioProviderProps> = ({
   );
   const [outputConfig, setOutputConfig] = useState<OutputPluginsNamedConfig>(
     serverConfig?.output ?? []
+  );
+  const [inputIds, setInputIds] = useState<string[]>(() =>
+    pluginIds(serverConfig?.input.length ?? 0)
+  );
+  const [outputIds, setOutputIds] = useState<string[]>(() =>
+    pluginIds(serverConfig?.output.length ?? 0)
   );
   const [inputSelected, setInputSelected] = useState(0);
   const [outputSelected, setOutputSelected] = useState(0);
@@ -106,23 +129,24 @@ export const StudioProvider: FC<StudioProviderProps> = ({
     () => ({
       names: pluginNames(inputConfig),
       selected: inputSelected,
+      selectedId: inputIds[inputSelected],
       setSelected: setInputSelected,
-      add: (name) =>
+      add: (name) => {
         setInputConfig(
           (prev) =>
             [
               ...prev,
               { [name]: PLUGIN_DEFAULT_CONFIGS.input[name] },
             ] as InputPluginsNamedConfig
-        ),
+        );
+        setInputIds((prev) => [...prev, nextPluginId()]);
+      },
       remove: (index) => {
-        setInputConfig((prev) => {
-          const next = [...prev.slice(0, index), ...prev.slice(index + 1)];
-          setInputSelected((sel) =>
-            sel >= next.length ? Math.max(next.length - 1, 0) : sel
-          );
-          return next;
-        });
+        setInputConfig((prev) => withoutIndex(prev, index));
+        setInputIds((prev) => withoutIndex(prev, index));
+        setInputSelected((sel) =>
+          nextSelectedIndex(sel, index, inputConfig.length - 1)
+        );
       },
       change: (cfg) =>
         setInputConfig((prev) => {
@@ -133,7 +157,7 @@ export const StudioProvider: FC<StudioProviderProps> = ({
       getConfig: () => inputConfigRef.current,
       getSelected: () => inputSelectedRef.current,
     }),
-    [inputConfig, inputSelected]
+    [inputConfig, inputIds, inputSelected]
   );
 
   const event = useMemo<EventStage>(() => {
@@ -157,23 +181,24 @@ export const StudioProvider: FC<StudioProviderProps> = ({
     () => ({
       names: pluginNames(outputConfig),
       selected: outputSelected,
+      selectedId: outputIds[outputSelected],
       setSelected: setOutputSelected,
-      add: (name) =>
+      add: (name) => {
         setOutputConfig(
           (prev) =>
             [
               ...prev,
               { [name]: PLUGIN_DEFAULT_CONFIGS.output[name] },
             ] as OutputPluginsNamedConfig
-        ),
+        );
+        setOutputIds((prev) => [...prev, nextPluginId()]);
+      },
       remove: (index) => {
-        setOutputConfig((prev) => {
-          const next = [...prev.slice(0, index), ...prev.slice(index + 1)];
-          setOutputSelected((sel) =>
-            sel >= next.length ? Math.max(next.length - 1, 0) : sel
-          );
-          return next;
-        });
+        setOutputConfig((prev) => withoutIndex(prev, index));
+        setOutputIds((prev) => withoutIndex(prev, index));
+        setOutputSelected((sel) =>
+          nextSelectedIndex(sel, index, outputConfig.length - 1)
+        );
       },
       change: (cfg) =>
         setOutputConfig((prev) => {
@@ -182,7 +207,7 @@ export const StudioProvider: FC<StudioProviderProps> = ({
           return next;
         }),
     }),
-    [outputConfig, outputSelected]
+    [outputConfig, outputIds, outputSelected]
   );
 
   const updateConfig = useUpdateGeneratorConfigMutation();
