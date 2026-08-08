@@ -20,6 +20,9 @@ export type SaverFn = () => void;
 export interface InputStage {
   names: string[];
   selected: number;
+  // Identity of the plugin at the selected position - unlike the position
+  // itself, it changes whenever another plugin takes that slot.
+  selectedId: string | undefined;
   setSelected: (index: number) => void;
   add: (name: InputPluginName) => void;
   remove: (index: number) => void;
@@ -40,6 +43,7 @@ export interface EventStage {
 export interface OutputStage {
   names: string[];
   selected: number;
+  selectedId: string | undefined;
   setSelected: (index: number) => void;
   add: (name: OutputPluginName) => void;
   remove: (index: number) => void;
