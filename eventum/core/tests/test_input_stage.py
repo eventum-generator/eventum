@@ -12,6 +12,7 @@ import structlog.testing
 from eventum.core.parameters import BatchParameters, GeneratorParameters
 from eventum.core.queue import PipelineQueue
 from eventum.core.stages.input_stage import InputStage
+from eventum.plugins.input.batcher import TimestampsBatcher
 from eventum.plugins.input.protocols import IdentifiedTimestamps
 from eventum.plugins.input.scheduler import BatchScheduler
 
@@ -147,6 +148,63 @@ def test_configure_sample_mode_leaves_batcher_unwrapped():
     stage.configure(stop_event=threading.Event())
 
     assert not isinstance(stage._configured_non_interactive, BatchScheduler)
+
+
+def test_configure_sample_mode_drops_delay():
+    """Sample mode delivers on no schedule, so size forms the batch."""
+    p1 = _make_mock_input_plugin(plugin_id=1, is_interactive=False)
+    stage = InputStage(
+        plugins=[p1],
+        params=_make_params(
+            live_mode=False,
+            batch=BatchParameters(size=500, delay=1.0),
+        ),
+    )
+    stage.configure(stop_event=threading.Event())
+
+    batcher = stage._configured_non_interactive
+
+    assert isinstance(batcher, TimestampsBatcher)
+    assert batcher._batch_size == 500
+    assert batcher._batch_delay is None
+
+
+def test_configure_sample_mode_keeps_delay_without_size():
+    """Delay is the only limit of the batch when size is not set."""
+    p1 = _make_mock_input_plugin(plugin_id=1, is_interactive=False)
+    stage = InputStage(
+        plugins=[p1],
+        params=_make_params(
+            live_mode=False,
+            batch=BatchParameters(delay=1.0),
+        ),
+    )
+    stage.configure(stop_event=threading.Event())
+
+    batcher = stage._configured_non_interactive
+
+    assert isinstance(batcher, TimestampsBatcher)
+    assert batcher._batch_size is None
+    assert batcher._batch_delay == 1.0
+
+
+def test_configure_live_mode_keeps_delay():
+    """Live mode delivers on a schedule, so delay bounds the lag."""
+    p1 = _make_mock_input_plugin(plugin_id=1, is_interactive=False)
+    stage = InputStage(
+        plugins=[p1],
+        params=_make_params(
+            live_mode=True,
+            batch=BatchParameters(size=500, delay=1.0),
+        ),
+    )
+    stage.configure(stop_event=threading.Event())
+
+    scheduler = stage._configured_non_interactive
+
+    assert isinstance(scheduler, BatchScheduler)
+    assert isinstance(scheduler._source, TimestampsBatcher)
+    assert scheduler._source._batch_delay == 1.0
 
 
 def test_configure_zero_plugins():

@@ -6,7 +6,7 @@ All notable changes to this project will be documented in this file.
 
 ### ⚡ Performance
 
-- **Merged due batches while catching up in live mode** — a generator started on a past time range, or one that fell behind real time, drained its backlog in batches capped by `batch.delay`, although timestamps that are already due carry no waiting for that cap to bound. Such batches are now merged up to `batch.size`, so the same backlog passes through the pipeline in far fewer batches — 2 instead of 1798 for half an hour of backlog at 10 events per second. Batching of timestamps that are still ahead of real time is unchanged, as is batch mode
+- **Formed batches by size wherever the delay bounds nothing** — `batch.delay` caps the time span of the timestamps one batch covers, which bounds the lag batching adds to delivery. Timestamps that have already passed carry no such lag, and sample mode emits on no schedule at all, so in both cases the cap only cut the stream into batches the size of the event rate. Both are now grouped by `batch.size` alone: half an hour of live backlog at 10 events per second drains in 2 batches instead of 1798. `batch.delay` still forms the batches of timestamps ahead of real time in live mode, and still applies everywhere `batch.size` is unset, where it is the only limit a batch has. A sample-mode run through a per-batch formatter such as `json-batch` writes larger arrays than before as a result
 
 ### 🐛 Bug Fixes
 

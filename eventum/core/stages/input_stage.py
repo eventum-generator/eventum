@@ -156,11 +156,21 @@ class InputStage:
                 continue
 
             logger.debug('Wrapping to timestamps batcher')
+
+            # delay bounds the delivery lag batching adds, and only
+            # live mode delivers on a schedule to lag behind; without
+            # size it is the only limit of the batch, so it still holds
+            delay_applies = (
+                self._params.live_mode or self._params.batch.size is None
+            )
+
             try:
                 batcher = TimestampsBatcher(
                     source=merged,
                     batch_size=self._params.batch.size,
-                    batch_delay=self._params.batch.delay,
+                    batch_delay=(
+                        self._params.batch.delay if delay_applies else None
+                    ),
                     lax=item['lax_batcher_mode'],
                 )
             except ValueError as e:
