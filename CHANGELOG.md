@@ -4,6 +4,10 @@ All notable changes to this project will be documented in this file.
 
 ## Unreleased
 
+### ⚡ Performance
+
+- **Merged due batches while catching up in live mode** — a generator started on a past time range, or one that fell behind real time, drained its backlog in batches capped by `batch.delay`, although timestamps that are already due carry no waiting for that cap to bound. Such batches are now merged up to `batch.size`, so the same backlog passes through the pipeline in far fewer batches — 2 instead of 1798 for half an hour of backlog at 10 events per second. Batching of timestamps that are still ahead of real time is unchanged, as is batch mode
+
 ### 🐛 Bug Fixes
 
 - **Stopped escaping non-ASCII text in configuration files** — a project saved through Studio, the API or MCP had its Cyrillic and other non-ASCII values written out as `\uXXXX` sequences, in `generator.yml` as well as in the instance settings and the startup file. Values are now stored as they were entered, and JSON-format logs and MCP resources report them the same way

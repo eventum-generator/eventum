@@ -172,11 +172,21 @@ class InputStage:
 
             if self._params.live_mode:
                 logger.debug('Wrapping to batch scheduler')
+
+                # interactive plugins publish timestamps as they come,
+                # so their due batches are never merged
+                merge_due_batches = not item['lax_batcher_mode']
+
                 result.append(
                     BatchScheduler(
                         source=batcher,
                         timezone=self._timezone,
                         stop_event=stop_event,
+                        max_batch_size=(
+                            self._params.batch.size
+                            if merge_due_batches
+                            else None
+                        ),
                     ),
                 )
             else:

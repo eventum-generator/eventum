@@ -9,10 +9,11 @@ from unittest.mock import MagicMock
 import numpy as np
 import structlog.testing
 
-from eventum.core.parameters import GeneratorParameters
+from eventum.core.parameters import BatchParameters, GeneratorParameters
 from eventum.core.queue import PipelineQueue
 from eventum.core.stages.input_stage import InputStage
 from eventum.plugins.input.protocols import IdentifiedTimestamps
+from eventum.plugins.input.scheduler import BatchScheduler
 
 
 def _make_timestamps(
@@ -83,7 +84,7 @@ def test_input_tags_map():
 
 
 def test_plugins_property():
-    """plugins property returns the plugin list."""
+    """Plugins property returns the plugin list."""
     p1 = _make_mock_input_plugin()
     stage = InputStage(plugins=[p1], params=_make_params())
     assert stage.plugins == [p1]
@@ -101,6 +102,51 @@ def test_configure_single_non_interactive():
 
     assert stage._configured_non_interactive is not None
     assert stage._configured_interactive is None
+
+
+def test_configure_live_mode_gives_batch_size_to_scheduler():
+    """Scheduler merges due batches up to the configured batch size."""
+    p1 = _make_mock_input_plugin(plugin_id=1, is_interactive=False)
+    stage = InputStage(
+        plugins=[p1],
+        params=_make_params(
+            live_mode=True,
+            batch=BatchParameters(size=500, delay=1.0),
+        ),
+    )
+    stage.configure(stop_event=threading.Event())
+
+    scheduler = stage._configured_non_interactive
+
+    assert isinstance(scheduler, BatchScheduler)
+    assert scheduler._max_batch_size == 500
+
+
+def test_configure_live_mode_keeps_interactive_batches_unmerged():
+    """Interactive plugins publish timestamps as they come."""
+    p1 = _make_mock_input_plugin(plugin_id=1, is_interactive=True)
+    stage = InputStage(
+        plugins=[p1],
+        params=_make_params(
+            live_mode=True,
+            batch=BatchParameters(size=500, delay=1.0),
+        ),
+    )
+    stage.configure(stop_event=threading.Event())
+
+    scheduler = stage._configured_interactive
+
+    assert isinstance(scheduler, BatchScheduler)
+    assert scheduler._max_batch_size is None
+
+
+def test_configure_sample_mode_leaves_batcher_unwrapped():
+    """Without live mode there is no scheduler to merge due batches."""
+    p1 = _make_mock_input_plugin(plugin_id=1, is_interactive=False)
+    stage = InputStage(plugins=[p1], params=_make_params(live_mode=False))
+    stage.configure(stop_event=threading.Event())
+
+    assert not isinstance(stage._configured_non_interactive, BatchScheduler)
 
 
 def test_configure_zero_plugins():
