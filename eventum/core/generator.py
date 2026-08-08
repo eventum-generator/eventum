@@ -21,6 +21,11 @@ from eventum.core.plugins_initializer import (
     InitializedPlugins,
     init_plugins,
 )
+from eventum.core.resources import (
+    GeneratorResources,
+    ThreadCpuTimes,
+    collect_thread_usage,
+)
 
 
 class Generator:
@@ -243,6 +248,43 @@ class Generator:
             raise RuntimeError(msg)
 
         return self._plugins
+
+    def get_resources(
+        self,
+        cpu_times: ThreadCpuTimes | None = None,
+    ) -> GeneratorResources:
+        """Get runtime resources occupied by the generator.
+
+        Parameters
+        ----------
+        cpu_times : ThreadCpuTimes | None, default=None
+            Already sampled CPU times of the process threads to read
+            from instead of sampling them. Pass a shared sample when
+            accounting for several generators at once.
+
+        Returns
+        -------
+        GeneratorResources
+            Threads, their CPU time and the fill levels of the pipeline
+            queues.
+
+        Raises
+        ------
+        RuntimeError
+            If the generator is not executing, so it holds no queues.
+
+        """
+        if self._executor is None:
+            msg = 'No information about resources is available'
+            raise RuntimeError(msg)
+
+        usage = collect_thread_usage(self._params.id, cpu_times)
+
+        return GeneratorResources(
+            thread_count=usage.count,
+            cpu_seconds=usage.cpu_seconds,
+            queues=self._executor.queue_usage(),
+        )
 
     def get_config(self) -> GeneratorConfig:
         """Get generator config.

@@ -274,6 +274,29 @@ def test_queue_sizes_from_params():
     assert executor._events_queue._queue.maxsize == 3
 
 
+def test_queue_usage_reports_fill_levels():
+    """Queue usage reports waiting batches against the capacities."""
+    executor = Executor(
+        input=[_make_mock_input_plugin()],
+        event=_make_mock_event_plugin(),
+        output=[_make_mock_output_plugin()],
+        params=_make_params(
+            queue={'max_timestamp_batches': 5, 'max_event_batches': 3},
+        ),
+    )
+
+    usage = executor.queue_usage()
+
+    assert usage.timestamps.size == 0
+    assert usage.timestamps.maxsize == 5
+    assert usage.events.size == 0
+    assert usage.events.maxsize == 3
+
+    executor._events_queue.put(['event'])
+
+    assert executor.queue_usage().events.size == 1
+
+
 def test_skip_past_computed():
     """skip_past is True only when live_mode and skip_past are both True."""
     executor_live = Executor(

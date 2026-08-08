@@ -3,6 +3,7 @@ import { ReactFlowProvider } from '@xyflow/react';
 import { FC } from 'react';
 
 import { Section } from '../primitives';
+import { ResourcesPanel } from './ResourcesPanel';
 import { GeneratorStats } from '@/api/routes/generators/schemas';
 import { PipelineFlow } from '@/pages/InstancesPage/InstancesTable/metrics/PipelineGraph';
 import { ThroughputChart } from '@/pages/MonitoringPage/ThroughputChart';
@@ -13,6 +14,7 @@ interface InstanceDashboardProps {
   flow: FlowPoint[];
   inputEps: number;
   outputEps: number;
+  cpuPercent: number;
 }
 
 /**
@@ -26,6 +28,7 @@ export const InstanceDashboard: FC<InstanceDashboardProps> = ({
   flow,
   inputEps,
   outputEps,
+  cpuPercent,
 }) => {
   if (!stats) {
     return <Skeleton h={340} radius="lg" />;
@@ -39,6 +42,7 @@ export const InstanceDashboard: FC<InstanceDashboardProps> = ({
           <PipelineFlow stats={stats} />
         </ReactFlowProvider>
       </Section>
+      <ResourcesPanel resources={stats.resources} cpuPercent={cpuPercent} />
     </Stack>
   );
 };

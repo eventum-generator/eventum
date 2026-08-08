@@ -7,7 +7,6 @@ import pytest
 
 from eventum.core.queue import PipelineQueue
 
-
 # - Basic operations --------------------------------------------------
 
 
@@ -49,6 +48,25 @@ def test_is_full_after_get():
     q.put('a')
     q.get()
     assert q.is_full is False
+
+
+def test_maxsize_reports_configured_capacity():
+    """Queue reports the capacity it was created with."""
+    q: PipelineQueue[str] = PipelineQueue(maxsize=3)
+    assert q.maxsize == 3
+
+
+def test_size_follows_waiting_items():
+    """Queue size counts the items waiting to be consumed."""
+    q: PipelineQueue[str] = PipelineQueue(maxsize=3)
+    assert q.size == 0
+
+    q.put('a')
+    q.put('b')
+    assert q.size == 2
+
+    q.get()
+    assert q.size == 1
 
 
 # - Sentinel-based close ---------------------------------------------

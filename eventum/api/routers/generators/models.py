@@ -82,11 +82,63 @@ class OutputPluginStats(PluginStats, frozen=True, extra='forbid'):
     )
 
 
+class QueueStats(BaseModel, frozen=True, extra='forbid'):
+    """Fill level of a queue between two pipeline stages."""
+
+    size: int = Field(
+        ge=0,
+        description='Number of batches waiting in the queue',
+    )
+    maxsize: int = Field(
+        ge=1,
+        description='Maximum number of batches the queue holds',
+    )
+
+
+class QueuesStats(BaseModel, frozen=True, extra='forbid'):
+    """Fill levels of the queues between the pipeline stages."""
+
+    timestamps: QueueStats = Field(
+        description='Queue between the input and the event stage',
+    )
+    events: QueueStats = Field(
+        description='Queue between the event and the output stage',
+    )
+
+
+class ResourcesStats(BaseModel, frozen=True, extra='forbid'):
+    """Runtime resources occupied by a generator.
+
+    Memory is absent by nature: generators share the process heap, so
+    the share of it belonging to one generator is not observable. Queue
+    fill levels stand in for it, since the queues hold the bulk of what
+    a generator keeps in flight.
+    """
+
+    thread_count: int = Field(
+        ge=0,
+        description='Number of threads the generator runs',
+    )
+    cpu_seconds: float = Field(
+        ge=0,
+        description=(
+            'CPU time consumed by those threads since the generator '
+            'started, growing over the lifetime of the generator'
+        ),
+    )
+    queues: QueuesStats = Field(
+        description='Fill levels of the queues between the pipeline stages',
+    )
+
+
 class GeneratorStats(BaseModel, frozen=True, extra='forbid'):
     """Stats of generator."""
 
     id: str = Field(min_length=1, description='Generator id')
     start_time: datetime = Field(description='Start time of the generator')
+    resources: ResourcesStats = Field(
+        description='Runtime resources occupied by the generator',
+    )
     input: list[InputPluginStats] = Field(
         description='Input plugins statistics',
     )

@@ -90,3 +90,13 @@ class PipelineQueue(Generic[T]):
     def is_full(self) -> bool:
         """Whether the queue is full."""
         return self._queue.full()
+
+    @property
+    def size(self) -> int:
+        """Number of items waiting in the queue."""
+        return self._queue.qsize()
+
+    @property
+    def maxsize(self) -> int:
+        """Maximum number of items the queue holds."""
+        return self._maxsize

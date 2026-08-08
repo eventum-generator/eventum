@@ -24,6 +24,7 @@ interface OverviewTabProps {
   flow: FlowPoint[];
   inputEps: number;
   outputEps: number;
+  cpuPercent: number;
 }
 
 export const OverviewTab: FC<OverviewTabProps> = ({
@@ -38,6 +39,7 @@ export const OverviewTab: FC<OverviewTabProps> = ({
   flow,
   inputEps,
   outputEps,
+  cpuPercent,
 }) => (
   <Grid gutter="lg">
     <Grid.Col span={{ base: 12, md: 8 }}>
@@ -47,6 +49,7 @@ export const OverviewTab: FC<OverviewTabProps> = ({
           flow={flow}
           inputEps={inputEps}
           outputEps={outputEps}
+          cpuPercent={cpuPercent}
         />
       ) : (
         <Section label="Pipeline">

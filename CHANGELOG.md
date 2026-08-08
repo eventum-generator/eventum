@@ -6,6 +6,7 @@ All notable changes to this project will be documented in this file.
 
 ### 🚀 New Features
 
+- **Added per-instance resource accounting** — an instance now reports the CPU time of the threads it runs, how many of them there are, and how full the queues between its pipeline stages are. The instance page turns the CPU time into its share of a core over the last interval, so the instance responsible for the load on a host running several of them is visible instead of inferred. Memory stays absent by nature: instances share one process heap, and no per-instance figure for it exists to report
 - **Bounded what a shell command started from a template can consume** — a `subprocess.run` call now runs under a timeout of 30 seconds when the template passes none and at most 300 seconds when it asks for more, a command that runs out of time is killed together with the processes it spawned, and a command writing more than 8 MiB to one of its output streams is stopped with an error instead of having all of it held in memory. A call without an explicit timeout used to stall its generator indefinitely, leave background processes running and grow the memory of the whole instance
 
 ### 🐛 Bug Fixes
