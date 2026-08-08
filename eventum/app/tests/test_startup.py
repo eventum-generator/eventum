@@ -608,3 +608,31 @@ def test_rebase_generator_dir_ignores_outside_paths(
 
     assert affected == []  # noqa: S101
     assert yaml.safe_load(_read_startup(settings)) == yaml.safe_load(original)  # noqa: S101
+
+
+def test_startup_file_write_keeps_non_ascii_unescaped(
+    settings: Settings,
+) -> None:
+    """Non-ASCII values are written verbatim, not as escapes."""
+    # 'generator' spelled in Cyrillic
+    generator_id = 'генератор'
+
+    StartupFile(file_path=settings.path.startup).write(
+        [{'id': generator_id, 'path': 'gen-1/generator.yml'}],
+    )
+
+    content = settings.path.startup.read_text(encoding='utf-8')
+    assert generator_id in content  # noqa: S101
+    assert '\\u' not in content  # noqa: S101
+
+
+def test_startup_file_reads_non_ascii_written_by_write(
+    settings: Settings,
+) -> None:
+    """Entries survive the write-read round trip unchanged."""
+    entries = [{'id': 'генератор', 'path': 'gen-1/generator.yml'}]
+    file = StartupFile(file_path=settings.path.startup)
+
+    file.write(entries)
+
+    assert file.read() == entries  # noqa: S101

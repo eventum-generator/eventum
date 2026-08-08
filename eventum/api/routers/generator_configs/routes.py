@@ -170,7 +170,7 @@ async def get_generator_config(
     ).resolve()
 
     try:
-        async with aiofiles.open(path) as f:
+        async with aiofiles.open(path, encoding='utf-8') as f:
             raw_yaml = await f.read()
 
         config_data = await asyncio.to_thread(
@@ -182,6 +182,13 @@ async def get_generator_config(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=(f'Configuration cannot be read due to OS error: {e}'),
+        ) from None
+    except UnicodeDecodeError as e:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            detail=(
+                f'Configuration cannot be read due to encoding error: {e}'
+            ),
         ) from None
     except yaml.error.YAMLError as e:
         raise HTTPException(
@@ -237,11 +244,16 @@ async def create_generator_config(
     try:
         generator_config_dir.mkdir(parents=True, exist_ok=False)
 
-        async with aiofiles.open(generator_config_path, 'w') as f:
+        async with aiofiles.open(
+            generator_config_path,
+            'w',
+            encoding='utf-8',
+        ) as f:
             await f.write(
                 yaml.dump(
                     data=config.model_dump(mode='json', exclude_unset=True),
                     sort_keys=False,
+                    allow_unicode=True,
                 ),
             )
     except OSError as e:
@@ -287,11 +299,16 @@ async def update_generator_config(
     ).resolve()
 
     try:
-        async with aiofiles.open(generator_config_path, 'w') as f:
+        async with aiofiles.open(
+            generator_config_path,
+            'w',
+            encoding='utf-8',
+        ) as f:
             await f.write(
                 yaml.dump(
                     data=config.model_dump(mode='json', exclude_unset=True),
                     sort_keys=False,
+                    allow_unicode=True,
                 ),
             )
     except OSError as e:

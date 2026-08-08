@@ -116,6 +116,7 @@ def render_examples() -> str:
     return json.dumps(
         {'bundled': _read_bundled(), 'external': EXTERNAL},
         indent=2,
+        ensure_ascii=False,
     )
 
 

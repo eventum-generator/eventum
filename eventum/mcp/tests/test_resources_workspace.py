@@ -44,3 +44,18 @@ def test_embeds_per_generator_listing_failure(
     assert payload['generators'] == [
         {'name': 'demo', 'files': [], 'error': 'listing failed'}
     ]
+
+
+def test_keeps_non_ascii_names_unescaped(tmp_path: Path) -> None:
+    """Non-ASCII names are rendered verbatim, not as escapes."""
+    # 'generator' spelled in Cyrillic
+    name = 'генератор'
+    gen = tmp_path / name
+    gen.mkdir()
+    (gen / 'generator.yml').write_text('input: []\n', encoding='utf-8')
+    ctx = FileAuthoringContext(generators_dir=tmp_path, read_only=True)
+
+    payload = render_workspace_configs(ctx)
+
+    assert name in payload
+    assert '\\u' not in payload

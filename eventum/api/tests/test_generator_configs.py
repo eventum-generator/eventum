@@ -75,6 +75,15 @@ VALID_CONFIG = {
     'output': [{'stdout': {'formatter': {'format': 'plain'}}}],
 }
 
+# 'sobytiya.log' spelled in Cyrillic
+NON_ASCII_VALUE = 'события.log'
+
+NON_ASCII_CONFIG = {
+    'input': [{'cron': {'expression': '* * * * *', 'count': 1}}],
+    'event': {'replay': {'path': NON_ASCII_VALUE}},
+    'output': [{'stdout': {'formatter': {'format': 'plain'}}}],
+}
+
 
 def _create_config(settings, name='gen1'):
     gen_dir = settings.path.generators_dir / name
@@ -82,6 +91,15 @@ def _create_config(settings, name='gen1'):
     config_path = gen_dir / settings.path.generator_config_filename
     config_path.write_text(yaml.dump(VALID_CONFIG, sort_keys=False))
     return gen_dir
+
+
+def _read_config(settings, name):
+    config_path = (
+        settings.path.generators_dir
+        / name
+        / settings.path.generator_config_filename
+    )
+    return config_path.read_text(encoding='utf-8')
 
 
 # --- GET / ---
@@ -215,6 +233,27 @@ def test_get_config_invalid_yaml(client, tmp_settings):
     assert response.status_code == 422
 
 
+def test_get_config_with_non_ascii(client):
+    client.post('/configs/non_ascii_read_gen', json=NON_ASCII_CONFIG)
+
+    response = client.get('/configs/non_ascii_read_gen')
+
+    assert response.status_code == 200
+    assert response.json()['event']['replay']['path'] == NON_ASCII_VALUE
+
+
+def test_get_config_invalid_encoding(client, tmp_settings):
+    gen_dir = tmp_settings.path.generators_dir / 'bad_encoding'
+    gen_dir.mkdir()
+    config = gen_dir / tmp_settings.path.generator_config_filename
+    config.write_bytes(b'event:\n  replay:\n    path: \xff\xfe.log\n')
+
+    response = client.get('/configs/bad_encoding')
+
+    assert response.status_code == 422
+    assert 'encoding error' in response.json()['detail']
+
+
 def test_get_config_with_fsm_conditions(
     client: TestClient,
     tmp_settings: Settings,
@@ -278,6 +317,15 @@ def test_create_config_already_exists(client, tmp_settings):
     assert response.status_code == 409
 
 
+def test_create_config_keeps_non_ascii_unescaped(client, tmp_settings):
+    response = client.post('/configs/non_ascii_gen', json=NON_ASCII_CONFIG)
+    assert response.status_code == 201
+
+    content = _read_config(tmp_settings, 'non_ascii_gen')
+    assert NON_ASCII_VALUE in content
+    assert '\\u' not in content
+
+
 # --- PUT /{name} ---
 
 
@@ -290,6 +338,17 @@ def test_update_config(client, tmp_settings):
     }
     response = client.put('/configs/upd_gen', json=updated_config)
     assert response.status_code == 200
+
+
+def test_update_config_keeps_non_ascii_unescaped(client, tmp_settings):
+    _create_config(tmp_settings, 'upd_non_ascii_gen')
+
+    response = client.put('/configs/upd_non_ascii_gen', json=NON_ASCII_CONFIG)
+    assert response.status_code == 200
+
+    content = _read_config(tmp_settings, 'upd_non_ascii_gen')
+    assert NON_ASCII_VALUE in content
+    assert '\\u' not in content
 
 
 # --- DELETE /{name} ---

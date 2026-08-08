@@ -141,7 +141,7 @@ def read_text(path: Path) -> str:
 
     """
     try:
-        return path.read_text()
+        return path.read_text(encoding='utf-8')
     except (OSError, UnicodeDecodeError) as e:
         msg = 'Failed to read file'
         raise WorkspaceError(
@@ -260,7 +260,7 @@ def write_text(path: Path, content: str) -> None:
     """
     try:
         path.parent.mkdir(parents=True, exist_ok=True)
-        path.write_text(content)
+        path.write_text(content, encoding='utf-8')
     except (OSError, UnicodeEncodeError) as e:
         msg = 'Failed to write file'
         raise WorkspaceError(
@@ -410,7 +410,7 @@ def find_secret_references(
 
     for config_path in generators_dir.glob(f'*/{config_filename}'):
         try:
-            content = config_path.read_text()
+            content = config_path.read_text(encoding='utf-8')
         except OSError, UnicodeDecodeError:
             continue
 

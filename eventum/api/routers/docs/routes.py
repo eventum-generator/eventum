@@ -24,7 +24,7 @@ async def get_asyncapi_spec(schema: AsyncapiSchemaDep) -> Response:
 @router.get('/asyncapi', include_in_schema=False)
 async def get_asyncapi_html() -> HTMLResponse:
     try:
-        async with aiofiles.open(ASYNCAPI_PAGE_PATH) as f:
+        async with aiofiles.open(ASYNCAPI_PAGE_PATH, encoding='utf-8') as f:
             return HTMLResponse(await f.read())
     except OSError as e:
         raise HTTPException(

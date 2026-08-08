@@ -311,14 +311,19 @@ def _extract_log_dir(
         return None
 
     try:
-        with svc_status.config_file.open() as f:
+        with svc_status.config_file.open(encoding='utf-8') as f:
             data = yaml.load(f, Loader=yaml.SafeLoader)
         data = expand_dotted_keys(data)
         if isinstance(data, dict):
             path_params = data.get('path')
             if isinstance(path_params, dict) and 'logs' in path_params:
                 return Path(path_params['logs'])
-    except OSError, yaml.error.YAMLError, DottedKeyError:
+    except (
+        OSError,
+        UnicodeDecodeError,
+        yaml.error.YAMLError,
+        DottedKeyError,
+    ):
         click.echo(
             f'Warning: Could not read {svc_status.config_file}, '
             'log directory will not be purged.',

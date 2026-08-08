@@ -60,5 +60,6 @@ def write_settings(settings: Settings, path: Path) -> None:
     content = yaml.dump(
         settings.model_dump(mode='json', exclude_unset=True),
         sort_keys=False,
+        allow_unicode=True,
     )
-    path.write_text(content)
+    path.write_text(content, encoding='utf-8')

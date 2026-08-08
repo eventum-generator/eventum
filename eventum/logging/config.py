@@ -153,7 +153,9 @@ def use_console_and_file(
     """
     match format:
         case 'json':
-            renderer: Processor = structlog.processors.JSONRenderer()
+            renderer: Processor = structlog.processors.JSONRenderer(
+                ensure_ascii=False,
+            )
         case 'plain':
             renderer = structlog.dev.ConsoleRenderer(
                 colors=False,
@@ -185,6 +187,7 @@ def use_console_and_file(
         filename=construct_main_logfile_path(format=format, logs_dir=logs_dir),
         maxBytes=max_bytes,
         backupCount=backup_count,
+        encoding='utf-8',
     )
     default_routing_handler.setLevel(logging.DEBUG)
     default_routing_handler.setFormatter(file_formatter)
@@ -200,6 +203,7 @@ def use_console_and_file(
             ),
             maxBytes=max_bytes,
             backupCount=backup_count,
+            encoding='utf-8',
         ),
         default_handler=default_routing_handler,
         formatter=file_formatter,
@@ -277,6 +281,7 @@ def _configure_uvicorn_logger(
             ),
             maxBytes=max_bytes,
             backupCount=backup_count,
+            encoding='utf-8',
         )
         file_handler.setFormatter(
             logging.Formatter(

@@ -369,14 +369,14 @@ class TimePatternsInputPlugin(
                 file_path=str(resolved_pattern_path),
             )
             try:
-                with resolved_pattern_path.open() as f:
+                with resolved_pattern_path.open(encoding='utf-8') as f:
                     time_pattern_obj = yaml.load(f, yaml.SafeLoader)
 
                 time_pattern_obj = expand_dotted_keys(time_pattern_obj)
                 time_pattern = TimePatternConfig.model_validate(
                     obj=time_pattern_obj,
                 )
-            except OSError as e:
+            except (OSError, UnicodeDecodeError) as e:
                 msg = 'Failed to load time pattern configuration'
                 raise PluginConfigurationError(
                     msg,

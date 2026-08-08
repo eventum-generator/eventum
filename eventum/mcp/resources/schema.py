@@ -15,7 +15,11 @@ from eventum.core.config import GeneratorConfig
 
 def render_generator_schema() -> str:
     """Render the generator.yml JSON Schema as JSON text."""
-    return json.dumps(GeneratorConfig.model_json_schema(), indent=2)
+    return json.dumps(
+        GeneratorConfig.model_json_schema(),
+        indent=2,
+        ensure_ascii=False,
+    )
 
 
 def register(mcp: FastMCP) -> None:
