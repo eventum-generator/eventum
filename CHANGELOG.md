@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## Unreleased
+
+### 🐛 Bug Fixes
+
+- **Bound the plugin parameters form to the plugin instead of its position in the list** — deleting an input or output plugin left the form filled with the deleted plugin's values, and the next edit wrote them over the plugin that took its place. Deleting a plugin listed above the selected one also moved the selection to a neighbour
+
 ## 2.7.0 (2026-08-01)
 
 ### 🚀 New Features
