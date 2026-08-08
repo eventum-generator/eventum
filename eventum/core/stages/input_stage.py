@@ -283,10 +283,13 @@ class InputStage:
                 throttler(
                     logger.warning,
                     (
-                        'Timestamps queue is full, consider '
-                        'decreasing EPS or changing batching '
-                        'settings to avoid time lag with actual '
-                        'event timestamps'
+                        'Timestamps queue is full, events are '
+                        'produced later than their timestamps'
+                    ),
+                    hint=(
+                        'Event and output stages are not keeping up '
+                        'with the generation rate, consider decreasing '
+                        'the rate or increasing the queue size'
                     ),
                 )
 

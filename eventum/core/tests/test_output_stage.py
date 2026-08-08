@@ -6,6 +6,7 @@ from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
+import structlog.testing
 
 from eventum.core.executor import ExecutionError
 from eventum.core.parameters import GeneratorParameters
@@ -50,6 +51,12 @@ def _feed_and_close(input_q: PipelineQueue, batches: list) -> None:
     for batch in batches:
         input_q.put(batch)
     input_q.close()
+
+
+async def _slow_write(events) -> int:
+    """Write that never completes within the tested write timeout."""
+    await asyncio.sleep(10)
+    return len(events)
 
 
 # - open() ------------------------------------------------------------
@@ -235,12 +242,7 @@ async def test_handle_write_result_plugin_write_error():
 async def test_handle_write_result_timeout():
     """Write timeout is handled (logged, not re-raised)."""
     p1 = _make_mock_output_plugin()
-
-    async def slow_write(events):
-        await asyncio.sleep(10)
-        return 1
-
-    p1.write.side_effect = slow_write
+    p1.write.side_effect = _slow_write
 
     params = _make_params(write_timeout=1)
     stage = _make_output_stage(plugins=[p1], params=params)
@@ -253,6 +255,92 @@ async def test_handle_write_result_timeout():
 
     await stage.execute(input=input_q)
     # Should complete without raising (timeout handled in callback)
+
+
+@pytest.mark.asyncio
+async def test_write_timeout_warning_states_fact_and_hint():
+    """Write timeout warning reports the observed fact with a hint."""
+    p1 = _make_mock_output_plugin()
+    p1.write.side_effect = _slow_write
+
+    params = _make_params(write_timeout=1)
+    stage = _make_output_stage(plugins=[p1], params=params)
+    input_q: PipelineQueue[list[str]] = PipelineQueue(maxsize=10)
+
+    threading.Thread(
+        target=_feed_and_close,
+        args=(input_q, [['ev1']]),
+    ).start()
+
+    with structlog.testing.capture_logs() as logs:
+        await stage.execute(input=input_q)
+
+    warnings = [entry for entry in logs if entry['log_level'] == 'warning']
+    assert len(warnings) == 1
+
+    entry = warnings[0]
+    assert entry['task_name'] == 'Writing with <mock output>'
+    assert entry['timeout'] == 1
+    assert entry['count'] == 1
+    assert entry['hint']
+
+    # the stage cannot know the rate is the cause, so it must not claim it
+    assert 'EPS' not in entry['event']
+
+
+@pytest.mark.asyncio
+async def test_write_timeouts_of_one_plugin_are_throttled():
+    """Repeated timeouts of one plugin are reported once per period."""
+    p1 = _make_mock_output_plugin()
+    p1.write.side_effect = _slow_write
+
+    params = _make_params(write_timeout=1)
+    stage = _make_output_stage(plugins=[p1], params=params)
+    input_q: PipelineQueue[list[str]] = PipelineQueue(maxsize=10)
+
+    threading.Thread(
+        target=_feed_and_close,
+        args=(input_q, [['ev1'], ['ev2'], ['ev3']]),
+    ).start()
+
+    with structlog.testing.capture_logs() as logs:
+        await stage.execute(input=input_q)
+
+    warnings = [entry for entry in logs if entry['log_level'] == 'warning']
+    assert len(warnings) == 1
+    assert stage._timed_out_writes['Writing with <mock output>'] == 3  # noqa: SLF001
+
+
+@pytest.mark.asyncio
+async def test_write_timeouts_are_throttled_per_plugin():
+    """A saturated plugin does not mute timeouts of another one."""
+    p1 = _make_mock_output_plugin()
+    p1.write.side_effect = _slow_write
+    p1.__str__ = MagicMock(return_value='<mock output 1>')  # type: ignore[method-assign]
+
+    p2 = _make_mock_output_plugin()
+    p2.write.side_effect = _slow_write
+    p2.__str__ = MagicMock(return_value='<mock output 2>')  # type: ignore[method-assign]
+
+    params = _make_params(write_timeout=1)
+    stage = _make_output_stage(plugins=[p1, p2], params=params)
+    input_q: PipelineQueue[list[str]] = PipelineQueue(maxsize=10)
+
+    threading.Thread(
+        target=_feed_and_close,
+        args=(input_q, [['ev1']]),
+    ).start()
+
+    with structlog.testing.capture_logs() as logs:
+        await stage.execute(input=input_q)
+
+    reported = {
+        entry['task_name'] for entry in logs if entry['log_level'] == 'warning'
+    }
+    assert reported == {
+        'Writing with <mock output 1>',
+        'Writing with <mock output 2>',
+    }
 
 
 @pytest.mark.asyncio

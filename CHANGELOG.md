@@ -7,6 +7,7 @@ All notable changes to this project will be documented in this file.
 ### 🐛 Bug Fixes
 
 - **Bound the plugin parameters form to the plugin instead of its position in the list** — deleting an input or output plugin left the form filled with the deleted plugin's values, and the next edit wrote them over the plugin that took its place. Deleting a plugin listed above the selected one also moved the selection to a neighbour
+- **Rewrote the pipeline backpressure warnings** — a write that ran out of time blamed the event rate and warned about losing events that were already lost. The three warnings now state what actually happened — a write was cancelled and its events counted as failed, or a queue filled up and events fall behind their timestamps — and carry the remedies as a separate hint, since a slow or unavailable output target, an oversized batch and a short write timeout produce the same symptom as an excessive rate. Repeated write timeouts are reported once per ten seconds per output plugin with a running count, instead of one line per cancelled write
 
 ## 2.7.0 (2026-08-01)
 

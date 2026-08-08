@@ -1,11 +1,13 @@
 """Output stage of the pipeline — consumes events, writes to outputs."""
 
 import asyncio
+from collections import Counter, defaultdict
 from typing import TYPE_CHECKING, cast
 
 import structlog
 
 from eventum.plugins.output.exceptions import PluginOpenError, PluginWriteError
+from eventum.utils.throttler import Throttler
 
 if TYPE_CHECKING:
     from collections.abc import Sequence
@@ -52,6 +54,13 @@ class OutputStage:
         self._semaphore = asyncio.Semaphore(
             value=self._params.max_concurrency,
         )
+
+        # timeouts are reported per task name (i.e. per output plugin)
+        # to keep one saturated target from muting the others
+        self._timeout_throttlers: defaultdict[str, Throttler] = defaultdict(
+            lambda: Throttler(limit=1, period=10),
+        )
+        self._timed_out_writes: Counter[str] = Counter()
 
     async def open(self) -> None:
         """Open all output plugins for writing.
@@ -143,6 +152,33 @@ class OutputStage:
             )
             self._tasks.clear()
 
+    def _report_write_timeouts(self, task_name: str) -> None:
+        """Report write operations of the task that timed out.
+
+        Parameters
+        ----------
+        task_name : str
+            Name of the task that timed out.
+
+        Notes
+        -----
+        Reported count is cumulative for the whole run, since the
+        reporting is throttled and single timeouts are not reported
+        each on their own.
+
+        """
+        logger.warning(
+            'Write operations timed out, their events are counted as failed',
+            task_name=task_name,
+            timeout=self._params.write_timeout,
+            count=self._timed_out_writes[task_name],
+            hint=(
+                'Check load and availability of the output target, then '
+                'adjust write timeout, batch size, output concurrency '
+                'or generation rate'
+            ),
+        )
+
     def _handle_write_result(self, task: asyncio.Task[int]) -> None:
         """Handle result of an output plugin write task.
 
@@ -157,15 +193,11 @@ class OutputStage:
         except PluginWriteError as e:
             logger.error(str(e), **e.context)
         except TimeoutError:
-            logger.warning(
-                (
-                    'Write operation timed out, EPS is to high '
-                    'for output target, consider decreasing EPS '
-                    'or changing batching settings to avoid '
-                    'loosing events'
-                ),
-                task_name=task.get_name(),
-                timeout=self._params.write_timeout,
+            task_name = task.get_name()
+            self._timed_out_writes[task_name] += 1
+            self._timeout_throttlers[task_name](
+                self._report_write_timeouts,
+                task_name,
             )
         except Exception as e:
             logger.exception(
