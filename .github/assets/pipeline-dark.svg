@@ -1,0 +1,62 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 784 184" width="784" height="184" fill="none" role="img" aria-label="Eventum pipeline. Input decides when events occur: schedules, traffic patterns, explicit timestamps, on-demand triggers. Event decides what they look like: templates, scripts, replayed recordings. Output decides where they go: console, files, network endpoints, datastores.">
+  <title>Input to Event to Output pipeline</title>
+  <defs>
+    <linearGradient id="card-input" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#8f8ef6" stop-opacity="0.15"/><stop offset="100%" stop-color="#8f8ef6" stop-opacity="0.05"/></linearGradient>
+    <linearGradient id="slot-input" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#8f8ef6" stop-opacity="0.2"/><stop offset="100%" stop-color="#8f8ef6" stop-opacity="0.09"/></linearGradient>
+    <linearGradient id="card-event" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#6fbde3" stop-opacity="0.15"/><stop offset="100%" stop-color="#6fbde3" stop-opacity="0.05"/></linearGradient>
+    <linearGradient id="slot-event" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#6fbde3" stop-opacity="0.2"/><stop offset="100%" stop-color="#6fbde3" stop-opacity="0.09"/></linearGradient>
+    <linearGradient id="card-output" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#4fd7b2" stop-opacity="0.15"/><stop offset="100%" stop-color="#4fd7b2" stop-opacity="0.05"/></linearGradient>
+    <linearGradient id="slot-output" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#4fd7b2" stop-opacity="0.2"/><stop offset="100%" stop-color="#4fd7b2" stop-opacity="0.09"/></linearGradient>
+    <linearGradient id="flow-0" x1="208" y1="0" x2="292" y2="0" gradientUnits="userSpaceOnUse"><stop offset="0%" stop-color="#8f8ef6"/><stop offset="100%" stop-color="#6fbde3"/></linearGradient>
+    <linearGradient id="flow-1" x1="492" y1="0" x2="576" y2="0" gradientUnits="userSpaceOnUse"><stop offset="0%" stop-color="#6fbde3"/><stop offset="100%" stop-color="#4fd7b2"/></linearGradient>
+  </defs>
+
+  <!-- Input -->
+  <rect x="8" y="18" width="200" height="148" rx="18" fill="url(#card-input)"/>
+  <rect x="8.6" y="18.6" width="198.8" height="146.8" rx="17.4" fill="none" stroke="#8f8ef6" stroke-width="1.2" stroke-opacity="0.4"/>
+  <text x="108.0" y="58" text-anchor="middle" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Inter, Roboto, sans-serif" font-size="18" font-weight="650" letter-spacing="0.2" fill="#8f8ef6">Input</text>
+  <text x="108.0" y="80" text-anchor="middle" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Inter, Roboto, sans-serif" font-size="13" fill="#c4c4d0">when events occur</text>
+  <path d="M24 96h168" stroke="#8f8ef6" stroke-width="1" stroke-opacity="0.2"/>
+  <rect x="24.0" y="112" width="36" height="36" rx="12" fill="url(#slot-input)"/>
+  <g transform="translate(42.0 130.0) scale(0.9167)" color="#8f8ef6" stroke="#8f8ef6" stroke-width="1.85" fill="none" stroke-linecap="round" stroke-linejoin="round"><circle cx="0" cy="0" r="8.6"/><path d="M0 -4.8V0l3.6 2.6"/></g>
+  <rect x="68.0" y="112" width="36" height="36" rx="12" fill="url(#slot-input)"/>
+  <g transform="translate(86.0 130.0) scale(0.9167)" color="#8f8ef6" stroke="#8f8ef6" stroke-width="1.85" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M-10 6.6C-8.2 6.6 -7.6 -1.8 -5.6 -1.8S-3 6.6 -1.2 6.6C0.6 6.6 1.4 -7.6 4.2 -7.6S7.8 6.6 10 6.6"/></g>
+  <rect x="112.0" y="112" width="36" height="36" rx="12" fill="url(#slot-input)"/>
+  <g transform="translate(130.0 130.0) scale(0.9167)" color="#8f8ef6" stroke="#8f8ef6" stroke-width="1.85" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M-3.6 -6.4H8.4M-3.6 0H8.4M-3.6 6.4H5.6"/><circle cx="-7.4" cy="-6.4" r="1.6" fill="currentColor" stroke="none"/><circle cx="-7.4" cy="0" r="1.6" fill="currentColor" stroke="none"/><circle cx="-7.4" cy="6.4" r="1.6" fill="currentColor" stroke="none"/></g>
+  <rect x="156.0" y="112" width="36" height="36" rx="12" fill="url(#slot-input)"/>
+  <g transform="translate(174.0 130.0) scale(0.9167)" color="#8f8ef6" stroke="#8f8ef6" stroke-width="1.85" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M1.6 -9.2-5.4 1.4H-0.4L-1.6 9.2 5.4 -1.4H0.4Z"/></g>
+  <!-- Event -->
+  <rect x="292" y="18" width="200" height="148" rx="18" fill="url(#card-event)"/>
+  <rect x="292.6" y="18.6" width="198.8" height="146.8" rx="17.4" fill="none" stroke="#6fbde3" stroke-width="1.2" stroke-opacity="0.4"/>
+  <text x="392.0" y="58" text-anchor="middle" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Inter, Roboto, sans-serif" font-size="18" font-weight="650" letter-spacing="0.2" fill="#6fbde3">Event</text>
+  <text x="392.0" y="80" text-anchor="middle" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Inter, Roboto, sans-serif" font-size="13" fill="#c4c4d0">what events look like</text>
+  <path d="M308 96h168" stroke="#6fbde3" stroke-width="1" stroke-opacity="0.2"/>
+  <rect x="330.0" y="112" width="36" height="36" rx="12" fill="url(#slot-event)"/>
+  <g transform="translate(348.0 130.0) scale(0.9167)" color="#6fbde3" stroke="#6fbde3" stroke-width="1.85" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M-3.6 -8.6C-6.2 -8.6 -5.2 -3 -7.8 0-5.2 3 -6.2 8.6 -3.6 8.6"/><path d="M3.6 -8.6C6.2 -8.6 5.2 -3 7.8 0 5.2 3 6.2 8.6 3.6 8.6"/></g>
+  <rect x="374.0" y="112" width="36" height="36" rx="12" fill="url(#slot-event)"/>
+  <g transform="translate(392.0 130.0) scale(0.9167)" color="#6fbde3" stroke="#6fbde3" stroke-width="1.85" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M-3.4 -6.8-9 0-3.4 6.8"/><path d="M3.4 -6.8 9 0 3.4 6.8"/><path d="M1.4 -8.4-1.4 8.4" opacity="0.6"/></g>
+  <rect x="418.0" y="112" width="36" height="36" rx="12" fill="url(#slot-event)"/>
+  <g transform="translate(436.0 130.0) scale(0.9167)" color="#6fbde3" stroke="#6fbde3" stroke-width="1.85" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M-7.4 -9h8.2l4.6 4.6v13.4a1.7 1.7 0 0 1-1.7 1.7h-11.1a1.7 1.7 0 0 1-1.7-1.7v-16.3a1.7 1.7 0 0 1 1.7-1.7z"/><path d="M-2.4 -0.6 3.2 2.6-2.4 5.8Z" fill="currentColor"/></g>
+  <!-- Output -->
+  <rect x="576" y="18" width="200" height="148" rx="18" fill="url(#card-output)"/>
+  <rect x="576.6" y="18.6" width="198.8" height="146.8" rx="17.4" fill="none" stroke="#4fd7b2" stroke-width="1.2" stroke-opacity="0.4"/>
+  <text x="676.0" y="58" text-anchor="middle" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Inter, Roboto, sans-serif" font-size="18" font-weight="650" letter-spacing="0.2" fill="#4fd7b2">Output</text>
+  <text x="676.0" y="80" text-anchor="middle" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Inter, Roboto, sans-serif" font-size="13" fill="#c4c4d0">where events go</text>
+  <path d="M592 96h168" stroke="#4fd7b2" stroke-width="1" stroke-opacity="0.2"/>
+  <rect x="592.0" y="112" width="36" height="36" rx="12" fill="url(#slot-output)"/>
+  <g transform="translate(610.0 130.0) scale(0.9167)" color="#4fd7b2" stroke="#4fd7b2" stroke-width="1.85" fill="none" stroke-linecap="round" stroke-linejoin="round"><rect x="-10" y="-7.6" width="20" height="15.2" rx="2.6"/><path d="M-5.6 -2.2-2.4 1-5.6 4.2"/><path d="M0.4 4.2H5.4"/></g>
+  <rect x="636.0" y="112" width="36" height="36" rx="12" fill="url(#slot-output)"/>
+  <g transform="translate(654.0 130.0) scale(0.9167)" color="#4fd7b2" stroke="#4fd7b2" stroke-width="1.85" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M-7.4 -9h8.2l4.6 4.6v13.4a1.7 1.7 0 0 1-1.7 1.7h-11.1a1.7 1.7 0 0 1-1.7-1.7v-16.3a1.7 1.7 0 0 1 1.7-1.7z"/><path d="M-3.4 0.4h6.4m-6.4 4.4h4.4"/></g>
+  <rect x="680.0" y="112" width="36" height="36" rx="12" fill="url(#slot-output)"/>
+  <g transform="translate(698.0 130.0) scale(0.9167)" color="#4fd7b2" stroke="#4fd7b2" stroke-width="1.85" fill="none" stroke-linecap="round" stroke-linejoin="round"><circle cx="0" cy="0" r="8.8"/><ellipse cx="0" cy="0" rx="4.2" ry="8.8"/><path d="M-8.6 0H8.6"/></g>
+  <rect x="724.0" y="112" width="36" height="36" rx="12" fill="url(#slot-output)"/>
+  <g transform="translate(742.0 130.0) scale(0.9167)" color="#4fd7b2" stroke="#4fd7b2" stroke-width="1.85" fill="none" stroke-linecap="round" stroke-linejoin="round"><ellipse cx="0" cy="-5.4" rx="8.2" ry="3.3"/><path d="M-8.2 -5.4v10.8c0 1.8 3.7 3.3 8.2 3.3s8.2-1.5 8.2-3.3v-10.8"/><path d="M-8.2 0c0 1.8 3.7 3.3 8.2 3.3S8.2 1.8 8.2 0"/></g>
+  <!-- timestamps -->
+  <text x="250.0" y="81.0" text-anchor="middle" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Inter, Roboto, sans-serif" font-size="10.5" fill="#8b8b9c" letter-spacing="0.3">timestamps</text>
+  <path d="M218 92.0H273" stroke="url(#flow-0)" stroke-width="2" stroke-dasharray="2 5" stroke-linecap="round" stroke-opacity="0.85"/>
+  <path d="M274 86.8l7.4 5.2-7.4 5.2z" fill="#6fbde3" fill-opacity="0.85"/>
+  <!-- events -->
+  <text x="534.0" y="81.0" text-anchor="middle" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Inter, Roboto, sans-serif" font-size="10.5" fill="#8b8b9c" letter-spacing="0.3">events</text>
+  <path d="M502 92.0H557" stroke="url(#flow-1)" stroke-width="2" stroke-dasharray="2 5" stroke-linecap="round" stroke-opacity="0.85"/>
+  <path d="M558 86.8l7.4 5.2-7.4 5.2z" fill="#4fd7b2" fill-opacity="0.85"/>
+</svg>
