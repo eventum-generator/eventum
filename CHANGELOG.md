@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file.
 
+## Unreleased
+
+### 🐛 Bug Fixes
+
+- **Stopped escaping non-ASCII text in configuration files** — a project saved through Studio, the API or MCP had its Cyrillic and other non-ASCII values written out as `\uXXXX` sequences, in `generator.yml` as well as in the instance settings and the startup file. Values are now stored as they were entered, and JSON-format logs and MCP resources report them the same way
+- **Fixed reading and writing files outside a UTF-8 environment** — configurations, templates, samples, time patterns and log files were read and written in whatever encoding the host locale happened to set, which mangled non-ASCII content or failed outright. All of them are now UTF-8 regardless of the host, and a configuration that cannot be decoded is reported as an encoding error instead of an unhandled failure
+
 ## 2.7.0 (2026-08-01)
 
 ### 🚀 New Features

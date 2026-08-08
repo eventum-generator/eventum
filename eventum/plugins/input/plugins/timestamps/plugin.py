@@ -84,7 +84,7 @@ class TimestampsInputPlugin(
 
         """
         try:
-            with filename.open() as f:
+            with filename.open(encoding='utf-8') as f:
                 return [
                     datetime.fromisoformat(line.strip())
                     for line in f.readlines()

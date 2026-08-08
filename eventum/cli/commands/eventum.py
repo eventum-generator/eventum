@@ -50,7 +50,7 @@ def _start_app_instance(config: str) -> App:
     """Start application instance."""
     config_path = Path(config)
     try:
-        with config_path.open() as f:
+        with config_path.open(encoding='utf-8') as f:
             try:
                 data = yaml.load(f, Loader=yaml.SafeLoader)
                 data = expand_dotted_keys(data)
@@ -60,9 +60,9 @@ def _start_app_instance(config: str) -> App:
                     err=True,
                 )
                 sys.exit(1)
-    except OSError as e:
+    except (OSError, UnicodeDecodeError) as e:
         click.echo(
-            f'Error: Failed to open config file: {e}',
+            f'Error: Failed to read config file: {e}',
             err=True,
         )
         sys.exit(1)

@@ -374,9 +374,9 @@ def load(path: Path, params: dict[str, Any]) -> GeneratorConfig:
     """
     logger.debug('Reading file', file_path=str(path))
     try:
-        with path.open() as f:
+        with path.open(encoding='utf-8') as f:
             content = f.read()
-    except OSError as e:
+    except (OSError, UnicodeDecodeError) as e:
         msg = 'Failed to read configuration file'
         raise ConfigurationLoadError(
             msg,

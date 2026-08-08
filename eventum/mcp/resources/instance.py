@@ -93,4 +93,8 @@ def register(mcp: FastMCP, context: LiveContext) -> None:
         mime_type='application/json',
     )
     def instance_settings() -> str:
-        return json.dumps(safe_settings_view(context.settings), indent=2)
+        return json.dumps(
+            safe_settings_view(context.settings),
+            indent=2,
+            ensure_ascii=False,
+        )

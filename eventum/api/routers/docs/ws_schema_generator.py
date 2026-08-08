@@ -214,4 +214,4 @@ def dump_asyncapi_schema(schema: dict[str, Any]) -> str:
         Schema serialized as YAML document.
 
     """
-    return yaml.dump(schema, sort_keys=False)
+    return yaml.dump(schema, sort_keys=False, allow_unicode=True)

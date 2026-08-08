@@ -72,7 +72,7 @@ class StartupFile:
             If the file cannot be written.
 
         """
-        content = yaml.dump(entries, sort_keys=False)
+        content = yaml.dump(entries, sort_keys=False, allow_unicode=True)
         target = (
             self._file_path.resolve()
             if self._file_path.is_symlink()
@@ -80,7 +80,7 @@ class StartupFile:
         )
         tmp_path = target.with_suffix(target.suffix + '.tmp')
         try:
-            tmp_path.write_text(content)
+            tmp_path.write_text(content, encoding='utf-8')
             tmp_path.replace(target)
         except OSError as e:
             tmp_path.unlink(missing_ok=True)
@@ -89,7 +89,7 @@ class StartupFile:
 
     def _read_text(self) -> str:
         try:
-            return self._file_path.read_text()
+            return self._file_path.read_text(encoding='utf-8')
         except OSError as e:
             msg = 'Cannot read startup file'
             raise self._build_error(msg, reason=str(e)) from None

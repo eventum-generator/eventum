@@ -112,7 +112,7 @@ def list_secrets(path: Path | None = None) -> list[str]:
     if not keyring_path.exists():
         return []
 
-    keyring_content = keyring_path.read_text()
+    keyring_content = keyring_path.read_text(encoding='utf-8')
 
     config = ConfigParser()
     config.read_string(keyring_content)
