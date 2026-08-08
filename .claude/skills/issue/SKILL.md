@@ -18,7 +18,7 @@ Filing anything the tracker should hold: a bug found while working, a follow-up 
 
 ## Process
 
-Six steps. Step 4 waits for the user, unless they already asked to file it without review.
+Five steps, no approval gate - file the issue and report it. Editing a filed issue is cheap; the confirmation round is not.
 
 ### 1. Gather facts
 
@@ -61,11 +61,7 @@ The forms under `.github/ISSUE_TEMPLATE/` define the minimum facts an issue has 
 
 Style follows `CLAUDE.md`: dense, factual, no marketing tone, single hyphen instead of an em dash, no AI attribution.
 
-### 4. Confirm
-
-Show the title, the body and every field from step 2 in one message, then wait. Skip only when the user has already said to file it without review.
-
-### 5. Create and set fields
+### 4. Create and set fields
 
 Write the body to a temporary file outside the repository and create the issue:
 
@@ -109,7 +105,7 @@ gh project item-edit --project-id PVT_kwDOCiUXlc4BP0JC --id "$ITEM_ID" \
     --field-id <field-id> --single-select-option-id <option-id>
 ```
 
-### 6. Verify
+### 5. Verify
 
 Read back what was actually set - a failed mutation is silent in a chain of four calls:
 
@@ -137,7 +133,7 @@ gh api graphql -f query='
 }' --jq '.data.repository.issue | {type: .issueType.name, assignees: [.assignees.nodes[].login], fields: [.projectItems.nodes[].fieldValues.nodes[] | select(.name) | {(.field.name): .name}]}'
 ```
 
-Every one of Type, Status, Priority, Component, Size and the assignee must come back non-empty. Fix what is missing, then report the issue URL.
+Every one of Type, Status, Priority, Component, Size and the assignee must come back non-empty. Fix what is missing, then report the URL, the title and the values that were set - nothing was shown to the user before filing, so this report is where they see it.
 
 ## Identifiers
 
