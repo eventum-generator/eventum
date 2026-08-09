@@ -8,6 +8,11 @@ import { renderWithProviders } from '@/test/render';
 const RESOURCES: ResourcesStats = {
   thread_count: 5,
   cpu_seconds: 75,
+  run_delay_seconds: 0.25,
+  disk_read_bytes: 512,
+  disk_written_bytes: 2 * 1024 * 1024,
+  network_sent_bytes: 3 * 1024,
+  network_received_bytes: 0,
   queues: {
     timestamps: { size: 3, maxsize: 10 },
     events: { size: 10, maxsize: 10 },
@@ -23,6 +28,18 @@ describe('ResourcesPanel', () => {
     expect(screen.getByText('42.4%')).toBeInTheDocument();
     expect(screen.getByText('1m 15s')).toBeInTheDocument();
     expect(screen.getByText('5')).toBeInTheDocument();
+  });
+
+  it('reports the bytes and the waiting of the instance', () => {
+    renderWithProviders(
+      <ResourcesPanel resources={RESOURCES} cpuPercent={0} />
+    );
+
+    expect(screen.getByText('0.25s')).toBeInTheDocument();
+    expect(screen.getByText('2MB')).toBeInTheDocument();
+    expect(screen.getByText('512B')).toBeInTheDocument();
+    expect(screen.getByText('3KB')).toBeInTheDocument();
+    expect(screen.getByText('0B')).toBeInTheDocument();
   });
 
   it('reports the fill level of each pipeline queue', () => {

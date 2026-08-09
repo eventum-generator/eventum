@@ -1,14 +1,20 @@
 """Tests for per-generator resource accounting."""
 
+import socket
 import threading
+from pathlib import Path
 
 import pytest
 
 from eventum.core.resources import (
+    collect_network_usage,
     collect_thread_usage,
     owns_thread,
     sample_thread_cpu_times,
 )
+from eventum.utils import net_accounting
+
+PROC_TASK_AVAILABLE = Path('/proc/self/task').exists()
 
 
 def _run_named_thread(name: str) -> tuple[threading.Thread, threading.Event]:
@@ -120,6 +126,87 @@ def test_collect_thread_usage_without_threads():
 
     assert usage.count == 0
     assert usage.cpu_seconds == 0.0
+    assert usage.run_delay_seconds == 0.0
+    assert usage.disk_read_bytes == 0
+    assert usage.disk_written_bytes == 0
+
+
+@pytest.mark.skipif(
+    not PROC_TASK_AVAILABLE,
+    reason='per-thread counters are read from /proc',
+)
+def test_collect_thread_usage_counts_written_bytes(tmp_path):
+    """Bytes a thread of the generator wrote out are counted."""
+    payload = b'x' * 4096
+    written = threading.Event()
+    release = threading.Event()
+
+    def write_and_wait() -> None:
+        (tmp_path / 'events.txt').write_bytes(payload)
+        written.set()
+        release.wait(timeout=5)
+
+    thread = threading.Thread(
+        target=write_and_wait,
+        name='output:gen-disk',
+        daemon=True,
+    )
+    thread.start()
+
+    try:
+        assert written.wait(timeout=5)
+        usage = collect_thread_usage('gen-disk', {})
+    finally:
+        release.set()
+        thread.join(timeout=5)
+
+    assert usage.count == 1
+    assert usage.disk_written_bytes >= len(payload)
+    assert usage.run_delay_seconds >= 0.0
+
+
+# - Network usage -----------------------------------------------------
+
+
+def test_collect_network_usage_of_own_threads():
+    """Bytes a thread of the generator sent are counted for it alone."""
+    net_accounting.install()
+
+    payload = b'eventum' * 100
+    sent = threading.Event()
+
+    def send() -> None:
+        sender, receiver = socket.socketpair()
+        try:
+            sender.sendall(payload)
+            receiver.recv(len(payload))
+        finally:
+            sender.close()
+            receiver.close()
+            sent.set()
+
+    thread = threading.Thread(
+        target=send,
+        name='output:gen-net',
+        daemon=True,
+    )
+    thread.start()
+
+    assert sent.wait(timeout=5)
+    thread.join(timeout=5)
+
+    usage = collect_network_usage('gen-net')
+
+    assert usage.sent_bytes >= len(payload)
+    assert usage.received_bytes >= len(payload)
+
+
+def test_collect_network_usage_without_traffic():
+    """A generator that opened no socket moved no bytes."""
+    usage = collect_network_usage('gen-without-traffic')
+
+    assert usage.sent_bytes == 0
+    assert usage.received_bytes == 0
 
 
 def test_collect_thread_usage_samples_cpu_times_itself():

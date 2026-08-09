@@ -355,6 +355,11 @@ class _StubGenerator:
         return GeneratorResources(
             thread_count=4,
             cpu_seconds=1.5,
+            run_delay_seconds=0.25,
+            disk_read_bytes=1024,
+            disk_written_bytes=4096,
+            network_sent_bytes=2048,
+            network_received_bytes=512,
             queues=QueuesUsage(
                 timestamps=QueueUsage(size=1, maxsize=10),
                 events=QueueUsage(size=2, maxsize=10),
@@ -381,6 +386,11 @@ def test_get_generator_stats_running(client, manager):
     resources = response.json()['resources']
     assert resources['thread_count'] == 4
     assert resources['cpu_seconds'] == 1.5
+    assert resources['run_delay_seconds'] == 0.25
+    assert resources['disk_read_bytes'] == 1024
+    assert resources['disk_written_bytes'] == 4096
+    assert resources['network_sent_bytes'] == 2048
+    assert resources['network_received_bytes'] == 512
     assert resources['queues']['timestamps'] == {'size': 1, 'maxsize': 10}
     assert resources['queues']['events'] == {'size': 2, 'maxsize': 10}
 

@@ -24,8 +24,10 @@ from eventum.core.plugins_initializer import (
 from eventum.core.resources import (
     GeneratorResources,
     ThreadCpuTimes,
+    collect_network_usage,
     collect_thread_usage,
 )
+from eventum.utils.net_accounting import NetUsage
 
 
 class Generator:
@@ -58,6 +60,7 @@ class Generator:
         self._lock = Lock()
 
         self._start_time: datetime | None = None
+        self._network_baseline = NetUsage(sent_bytes=0, received_bytes=0)
 
     def _start(self) -> None:  # noqa: PLR0911, PLR0915
         """Start generation."""
@@ -138,6 +141,12 @@ class Generator:
             parameters=self._params.model_dump_json(),
         )
         self._start_time = datetime.now().astimezone(tz=ZoneInfo('UTC'))
+
+        # Network counters are kept per thread name, so a generator
+        # started again under the same id inherits the traffic of its
+        # earlier runs - the baseline leaves this run alone.
+        self._network_baseline = collect_network_usage(self._params.id)
+
         self._initialized_event.set()
         try:
             self._executor.execute()
@@ -265,8 +274,8 @@ class Generator:
         Returns
         -------
         GeneratorResources
-            Threads, their CPU time and the fill levels of the pipeline
-            queues.
+            Threads, what they consumed and the fill levels of the
+            pipeline queues.
 
         Raises
         ------
@@ -279,10 +288,20 @@ class Generator:
             raise RuntimeError(msg)
 
         usage = collect_thread_usage(self._params.id, cpu_times)
+        network = collect_network_usage(self._params.id)
 
         return GeneratorResources(
             thread_count=usage.count,
             cpu_seconds=usage.cpu_seconds,
+            run_delay_seconds=usage.run_delay_seconds,
+            disk_read_bytes=usage.disk_read_bytes,
+            disk_written_bytes=usage.disk_written_bytes,
+            network_sent_bytes=(
+                network.sent_bytes - self._network_baseline.sent_bytes
+            ),
+            network_received_bytes=(
+                network.received_bytes - self._network_baseline.received_bytes
+            ),
             queues=self._executor.queue_usage(),
         )
 

@@ -363,6 +363,11 @@ def _build_stats(
         resources=ResourcesStats(
             thread_count=resources.thread_count,
             cpu_seconds=resources.cpu_seconds,
+            run_delay_seconds=resources.run_delay_seconds,
+            disk_read_bytes=resources.disk_read_bytes,
+            disk_written_bytes=resources.disk_written_bytes,
+            network_sent_bytes=resources.network_sent_bytes,
+            network_received_bytes=resources.network_received_bytes,
             queues=QueuesStats(
                 timestamps=QueueStats(
                     size=resources.queues.timestamps.size,

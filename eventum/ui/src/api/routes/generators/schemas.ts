@@ -60,6 +60,11 @@ export type QueuesStats = z.infer<typeof QueuesStatsSchema>;
 export const ResourcesStatsSchema = z.object({
   thread_count: z.int().min(0),
   cpu_seconds: z.number().min(0),
+  run_delay_seconds: z.number().min(0),
+  disk_read_bytes: z.int().min(0),
+  disk_written_bytes: z.int().min(0),
+  network_sent_bytes: z.int().min(0),
+  network_received_bytes: z.int().min(0),
   queues: QueuesStatsSchema,
 });
 export type ResourcesStats = z.infer<typeof ResourcesStatsSchema>;

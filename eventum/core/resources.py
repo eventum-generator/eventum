@@ -1,20 +1,32 @@
 """Accounting of runtime resources occupied by a single generator.
 
 Generators run as threads of one process, which bounds what can be
-attributed to a single generator. CPU time can: every thread a generator
-runs is named after it, and the OS accounts CPU time per thread. Memory
-cannot - the process heap is shared, so a generator's share of it is not
-observable from inside. Queue fill levels stand in for it, since the
-queues hold the bulk of what a generator keeps in flight.
+attributed to a single generator. Processor time, scheduling delay, file
+system and network bytes can: every thread a generator runs is named
+after it, and all four are accounted per thread. Memory cannot - the
+process heap is shared, so a generator's share of it is not observable
+from inside. Queue fill levels stand in for it, since the queues hold the
+bulk of what a generator keeps in flight.
+
+Reading scheduling delay and file system bytes goes through `/proc`, so
+both are reported on Linux only and count as zero elsewhere.
 """
 
 import threading
 from collections.abc import Mapping
 from dataclasses import dataclass
+from pathlib import Path
 
 import psutil
 
+from eventum.utils.net_accounting import NetUsage, usage_of
+
 _PROCESS = psutil.Process()
+
+_PROC_TASK = Path('/proc/self/task')
+"""Directory holding a subdirectory per thread of this process."""
+
+_NS_PER_SECOND = 1e9
 
 _STAGE_ROLES = frozenset({'generator', 'input', 'event', 'output'})
 """Thread roles a generator runs exactly one of."""
@@ -78,6 +90,22 @@ class GeneratorResources:
     cpu_seconds : float
         CPU time consumed by those threads since the generator started.
 
+    run_delay_seconds : float
+        Time those threads spent ready to run while waiting for a
+        processor since the generator started.
+
+    disk_read_bytes : int
+        Number of bytes those threads read through the file system.
+
+    disk_written_bytes : int
+        Number of bytes those threads wrote through the file system.
+
+    network_sent_bytes : int
+        Number of bytes those threads sent over the network.
+
+    network_received_bytes : int
+        Number of bytes those threads received over the network.
+
     queues : QueuesUsage
         Fill levels of the queues between the pipeline stages.
 
@@ -85,12 +113,17 @@ class GeneratorResources:
 
     thread_count: int
     cpu_seconds: float
+    run_delay_seconds: float
+    disk_read_bytes: int
+    disk_written_bytes: int
+    network_sent_bytes: int
+    network_received_bytes: int
     queues: QueuesUsage
 
 
 @dataclass(frozen=True)
 class ThreadUsage:
-    """Threads of a generator and the CPU time they consumed.
+    """Threads of a generator and the resources they consumed.
 
     Attributes
     ----------
@@ -100,10 +133,23 @@ class ThreadUsage:
     cpu_seconds : float
         CPU time consumed by the threads.
 
+    run_delay_seconds : float
+        Time the threads spent ready to run while waiting for a
+        processor.
+
+    disk_read_bytes : int
+        Number of bytes the threads read through the file system.
+
+    disk_written_bytes : int
+        Number of bytes the threads wrote through the file system.
+
     """
 
     count: int
     cpu_seconds: float
+    run_delay_seconds: float
+    disk_read_bytes: int
+    disk_written_bytes: int
 
 
 def sample_thread_cpu_times() -> ThreadCpuTimes:
@@ -173,7 +219,7 @@ def collect_thread_usage(
     generator_id: str,
     cpu_times: ThreadCpuTimes | None = None,
 ) -> ThreadUsage:
-    """Collect threads of a generator and their CPU time.
+    """Collect threads of a generator and the resources they consumed.
 
     Parameters
     ----------
@@ -187,7 +233,7 @@ def collect_thread_usage(
     Returns
     -------
     ThreadUsage
-        Number of threads and the CPU time they consumed. CPU time of a
+        Number of threads and the resources they consumed. CPU time of a
         thread that is missing from the sample counts as zero, which
         happens for a thread that started after it was taken.
 
@@ -196,6 +242,9 @@ def collect_thread_usage(
 
     count = 0
     cpu_seconds = 0.0
+    run_delay_seconds = 0.0
+    read_bytes = 0
+    written_bytes = 0
 
     for thread in threading.enumerate():
         if not owns_thread(thread.name, generator_id):
@@ -203,7 +252,82 @@ def collect_thread_usage(
 
         count += 1
 
-        if thread.native_id is not None:
-            cpu_seconds += times.get(thread.native_id, 0.0)
+        if thread.native_id is None:
+            continue
 
-    return ThreadUsage(count=count, cpu_seconds=cpu_seconds)
+        cpu_seconds += times.get(thread.native_id, 0.0)
+        run_delay_seconds += _read_run_delay_seconds(thread.native_id)
+
+        thread_read, thread_written = _read_disk_bytes(thread.native_id)
+        read_bytes += thread_read
+        written_bytes += thread_written
+
+    return ThreadUsage(
+        count=count,
+        cpu_seconds=cpu_seconds,
+        run_delay_seconds=run_delay_seconds,
+        disk_read_bytes=read_bytes,
+        disk_written_bytes=written_bytes,
+    )
+
+
+def collect_network_usage(generator_id: str) -> NetUsage:
+    """Collect bytes a generator passed over the network.
+
+    Parameters
+    ----------
+    generator_id : str
+        ID of the generator.
+
+    Returns
+    -------
+    NetUsage
+        Bytes sent and received by the threads of the generator since
+        the application started.
+
+    """
+    return usage_of(lambda name: owns_thread(name, generator_id))
+
+
+def _read_run_delay_seconds(thread_id: int) -> float:
+    """Read time a thread spent ready to run without running.
+
+    Returns zero when the counter is unavailable, which is the case
+    outside Linux and for a thread that ended in the meantime.
+    """
+    try:
+        stats = (_PROC_TASK / str(thread_id) / 'schedstat').read_text()
+
+        return int(stats.split()[1]) / _NS_PER_SECOND
+    except OSError, IndexError, ValueError:
+        return 0.0
+
+
+def _read_disk_bytes(thread_id: int) -> tuple[int, int]:
+    """Read bytes a thread read and wrote through the file system.
+
+    Counts the bytes the thread passed to the system calls, not the ones
+    that reached the block device, since the latter are accounted to
+    whichever thread the kernel happens to flush the page cache from.
+    Socket traffic is not part of either counter.
+
+    Returns zeroes when the counters are unavailable, which is the case
+    outside Linux and for a thread that ended in the meantime.
+    """
+    read_bytes = 0
+    written_bytes = 0
+
+    try:
+        counters = (_PROC_TASK / str(thread_id) / 'io').read_text()
+
+        for line in counters.splitlines():
+            field, _, value = line.partition(': ')
+
+            if field == 'rchar':
+                read_bytes = int(value)
+            elif field == 'wchar':
+                written_bytes = int(value)
+    except OSError, ValueError:
+        return (0, 0)
+
+    return (read_bytes, written_bytes)

@@ -6,9 +6,10 @@ import {
   Text,
   Tooltip,
 } from '@mantine/core';
+import bytes from 'bytes';
 import { FC } from 'react';
 
-import { formatUptime } from '../format';
+import { formatSeconds, formatUptime } from '../format';
 import { Section } from '../primitives';
 import { ResourcesStats } from '@/api/routes/generators/schemas';
 import { CPU_THRESHOLDS, levelColor } from '@/utils/levelColor';
@@ -57,6 +58,9 @@ const Figure: FC<{ label: string; value: string; color?: string }> = ({
   </Stack>
 );
 
+const formatBytes = (value: number) =>
+  bytes(value, { decimalPlaces: 1 }) ?? '0';
+
 interface ResourcesPanelProps {
   resources: ResourcesStats;
   cpuPercent: number;
@@ -65,9 +69,11 @@ interface ResourcesPanelProps {
 /**
  * What the instance costs the host it shares with the others: its share of a
  * CPU core over the last poll interval, the CPU time it has spent in total,
- * the threads it runs, and how full the queues between its stages are. A
- * queue that stays full is the instance waiting on its own next stage, so it
- * reads as the pressure inside the pipeline rather than a fault.
+ * the time it spent waiting for a processor, the threads it runs, the bytes it
+ * moved to disk and over the network, and how full the queues between its
+ * stages are. A queue that stays full is the instance waiting on its own next
+ * stage, so it reads as the pressure inside the pipeline rather than a fault,
+ * while a growing wait means the host has more instances than processors.
  *
  * Memory is deliberately absent - instances share one process heap, so no
  * per-instance figure for it exists to report.
@@ -77,21 +83,45 @@ export const ResourcesPanel: FC<ResourcesPanelProps> = ({
   cpuPercent,
 }) => (
   <Section label="Resources">
-    <SimpleGrid cols={{ base: 2, sm: 4 }} spacing="md">
-      <Tooltip label="Share of one CPU core over the last poll interval">
+    <Stack gap="lg">
+      <SimpleGrid cols={{ base: 2, sm: 4 }} spacing="md">
+        <Tooltip label="Share of one CPU core over the last poll interval">
+          <Figure
+            label="CPU"
+            value={`${cpuPercent.toFixed(1)}%`}
+            color={levelColor(
+              cpuPercent,
+              CPU_THRESHOLDS.warn,
+              CPU_THRESHOLDS.bad
+            )}
+          />
+        </Tooltip>
+        <Figure label="CPU time" value={formatUptime(resources.cpu_seconds)} />
+        <Tooltip label="Time the threads were ready to run but waited for a processor">
+          <Figure
+            label="Wait"
+            value={formatSeconds(resources.run_delay_seconds)}
+          />
+        </Tooltip>
+        <Figure label="Threads" value={String(resources.thread_count)} />
         <Figure
-          label="CPU"
-          value={`${cpuPercent.toFixed(1)}%`}
-          color={levelColor(
-            cpuPercent,
-            CPU_THRESHOLDS.warn,
-            CPU_THRESHOLDS.bad
-          )}
+          label="Disk written"
+          value={formatBytes(resources.disk_written_bytes)}
         />
-      </Tooltip>
-      <Figure label="CPU time" value={formatUptime(resources.cpu_seconds)} />
-      <Figure label="Threads" value={String(resources.thread_count)} />
-      <Stack gap="xs">
+        <Figure
+          label="Disk read"
+          value={formatBytes(resources.disk_read_bytes)}
+        />
+        <Figure
+          label="Sent"
+          value={formatBytes(resources.network_sent_bytes)}
+        />
+        <Figure
+          label="Received"
+          value={formatBytes(resources.network_received_bytes)}
+        />
+      </SimpleGrid>
+      <SimpleGrid cols={{ base: 1, sm: 2 }} spacing="md">
         <QueueFill
           label="Timestamps"
           size={resources.queues.timestamps.size}
@@ -102,7 +132,7 @@ export const ResourcesPanel: FC<ResourcesPanelProps> = ({
           size={resources.queues.events.size}
           maxsize={resources.queues.events.maxsize}
         />
-      </Stack>
-    </SimpleGrid>
+      </SimpleGrid>
+    </Stack>
   </Section>
 );

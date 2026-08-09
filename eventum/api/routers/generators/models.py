@@ -126,6 +126,42 @@ class ResourcesStats(BaseModel, frozen=True, extra='forbid'):
             'started, growing over the lifetime of the generator'
         ),
     )
+    run_delay_seconds: float = Field(
+        ge=0,
+        description=(
+            'Time those threads spent ready to run while waiting for a '
+            'processor since the generator started, growing over the '
+            'lifetime of the generator; reported on Linux only'
+        ),
+    )
+    disk_read_bytes: int = Field(
+        ge=0,
+        description=(
+            'Number of bytes those threads read through the file '
+            'system since the generator started; reported on Linux only'
+        ),
+    )
+    disk_written_bytes: int = Field(
+        ge=0,
+        description=(
+            'Number of bytes those threads wrote through the file '
+            'system since the generator started; reported on Linux only'
+        ),
+    )
+    network_sent_bytes: int = Field(
+        ge=0,
+        description=(
+            'Number of bytes those threads sent over the network since '
+            'the generator started'
+        ),
+    )
+    network_received_bytes: int = Field(
+        ge=0,
+        description=(
+            'Number of bytes those threads received over the network '
+            'since the generator started'
+        ),
+    )
     queues: QueuesStats = Field(
         description='Fill levels of the queues between the pipeline stages',
     )
