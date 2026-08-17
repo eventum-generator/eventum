@@ -29,6 +29,7 @@ export interface ResourcePoint {
   t: number;
   cpu: number;
   memPct: number;
+  appMem: number;
   diskRead: number;
   diskWrite: number;
   netRecv: number;
@@ -69,6 +70,26 @@ export interface LoadPoint {
   written: Record<string, number>;
 }
 
+/**
+ * What one generator occupied at the moment of a poll. The counters are
+ * cumulative since it started; the queue figures are instantaneous.
+ */
+export interface InstanceUsage {
+  cpuSeconds: number;
+  runDelaySeconds: number;
+  diskWrite: number;
+  netSent: number;
+  threads: number;
+  queueBytes: number;
+  queueMaxBytes: number | null;
+}
+
+/** One poll of what every running generator occupied, keyed by its id. */
+export interface UsagePoint {
+  t: number;
+  usage: Record<string, InstanceUsage>;
+}
+
 function cap<T>(buffer: T[], next: T, size = MAX_POINTS): T[] {
   const kept =
     buffer.length >= size
@@ -99,11 +120,13 @@ export function useMetricsHistory({
   resources: ResourcePoint[];
   flow: FlowPoint[];
   load: LoadPoint[];
+  usage: UsagePoint[];
   current: CurrentMetrics;
 } {
   const [resources, setResources] = useState<ResourcePoint[]>([]);
   const [flow, setFlow] = useState<FlowPoint[]>([]);
   const [load, setLoad] = useState<LoadPoint[]>([]);
+  const [usage, setUsage] = useState<UsagePoint[]>([]);
   const [flowCurrent, setFlowCurrent] = useState({
     inputEps: 0,
     outputEps: 0,
@@ -130,6 +153,7 @@ export function useMetricsHistory({
       t: instanceUpdatedAt,
       cpu: instanceInfo.cpu_percent,
       memPct,
+      appMem: instanceInfo.process_memory_bytes,
       diskRead: instanceInfo.disk_read_bytes,
       diskWrite: instanceInfo.disk_written_bytes,
       netRecv: instanceInfo.network_received_bytes,
@@ -174,6 +198,22 @@ export function useMetricsHistory({
         RAW_POINTS
       )
     );
+
+    const usagePoint: Record<string, InstanceUsage> = {};
+    for (const s of stats) {
+      usagePoint[s.id] = {
+        cpuSeconds: s.resources.cpu_seconds,
+        runDelaySeconds: s.resources.run_delay_seconds,
+        diskWrite: s.resources.disk_written_bytes,
+        netSent: s.resources.network_sent_bytes,
+        threads: s.resources.thread_count,
+        queueBytes: s.resources.queues.events.size_bytes,
+        queueMaxBytes: s.resources.queues.events.max_bytes,
+      };
+    }
+    setUsage((buffer) =>
+      cap(buffer, { t: statsUpdatedAt, usage: usagePoint }, RAW_POINTS)
+    );
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [statsUpdatedAt]);
 
@@ -181,6 +221,7 @@ export function useMetricsHistory({
     resources,
     flow,
     load,
+    usage,
     current: { ...flowCurrent, ...resCurrent },
   };
 }
@@ -317,6 +358,54 @@ export function dualRateData(
     });
   }
   return rows;
+}
+
+export interface InstanceUsageRow {
+  id: string;
+  cpuPercent: number;
+  waitPercent: number;
+  diskWriteBps: number;
+  netSentBps: number;
+  threads: number;
+  queueBytes: number;
+  queueMaxBytes: number | null;
+}
+
+/**
+ * What each running generator occupies right now, heaviest first. The CPU and
+ * the waiting share come from the two most recent polls: both counters are
+ * cumulative, so only their growth over an interval says what a generator
+ * costs at the moment. A generator absent from the earlier poll contributes
+ * nothing to the rates until the next one.
+ */
+export function instanceUsageRows(usage: UsagePoint[]): InstanceUsageRow[] {
+  const [prev, curr] = usage.slice(-2);
+  if (!curr || !prev) return [];
+
+  const dt = (curr.t - prev.t) / 1000;
+  const rows: InstanceUsageRow[] = [];
+
+  for (const [id, now] of Object.entries(curr.usage)) {
+    const before = prev.usage[id];
+    rows.push({
+      id,
+      cpuPercent: before
+        ? rate(now.cpuSeconds, before.cpuSeconds, dt) * 100
+        : 0,
+      waitPercent: before
+        ? rate(now.runDelaySeconds, before.runDelaySeconds, dt) * 100
+        : 0,
+      diskWriteBps: before ? rate(now.diskWrite, before.diskWrite, dt) : 0,
+      netSentBps: before ? rate(now.netSent, before.netSent, dt) : 0,
+      threads: now.threads,
+      queueBytes: now.queueBytes,
+      queueMaxBytes: now.queueMaxBytes,
+    });
+  }
+
+  return rows.sort(
+    (a, b) => b.cpuPercent - a.cpuPercent || a.id.localeCompare(b.id)
+  );
 }
 
 export interface InstanceRateRow {

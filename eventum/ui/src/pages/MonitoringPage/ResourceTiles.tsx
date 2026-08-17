@@ -149,7 +149,7 @@ export const ResourceTiles: FC<ResourceTilesProps> = ({
           caption={
             <>
               {bytes(info.memory_used_bytes)} · {bytes(info.memory_total_bytes)}{' '}
-              total
+              total · {bytes(info.process_memory_bytes)} app
             </>
           }
           chart={

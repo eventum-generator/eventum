@@ -3,6 +3,7 @@ import { ReactNode, useEffect } from 'react';
 
 import { ErrorsChart } from './ErrorsChart';
 import { InstanceLoad } from './InstanceLoad';
+import { InstanceResources } from './InstanceResources';
 import { NoRunningGenerators } from './NoRunningGenerators';
 import { PipelineFlow } from './PipelineFlow';
 import { ResourceTiles } from './ResourceTiles';
@@ -43,7 +44,7 @@ export default function MonitoringPage() {
 
   const stats = generatorsStats ?? [];
 
-  const { resources, flow, load, current } = useMetricsHistory({
+  const { resources, flow, load, usage, current } = useMetricsHistory({
     instanceInfo,
     instanceUpdatedAt,
     stats,
@@ -72,6 +73,8 @@ export default function MonitoringPage() {
         {current.failing && <ErrorsChart flow={flow} />}
 
         <InstanceLoad load={load} />
+
+        <InstanceResources usage={usage} />
       </>
     );
   }
