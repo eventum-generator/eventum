@@ -29,6 +29,14 @@ _QUOTED_ABS_PATH = re.compile(r"'/[^']*/([^/']+)'")
 # lines carry unquoted paths too, e.g. traceback frames.
 _ABS_PATH = re.compile(r"(^|[\s'\"=(,:])/(?:[\w.\-]+/)+([\w.\-]+)")
 
+# Quoted HTTP request line as produced by an access log
+# (e.g. "GET /api/instance/info HTTP/1.1"). Its target is the path the
+# client asked for, not a path on the host, and reducing it would leave
+# the access records unreadable - so it is kept out of path reduction.
+_REQUEST_LINE = re.compile(
+    r'"(?:GET|HEAD|POST|PUT|PATCH|DELETE|OPTIONS|TRACE) [^"]*"',
+)
+
 # Marker replacing redacted secret values inside reason text.
 _REDACTED = '[redacted]'
 
@@ -284,9 +292,10 @@ def scrub_log_line(
     Redacts the listed secret values first (so a path-shaped secret is
     redacted whole), then relativizes the generators and logs
     directories and reduces any other absolute path to its final
-    component. Used by the log-reading tool; a log line is free-form
-    text, so this is a best-effort scrub over the listed secret values,
-    not a guarantee that every conceivable secret encoding is caught.
+    component, leaving the target of a quoted HTTP request line intact.
+    Used by the log-reading tools; a log line is free-form text, so this
+    is a best-effort scrub over the listed secret values, not a
+    guarantee that every conceivable secret encoding is caught.
 
     Parameters
     ----------
@@ -313,4 +322,19 @@ def scrub_log_line(
     for base in (generators_dir, logs_dir):
         line = _relativize_base(line, str(base.resolve()))
 
-    return _ABS_PATH.sub(r'\1\2', line)
+    return _reduce_paths(line)
+
+
+def _reduce_paths(line: str) -> str:
+    """Reduce absolute paths outside request lines to their basename."""
+    parts: list[str] = []
+    end = 0
+
+    for match in _REQUEST_LINE.finditer(line):
+        parts.append(_ABS_PATH.sub(r'\1\2', line[end : match.start()]))
+        parts.append(match.group())
+        end = match.end()
+
+    parts.append(_ABS_PATH.sub(r'\1\2', line[end:]))
+
+    return ''.join(parts)

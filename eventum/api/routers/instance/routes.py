@@ -7,6 +7,7 @@ from fastapi import (
     APIRouter,
     Body,
     HTTPException,
+    Path,
     Query,
     WebSocket,
     WebSocketException,
@@ -22,7 +23,8 @@ from eventum.api.utils.websocket_annotations import (
     Rejects,
 )
 from eventum.app.models.settings import Settings, write_settings
-from eventum.logging.file_paths import construct_main_logfile_path
+from eventum.logging.channels import InstanceChannel
+from eventum.logging.file_paths import construct_channel_logfile_path
 
 router = APIRouter()
 ws_router = APIRouter()
@@ -108,8 +110,12 @@ async def restart(hooks: InstanceHooksDep) -> None:
         ) from None
 
 
-@ws_router.websocket('/logs/main')
-async def stream_main_logs(
+@ws_router.websocket('/logs/{channel}')
+async def stream_instance_logs(
+    channel: Annotated[
+        InstanceChannel,
+        Path(description='Log channel to stream'),
+    ],
     settings: SettingsDep,
     websocket: Annotated[
         WebSocket,
@@ -120,6 +126,10 @@ async def stream_main_logs(
                 title='Log chunk',
                 payload={'type': 'string'},
             ),
+        ),
+        Rejects(
+            status_code=status.WS_1008_POLICY_VIOLATION,
+            details='Requested log channel does not exist',
         ),
         Rejects(
             status_code=status.WS_1011_INTERNAL_ERROR,
@@ -140,9 +150,10 @@ async def stream_main_logs(
 ) -> None:
     await websocket.accept()
 
-    path = construct_main_logfile_path(
+    path = construct_channel_logfile_path(
         format=settings.log.format,
         logs_dir=settings.path.logs,
+        channel=channel,
     )
 
     if not path.exists():

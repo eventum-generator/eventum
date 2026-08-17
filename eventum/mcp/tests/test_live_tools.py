@@ -486,7 +486,7 @@ async def test_get_generator_logs_does_not_raise(
         msg = 'disk gone'
         raise OSError(msg)
 
-    monkeypatch.setattr('eventum.mcp.tools.live._tail_lines', _boom)
+    monkeypatch.setattr('eventum.mcp.tools.live.tail_lines', _boom)
     result = await get_generator_logs(ctx, 'g1')
     assert isinstance(result, ToolFailure)
     assert result.error == 'Failed to read logs'
@@ -497,7 +497,7 @@ async def test_get_generator_logs_tail_drops_partial_first_line(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """A truncated tail drops the partial leading line."""
-    monkeypatch.setattr('eventum.mcp.tools.live._TAIL_MAX_BYTES', 12)
+    monkeypatch.setattr('eventum.mcp.log_tail.TAIL_MAX_BYTES', 12)
     ctx = _ctx(tmp_path, _FakeManager(), _FakeStartup())
     (tmp_path / 'generator_g1.log').write_text('AAAAAAAA\nBBBB\nCCCC\n')
     result = await get_generator_logs(ctx, 'g1')
@@ -510,7 +510,7 @@ async def test_get_generator_logs_keeps_single_oversized_line(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """A single line larger than the tail window is still returned."""
-    monkeypatch.setattr('eventum.mcp.tools.live._TAIL_MAX_BYTES', 8)
+    monkeypatch.setattr('eventum.mcp.log_tail.TAIL_MAX_BYTES', 8)
     ctx = _ctx(tmp_path, _FakeManager(), _FakeStartup())
     (tmp_path / 'generator_g1.log').write_text('X' * 40)
     result = await get_generator_logs(ctx, 'g1')

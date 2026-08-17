@@ -1,18 +1,19 @@
 """Configuration for logging system."""
 
 import logging
-import logging.config
 import logging.handlers
+from collections.abc import Hashable
 from pathlib import Path
 from typing import TYPE_CHECKING, Literal, assert_never
 
 import structlog
 
-from eventum.logging.file_paths import (
-    construct_generator_logfile_path,
-    construct_main_logfile_path,
-    construct_server_logfile_path,
+from eventum.logging.channels import (
+    CHANNEL_ATTRIBUTE,
+    CHANNEL_MAIN,
+    ChannelFilter,
 )
+from eventum.logging.file_paths import construct_channel_logfile_path
 from eventum.logging.handlers import RoutingHandler
 from eventum.logging.processors import derive_extras, remove_keys_processor
 
@@ -20,6 +21,26 @@ if TYPE_CHECKING:
     from structlog.typing import Processor
 
 type LogLevel = Literal['DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL']
+
+DEFAULT_THIRD_PARTY_LEVEL: LogLevel = 'WARNING'
+"""Level of third-party libraries when none is configured."""
+
+ATTRIBUTION_KEYS = ('generator_id', 'component')
+"""Keys that attribute a record to a channel."""
+
+LEVELED_LOGGERS = ('eventum', 'uvicorn', 'mcp')
+"""Loggers that carry the configured log level.
+
+Every other logger inherits the level of the root logger, which is the
+level of third-party libraries.
+"""
+
+CLAIMED_LOGGERS = ('uvicorn', 'uvicorn.access', 'uvicorn.error')
+"""Loggers a library configures for itself.
+
+Their own handlers and levels are dropped, so their records reach the
+handlers of the root logger like every other record does.
+"""
 
 
 def disable() -> None:
@@ -60,76 +81,38 @@ def use_stderr(level: LogLevel) -> None:
     level : LogLevel
         Log level.
 
+    Notes
+    -----
+    Third-party libraries are limited to warnings, or to `level` when
+    it is stricter, so they never log more than the application does.
+
     """
-    uvicorn_logger = logging.getLogger('uvicorn')
-    uvicorn_logger.handlers.clear()
-    uvicorn_logger.propagate = False
-
-    logging.config.dictConfig(
-        {
-            'version': 1,
-            'formatters': {
-                'stderr-formatter': {
-                    '()': structlog.stdlib.ProcessorFormatter,
-                    'processor': structlog.dev.ConsoleRenderer(colors=True),
-                },
-                'stderr-access-formatter': {
-                    'format': (
-                        '%(asctime)s [%(levelname)s] %(message)s [%(name)s]'
-                    ),
-                },
-            },
-            'handlers': {
-                'stderr': {
-                    'level': level,
-                    'formatter': 'stderr-formatter',
-                    'class': 'logging.StreamHandler',
-                    'stream': 'ext://sys.stderr',
-                },
-                'stderr-access': {
-                    'level': level,
-                    'formatter': 'stderr-access-formatter',
-                    'class': 'logging.StreamHandler',
-                    'stream': 'ext://sys.stderr',
-                },
-            },
-            'loggers': {
-                '': {
-                    'handlers': ['stderr'],
-                    'level': 'DEBUG',
-                    'propagate': True,
-                },
-                'uvicorn.access': {
-                    'handlers': ['stderr-access'],
-                    'level': 'DEBUG',
-                    'propagate': True,
-                },
-            },
-        },
+    handler = logging.StreamHandler()
+    handler.setLevel(logging.DEBUG)
+    handler.setFormatter(
+        structlog.stdlib.ProcessorFormatter(
+            processor=structlog.dev.ConsoleRenderer(colors=True),
+            foreign_pre_chain=_build_foreign_pre_chain(),
+        ),
     )
 
-    structlog.configure(
-        processors=[
-            structlog.contextvars.merge_contextvars,
-            structlog.stdlib.add_log_level,
-            structlog.stdlib.add_logger_name,
-            structlog.stdlib.PositionalArgumentsFormatter(),
-            structlog.processors.StackInfoRenderer(),
-            structlog.stdlib.ProcessorFormatter.wrap_for_formatter,
-        ],
-        context_class=dict,
-        logger_factory=structlog.stdlib.LoggerFactory(),
-        wrapper_class=structlog.stdlib.BoundLogger,
-        cache_logger_on_first_use=True,
+    logging.getLogger().addHandler(handler)
+
+    _claim_library_loggers()
+    _configure_levels(
+        level=level,
+        third_party_level=_stricter(level, DEFAULT_THIRD_PARTY_LEVEL),
     )
+    _configure_structlog()
 
 
-def use_console_and_file(
+def use_console_and_file(  # noqa: PLR0913 - log settings are six knobs
     format: Literal['plain', 'json'],
     level: LogLevel,
     logs_dir: Path,
     max_bytes: int,
     backup_count: int,
+    third_party_level: LogLevel = DEFAULT_THIRD_PARTY_LEVEL,
 ) -> None:
     """Configure logging for writing to console and file.
 
@@ -150,6 +133,14 @@ def use_console_and_file(
     backup_count : int
         Number of rolled over log files to keep.
 
+    third_party_level : LogLevel, default='WARNING'
+        Log level of third-party libraries.
+
+    Notes
+    -----
+    Every record goes to the file of exactly one channel, while the
+    console receives all of them, so it stays the combined view.
+
     """
     match format:
         case 'json':
@@ -166,56 +157,64 @@ def use_console_and_file(
     if not logs_dir.exists():
         logs_dir.mkdir(parents=True)
 
-    console_formatter = structlog.stdlib.ProcessorFormatter(
-        processor=renderer,
-    )
     file_formatter = structlog.stdlib.ProcessorFormatter(
         processors=[
-            remove_keys_processor(['generator_id']),
+            remove_keys_processor(ATTRIBUTION_KEYS),
             structlog.stdlib.ProcessorFormatter.remove_processors_meta,
             renderer,
         ],
+        foreign_pre_chain=_build_foreign_pre_chain(),
     )
 
-    # Console handler
-    stderr_handler = logging.StreamHandler()
-    stderr_handler.setLevel(logging.DEBUG)
-    stderr_handler.setFormatter(console_formatter)
-
-    # Default routing handler
-    default_routing_handler = logging.handlers.RotatingFileHandler(
-        filename=construct_main_logfile_path(format=format, logs_dir=logs_dir),
-        maxBytes=max_bytes,
-        backupCount=backup_count,
-        encoding='utf-8',
-    )
-    default_routing_handler.setLevel(logging.DEBUG)
-    default_routing_handler.setFormatter(file_formatter)
-
-    # Routing handler
-    routing_handler = RoutingHandler(
-        attribute='generator_id',
-        handler_factory=lambda attr: logging.handlers.RotatingFileHandler(
-            filename=construct_generator_logfile_path(
+    def build_channel_handler(channel: Hashable) -> logging.Handler:
+        """Build rotating file handler of a channel."""
+        handler = logging.handlers.RotatingFileHandler(
+            filename=construct_channel_logfile_path(
                 format=format,
                 logs_dir=logs_dir,
-                generator_id=str(attr),
+                channel=str(channel),
             ),
             maxBytes=max_bytes,
             backupCount=backup_count,
             encoding='utf-8',
+        )
+        handler.setLevel(logging.DEBUG)
+        handler.setFormatter(file_formatter)
+
+        return handler
+
+    # Console handler
+    stderr_handler = logging.StreamHandler()
+    stderr_handler.setLevel(logging.DEBUG)
+    stderr_handler.setFormatter(
+        structlog.stdlib.ProcessorFormatter(
+            processor=renderer,
+            foreign_pre_chain=_build_foreign_pre_chain(),
         ),
-        default_handler=default_routing_handler,
-        formatter=file_formatter,
+    )
+
+    # Routing handler; the main channel is served by the default
+    # handler, so a single handler owns each log file
+    routing_handler = RoutingHandler(
+        attribute=CHANNEL_ATTRIBUTE,
+        handler_factory=build_channel_handler,
+        default_handler=build_channel_handler(CHANNEL_MAIN),
+        default_value=CHANNEL_MAIN,
     )
     routing_handler.setLevel(logging.DEBUG)
-    routing_handler.setFormatter(file_formatter)
+    routing_handler.addFilter(ChannelFilter())
 
     logger = logging.getLogger()
     logger.addHandler(stderr_handler)
     logger.addHandler(routing_handler)
-    logger.setLevel(level)
 
+    _claim_library_loggers()
+    _configure_levels(level=level, third_party_level=third_party_level)
+    _configure_structlog()
+
+
+def _configure_structlog() -> None:
+    """Configure structlog to render through the stdlib handlers."""
     structlog.configure(
         processors=[
             structlog.contextvars.merge_contextvars,
@@ -225,73 +224,74 @@ def use_console_and_file(
             structlog.processors.TimeStamper(fmt='iso', utc=True),
             structlog.processors.StackInfoRenderer(),
             structlog.processors.format_exc_info,
-            derive_extras(['generator_id'])(
+            derive_extras(ATTRIBUTION_KEYS)(
                 structlog.stdlib.ProcessorFormatter.wrap_for_formatter,
             ),
         ],
-        wrapper_class=structlog.stdlib.BoundLogger,
+        context_class=dict,
         logger_factory=structlog.stdlib.LoggerFactory(),
+        wrapper_class=structlog.stdlib.BoundLogger,
         cache_logger_on_first_use=True,
     )
 
-    _configure_uvicorn_logger(
-        level=level,
-        logs_dir=logs_dir,
-        max_bytes=max_bytes,
-        backup_count=backup_count,
-    )
+
+def _build_foreign_pre_chain() -> list[Processor]:
+    """Build processor chain that shapes records of other libraries.
+
+    Returns
+    -------
+    list[Processor]
+        Chain that gives a record emitted through stdlib logging the
+        same keys a record of the application carries.
+
+    """
+    return [
+        structlog.contextvars.merge_contextvars,
+        structlog.stdlib.add_log_level,
+        structlog.stdlib.add_logger_name,
+        structlog.processors.TimeStamper(fmt='iso', utc=True),
+        structlog.processors.StackInfoRenderer(),
+        structlog.processors.format_exc_info,
+    ]
 
 
-def _configure_uvicorn_logger(
-    level: LogLevel,
-    logs_dir: Path,
-    max_bytes: int,
-    backup_count: int,
-) -> None:
-    """Configure uvicorn loggers for writing to console and file.
+def _claim_library_loggers() -> None:
+    """Reset loggers that a library configured for itself."""
+    for name in CLAIMED_LOGGERS:
+        logger = logging.getLogger(name)
+
+        for handler in logger.handlers[:]:
+            logger.removeHandler(handler)
+
+        logger.setLevel(logging.NOTSET)
+        logger.propagate = True
+
+
+def _configure_levels(level: LogLevel, third_party_level: LogLevel) -> None:
+    """Set levels of the root logger and of the leveled loggers.
 
     Parameters
     ----------
     level : LogLevel
-        Log level.
+        Log level of the application.
 
-    logs_dir : Path
-        Directory for log files.
+    third_party_level : LogLevel
+        Log level of third-party libraries.
 
-    max_bytes : int
-        Max bytes for log file before triggering rollover.
-
-    backup_count : int
-        Number of rolled over log files to keep.
+    Notes
+    -----
+    Levels are set on loggers rather than on handlers, so a muted
+    library is cut off before its record is built.
 
     """
-    stderr_handler = logging.StreamHandler()
-    stderr_handler.setLevel(logging.DEBUG)
-    stderr_handler.setFormatter(
-        logging.Formatter(
-            '%(asctime)s [%(levelname)s] %(message)s [%(name)s]',
-        ),
-    )
+    logging.getLogger().setLevel(third_party_level)
 
-    for log_type in ('error', 'access'):
-        file_handler = logging.handlers.RotatingFileHandler(
-            filename=construct_server_logfile_path(
-                logs_dir=logs_dir,
-                log_type=log_type,
-            ),
-            maxBytes=max_bytes,
-            backupCount=backup_count,
-            encoding='utf-8',
-        )
-        file_handler.setFormatter(
-            logging.Formatter(
-                '%(asctime)s [%(levelname)s] %(message)s',
-            ),
-        )
+    for name in LEVELED_LOGGERS:
+        logging.getLogger(name).setLevel(level)
 
-        uvicorn_logger = logging.getLogger(f'uvicorn.{log_type}')
-        uvicorn_logger.handlers.clear()
-        uvicorn_logger.propagate = False
-        uvicorn_logger.addHandler(stderr_handler)
-        uvicorn_logger.addHandler(file_handler)
-        uvicorn_logger.setLevel(level)
+
+def _stricter(first: LogLevel, second: LogLevel) -> LogLevel:
+    """Return the stricter of two levels."""
+    levels = logging.getLevelNamesMapping()
+
+    return first if levels[first] >= levels[second] else second

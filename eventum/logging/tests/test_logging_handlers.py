@@ -1,7 +1,7 @@
 import logging
 import logging.config
 import logging.handlers
-from typing import Hashable
+from collections.abc import Hashable
 
 import pytest
 
@@ -48,7 +48,6 @@ def test_routing_handler():
             attribute='my_attr',
             handler_factory=handler_factory,
             default_handler=AppendingHandler(target=records),
-            formatter=logging.Formatter(),
         )
     )
 
@@ -72,7 +71,7 @@ def test_routing_handler_exception_in_factory():
     records = {}
 
     def handler_factory(attribute: Hashable) -> logging.Handler:
-        raise RuntimeError()
+        raise RuntimeError
 
     logger = logging.getLogger()
     logger.setLevel(0)
@@ -81,7 +80,6 @@ def test_routing_handler_exception_in_factory():
             attribute='my_attr',
             handler_factory=handler_factory,
             default_handler=AppendingHandler(target=records),
-            formatter=logging.Formatter(),
         )
     )
 
@@ -100,3 +98,31 @@ def test_routing_handler_exception_in_factory():
     ]
     assert 'context_a' not in records
     assert 'context_b' not in records
+
+
+def test_routing_handler_default_value():
+    records = {}
+    created: list[Hashable] = []
+
+    def handler_factory(attribute: Hashable) -> logging.Handler:
+        created.append(attribute)
+        assert isinstance(attribute, str)
+        return AppendingHandler(target=records, name=attribute)
+
+    logger = logging.getLogger()
+    logger.setLevel(0)
+    logger.addHandler(
+        RoutingHandler(
+            attribute='my_attr',
+            handler_factory=handler_factory,
+            default_handler=AppendingHandler(target=records),
+            default_value='context_a',
+        )
+    )
+
+    logger.info('Test 1', extra={'my_attr': 'context_a'})
+    logger.info('Test 2', extra={'my_attr': 'context_b'})
+
+    assert records['default'] == ['Test 1']
+    assert records['context_b'] == ['Test 2']
+    assert created == ['context_b']

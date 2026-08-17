@@ -13,8 +13,20 @@ from mcp.server.fastmcp import FastMCP
 from pydantic import ValidationError
 
 from eventum.app.models.settings import Settings, write_settings
+from eventum.logging.channels import CHANNEL_MAIN, InstanceChannel
+from eventum.logging.file_paths import construct_channel_logfile_path
 from eventum.mcp.context import LiveContext
-from eventum.mcp.errors import ToolFailure, read_only_failure, scrub_message
+from eventum.mcp.errors import (
+    ToolFailure,
+    read_only_failure,
+    scrub_log_line,
+    scrub_message,
+)
+from eventum.mcp.log_tail import (
+    DEFAULT_LOG_LINES,
+    MAX_LOG_LINES,
+    tail_lines,
+)
 from eventum.mcp.observability import observe_failure
 from eventum.utils.validation_prettier import prettify_validation_errors
 
@@ -103,8 +115,88 @@ async def restart_instance(
     return {'restarting': True}
 
 
+async def get_instance_logs(
+    context: LiveContext,
+    channel: InstanceChannel = CHANNEL_MAIN,
+    lines: int = DEFAULT_LOG_LINES,
+) -> dict[str, Any] | ToolFailure:
+    """Return the scrubbed tail of one instance log channel.
+
+    Reads the log file of the channel, keeps the last ``lines``
+    entries, and scrubs each: absolute paths are relativized and the
+    configured server password is redacted, since a channel carries the
+    settings of the instance.
+    """
+    count = max(1, min(lines, MAX_LOG_LINES))
+
+    def _read() -> dict[str, Any] | ToolFailure:
+        path = construct_channel_logfile_path(
+            format=context.log_format,
+            logs_dir=context.logs_dir,
+            channel=channel,
+        )
+        if not path.is_file():
+            return {'channel': channel, 'lines': []}
+
+        try:
+            raw = tail_lines(path, count)
+        except OSError, ValueError:
+            return ToolFailure(
+                error='Failed to read logs',
+                details={'channel': channel},
+            )
+
+        scrubbed = [
+            scrub_log_line(
+                line,
+                context.generators_dir,
+                context.logs_dir,
+                [context.settings.server.auth.password],
+            )
+            for line in raw
+        ]
+
+        return {'channel': channel, 'lines': scrubbed}
+
+    return await asyncio.to_thread(_read)
+
+
 def register(mcp: FastMCP, context: LiveContext, *, transport: str) -> None:
     """Register instance-control tools on the server."""
+
+    @mcp.tool(name='get_instance_logs')
+    async def _get_instance_logs_tool(
+        channel: InstanceChannel = CHANNEL_MAIN,
+        lines: int = DEFAULT_LOG_LINES,
+    ) -> dict[str, Any] | ToolFailure:
+        """Return the scrubbed tail of one instance log channel.
+
+        Use it to diagnose the instance itself rather than a single
+        generator: `main` carries its startup and shutdown, `server`
+        the API and the HTTP server, `server_access` the requests they
+        served, `mcp` this server. Absolute paths are stripped and the
+        server password redacted before the lines are returned.
+
+        Parameters
+        ----------
+        channel : InstanceChannel, default 'main'
+            Channel to read.
+
+        lines : int, default 200
+            Number of trailing log lines to return (capped at 1000).
+
+        Returns
+        -------
+        dict[str, Any] | ToolFailure
+            ``{'channel', 'lines'}`` with the scrubbed tail, the lines
+            empty when the channel has logged nothing. Does not raise.
+
+        """
+        return observe_failure(
+            await get_instance_logs(context, channel, lines),
+            mcp_tool='get_instance_logs',
+            mcp_transport=transport,
+        )
 
     @mcp.tool(name='update_settings')
     async def _update_settings_tool(

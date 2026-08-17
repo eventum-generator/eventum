@@ -106,6 +106,11 @@
         <td>HTTP response code</td>
         <td>int</td>
     </tr>
+    <tr>
+        <td>client_host</td>
+        <td>Network address of the client a request came from</td>
+        <td>str</td>
+    </tr>
 </table>
 
 ## File system
@@ -176,6 +181,11 @@
     <th>Name</th>
     <th>Description</th>
     <th>Data type</th>
+    <tr>
+        <td>component</td>
+        <td>Part of the application a record originates from: `main`, `server` or `mcp`</td>
+        <td>str</td>
+    </tr>
     <tr>
         <td>generator_id</td>
         <td>ID of the generator</td>

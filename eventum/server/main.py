@@ -11,6 +11,7 @@ from eventum.app.hooks import InstanceHooks
 from eventum.app.manager import GeneratorManager
 from eventum.app.models.settings import Settings
 from eventum.app.startup import Startup
+from eventum.logging.asgi import LogContextMiddleware
 
 logger = structlog.stdlib.get_logger()
 
@@ -73,6 +74,10 @@ def build_server_app(
 
     app = FastAPI(title='Eventum Server', lifespan=lifespan)
     app.state.lifespan_cms = lifespan_cms
+
+    # Attributes logs of everything served here to the server, down to
+    # the libraries the request handling calls into
+    app.add_middleware(LogContextMiddleware, context={'component': 'server'})
 
     if enabled_services.get('api', False):
         logger.info('Starting REST API service')

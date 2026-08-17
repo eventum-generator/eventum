@@ -16,6 +16,7 @@ from eventum.app.hooks import InstanceHooks
 from eventum.app.manager import GeneratorManager
 from eventum.app.models.settings import Settings
 from eventum.app.startup import Startup
+from eventum.logging.asgi import LogContextMiddleware
 from eventum.mcp.context import ServerLiveContext
 from eventum.mcp.server import build_server
 from eventum.server.exceptions import ServiceBuildingError
@@ -84,10 +85,13 @@ def inject_service(
         )
         mcp_app = mcp.streamable_http_app()
 
-        gated = BasicAuthMiddleware(
-            mcp_app,
-            user=settings.server.auth.user,
-            password=settings.server.auth.password,
+        wrapped = LogContextMiddleware(
+            BasicAuthMiddleware(
+                mcp_app,
+                user=settings.server.auth.user,
+                password=settings.server.auth.password,
+            ),
+            context={'component': 'mcp'},
         )
 
         # session_manager is available only after streamable_http_app().
@@ -96,7 +100,7 @@ def inject_service(
         app.state.lifespan_cms.append(mcp.session_manager.run)
 
         mcp_path = settings.server.mcp.path
-        app.mount(mcp_path, gated, name='MCP')
+        app.mount(mcp_path, wrapped, name='MCP')
 
         # A Mount never matches its own slashless path, and the
         # router-level slash redirect is unreachable once the UI SPA
