@@ -93,6 +93,19 @@ class QueueStats(BaseModel, frozen=True, extra='forbid'):
         ge=1,
         description='Maximum number of batches the queue holds',
     )
+    size_bytes: int = Field(
+        ge=0,
+        description=(
+            'Number of bytes the batches waiting in the queue occupy'
+        ),
+    )
+    max_bytes: int | None = Field(
+        ge=1,
+        description=(
+            'Maximum number of bytes the queue holds, null if their '
+            'size is not limited'
+        ),
+    )
 
 
 class QueuesStats(BaseModel, frozen=True, extra='forbid'):

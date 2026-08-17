@@ -14,13 +14,21 @@ import { Section } from '../primitives';
 import { ResourcesStats } from '@/api/routes/generators/schemas';
 import { CPU_THRESHOLDS, levelColor } from '@/utils/levelColor';
 
-/** A queue fill level as a labelled bar. */
-const QueueFill: FC<{ label: string; size: number; maxsize: number }> = ({
-  label,
-  size,
-  maxsize,
-}) => {
-  const percent = (size / maxsize) * 100;
+/**
+ * A queue fill level as a labelled bar. A queue is held back by whichever
+ * of its two limits it reaches first, so the bar follows the fuller of the
+ * batches it holds and the memory they occupy.
+ */
+const QueueFill: FC<{
+  label: string;
+  size: number;
+  maxsize: number;
+  sizeBytes: number;
+  maxBytes: number | null;
+}> = ({ label, size, maxsize, sizeBytes, maxBytes }) => {
+  const batchPercent = (size / maxsize) * 100;
+  const bytePercent = maxBytes ? (sizeBytes / maxBytes) * 100 : 0;
+  const percent = Math.max(batchPercent, bytePercent);
 
   return (
     <Stack gap={4}>
@@ -38,6 +46,10 @@ const QueueFill: FC<{ label: string; size: number; maxsize: number }> = ({
         size="sm"
         aria-label={`${label} queue fill`}
       />
+      <Text size="xs" c="dimmed" ff="monospace">
+        {formatBytes(sizeBytes)}
+        {maxBytes !== null && ` / ${formatBytes(maxBytes)}`}
+      </Text>
     </Stack>
   );
 };
@@ -126,11 +138,15 @@ export const ResourcesPanel: FC<ResourcesPanelProps> = ({
           label="Timestamps"
           size={resources.queues.timestamps.size}
           maxsize={resources.queues.timestamps.maxsize}
+          sizeBytes={resources.queues.timestamps.size_bytes}
+          maxBytes={resources.queues.timestamps.max_bytes}
         />
         <QueueFill
           label="Events"
           size={resources.queues.events.size}
           maxsize={resources.queues.events.maxsize}
+          sizeBytes={resources.queues.events.size_bytes}
+          maxBytes={resources.queues.events.max_bytes}
         />
       </SimpleGrid>
     </Stack>

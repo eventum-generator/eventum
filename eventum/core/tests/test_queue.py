@@ -2,10 +2,11 @@
 
 import queue as queue_mod
 import threading
+from sys import getsizeof
 
 import pytest
 
-from eventum.core.queue import PipelineQueue
+from eventum.core.queue import PipelineQueue, estimate_events_bytes
 
 # - Basic operations --------------------------------------------------
 
@@ -190,6 +191,151 @@ def test_concurrent_put_and_get():
     assert not prod.is_alive()
     assert not cons.is_alive()
     assert sorted(results) == list(range(count))
+
+
+# - Size estimation ---------------------------------------------------
+
+
+def test_estimate_events_bytes_of_uniform_batch():
+    """Estimate of events of one size is their exact size."""
+    events = ['x' * 100] * 1000
+
+    estimated = estimate_events_bytes(events)
+    exact = sum(getsizeof(event) for event in events) + getsizeof(events)
+
+    assert estimated == exact
+
+
+def test_estimate_events_bytes_of_varying_batch():
+    """Estimate of events cycling in size does not drift off it.
+
+    The tolerance covers the spread of a ten-event sample, not the
+    accuracy of the estimate - checking a budget does not need more.
+    """
+    events = ['x' * (100 + i % 50) for i in range(10_000)]
+
+    estimated = estimate_events_bytes(events)
+    exact = sum(getsizeof(event) for event in events) + getsizeof(events)
+
+    assert estimated == pytest.approx(exact, rel=0.15)
+
+
+def test_estimate_events_bytes_of_empty_batch():
+    """An empty batch is the size of the list holding nothing."""
+    assert estimate_events_bytes([]) == getsizeof([])
+
+
+# - Byte limit --------------------------------------------------------
+
+
+def _sizer(item: str) -> int:
+    return len(item)
+
+
+def test_byte_limit_requires_sizer():
+    """A byte limit without a way to measure items is refused."""
+    with pytest.raises(ValueError, match='measurable'):
+        PipelineQueue(maxsize=10, max_bytes=100)
+
+
+def test_size_bytes_follows_waiting_items():
+    """Queue reports the bytes of the items waiting in it."""
+    q: PipelineQueue[str] = PipelineQueue(maxsize=10, sizer=_sizer)
+    assert q.size_bytes == 0
+    assert q.max_bytes is None
+
+    q.put('a' * 30)
+    q.put('b' * 12)
+    assert q.size_bytes == 42
+
+    q.get()
+    assert q.size_bytes == 12
+
+
+def test_is_full_at_byte_limit():
+    """Queue holding as many bytes as it may reports full."""
+    q: PipelineQueue[str] = PipelineQueue(
+        maxsize=10,
+        sizer=_sizer,
+        max_bytes=10,
+    )
+    q.put('a' * 10)
+
+    assert q.size == 1
+    assert q.is_full is True
+
+
+def test_blocking_put_at_byte_limit():
+    """put() blocks on the byte limit, unblocks when consumer drains."""
+    q: PipelineQueue[str] = PipelineQueue(
+        maxsize=10,
+        sizer=_sizer,
+        max_bytes=10,
+    )
+    q.put('a' * 8)
+
+    put_completed = threading.Event()
+
+    def slow_put():
+        q.put('b' * 8)
+        put_completed.set()
+
+    t = threading.Thread(target=slow_put)
+    t.start()
+
+    # Room for the item is not there, although the queue holds one of ten
+    assert not put_completed.wait(timeout=0.3)
+    assert q.size == 1
+
+    q.get()
+    assert put_completed.wait(timeout=2)
+    assert q.get() == 'b' * 8
+    t.join(timeout=2)
+    assert not t.is_alive()
+
+
+def test_item_larger_than_byte_limit_passes_alone():
+    """An item over the whole limit is admitted into an empty queue."""
+    q: PipelineQueue[str] = PipelineQueue(
+        maxsize=10,
+        sizer=_sizer,
+        max_bytes=10,
+    )
+
+    q.put('a' * 100)
+
+    assert q.size == 1
+    assert q.size_bytes == 100
+    assert q.get() == 'a' * 100
+
+
+def test_shutdown_releases_producer_held_by_byte_limit():
+    """Shutdown wakes a producer waiting for room in the queue."""
+    q: PipelineQueue[str] = PipelineQueue(
+        maxsize=10,
+        sizer=_sizer,
+        max_bytes=10,
+    )
+    q.put('a' * 10)
+
+    interrupted = threading.Event()
+
+    def blocked_put():
+        try:
+            q.put('b' * 10)
+        except queue_mod.ShutDown:
+            interrupted.set()
+
+    t = threading.Thread(target=blocked_put)
+    t.start()
+
+    assert not interrupted.wait(timeout=0.3)
+
+    q.shutdown()
+
+    assert interrupted.wait(timeout=2)
+    t.join(timeout=2)
+    assert not t.is_alive()
 
 
 def test_blocking_put_at_maxsize():

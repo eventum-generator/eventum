@@ -15,6 +15,7 @@ import { UseFormReturnType } from '@mantine/form';
 import { FC, useState } from 'react';
 
 import { QueueSizeApproximation } from './QueueSizeApproximation';
+import { DEFAULT_MAX_EVENT_BYTES } from './defaults';
 import { GenerationParameters } from '@/api/routes/instance/schemas';
 import { TIMEZONES } from '@/api/schemas/timezones';
 import { AlertIcon } from '@/components/ui/AlertIcon';
@@ -40,6 +41,11 @@ export const GenerationParametersSection: FC<
 
   const [batchSize, setBatchSize] = useState(formValues?.batch?.size);
   const [queueParams, setQueueParams] = useState(formValues.queue);
+  // A configuration arrives without its unset fields, and an unset limit
+  // is the default one - only an explicit null lifts it.
+  const [memoryLimited, setMemoryLimited] = useState(
+    formValues.queue?.max_event_bytes !== null
+  );
 
   form.watch('batch.size', ({ value }) => {
     setBatchSize(value);
@@ -250,6 +256,39 @@ export const GenerationParametersSection: FC<
               key={form.key('queue.max_event_batches')}
             />
           </Group>
+          <Switch
+            label={
+              <LabelWithTooltip
+                label="Limit memory of events queue"
+                tooltip="Whether the batches waiting in events queue are limited in memory on top of their number. Off leaves their size unlimited, which is what the queue did before the limit existed"
+              />
+            }
+            checked={memoryLimited}
+            onChange={(event) => {
+              const limited = event.currentTarget.checked;
+              setMemoryLimited(limited);
+              form.setFieldValue(
+                'queue.max_event_bytes',
+                limited ? DEFAULT_MAX_EVENT_BYTES : null
+              );
+            }}
+          />
+          <NumberInput
+            label={
+              <LabelWithTooltip
+                label="Maximum event bytes"
+                tooltip="Maximum number of bytes the batches waiting in events queue occupy together, default value is 268435456 (256 MiB). Applies alongside the limit on their number, whichever is reached first, and keeps the memory of a generator bounded no matter how large its events are"
+              />
+            }
+            placeholder="bytes"
+            min={1}
+            step={1024 * 1024}
+            thousandSeparator=" "
+            allowDecimal={false}
+            disabled={!memoryLimited}
+            {...form.getInputProps('queue.max_event_bytes')}
+            key={form.key('queue.max_event_bytes')}
+          />
           <QueueSizeApproximation
             batchSize={batchSize}
             queueParams={queueParams}

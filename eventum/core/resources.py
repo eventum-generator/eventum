@@ -54,10 +54,19 @@ class QueueUsage:
     maxsize : int
         Maximum number of batches the queue holds.
 
+    size_bytes : int
+        Number of bytes the batches waiting in the queue occupy.
+
+    max_bytes : int | None
+        Maximum number of bytes the queue holds, `None` if their size is
+        not limited.
+
     """
 
     size: int
     maxsize: int
+    size_bytes: int
+    max_bytes: int | None
 
 
 @dataclass(frozen=True)

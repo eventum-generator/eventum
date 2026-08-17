@@ -13,6 +13,15 @@ logger = structlog.stdlib.get_logger()
 
 _STOPPING_POOL_PREFIX = 'generators-stopping:'
 
+_STARTING_CONCURRENCY = 4
+"""Number of generators started at a time.
+
+Starting a generator loads its configuration and compiles its
+templates, so an unbounded number of them at once spikes the memory and
+the processor time of the whole application. Starting many takes longer
+as a result, which is preferable to the spike.
+"""
+
 
 class ManagingError(Exception):
     """Error in managing generators."""
@@ -206,6 +215,7 @@ class GeneratorManager:
                     non_running_generators.append(id)
 
         with ThreadPoolExecutor(
+            max_workers=_STARTING_CONCURRENCY,
             thread_name_prefix='generators-starting:',
         ) as executor:
             for id, generator in work:

@@ -14,8 +14,13 @@ const RESOURCES: ResourcesStats = {
   network_sent_bytes: 3 * 1024,
   network_received_bytes: 0,
   queues: {
-    timestamps: { size: 3, maxsize: 10 },
-    events: { size: 10, maxsize: 10 },
+    timestamps: { size: 3, maxsize: 10, size_bytes: 1024, max_bytes: null },
+    events: {
+      size: 4,
+      maxsize: 10,
+      size_bytes: 96 * 1024 * 1024,
+      max_bytes: 128 * 1024 * 1024,
+    },
   },
 };
 
@@ -48,12 +53,23 @@ describe('ResourcesPanel', () => {
     );
 
     expect(screen.getByText('3 / 10')).toBeInTheDocument();
-    expect(screen.getByText('10 / 10')).toBeInTheDocument();
+    expect(screen.getByText('4 / 10')).toBeInTheDocument();
 
     const timestamps = screen.getByLabelText('Timestamps queue fill');
     const events = screen.getByLabelText('Events queue fill');
 
     expect(timestamps).toHaveAttribute('aria-valuenow', '30');
-    expect(events).toHaveAttribute('aria-valuenow', '100');
+    // Holds 4 batches of 10 but 96 MiB of the 128 MiB it may - the bar
+    // follows the limit the queue is closer to.
+    expect(events).toHaveAttribute('aria-valuenow', '75');
+  });
+
+  it('reports the memory each pipeline queue holds', () => {
+    renderWithProviders(
+      <ResourcesPanel resources={RESOURCES} cpuPercent={0} />
+    );
+
+    expect(screen.getByText('1KB')).toBeInTheDocument();
+    expect(screen.getByText('96MB / 128MB')).toBeInTheDocument();
   });
 });

@@ -372,10 +372,14 @@ def _build_stats(
                 timestamps=QueueStats(
                     size=resources.queues.timestamps.size,
                     maxsize=resources.queues.timestamps.maxsize,
+                    size_bytes=resources.queues.timestamps.size_bytes,
+                    max_bytes=resources.queues.timestamps.max_bytes,
                 ),
                 events=QueueStats(
                     size=resources.queues.events.size,
                     maxsize=resources.queues.events.maxsize,
+                    size_bytes=resources.queues.events.size_bytes,
+                    max_bytes=resources.queues.events.max_bytes,
                 ),
             ),
         ),

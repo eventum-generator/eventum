@@ -114,6 +114,10 @@ const QueueParametersSchema = z.object({
     emptyToUndefined,
     z.number().int().gte(1).optional()
   ),
+  max_event_bytes: z.preprocess(
+    emptyToUndefined,
+    z.number().int().gte(1).nullable().optional()
+  ),
 });
 export type QueueParameters = z.infer<typeof QueueParametersSchema>;
 

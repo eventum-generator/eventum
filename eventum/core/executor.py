@@ -8,7 +8,7 @@ from threading import Event, Thread
 import structlog
 
 from eventum.core.parameters import GeneratorParameters
-from eventum.core.queue import PipelineQueue
+from eventum.core.queue import PipelineQueue, estimate_events_bytes
 from eventum.core.resources import QueuesUsage, QueueUsage
 from eventum.core.stages import EventStage, InputStage, OutputStage
 from eventum.exceptions import ContextualError
@@ -82,10 +82,15 @@ class Executor:
 
         logger.debug('Initializing queues')
         self._timestamps_queue: PipelineQueue[IdentifiedTimestamps] = (
-            PipelineQueue(maxsize=params.queue.max_timestamp_batches)
+            PipelineQueue(
+                maxsize=params.queue.max_timestamp_batches,
+                sizer=lambda timestamps: timestamps.nbytes,
+            )
         )
         self._events_queue: PipelineQueue[list[str]] = PipelineQueue(
             maxsize=params.queue.max_event_batches,
+            sizer=estimate_events_bytes,
+            max_bytes=params.queue.max_event_bytes,
         )
 
         logger.debug('Configuring stages')
@@ -194,10 +199,14 @@ class Executor:
             timestamps=QueueUsage(
                 size=self._timestamps_queue.size,
                 maxsize=self._timestamps_queue.maxsize,
+                size_bytes=self._timestamps_queue.size_bytes,
+                max_bytes=self._timestamps_queue.max_bytes,
             ),
             events=QueueUsage(
                 size=self._events_queue.size,
                 maxsize=self._events_queue.maxsize,
+                size_bytes=self._events_queue.size_bytes,
+                max_bytes=self._events_queue.max_bytes,
             ),
         )
 

@@ -48,6 +48,8 @@ export type OutputPluginStats = z.infer<typeof OutputPluginStatsSchema>;
 export const QueueStatsSchema = z.object({
   size: z.int().min(0),
   maxsize: z.int().min(1),
+  size_bytes: z.int().min(0),
+  max_bytes: z.int().min(1).nullable(),
 });
 export type QueueStats = z.infer<typeof QueueStatsSchema>;
 

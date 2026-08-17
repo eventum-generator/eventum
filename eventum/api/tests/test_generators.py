@@ -361,8 +361,18 @@ class _StubGenerator:
             network_sent_bytes=2048,
             network_received_bytes=512,
             queues=QueuesUsage(
-                timestamps=QueueUsage(size=1, maxsize=10),
-                events=QueueUsage(size=2, maxsize=10),
+                timestamps=QueueUsage(
+                    size=1,
+                    maxsize=10,
+                    size_bytes=160,
+                    max_bytes=None,
+                ),
+                events=QueueUsage(
+                    size=2,
+                    maxsize=10,
+                    size_bytes=4096,
+                    max_bytes=65536,
+                ),
             ),
         )
 
@@ -391,8 +401,18 @@ def test_get_generator_stats_running(client, manager):
     assert resources['disk_written_bytes'] == 4096
     assert resources['network_sent_bytes'] == 2048
     assert resources['network_received_bytes'] == 512
-    assert resources['queues']['timestamps'] == {'size': 1, 'maxsize': 10}
-    assert resources['queues']['events'] == {'size': 2, 'maxsize': 10}
+    assert resources['queues']['timestamps'] == {
+        'size': 1,
+        'maxsize': 10,
+        'size_bytes': 160,
+        'max_bytes': None,
+    }
+    assert resources['queues']['events'] == {
+        'size': 2,
+        'maxsize': 10,
+        'size_bytes': 4096,
+        'max_bytes': 65536,
+    }
 
 
 def test_get_generator_stats_stopped_while_reading(client, manager):

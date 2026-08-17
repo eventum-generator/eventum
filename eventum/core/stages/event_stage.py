@@ -161,7 +161,8 @@ class EventStage:
                                 'Output stage is not keeping up with the '
                                 'generation rate, consider checking the '
                                 'output target performance or decreasing '
-                                'the rate'
+                                'the rate; the queue also holds no more '
+                                'than the bytes it is allowed to'
                             ),
                         )
 
