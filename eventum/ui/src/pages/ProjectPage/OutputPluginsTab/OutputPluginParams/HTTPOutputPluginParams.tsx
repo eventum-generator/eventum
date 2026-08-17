@@ -202,6 +202,30 @@ export const HTTPOutputPluginParams: FC<HTTPOutputPluginParamsProps> = ({
             )
           }
         />
+        <NumberInput
+          label={
+            <LabelWithTooltip
+              label="Concurrency"
+              tooltip="Maximum number of requests performed concurrently, it
+              also sets the size of the connection pool. Formatters that
+              produce a string per event send one request per event, so this
+              value bounds how much of a batch is in flight at a time. Default
+              value is 100"
+            />
+          }
+          placeholder="requests"
+          min={1}
+          step={1}
+          allowDecimal={false}
+          {...form.getInputProps('concurrency')}
+          value={form.getValues().concurrency ?? ''}
+          onChange={(value) =>
+            form.setFieldValue(
+              'concurrency',
+              typeof value === 'number' ? value : undefined
+            )
+          }
+        />
       </Group>
 
       <Paper withBorder p="sm">

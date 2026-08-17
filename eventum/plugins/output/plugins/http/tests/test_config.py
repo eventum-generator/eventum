@@ -2,9 +2,26 @@
 
 from pathlib import Path
 
+import pytest
+from pydantic import ValidationError
+
 from eventum.plugins.output.plugins.http.config import (
     HttpOutputPluginConfig,
 )
+
+_DEFAULT_CONCURRENCY = 100
+
+
+def test_concurrency_defaults_to_connection_pool_size() -> None:
+    """Concurrency falls back to the default size of the pool."""
+    config = HttpOutputPluginConfig(url='https://localhost:8080')
+    assert config.concurrency == _DEFAULT_CONCURRENCY
+
+
+def test_concurrency_rejects_non_positive_value() -> None:
+    """Concurrency below one is rejected."""
+    with pytest.raises(ValidationError):
+        HttpOutputPluginConfig(url='https://localhost:8080', concurrency=0)
 
 
 def test_verify_is_enabled_by_default() -> None:
