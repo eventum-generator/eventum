@@ -14,16 +14,26 @@ import { InstanceInfo } from '@/api/routes/instance/schemas';
 
 const STEP_MS = 5000;
 
-// Fixed display window: ~2.5 minutes at a 5s poll cadence. Buffer length and
-// chart window match, so charts behave like the Task Manager graphs - points
-// enter from the right and crawl left, never stretching to fill the width.
+// Default display window: ~2.5 minutes at a 5s poll cadence. Charts behave
+// like the Task Manager graphs - points enter from the right and crawl left,
+// never stretching to fill the width.
 export const MAX_POINTS = 30;
 
-// Counter buffers keep one extra raw sample: derived-rate series consume
-// consecutive pairs and thus yield one fewer point, so the extra sample lets
-// them still fill the whole MAX_POINTS window instead of leaving an empty
-// leading slot.
-const RAW_POINTS = MAX_POINTS + 1;
+/** Selectable chart windows, in points at the 5s poll cadence. */
+export const WINDOW_OPTIONS = [
+  { value: '30', label: '2.5 min' },
+  { value: '120', label: '10 min' },
+  { value: '360', label: '30 min' },
+];
+
+const LONGEST_WINDOW = 360;
+
+// Buffers hold the longest selectable window plus one extra raw sample:
+// derived-rate series consume consecutive pairs and thus yield one fewer
+// point, so the extra sample lets them still fill the whole window instead of
+// leaving an empty leading slot. Switching to a longer window shows what has
+// been collected so far and fills in from there.
+const RAW_POINTS = LONGEST_WINDOW + 1;
 
 export interface ResourcePoint {
   t: number;
@@ -50,7 +60,9 @@ export interface FlowPoint {
 /** Instantaneous values derived from the two most recent samples. */
 export interface CurrentMetrics {
   inputEps: number;
+  producedEps: number;
   outputEps: number;
+  failEps: number;
   failing: boolean;
   diskReadBps: number;
   diskWriteBps: number;
@@ -80,6 +92,10 @@ export interface InstanceUsage {
   diskWrite: number;
   netSent: number;
   threads: number;
+  written: number;
+  failed: number;
+  queueSize: number;
+  queueMaxsize: number;
   queueBytes: number;
   queueMaxBytes: number | null;
 }
@@ -129,7 +145,9 @@ export function useMetricsHistory({
   const [usage, setUsage] = useState<UsagePoint[]>([]);
   const [flowCurrent, setFlowCurrent] = useState({
     inputEps: 0,
+    producedEps: 0,
     outputEps: 0,
+    failEps: 0,
     failing: false,
   });
   const [resCurrent, setResCurrent] = useState({
@@ -181,10 +199,17 @@ export function useMetricsHistory({
     const prev = prevFlow.current;
     const dt = prev ? (point.t - prev.t) / 1000 : 0;
 
+    const failed = agg.produceFailed + agg.writeFailed + agg.formatFailed;
+    const failedBefore = prev
+      ? prev.produceFailed + prev.writeFailed + prev.formatFailed
+      : 0;
+
     setFlowCurrent({
       inputEps: prev ? rate(point.generated, prev.generated, dt) : 0,
+      producedEps: prev ? rate(point.produced, prev.produced, dt) : 0,
       outputEps: prev ? rate(point.written, prev.written, dt) : 0,
-      failing: agg.produceFailed + agg.writeFailed + agg.formatFailed > 0,
+      failEps: prev ? rate(failed, failedBefore, dt) : 0,
+      failing: failed > 0,
     });
     prevFlow.current = point;
     setFlow((buffer) => cap(buffer, point, RAW_POINTS));
@@ -201,12 +226,19 @@ export function useMetricsHistory({
 
     const usagePoint: Record<string, InstanceUsage> = {};
     for (const s of stats) {
+      let failed = s.event.produce_failed;
+      for (const o of s.output) failed += o.write_failed + o.format_failed;
+
       usagePoint[s.id] = {
         cpuSeconds: s.resources.cpu_seconds,
         runDelaySeconds: s.resources.run_delay_seconds,
         diskWrite: s.resources.disk_written_bytes,
         netSent: s.resources.network_sent_bytes,
         threads: s.resources.thread_count,
+        written: s.total_written,
+        failed,
+        queueSize: s.resources.queues.events.size,
+        queueMaxsize: s.resources.queues.events.maxsize,
         queueBytes: s.resources.queues.events.size_bytes,
         queueMaxBytes: s.resources.queues.events.max_bytes,
       };
@@ -367,8 +399,24 @@ export interface InstanceUsageRow {
   diskWriteBps: number;
   netSentBps: number;
   threads: number;
+  outputEps: number;
+  failEps: number;
+  queueSize: number;
+  queueMaxsize: number;
   queueBytes: number;
   queueMaxBytes: number | null;
+  /** Fill level of the events queue, the fuller of its two limits. */
+  queuePercent: number;
+}
+
+/** Fill level of a queue: the fuller of the batches and the bytes it holds. */
+function queueFill(usage: InstanceUsage): number {
+  const batches =
+    usage.queueMaxsize > 0 ? (usage.queueSize / usage.queueMaxsize) * 100 : 0;
+  const bytes = usage.queueMaxBytes
+    ? (usage.queueBytes / usage.queueMaxBytes) * 100
+    : 0;
+  return Math.max(batches, bytes);
 }
 
 /**
@@ -398,14 +446,51 @@ export function instanceUsageRows(usage: UsagePoint[]): InstanceUsageRow[] {
       diskWriteBps: before ? rate(now.diskWrite, before.diskWrite, dt) : 0,
       netSentBps: before ? rate(now.netSent, before.netSent, dt) : 0,
       threads: now.threads,
+      outputEps: before ? rate(now.written, before.written, dt) : 0,
+      failEps: before ? rate(now.failed, before.failed, dt) : 0,
+      queueSize: now.queueSize,
+      queueMaxsize: now.queueMaxsize,
       queueBytes: now.queueBytes,
       queueMaxBytes: now.queueMaxBytes,
+      queuePercent: queueFill(now),
     });
   }
 
   return rows.sort(
     (a, b) => b.cpuPercent - a.cpuPercent || a.id.localeCompare(b.id)
   );
+}
+
+export interface StageDatum {
+  t: number;
+  time: string;
+  input: number | null;
+  event: number | null;
+  output: number | null;
+}
+
+/**
+ * The rate at which each pipeline stage moved events, so a stage that lets
+ * fewer through than the one before it - the point where the pipeline narrows
+ * - is visible next to the same load split by instance.
+ */
+export function stageData(flow: FlowPoint[]): StageDatum[] {
+  const rows: StageDatum[] = [];
+  for (let i = 1; i < flow.length; i++) {
+    const curr = flow[i];
+    const prev = flow[i - 1];
+    if (!curr || !prev) continue;
+
+    const dt = (curr.t - prev.t) / 1000;
+    rows.push({
+      t: curr.t,
+      time: clock(curr.t),
+      input: rate(curr.generated, prev.generated, dt),
+      event: rate(curr.produced, prev.produced, dt),
+      output: rate(curr.written, prev.written, dt),
+    });
+  }
+  return rows;
 }
 
 export interface InstanceRateRow {
@@ -437,4 +522,45 @@ export function instanceLoadData(load: LoadPoint[]): InstanceRateRow[] {
     rows.push({ t: curr.t, time: clock(curr.t), rates });
   }
   return rows;
+}
+
+/** Band holding everything past the top of the ranking. */
+export const OTHER_BAND = 'Other instances';
+
+/**
+ * Per-instance bands for the load chart, ranked by what each instance
+ * currently writes and cut to `keep` bands: the rest are summed into one
+ * band, so a fleet of fifty stays a readable chart instead of fifty stripes
+ * a pixel wide.
+ */
+export function instanceBands(
+  load: LoadPoint[],
+  keep: number
+): { ids: string[]; rows: InstanceRateRow[] } {
+  const derived = instanceLoadData(load);
+
+  const totals = new Map<string, number>();
+  for (const row of derived)
+    for (const [id, eps] of Object.entries(row.rates))
+      totals.set(id, (totals.get(id) ?? 0) + eps);
+
+  const ranked = [...totals.entries()]
+    .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
+    .map(([id]) => id);
+
+  if (ranked.length <= keep) return { ids: ranked, rows: derived };
+
+  const kept = new Set(ranked.slice(0, keep));
+  const rows = derived.map((row) => {
+    const rates: Record<string, number> = {};
+    let other = 0;
+    for (const [id, eps] of Object.entries(row.rates)) {
+      if (kept.has(id)) rates[id] = eps;
+      else other += eps;
+    }
+    rates[OTHER_BAND] = other;
+    return { ...row, rates };
+  });
+
+  return { ids: [...ranked.slice(0, keep), OTHER_BAND], rows };
 }

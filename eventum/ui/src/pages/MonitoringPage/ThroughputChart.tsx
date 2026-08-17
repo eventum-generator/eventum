@@ -12,24 +12,29 @@ interface ThroughputChartProps {
   flow: FlowPoint[];
   inputEps: number;
   outputEps: number;
+  /** Length of the drawn window in points; the page-wide selector sets it. */
+  points?: number;
+  height?: number;
 }
 
 export const ThroughputChart: FC<ThroughputChartProps> = ({
   flow,
   inputEps,
   outputEps,
+  points = MAX_POINTS,
+  height = 160,
 }) => {
   const real = useMemo(() => throughputData(flow), [flow]);
   const data = useMemo(
-    () => fixedWindow(real, MAX_POINTS, { input: null, output: null }),
-    [real]
+    () => fixedWindow(real, points, { input: null, output: null }),
+    [real, points]
   );
   return (
     <Stack gap="xs">
       <SectionLabel>Throughput</SectionLabel>
       <Paper withBorder p="md">
         {real.length < 2 ? (
-          <Center h={160}>
+          <Center h={height}>
             <Text size="sm" c="dimmed">
               Collecting data...
             </Text>
@@ -49,7 +54,7 @@ export const ThroughputChart: FC<ThroughputChartProps> = ({
               />
             </Group>
             <AreaChart
-              h={160}
+              h={height}
               data={data}
               dataKey="time"
               withXAxis={false}

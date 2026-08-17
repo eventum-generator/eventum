@@ -13,3 +13,7 @@ export const MEMORY_THRESHOLDS = { warn: 70, bad: 90 };
 
 /** Descriptors run out abruptly, so their thresholds warn earlier. */
 export const FD_THRESHOLDS = { warn: 50, bad: 80 };
+
+/** A queue is meant to hold work, so its fill only reads as pressure close
+ *  to the limit where the stage feeding it starts waiting. */
+export const QUEUE_THRESHOLDS = { warn: 80, bad: 100 };

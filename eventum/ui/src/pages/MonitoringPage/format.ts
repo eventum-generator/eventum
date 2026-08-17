@@ -1,5 +1,15 @@
 import bytes from 'bytes';
 
+const compact = new Intl.NumberFormat('en', {
+  notation: 'compact',
+  maximumFractionDigits: 1,
+});
+
+/** Compact large-number label (e.g. 12.4K). */
+export function formatCompact(value: number): string {
+  return compact.format(value);
+}
+
 /** Compact events-per-second label. */
 export function formatEps(value: number): string {
   if (value >= 100) return Math.round(value).toLocaleString();

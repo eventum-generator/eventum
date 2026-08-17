@@ -77,12 +77,15 @@ interface ResourceTilesProps {
   info: InstanceInfo;
   resources: ResourcePoint[];
   current: CurrentMetrics;
+  /** Length of the drawn window in points; the page-wide selector sets it. */
+  points: number;
 }
 
 export const ResourceTiles: FC<ResourceTilesProps> = ({
   info,
   resources,
   current,
+  points,
 }) => {
   const memPct =
     info.memory_total_bytes > 0
@@ -132,6 +135,7 @@ export const ResourceTiles: FC<ResourceTilesProps> = ({
           }
           chart={
             <MiniChart
+              points={points}
               data={cpuData}
               series={[{ key: 'value', name: 'CPU', color: cpuColor }]}
               domain={[0, 100]}
@@ -154,6 +158,7 @@ export const ResourceTiles: FC<ResourceTilesProps> = ({
           }
           chart={
             <MiniChart
+              points={points}
               data={memData}
               series={[{ key: 'value', name: 'Memory', color: memColor }]}
               domain={[0, 100]}
@@ -189,6 +194,7 @@ export const ResourceTiles: FC<ResourceTilesProps> = ({
           }
           chart={
             <MiniChart
+              points={points}
               data={diskData}
               series={[
                 { key: 'in', name: 'Read', color: CYAN },
@@ -226,6 +232,7 @@ export const ResourceTiles: FC<ResourceTilesProps> = ({
           }
           chart={
             <MiniChart
+              points={points}
               data={netData}
               series={[
                 { key: 'in', name: 'In', color: CYAN },
