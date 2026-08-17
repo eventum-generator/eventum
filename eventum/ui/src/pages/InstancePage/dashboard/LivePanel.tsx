@@ -14,10 +14,11 @@ interface LivePanelProps {
 }
 
 /**
- * The state of a running instance in one panel: what it moves right now, and
- * underneath, what that costs - the processor it takes, the memory its queues
- * hold and the bytes it moves. Both halves answer "how is it doing", so they
- * belong together and above the two views that explain them.
+ * What a running instance occupies, under the throughput it occupies it for:
+ * the rates it moves events at and the totals of the run, then the processor
+ * it takes, the memory its queues hold and the bytes it moves. Both halves
+ * answer "what is this instance costing", so they belong together and above
+ * the two views that explain them.
  */
 export const LivePanel: FC<LivePanelProps> = ({
   stats,
@@ -25,7 +26,7 @@ export const LivePanel: FC<LivePanelProps> = ({
   outputEps,
   cpuPercent,
 }) => (
-  <Section label="Now">
+  <Section label="Resources">
     <Stack gap="md">
       <InstanceState stats={stats} inputEps={inputEps} outputEps={outputEps} />
       <Divider />

@@ -32,9 +32,9 @@ interface OverviewTabProps {
 
 /**
  * The instance from its state down to the views that explain it: what it is
- * doing right now and what that costs across the full width, then its
- * throughput over the window next to what the instance is, then the
- * stage-by-stage graph across the full width again.
+ * doing right now and what that costs across the full width, then the two
+ * views of its run - throughput over the window and the stage-by-stage graph -
+ * beside what the instance is.
  */
 export const OverviewTab: FC<OverviewTabProps> = ({
   instanceId,
@@ -63,19 +63,26 @@ export const OverviewTab: FC<OverviewTabProps> = ({
     <Grid gutter="lg">
       <Grid.Col span={{ base: 12, md: 8 }}>
         {!status.is_running ? (
-          <Section label="Now">
+          <Section label="Resources">
             <Text size="sm" c="dimmed">
               Instance is not running. Start it to see what it produces and what
               it occupies.
             </Text>
           </Section>
         ) : stats ? (
-          <ThroughputChart
-            flow={flow}
-            inputEps={inputEps}
-            outputEps={outputEps}
-            height={200}
-          />
+          <Stack gap="lg">
+            <ThroughputChart
+              flow={flow}
+              inputEps={inputEps}
+              outputEps={outputEps}
+              height={200}
+            />
+            <Section label="Pipeline">
+              <ReactFlowProvider>
+                <PipelineFlow stats={stats} />
+              </ReactFlowProvider>
+            </Section>
+          </Stack>
         ) : (
           <Skeleton h={260} radius="lg" />
         )}
@@ -102,13 +109,5 @@ export const OverviewTab: FC<OverviewTabProps> = ({
         </Section>
       </Grid.Col>
     </Grid>
-
-    {status.is_running && stats && (
-      <Section label="Pipeline">
-        <ReactFlowProvider>
-          <PipelineFlow stats={stats} />
-        </ReactFlowProvider>
-      </Section>
-    )}
   </Stack>
 );
