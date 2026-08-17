@@ -111,8 +111,10 @@ generation.queue.max_event_batches: 10
 
 # Maximum number of bytes the batches waiting in events queue occupy
 # together. Applies alongside the limit on their number, whichever is
-# reached first, and keeps the memory of a generator bounded no matter
-# how large its events are. Set to null to leave their size unlimited
+# reached first, and keeps what the queue accumulates bounded no matter
+# how large the events are. What a generator occupies while producing
+# and writing a batch follows the batch size instead. Set to null to
+# leave the size of the queue unlimited
 # Optional, default is 268435456 (256 MiB)
 generation.queue.max_event_bytes: 268435456
 
