@@ -5,7 +5,7 @@ import { FC, useMemo } from 'react';
 import { Metric } from './Metric';
 import { SectionLabel } from './SectionLabel';
 import { ACCENT, CYAN } from './colors';
-import { formatEps } from './format';
+import { formatAxis, formatEps } from './format';
 import { FlowPoint, MAX_POINTS, fixedWindow, throughputData } from './history';
 
 interface ThroughputChartProps {
@@ -67,7 +67,7 @@ export const ThroughputChart: FC<ThroughputChartProps> = ({
               fillOpacity={0.15}
               valueFormatter={(v) => `${formatEps(v)}/s`}
               xAxisProps={{ interval: 0 }}
-              yAxisProps={{ width: 52 }}
+              yAxisProps={{ width: 56, tickFormatter: formatAxis }}
               series={[
                 { name: 'input', label: 'Input', color: CYAN },
                 { name: 'output', label: 'Output', color: ACCENT },

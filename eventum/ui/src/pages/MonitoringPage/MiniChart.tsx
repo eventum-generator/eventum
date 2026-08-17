@@ -61,7 +61,7 @@ export function MiniChart<T extends { t: number; time: string }>({
       withYAxis
       xAxisProps={{ interval: 0 }}
       yAxisProps={{
-        width: 52,
+        width: 56,
         domain: domain ?? ['auto', 'auto'],
         tickFormatter: tickFormatter ?? valueFormatter,
         ...(ticks ? { ticks } : { tickCount: 4 }),

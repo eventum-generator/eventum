@@ -153,7 +153,8 @@ describe('InstancesSection', () => {
     expect(
       await screen.findByText('Open the instance page')
     ).toBeInTheDocument();
-    expect(screen.getByText('cron (input)')).toBeInTheDocument();
-    expect(screen.getByText('write or format failed')).toBeInTheDocument();
+    expect(screen.getByText('cron')).toBeInTheDocument();
+    expect(screen.getByText('5K generated')).toBeInTheDocument();
+    expect(screen.getByText('failed to write or format')).toBeInTheDocument();
   });
 });

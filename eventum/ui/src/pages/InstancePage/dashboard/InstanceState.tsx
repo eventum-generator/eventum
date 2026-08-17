@@ -1,35 +1,24 @@
-import { Divider, Group, Paper, Text } from '@mantine/core';
+import { Divider, Group, Paper } from '@mantine/core';
+import {
+  IconAlertTriangle,
+  IconArrowsSplit2,
+  IconClockPlay,
+  IconCpu,
+  IconStack2,
+  IconTrash,
+} from '@tabler/icons-react';
 import { FC } from 'react';
 
 import { formatCompact, formatEps } from '../format';
 import { GeneratorStats } from '@/api/routes/generators/schemas';
+import { Reading } from '@/components/ui/Reading';
 import {
   CPU_THRESHOLDS,
   QUEUE_THRESHOLDS,
   levelColor,
 } from '@/utils/levelColor';
 
-/** One live reading: the figure and what it is. */
-const Reading: FC<{ value: string; label: string; color?: string }> = ({
-  value,
-  label,
-  color,
-}) => (
-  <Group gap={6} wrap="nowrap" align="baseline">
-    <Text
-      size="md"
-      fw={700}
-      ff="monospace"
-      c={color}
-      style={{ fontVariantNumeric: 'tabular-nums' }}
-    >
-      {value}
-    </Text>
-    <Text size="xs" c="dimmed">
-      {label}
-    </Text>
-  </Group>
-);
+const DANGER = 'var(--mantine-color-red-text)';
 
 /** Fill level of a queue: the fuller of the batches and the bytes it holds. */
 function fill(queue: {
@@ -53,7 +42,8 @@ interface InstanceStateProps {
 /**
  * What the instance is doing right now, in one line above the detail: the rate
  * events enter and leave the pipeline at, the processor it takes, how close to
- * its limit the fullest of its queues is, and whether anything has failed.
+ * its limit the fullest of its queues is, and what it has lost. An icon
+ * separates the figures; a colour appears only where one needs attention.
  */
 export const InstanceState: FC<InstanceStateProps> = ({
   stats,
@@ -74,35 +64,54 @@ export const InstanceState: FC<InstanceStateProps> = ({
 
   return (
     <Paper withBorder px="md" py="sm">
-      <Group gap="md" wrap="wrap" align="center">
-        <Reading value={`${formatEps(inputEps)}/s`} label="input" />
-        <Reading value={`${formatEps(outputEps)}/s`} label="output" />
+      <Group gap="lg" wrap="wrap" align="center">
+        <Reading
+          icon={IconClockPlay}
+          value={`${formatEps(inputEps)}/s`}
+          label="input"
+        />
+        <Reading
+          icon={IconArrowsSplit2}
+          value={`${formatEps(outputEps)}/s`}
+          label="output"
+        />
         <Divider orientation="vertical" />
         <Reading
+          icon={IconCpu}
           value={`${cpuPercent.toFixed(1)}%`}
           label="of a core"
-          color={levelColor(
-            cpuPercent,
-            CPU_THRESHOLDS.warn,
-            CPU_THRESHOLDS.bad
-          )}
+          color={
+            cpuPercent >= CPU_THRESHOLDS.warn
+              ? levelColor(cpuPercent, CPU_THRESHOLDS.warn, CPU_THRESHOLDS.bad)
+              : undefined
+          }
         />
         <Reading
+          icon={IconStack2}
           value={`${Math.round(queuePeak)}%`}
           label="fullest queue"
-          color={levelColor(
-            queuePeak,
-            QUEUE_THRESHOLDS.warn,
-            QUEUE_THRESHOLDS.bad
-          )}
+          color={
+            queuePeak >= QUEUE_THRESHOLDS.warn
+              ? levelColor(
+                  queuePeak,
+                  QUEUE_THRESHOLDS.warn,
+                  QUEUE_THRESHOLDS.bad
+                )
+              : undefined
+          }
         />
         <Divider orientation="vertical" />
         <Reading
+          icon={IconAlertTriangle}
           value={formatCompact(failed)}
           label="failed"
-          color={failed > 0 ? 'var(--mantine-color-red-text)' : undefined}
+          color={failed > 0 ? DANGER : undefined}
         />
-        <Reading value={formatCompact(stats.event.dropped)} label="dropped" />
+        <Reading
+          icon={IconTrash}
+          value={formatCompact(stats.event.dropped)}
+          label="dropped"
+        />
       </Group>
     </Paper>
   );

@@ -12,7 +12,7 @@ import { Metric } from './Metric';
 import { MiniChart } from './MiniChart';
 import { SectionLabel } from './SectionLabel';
 import { ACCENT, CYAN } from './colors';
-import { formatRate } from './format';
+import { formatBytesAxis, formatRate } from './format';
 import {
   CurrentMetrics,
   ResourcePoint,
@@ -70,8 +70,7 @@ const Tile: FC<{
 );
 
 const pct = (v: number) => `${Math.round(v)}%`;
-const rateAxis = (v: number) =>
-  bytes(Math.round(v), { decimalPlaces: 1 }) ?? '0';
+const rateAxis = formatBytesAxis;
 
 interface ResourceTilesProps {
   info: InstanceInfo;

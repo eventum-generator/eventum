@@ -1,14 +1,23 @@
 import { Divider, Group, Paper, Text } from '@mantine/core';
+import {
+  IconAlertTriangle,
+  IconArrowsSplit2,
+  IconClockPlay,
+  IconCube,
+  IconStack2,
+} from '@tabler/icons-react';
 import { FC } from 'react';
 
-import { ACCENT, CYAN } from './colors';
 import { formatCompact, formatEps } from './format';
 import { CurrentMetrics, InstanceUsageRow } from './history';
 import { FlowAgg } from './metrics';
 import { useAnimatedNumber } from './useAnimatedNumber';
 import { GeneratorStatus } from '@/api/routes/generators/schemas';
+import { Reading } from '@/components/ui/Reading';
 import { StatusDot } from '@/components/ui/StatusDot';
 import { QUEUE_THRESHOLDS, levelColor } from '@/utils/levelColor';
+
+const DANGER = 'var(--mantine-color-red-text)';
 
 const RUNNING: GeneratorStatus = {
   is_running: true,
@@ -17,28 +26,6 @@ const RUNNING: GeneratorStatus = {
   is_ended_up: false,
   is_ended_up_successfully: false,
 };
-
-/** One live reading: the figure and what it is. */
-const Reading: FC<{ value: string; label: string; color?: string }> = ({
-  value,
-  label,
-  color,
-}) => (
-  <Group gap={6} wrap="nowrap" align="baseline">
-    <Text
-      size="md"
-      fw={700}
-      ff="monospace"
-      c={color}
-      style={{ fontVariantNumeric: 'tabular-nums' }}
-    >
-      {value}
-    </Text>
-    <Text size="xs" c="dimmed">
-      {label}
-    </Text>
-  </Group>
-);
 
 /** One cumulative total, counting up to its new value on each poll. */
 const Total: FC<{ value: number; label: string }> = ({ value, label }) => {
@@ -72,48 +59,57 @@ export const StateStrip: FC<StateStripProps> = ({
   let queuePeak = 0;
   for (const row of rows) queuePeak = Math.max(queuePeak, row.queuePercent);
 
+  const queueColor =
+    queuePeak >= QUEUE_THRESHOLDS.warn
+      ? levelColor(queuePeak, QUEUE_THRESHOLDS.warn, QUEUE_THRESHOLDS.bad)
+      : undefined;
+
   return (
     <Paper withBorder px="md" py="sm">
       <Group justify="space-between" gap="md" wrap="wrap">
-        <Group gap="md" wrap="wrap" align="center">
+        <Group gap="lg" wrap="wrap" align="center">
           <Group gap={8} wrap="nowrap" align="center">
             <StatusDot status={RUNNING} />
-            <Reading
-              value={String(instances)}
-              label={instances === 1 ? 'instance' : 'instances'}
-            />
+            <Text
+              size="md"
+              fw={700}
+              ff="monospace"
+              style={{ fontVariantNumeric: 'tabular-nums', lineHeight: 1 }}
+            >
+              {instances}
+            </Text>
+            <Text size="xs" c="dimmed">
+              {instances === 1 ? 'instance' : 'instances'}
+            </Text>
           </Group>
           <Divider orientation="vertical" />
           <Reading
+            icon={IconClockPlay}
             value={`${formatEps(current.inputEps)}/s`}
             label="input"
-            color={CYAN}
           />
           <Reading
+            icon={IconCube}
             value={`${formatEps(current.producedEps)}/s`}
             label="event"
           />
           <Reading
+            icon={IconArrowsSplit2}
             value={`${formatEps(current.outputEps)}/s`}
             label="output"
-            color={ACCENT}
           />
           <Divider orientation="vertical" />
           <Reading
+            icon={IconAlertTriangle}
             value={`${formatEps(current.failEps)}/s`}
             label="failing"
-            color={
-              current.failEps > 0 ? 'var(--mantine-color-red-text)' : undefined
-            }
+            color={current.failEps > 0 ? DANGER : undefined}
           />
           <Reading
+            icon={IconStack2}
             value={`${Math.round(queuePeak)}%`}
             label="fullest queue"
-            color={levelColor(
-              queuePeak,
-              QUEUE_THRESHOLDS.warn,
-              QUEUE_THRESHOLDS.bad
-            )}
+            color={queueColor}
           />
         </Group>
 

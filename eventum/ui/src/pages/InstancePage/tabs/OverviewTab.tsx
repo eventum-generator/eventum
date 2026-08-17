@@ -3,6 +3,8 @@ import { FC } from 'react';
 
 import { AboutPanel } from '../dashboard/AboutPanel';
 import { InstanceDashboard } from '../dashboard/InstanceDashboard';
+import { InstanceState } from '../dashboard/InstanceState';
+import { ResourcesPanel } from '../dashboard/ResourcesPanel';
 import { Section } from '../primitives';
 import { ScenariosCard } from './ScenariosCard';
 import {
@@ -27,6 +29,13 @@ interface OverviewTabProps {
   cpuPercent: number;
 }
 
+/**
+ * The instance from its state down to its detail: the live figures across the
+ * full width, then what it is doing next to what it is, then what it occupies
+ * across the full width again. The two panels that describe the instance
+ * rather than its run - what it is built from and which scenarios it belongs
+ * to - stay in the narrow column beside the live view.
+ */
 export const OverviewTab: FC<OverviewTabProps> = ({
   instanceId,
   status,
@@ -41,42 +50,56 @@ export const OverviewTab: FC<OverviewTabProps> = ({
   outputEps,
   cpuPercent,
 }) => (
-  <Grid gutter="lg">
-    <Grid.Col span={{ base: 12, md: 8 }}>
-      {status.is_running ? (
-        <InstanceDashboard
-          stats={stats}
-          flow={flow}
-          inputEps={inputEps}
-          outputEps={outputEps}
-          cpuPercent={cpuPercent}
-        />
-      ) : (
-        <Section label="Pipeline">
-          <Text size="sm" c="dimmed">
-            Instance is not running. Start it to see live pipeline activity.
-          </Text>
-        </Section>
-      )}
-    </Grid.Col>
-    <Grid.Col span={{ base: 12, md: 4 }}>
-      <Stack gap="lg">
-        <Section label="About">
-          <AboutPanel
-            instanceId={instanceId}
-            generatorParams={generatorParams}
-            liveMode={liveMode}
-            autostart={autostart}
+  <Stack gap="lg">
+    {status.is_running && stats && (
+      <InstanceState
+        stats={stats}
+        inputEps={inputEps}
+        outputEps={outputEps}
+        cpuPercent={cpuPercent}
+      />
+    )}
+
+    <Grid gutter="lg">
+      <Grid.Col span={{ base: 12, md: 8 }}>
+        {status.is_running ? (
+          <InstanceDashboard
+            stats={stats}
+            flow={flow}
+            inputEps={inputEps}
+            outputEps={outputEps}
           />
-        </Section>
-        <Section label="Scenarios">
-          <ScenariosCard
-            instanceId={instanceId}
-            memberScenarios={memberScenarios}
-            allScenarios={allScenarios}
-          />
-        </Section>
-      </Stack>
-    </Grid.Col>
-  </Grid>
+        ) : (
+          <Section label="Pipeline">
+            <Text size="sm" c="dimmed">
+              Instance is not running. Start it to see live pipeline activity.
+            </Text>
+          </Section>
+        )}
+      </Grid.Col>
+      <Grid.Col span={{ base: 12, md: 4 }}>
+        <Stack gap="lg">
+          <Section label="About">
+            <AboutPanel
+              instanceId={instanceId}
+              generatorParams={generatorParams}
+              liveMode={liveMode}
+              autostart={autostart}
+            />
+          </Section>
+          <Section label="Scenarios">
+            <ScenariosCard
+              instanceId={instanceId}
+              memberScenarios={memberScenarios}
+              allScenarios={allScenarios}
+            />
+          </Section>
+        </Stack>
+      </Grid.Col>
+    </Grid>
+
+    {status.is_running && stats && (
+      <ResourcesPanel resources={stats.resources} cpuPercent={cpuPercent} />
+    )}
+  </Stack>
 );

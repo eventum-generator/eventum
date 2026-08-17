@@ -1,5 +1,4 @@
 import {
-  Divider,
   Group,
   Progress,
   SimpleGrid,
@@ -106,18 +105,22 @@ export const ResourcesPanel: FC<ResourcesPanelProps> = ({
   cpuPercent,
 }) => (
   <Section label="Resources">
-    <Stack gap="lg">
+    <SimpleGrid cols={{ base: 1, md: 3 }} spacing="xl" verticalSpacing="lg">
       <Aspect label="Processor">
-        <SimpleGrid cols={{ base: 2, sm: 4 }} spacing="md">
+        <SimpleGrid cols={2} spacing="md">
           <Tooltip label="Share of one CPU core over the last poll interval">
             <Figure
               label="CPU"
               value={`${cpuPercent.toFixed(1)}%`}
-              color={levelColor(
-                cpuPercent,
-                CPU_THRESHOLDS.warn,
-                CPU_THRESHOLDS.bad
-              )}
+              color={
+                cpuPercent >= CPU_THRESHOLDS.warn
+                  ? levelColor(
+                      cpuPercent,
+                      CPU_THRESHOLDS.warn,
+                      CPU_THRESHOLDS.bad
+                    )
+                  : undefined
+              }
             />
           </Tooltip>
           <Figure
@@ -134,10 +137,8 @@ export const ResourcesPanel: FC<ResourcesPanelProps> = ({
         </SimpleGrid>
       </Aspect>
 
-      <Divider />
-
       <Aspect label="Memory in queues">
-        <SimpleGrid cols={{ base: 1, sm: 2 }} spacing="md">
+        <Stack gap="md">
           <QueueFill
             label="Timestamps"
             size={resources.queues.timestamps.size}
@@ -152,13 +153,11 @@ export const ResourcesPanel: FC<ResourcesPanelProps> = ({
             sizeBytes={resources.queues.events.size_bytes}
             maxBytes={resources.queues.events.max_bytes}
           />
-        </SimpleGrid>
+        </Stack>
       </Aspect>
 
-      <Divider />
-
       <Aspect label="Input and output">
-        <SimpleGrid cols={{ base: 2, sm: 4 }} spacing="md">
+        <SimpleGrid cols={2} spacing="md">
           <Figure
             label="Disk written"
             value={formatBytes(resources.disk_written_bytes)}
@@ -177,6 +176,6 @@ export const ResourcesPanel: FC<ResourcesPanelProps> = ({
           />
         </SimpleGrid>
       </Aspect>
-    </Stack>
+    </SimpleGrid>
   </Section>
 );

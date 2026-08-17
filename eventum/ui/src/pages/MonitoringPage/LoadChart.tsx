@@ -3,7 +3,7 @@ import { Box, Center, Group, Text, UnstyledButton } from '@mantine/core';
 import { FC, useMemo } from 'react';
 
 import { ACCENT, CYAN } from './colors';
-import { formatEps } from './format';
+import { formatAxis, formatEps } from './format';
 import { FlowPoint, InstanceRateRow, fixedWindow, stageData } from './history';
 import { FALLBACK_COLOR } from './instanceColors';
 
@@ -114,7 +114,7 @@ export const LoadChart: FC<LoadChartProps> = ({
         fillOpacity={0.12}
         valueFormatter={(v) => `${formatEps(v)}/s`}
         xAxisProps={{ interval: 0 }}
-        yAxisProps={{ width: 52 }}
+        yAxisProps={{ width: 56, tickFormatter: formatAxis }}
         series={[
           { name: 'input', label: 'Timestamps', color: CYAN },
           { name: 'event', label: 'Produced', color: EVENT_COLOR },
@@ -140,7 +140,7 @@ export const LoadChart: FC<LoadChartProps> = ({
         fillOpacity={0.8}
         valueFormatter={(v) => `${formatEps(v)}/s`}
         xAxisProps={{ interval: 0 }}
-        yAxisProps={{ width: 52 }}
+        yAxisProps={{ width: 56, tickFormatter: formatAxis }}
         series={series}
       />
       <Group gap="md" wrap="wrap">

@@ -4,6 +4,7 @@ import { FC, useMemo } from 'react';
 
 import { Metric } from './Metric';
 import { SectionLabel } from './SectionLabel';
+import { formatAxis } from './format';
 import {
   ErrorDatum,
   FlowPoint,
@@ -75,7 +76,7 @@ export const ErrorsChart: FC<ErrorsChartProps> = ({
               fillOpacity={0.15}
               valueFormatter={(v) => `${v.toFixed(2)}/s`}
               xAxisProps={{ interval: 0 }}
-              yAxisProps={{ width: 52 }}
+              yAxisProps={{ width: 56, tickFormatter: formatAxis }}
               series={[
                 { name: 'event', label: 'Event', color: BAD },
                 { name: 'output', label: 'Output', color: WARN },
