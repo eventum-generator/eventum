@@ -50,10 +50,20 @@ export const CommandBar: FC = () => {
             <IconArrowLeft size={18} />
           </ActionIcon>
           <Group gap={6} wrap="nowrap" style={{ minWidth: 0 }}>
-            <Text size="sm" c="dimmed">
+            <Text size="sm" c="dimmed" style={{ whiteSpace: 'nowrap' }}>
               Projects /
             </Text>
-            <Title order={4} fw={700} style={{ letterSpacing: '-0.02em' }}>
+            <Title
+              order={4}
+              fw={700}
+              title={projectName}
+              style={{
+                letterSpacing: '-0.02em',
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+                whiteSpace: 'nowrap',
+              }}
+            >
               {projectName}
             </Title>
           </Group>

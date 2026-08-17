@@ -10,9 +10,16 @@ All notable changes to this project will be documented in this file.
 
 ### 🐛 Bug Fixes
 
+#### Eventum Studio
+
+- **Made Studio hold together on narrow screens** — a window under about 1250px pushed the page sideways and put the rightmost table columns, the row menus among them, out of reach behind the page scrollbar; under 768px the navigation panel took over the whole viewport and opened on top of the page on every load. Wide tables now scroll inside their own panel, the navigation panel keeps separate desktop and mobile state and closes itself once a destination is chosen, and the header, the instance title, the Settings section list and the sign-in card give way in place of overflowing
+- **Kept the Studio editor from being squeezed out by its neighbours** — the file explorer and the inspector held their full width while the editor absorbed every bit of narrowing, down to 134px of code at a 1024px window and 10px at 900px. The editor now keeps 360px and the two side panels give way first; below 1200px the three panels stop sharing the row and take turns instead, chosen from a switcher, with the pipeline strip scrolling in place of overflowing
+- **Bound the plugin parameters form to the plugin instead of its position in the list** — deleting an input or output plugin left the form filled with the deleted plugin's values, and the next edit wrote them over the plugin that took its place. Deleting a plugin listed above the selected one also moved the selection to a neighbour
+
+#### Core
+
 - **Stopped escaping non-ASCII text in configuration files** — a project saved through Studio, the API or MCP had its Cyrillic and other non-ASCII values written out as `\uXXXX` sequences, in `generator.yml` as well as in the instance settings and the startup file. Values are now stored as they were entered, and JSON-format logs and MCP resources report them the same way
 - **Fixed reading and writing files outside a UTF-8 environment** — configurations, templates, samples, time patterns and log files were read and written in whatever encoding the host locale happened to set, which mangled non-ASCII content or failed outright. All of them are now UTF-8 regardless of the host, and a configuration that cannot be decoded is reported as an encoding error instead of an unhandled failure
-- **Bound the plugin parameters form to the plugin instead of its position in the list** — deleting an input or output plugin left the form filled with the deleted plugin's values, and the next edit wrote them over the plugin that took its place. Deleting a plugin listed above the selected one also moved the selection to a neighbour
 - **Rewrote the pipeline backpressure warnings** — a write that ran out of time blamed the event rate and warned about losing events that were already lost. The three warnings now state what actually happened — a write was cancelled and its events counted as failed, or a queue filled up and events fall behind their timestamps — and carry the remedies as a separate hint, since a slow or unavailable output target, an oversized batch and a short write timeout produce the same symptom as an excessive rate. Repeated write timeouts are reported once per ten seconds per output plugin with a running count, instead of one line per cancelled write
 
 ## 2.7.0 (2026-08-01)
