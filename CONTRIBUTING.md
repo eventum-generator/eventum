@@ -19,7 +19,6 @@ Eventum is developed across several repositories in the [eventum-generator](http
 |:-----------|:------------|
 | [eventum](https://github.com/eventum-generator/eventum) | Core platform - plugin-based pipeline engine, REST API, web UI, CLI |
 | [docs](https://github.com/eventum-generator/docs) | Documentation site source, published at [eventum.run](https://eventum.run) |
-| [website](https://github.com/eventum-generator/website) | Project website source |
 | [content-packs](https://github.com/eventum-generator/content-packs) | Ready-to-use generators for SIEM data sources (ECS-compatible) |
 | [dependency-patterns](https://github.com/eventum-generator/dependency-patterns) | Collection of data dependency patterns with validation queries |
 
