@@ -100,12 +100,12 @@ def test_execute_happy_path():
         executor._timestamps_queue.close()
 
     def mock_event_stage():
-        while executor._timestamps_queue.get() is not None:
+        while executor._timestamps_queue.get().item is not None:
             pass
         executor._events_queue.close()
 
     def mock_output_stage():
-        while executor._events_queue.get() is not None:
+        while executor._events_queue.get().item is not None:
             pass
 
     executor._run_input_stage = mock_input_stage
@@ -128,12 +128,12 @@ def test_execute_output_error_reraised():
         executor._timestamps_queue.close()
 
     def mock_event_stage():
-        while executor._timestamps_queue.get() is not None:
+        while executor._timestamps_queue.get().item is not None:
             pass
         executor._events_queue.close()
 
     def mock_output_stage():
-        while executor._events_queue.get() is not None:
+        while executor._events_queue.get().item is not None:
             pass
         executor._execution_error = ExecutionError(
             'output failed',
@@ -166,7 +166,7 @@ def test_execute_unexpected_output_error_aborts_upstream():
 
     def mock_event_stage():
         try:
-            while executor._timestamps_queue.get() is not None:
+            while executor._timestamps_queue.get().item is not None:
                 pass
             executor._events_queue.close()
         except queue_mod.ShutDown:

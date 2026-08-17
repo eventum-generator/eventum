@@ -49,6 +49,43 @@ def estimate_events_bytes(events: list[str]) -> int:
     return int(average * count) + getsizeof(events)
 
 
+class Held(Generic[T]):
+    """An item taken out of a queue and still counted against it.
+
+    A batch keeps occupying memory after it leaves the queue - the stage
+    that took it is working on it - so the queue counts it until the
+    consumer says it is done. Releasing twice is a no-op.
+
+    Attributes
+    ----------
+    item : T | None
+        The item, `None` if the queue was closed.
+
+    """
+
+    __slots__ = ('_bytes', '_queue', '_released', 'item')
+
+    def __init__(
+        self,
+        queue: PipelineQueue[T],
+        item: T | None,
+        size: int,
+    ) -> None:
+        """Initialize the hold of an item taken out of a queue."""
+        self.item = item
+        self._queue = queue
+        self._bytes = size
+        self._released = False
+
+    def release(self) -> None:
+        """Stop counting the item against the queue it came from."""
+        if self._released:
+            return
+
+        self._released = True
+        self._queue.give_back(self._bytes)
+
+
 class PipelineQueue(Generic[T]):
     """Typed wrapper over stdlib queue with sentinel-based closing.
 
@@ -125,14 +162,15 @@ class PipelineQueue(Generic[T]):
 
         self._queue.put(item)
 
-    def get(self) -> T | None:
+    def get(self) -> Held[T]:
         """Get an item from the queue.
 
         Returns
         -------
-        T | None
-            Item from the queue, or ``None`` if the queue has been
-            closed via sentinel.
+        Held[T]
+            The item, or one holding `None` if the queue has been closed
+            via sentinel. The item keeps counting against the queue
+            until the hold is released.
 
         Raises
         ------
@@ -143,10 +181,17 @@ class PipelineQueue(Generic[T]):
         item = self._queue.get()
         self._queue.task_done()
 
-        if item is not None and self._sizer is not None:
-            self._release()
+        if item is None or self._sizer is None:
+            return Held(self, item, 0)
 
-        return item
+        # The size the item was admitted with, not a fresh measurement:
+        # the estimate varies between calls, and the accounting has to
+        # give back exactly what it took. Items come out in the order
+        # they went in, so the sizes do too.
+        with self._condition:
+            size = self._sizes.popleft() if self._sizes else 0
+
+        return Held(self, item, size)
 
     def close(self) -> None:
         """Close the queue by sending sentinel and waiting for it
@@ -188,12 +233,23 @@ class PipelineQueue(Generic[T]):
             self._sizes.append(size)
             self._bytes += size
 
-    def _release(self) -> None:
-        """Give back the room the item taken out of the queue held."""
-        with self._condition:
-            if self._sizes:
-                self._bytes -= self._sizes.popleft()
+    def give_back(self, size: int) -> None:
+        """Stop counting bytes of an item that is done with.
 
+        Parameters
+        ----------
+        size : int
+            Number of bytes the item was admitted with.
+
+        Notes
+        -----
+        Called through the hold `get` returns rather than directly.
+        Items may be done with in any order, so each gives back what it
+        took instead of what the queue took first.
+
+        """
+        with self._condition:
+            self._bytes = max(0, self._bytes - size)
             self._condition.notify_all()
 
     @property
