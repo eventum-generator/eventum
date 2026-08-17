@@ -10,7 +10,7 @@ import bytes from 'bytes';
 import { FC, ReactNode } from 'react';
 
 import { formatSeconds, formatUptime } from '../format';
-import { Section, SectionLabel } from '../primitives';
+import { SectionLabel } from '../primitives';
 import { ResourcesStats } from '@/api/routes/generators/schemas';
 import { CPU_THRESHOLDS, levelColor } from '@/utils/levelColor';
 
@@ -84,7 +84,7 @@ const Aspect: FC<{ label: string; children: ReactNode }> = ({
   </Stack>
 );
 
-interface ResourcesPanelProps {
+interface ResourceGroupsProps {
   resources: ResourcesStats;
   cpuPercent: number;
 }
@@ -100,82 +100,77 @@ interface ResourcesPanelProps {
  * Memory beyond the queues is deliberately absent - instances share one
  * process heap, so no per-instance figure for it exists to report.
  */
-export const ResourcesPanel: FC<ResourcesPanelProps> = ({
+export const ResourceGroups: FC<ResourceGroupsProps> = ({
   resources,
   cpuPercent,
 }) => (
-  <Section label="Resources">
-    <SimpleGrid cols={{ base: 1, md: 3 }} spacing="xl" verticalSpacing="lg">
-      <Aspect label="Processor">
-        <SimpleGrid cols={2} spacing="md">
-          <Tooltip label="Share of one CPU core over the last poll interval">
-            <Figure
-              label="CPU"
-              value={`${cpuPercent.toFixed(1)}%`}
-              color={
-                cpuPercent >= CPU_THRESHOLDS.warn
-                  ? levelColor(
-                      cpuPercent,
-                      CPU_THRESHOLDS.warn,
-                      CPU_THRESHOLDS.bad
-                    )
-                  : undefined
-              }
-            />
-          </Tooltip>
+  <SimpleGrid cols={{ base: 1, md: 3 }} spacing="xl" verticalSpacing="lg">
+    <Aspect label="Processor">
+      <SimpleGrid cols={2} spacing="md">
+        <Tooltip label="Share of one CPU core over the last poll interval">
           <Figure
-            label="CPU time"
-            value={formatUptime(resources.cpu_seconds)}
+            label="CPU"
+            value={`${cpuPercent.toFixed(1)}%`}
+            color={
+              cpuPercent >= CPU_THRESHOLDS.warn
+                ? levelColor(
+                    cpuPercent,
+                    CPU_THRESHOLDS.warn,
+                    CPU_THRESHOLDS.bad
+                  )
+                : undefined
+            }
           />
-          <Tooltip label="Time the threads were ready to run but waited for a processor">
-            <Figure
-              label="Wait"
-              value={formatSeconds(resources.run_delay_seconds)}
-            />
-          </Tooltip>
-          <Figure label="Threads" value={String(resources.thread_count)} />
-        </SimpleGrid>
-      </Aspect>
+        </Tooltip>
+        <Figure label="CPU time" value={formatUptime(resources.cpu_seconds)} />
+        <Tooltip label="Time the threads were ready to run but waited for a processor">
+          <Figure
+            label="Wait"
+            value={formatSeconds(resources.run_delay_seconds)}
+          />
+        </Tooltip>
+        <Figure label="Threads" value={String(resources.thread_count)} />
+      </SimpleGrid>
+    </Aspect>
 
-      <Aspect label="Memory in queues">
-        <Stack gap="md">
-          <QueueFill
-            label="Timestamps"
-            size={resources.queues.timestamps.size}
-            maxsize={resources.queues.timestamps.maxsize}
-            sizeBytes={resources.queues.timestamps.size_bytes}
-            maxBytes={resources.queues.timestamps.max_bytes}
-          />
-          <QueueFill
-            label="Events"
-            size={resources.queues.events.size}
-            maxsize={resources.queues.events.maxsize}
-            sizeBytes={resources.queues.events.size_bytes}
-            maxBytes={resources.queues.events.max_bytes}
-          />
-        </Stack>
-      </Aspect>
+    <Aspect label="Memory in queues">
+      <Stack gap="md">
+        <QueueFill
+          label="Timestamps"
+          size={resources.queues.timestamps.size}
+          maxsize={resources.queues.timestamps.maxsize}
+          sizeBytes={resources.queues.timestamps.size_bytes}
+          maxBytes={resources.queues.timestamps.max_bytes}
+        />
+        <QueueFill
+          label="Events"
+          size={resources.queues.events.size}
+          maxsize={resources.queues.events.maxsize}
+          sizeBytes={resources.queues.events.size_bytes}
+          maxBytes={resources.queues.events.max_bytes}
+        />
+      </Stack>
+    </Aspect>
 
-      <Aspect label="Input and output">
-        <SimpleGrid cols={2} spacing="md">
-          <Figure
-            label="Disk written"
-            value={formatBytes(resources.disk_written_bytes)}
-          />
-          <Figure
-            label="Disk read"
-            value={formatBytes(resources.disk_read_bytes)}
-          />
-          <Figure
-            label="Sent"
-            value={formatBytes(resources.network_sent_bytes)}
-          />
-          <Figure
-            label="Received"
-            value={formatBytes(resources.network_received_bytes)}
-          />
-        </SimpleGrid>
-      </Aspect>
-    </SimpleGrid>
-  </Section>
+    <Aspect label="Input and output">
+      <SimpleGrid cols={2} spacing="md">
+        <Figure
+          label="Disk written"
+          value={formatBytes(resources.disk_written_bytes)}
+        />
+        <Figure
+          label="Disk read"
+          value={formatBytes(resources.disk_read_bytes)}
+        />
+        <Figure
+          label="Sent"
+          value={formatBytes(resources.network_sent_bytes)}
+        />
+        <Figure
+          label="Received"
+          value={formatBytes(resources.network_received_bytes)}
+        />
+      </SimpleGrid>
+    </Aspect>
+  </SimpleGrid>
 );

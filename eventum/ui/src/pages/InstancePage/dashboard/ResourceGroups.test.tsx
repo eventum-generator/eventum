@@ -1,7 +1,7 @@
 import { screen } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
 
-import { ResourcesPanel } from './ResourcesPanel';
+import { ResourceGroups } from './ResourceGroups';
 import { ResourcesStats } from '@/api/routes/generators/schemas';
 import { renderWithProviders } from '@/test/render';
 
@@ -24,10 +24,10 @@ const RESOURCES: ResourcesStats = {
   },
 };
 
-describe('ResourcesPanel', () => {
+describe('ResourceGroups', () => {
   it('reports the load of the instance', () => {
     renderWithProviders(
-      <ResourcesPanel resources={RESOURCES} cpuPercent={42.35} />
+      <ResourceGroups resources={RESOURCES} cpuPercent={42.35} />
     );
 
     expect(screen.getByText('42.4%')).toBeInTheDocument();
@@ -37,7 +37,7 @@ describe('ResourcesPanel', () => {
 
   it('reports the bytes and the waiting of the instance', () => {
     renderWithProviders(
-      <ResourcesPanel resources={RESOURCES} cpuPercent={0} />
+      <ResourceGroups resources={RESOURCES} cpuPercent={0} />
     );
 
     expect(screen.getByText('0.25s')).toBeInTheDocument();
@@ -49,7 +49,7 @@ describe('ResourcesPanel', () => {
 
   it('reports the fill level of each pipeline queue', () => {
     renderWithProviders(
-      <ResourcesPanel resources={RESOURCES} cpuPercent={0} />
+      <ResourceGroups resources={RESOURCES} cpuPercent={0} />
     );
 
     expect(screen.getByText('3 / 10')).toBeInTheDocument();
@@ -66,7 +66,7 @@ describe('ResourcesPanel', () => {
 
   it('reports the memory each pipeline queue holds', () => {
     renderWithProviders(
-      <ResourcesPanel resources={RESOURCES} cpuPercent={0} />
+      <ResourceGroups resources={RESOURCES} cpuPercent={0} />
     );
 
     expect(screen.getByText('1KB')).toBeInTheDocument();

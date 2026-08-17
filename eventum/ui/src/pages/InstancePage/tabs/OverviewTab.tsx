@@ -1,17 +1,18 @@
-import { Grid, Stack, Text } from '@mantine/core';
+import { Divider, Grid, Skeleton, Stack, Text } from '@mantine/core';
+import { ReactFlowProvider } from '@xyflow/react';
 import { FC } from 'react';
 
 import { AboutPanel } from '../dashboard/AboutPanel';
-import { InstanceDashboard } from '../dashboard/InstanceDashboard';
-import { InstanceState } from '../dashboard/InstanceState';
-import { ResourcesPanel } from '../dashboard/ResourcesPanel';
-import { Section } from '../primitives';
+import { LivePanel } from '../dashboard/LivePanel';
+import { Section, SectionLabel } from '../primitives';
 import { ScenariosCard } from './ScenariosCard';
 import {
   GeneratorParameters,
   GeneratorStats,
   GeneratorStatus,
 } from '@/api/routes/generators/schemas';
+import { PipelineFlow } from '@/pages/InstancesPage/InstancesTable/metrics/PipelineGraph';
+import { ThroughputChart } from '@/pages/MonitoringPage/ThroughputChart';
 import type { FlowPoint } from '@/pages/MonitoringPage/history';
 
 interface OverviewTabProps {
@@ -30,11 +31,10 @@ interface OverviewTabProps {
 }
 
 /**
- * The instance from its state down to its detail: the live figures across the
- * full width, then what it is doing next to what it is, then what it occupies
- * across the full width again. The two panels that describe the instance
- * rather than its run - what it is built from and which scenarios it belongs
- * to - stay in the narrow column beside the live view.
+ * The instance from its state down to the views that explain it: what it is
+ * doing right now and what that costs across the full width, then its
+ * throughput over the window next to what the instance is, then the
+ * stage-by-stage graph across the full width again.
  */
 export const OverviewTab: FC<OverviewTabProps> = ({
   instanceId,
@@ -52,7 +52,7 @@ export const OverviewTab: FC<OverviewTabProps> = ({
 }) => (
   <Stack gap="lg">
     {status.is_running && stats && (
-      <InstanceState
+      <LivePanel
         stats={stats}
         inputEps={inputEps}
         outputEps={outputEps}
@@ -62,44 +62,53 @@ export const OverviewTab: FC<OverviewTabProps> = ({
 
     <Grid gutter="lg">
       <Grid.Col span={{ base: 12, md: 8 }}>
-        {status.is_running ? (
-          <InstanceDashboard
-            stats={stats}
+        {!status.is_running ? (
+          <Section label="Now">
+            <Text size="sm" c="dimmed">
+              Instance is not running. Start it to see what it produces and what
+              it occupies.
+            </Text>
+          </Section>
+        ) : stats ? (
+          <ThroughputChart
             flow={flow}
             inputEps={inputEps}
             outputEps={outputEps}
+            height={200}
           />
         ) : (
-          <Section label="Pipeline">
-            <Text size="sm" c="dimmed">
-              Instance is not running. Start it to see live pipeline activity.
-            </Text>
-          </Section>
+          <Skeleton h={260} radius="lg" />
         )}
       </Grid.Col>
       <Grid.Col span={{ base: 12, md: 4 }}>
-        <Stack gap="lg">
-          <Section label="About">
+        <Section label="About">
+          <Stack gap="md">
             <AboutPanel
               instanceId={instanceId}
               generatorParams={generatorParams}
               liveMode={liveMode}
               autostart={autostart}
             />
-          </Section>
-          <Section label="Scenarios">
-            <ScenariosCard
-              instanceId={instanceId}
-              memberScenarios={memberScenarios}
-              allScenarios={allScenarios}
-            />
-          </Section>
-        </Stack>
+            <Divider />
+            <Stack gap="sm">
+              <SectionLabel>Scenarios</SectionLabel>
+              <ScenariosCard
+                instanceId={instanceId}
+                memberScenarios={memberScenarios}
+                allScenarios={allScenarios}
+              />
+            </Stack>
+          </Stack>
+        </Section>
       </Grid.Col>
     </Grid>
 
     {status.is_running && stats && (
-      <ResourcesPanel resources={stats.resources} cpuPercent={cpuPercent} />
+      <Section label="Pipeline">
+        <ReactFlowProvider>
+          <PipelineFlow stats={stats} />
+        </ReactFlowProvider>
+      </Section>
     )}
   </Stack>
 );
