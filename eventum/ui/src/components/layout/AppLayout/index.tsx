@@ -1,5 +1,5 @@
 import { AppShell, Center, Loader } from '@mantine/core';
-import { useLocalStorage } from '@mantine/hooks';
+import { useDisclosure, useLocalStorage } from '@mantine/hooks';
 import { notifications } from '@mantine/notifications';
 import { Outlet, useNavigate } from 'react-router-dom';
 
@@ -16,10 +16,17 @@ export default function AppLayout() {
     isSuccess: isUserSuccess,
   } = useCurrentUser();
   const logout = useLogoutMutation();
-  const [isNavbarOpened, setLocalStorage] = useLocalStorage({
+
+  // Below the navbar breakpoint Mantine gives the navbar the full viewport
+  // width, so "opened" there means an overlay over the page rather than a
+  // column beside it. The two modes therefore need their own state: the
+  // desktop column is a persisted preference, the mobile overlay starts
+  // closed on every load and shuts itself on navigation.
+  const [isNavbarOpened, setNavbarOpened] = useLocalStorage({
     key: 'navbar-opened',
     defaultValue: true,
   });
+  const [isMobileNavbarOpened, mobileNavbar] = useDisclosure(false);
 
   if (isUserLoading) {
     return (
@@ -41,7 +48,10 @@ export default function AppLayout() {
       navbar={{
         width: 220,
         breakpoint: 'sm',
-        collapsed: { desktop: !isNavbarOpened, mobile: !isNavbarOpened },
+        collapsed: {
+          desktop: !isNavbarOpened,
+          mobile: !isMobileNavbarOpened,
+        },
       }}
     >
       <AppShell.Header>
@@ -58,12 +68,13 @@ export default function AppLayout() {
                 }),
             })
           }
-          onMenuClick={() => setLocalStorage((prev) => !prev)}
+          onMenuClick={() => setNavbarOpened((prev) => !prev)}
+          onMobileMenuClick={mobileNavbar.toggle}
         />
       </AppShell.Header>
 
       <AppShell.Navbar>
-        <Navbar />
+        <Navbar onNavigate={mobileNavbar.close} />
       </AppShell.Navbar>
 
       <AppShell.Main>

@@ -3,7 +3,6 @@ import {
   Box,
   Button,
   Center,
-  Container,
   Image,
   Paper,
   PasswordInput,
@@ -64,64 +63,64 @@ export default function SignInPage() {
   }
 
   return (
-    <Center h="100vh" w="100vw">
-      <Container>
-        <Paper withBorder w={'400px'}>
-          <form onSubmit={form.onSubmit(handleSubmit)}>
-            <Stack m="xl" gap="0">
-              <Box ta="center">
-                <Image
-                  src="/logo.svg"
-                  alt="Eventum Logo"
-                  h={80}
-                  w="auto"
-                  fit="contain"
-                  mx="auto"
-                />
-                <Title order={3} ta="center" fw="bold" mt="xs">
-                  Sign in to Eventum
-                </Title>
-              </Box>
-
-              {commonError && (
-                <Alert
-                  mt="md"
-                  variant="default"
-                  icon={<AlertIcon variant="error" />}
-                >
-                  {commonError}
-                </Alert>
-              )}
-
-              <TextInput
-                label="Username"
-                withAsterisk
-                {...form.getInputProps('username')}
-                mt="lg"
+    <Center h="100vh" w="100vw" p="md">
+      {/* The card takes the width it is given and stops growing at 400px -
+          held at 400px it is wider than a phone screen. */}
+      <Paper withBorder w="100%" maw="400px">
+        <form onSubmit={form.onSubmit(handleSubmit)}>
+          <Stack m="xl" gap="0">
+            <Box ta="center">
+              <Image
+                src="/logo.svg"
+                alt="Eventum Logo"
+                h={80}
+                w="auto"
+                fit="contain"
+                mx="auto"
               />
+              <Title order={3} ta="center" fw="bold" mt="xs">
+                Sign in to Eventum
+              </Title>
+            </Box>
 
-              <PasswordInput
-                label="Password"
-                withAsterisk
-                {...form.getInputProps('password')}
-                mt="5px"
-              />
-
-              <Button
-                type="submit"
-                fullWidth
-                variant="gradient"
-                mt="xl"
-                mb="xs"
-                loading={loginMutation.isPending}
-                disabled={loginMutation.isPending}
+            {commonError && (
+              <Alert
+                mt="md"
+                variant="default"
+                icon={<AlertIcon variant="error" />}
               >
-                Sign In
-              </Button>
-            </Stack>
-          </form>
-        </Paper>
-      </Container>
+                {commonError}
+              </Alert>
+            )}
+
+            <TextInput
+              label="Username"
+              withAsterisk
+              {...form.getInputProps('username')}
+              mt="lg"
+            />
+
+            <PasswordInput
+              label="Password"
+              withAsterisk
+              {...form.getInputProps('password')}
+              mt="5px"
+            />
+
+            <Button
+              type="submit"
+              fullWidth
+              variant="gradient"
+              mt="xl"
+              mb="xs"
+              loading={loginMutation.isPending}
+              disabled={loginMutation.isPending}
+            >
+              Sign In
+            </Button>
+          </Stack>
+        </form>
+      </Paper>
     </Center>
   );
 }

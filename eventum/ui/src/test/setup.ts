@@ -2,9 +2,12 @@ import '@testing-library/jest-dom/vitest';
 import { cleanup } from '@testing-library/react';
 import { afterEach } from 'vitest';
 
+import { matchesMediaQuery, resetViewportWidth } from './viewport';
+
 // Vitest runs without globals, so the automatic unmount React Testing
 // Library installs on `afterEach` is not wired up - do it here.
 afterEach(cleanup);
+afterEach(resetViewportWidth);
 
 const noop = () => {
   // The stubs below record nothing and report nothing.
@@ -12,13 +15,16 @@ const noop = () => {
 
 // jsdom lays nothing out and implements none of the observers the app
 // mounts with: Mantine reads `matchMedia`, and the editor observes both the
-// size and the visibility of its element. The stubs are inert - anything
-// that depends on real geometry belongs in a browser test.
+// size and the visibility of its element. The observers are inert - anything
+// that depends on real geometry belongs in a browser test. Width queries do
+// get answered, against a width the test sets, because a component that
+// chooses its layout from one has no other way to be exercised. Changes are
+// not broadcast: the width is set before mounting, not while mounted.
 Object.defineProperty(globalThis, 'matchMedia', {
   writable: true,
   value: (query: string): MediaQueryList =>
     ({
-      matches: false,
+      matches: matchesMediaQuery(query),
       media: query,
       onchange: null,
       addListener: noop,
