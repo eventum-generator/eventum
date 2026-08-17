@@ -39,6 +39,10 @@ All notable changes to this project will be documented in this file.
 - **Fixed reading and writing files outside a UTF-8 environment** — configurations, templates, samples, time patterns and log files were read and written in whatever encoding the host locale happened to set, which mangled non-ASCII content or failed outright. All of them are now UTF-8 regardless of the host, and a configuration that cannot be decoded is reported as an encoding error instead of an unhandled failure
 - **Rewrote the pipeline backpressure warnings** — a write that ran out of time blamed the event rate and warned about losing events that were already lost. The three warnings now state what actually happened — a write was cancelled and its events counted as failed, or a queue filled up and events fall behind their timestamps — and carry the remedies as a separate hint, since a slow or unavailable output target, an oversized batch and a short write timeout produce the same symptom as an excessive rate. Repeated write timeouts are reported once per ten seconds per output plugin with a running count, instead of one line per cancelled write
 
+#### Plugins
+
+- **Bounded the requests the `http` output keeps in flight** — a formatter that serializes each event on its own (`plain`, `json`, `template`) made the plugin open a request per event, so a batch of the default size fired up to 10000 requests at once through a pool of 100 connections, and the write was cancelled on its timeout with every event it carried counted as failed. The number of requests performed at a time is now capped by the plugin's new `concurrency` field, 100 by default, which sizes the connection pool as well. Failures of one write are reported as one line per status code with a count, in place of one line per event
+
 ## 2.7.0 (2026-08-01)
 
 ### 🚀 New Features

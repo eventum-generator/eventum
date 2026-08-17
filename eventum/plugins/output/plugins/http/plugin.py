@@ -1,7 +1,7 @@
 """Definition of http output plugin."""
 
 import asyncio
-from collections.abc import Sequence
+from collections.abc import Iterator, Sequence
 from typing import override
 
 import httpx
@@ -14,6 +14,51 @@ from eventum.plugins.output.http_client import (
     create_ssl_context,
 )
 from eventum.plugins.output.plugins.http.config import HttpOutputPluginConfig
+
+
+class _FailedRequests:
+    """Failures of the requests performed within a single write.
+
+    Notes
+    -----
+    Failures are grouped by their message and status code, so the
+    number of log lines a write produces is bound by the number of
+    distinct failures instead of the number of events it carries.
+
+    """
+
+    def __init__(self) -> None:
+        self._groups: dict[tuple[str, int | None], tuple[int, dict]] = {}
+
+    def add(self, message: str, context: dict) -> None:
+        """Add failure of a single request.
+
+        Parameters
+        ----------
+        message : str
+            Message of the failure.
+
+        context : dict
+            Context of the failure.
+
+        """
+        key = (message, context.get('http_status'))
+        count, first_context = self._groups.get(key, (0, context))
+
+        self._groups[key] = (count + 1, first_context)
+
+    def groups(self) -> Iterator[tuple[str, int, dict]]:
+        """Iterate over grouped failures.
+
+        Yields
+        ------
+        tuple[str, int, dict]
+            Message, number of failures in the group and context of the
+            first failure in it.
+
+        """
+        for (message, _), (count, context) in self._groups.items():
+            yield message, count, context
 
 
 class HttpOutputPlugin(
@@ -56,6 +101,7 @@ class HttpOutputPlugin(
             ) from e
 
         self._client: httpx.AsyncClient
+        self._semaphore: asyncio.Semaphore
 
     @override
     async def _open(self) -> None:
@@ -69,7 +115,12 @@ class HttpOutputPlugin(
             proxy_url=(
                 str(self._config.proxy_url) if self._config.proxy_url else None
             ),
+            max_connections=self._config.concurrency,
         )
+
+        # the semaphore belongs to the plugin and not to a single write,
+        # so the bound holds when writes overlap
+        self._semaphore = asyncio.Semaphore(self._config.concurrency)
 
     @override
     async def _close(self) -> None:
@@ -119,37 +170,80 @@ class HttpOutputPlugin(
                 },
             )
 
-    @override
-    async def _write(self, events: Sequence[str]) -> int:
-        results = await asyncio.gather(
+    async def _perform_requests(
+        self,
+        events: Iterator[str],
+        failures: _FailedRequests,
+    ) -> int:
+        """Perform requests for events until they are exhausted.
+
+        Parameters
+        ----------
+        events : Iterator[str]
+            Iterator of events, shared with the other concurrent
+            callers.
+
+        failures : _FailedRequests
+            Collector of the failed requests.
+
+        Returns
+        -------
+        int
+            Number of events sent successfully.
+
+        """
+        sent = 0
+
+        for event in events:
+            try:
+                async with self._semaphore:
+                    await self._perform_request(event)
+            except PluginWriteError as e:
+                failures.add(str(e), e.context)
+            except Exception as e:  # noqa: BLE001
+                failures.add(
+                    'Failed to perform request',
+                    {'reason': str(e), 'url': str(self._config.url)},
+                )
+            else:
+                sent += 1
+
+        return sent
+
+    async def _report_failures(self, failures: _FailedRequests) -> None:
+        """Report grouped failures of the requests.
+
+        Parameters
+        ----------
+        failures : _FailedRequests
+            Collected failures of the requests.
+
+        """
+        await asyncio.gather(
             *[
-                self._loop.create_task(self._perform_request(event))
-                for event in events
+                self._logger.aerror(message, count=count, **context)
+                for message, count, context in failures.groups()
             ],
-            return_exceptions=True,
         )
 
-        log_tasks: list[asyncio.Task] = []
-        for result in results:
-            if isinstance(result, PluginWriteError):
-                log_tasks.append(
-                    self._loop.create_task(
-                        self._logger.aerror(str(result), **result.context),
-                    ),
+    @override
+    async def _write(self, events: Sequence[str]) -> int:
+        failures = _FailedRequests()
+
+        # events are pulled from a single iterator by a bound number of
+        # tasks, so a batch of any size costs the same number of tasks
+        # and requests in flight
+        remaining_events = iter(events)
+        senders_count = min(self._config.concurrency, len(events))
+
+        async with asyncio.TaskGroup() as group:
+            senders = [
+                group.create_task(
+                    self._perform_requests(remaining_events, failures),
                 )
-            elif isinstance(result, BaseException):
-                log_tasks.append(
-                    self._loop.create_task(
-                        self._logger.aerror(
-                            'Failed to perform request',
-                            reason=str(result),
-                            url=str(self._config.url),
-                        ),
-                    ),
-                )
+                for _ in range(senders_count)
+            ]
 
-        errors_count = len(log_tasks)
+        await self._report_failures(failures)
 
-        await asyncio.gather(*log_tasks)
-
-        return len(events) - errors_count
+        return sum(sender.result() for sender in senders)

@@ -18,6 +18,7 @@ def create_client(  # noqa: PLR0913
     connect_timeout: int = 10,
     request_timeout: int = 300,
     proxy_url: str | None = None,
+    max_connections: int = 100,
 ) -> httpx.AsyncClient:
     """Create HTTP client with initialized parameters.
 
@@ -45,6 +46,9 @@ def create_client(  # noqa: PLR0913
     proxy_url : str | None, default=None
         Proxy url.
 
+    max_connections : int, default=100
+        Maximum number of connections kept in the pool.
+
     Returns
     -------
     httpx.AsyncClient
@@ -69,10 +73,19 @@ def create_client(  # noqa: PLR0913
     if headers is not None and 'Accept-Encoding' not in headers:
         headers['Accept-Encoding'] = 'gzip, deflate'
 
+    # keepalive limit matches the connection limit, otherwise httpx
+    # closes the connections that exceed its own default of 20 as soon
+    # as the load dips, and reopens them on the next burst
+    limits = httpx.Limits(
+        max_connections=max_connections,
+        max_keepalive_connections=max_connections,
+    )
+
     return httpx.AsyncClient(
         auth=auth,
         headers=headers,
         verify=ssl_context,
         timeout=httpx.Timeout(request_timeout, connect=connect_timeout),
         proxy=proxy,
+        limits=limits,
     )

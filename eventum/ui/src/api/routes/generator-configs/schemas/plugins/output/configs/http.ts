@@ -28,6 +28,7 @@ export const HTTPOutputPluginConfigSchema = BaseOutputPluginConfigSchema.extend(
     client_cert: z.string().min(1).nullable().optional(),
     client_cert_key: z.string().min(1).nullable().optional(),
     proxy_url: orPlaceholder(z.httpUrl()).nullable().optional(),
+    concurrency: orPlaceholder(z.number().int().gte(1)).optional(),
   }
 );
 export type HTTPOutputPluginConfig = z.infer<
