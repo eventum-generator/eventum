@@ -4,6 +4,22 @@ All notable changes to this project will be documented in this file.
 
 ## Unreleased
 
+### 🚀 New Features
+
+#### Core
+
+- **Split the logs by component and unified their format** — a record now goes to the file of the part it came from: `main.log` for the application core, `server.log` for the API and the HTTP server, `server_access.log` for requests, `mcp.log` for the MCP server, and `generator_<id>.log` for everything a generator does, down to the HTTP and broker traffic its output plugins produce and the requests its `http` input plugin serves, all of which used to flood the shared log. All of them carry the same ISO-UTC timestamp, level and logger name, third-party records included, and `log.format: json` now reaches the server files too. Console output is unchanged as the combined view of every channel, with a `component` field naming the origin. `server_error.log` is gone - its contents are part of `server.log`
+- **Named the caller in the records of a served request** — everything logged while serving a request carries the address of the client that caused it, so an MCP tool call or an API failure can be traced to its caller without stitching the access log to another channel by timestamp
+- **Added `log.third_party_level`** — the level of third-party libraries, `warning` by default and independent of `log.level`, so a debug run of Eventum no longer comes with the debug output of every dependency
+
+#### Eventum Studio
+
+- **Added a channel switch to the instance log viewer** — Main, Server, Access and MCP logs are each streamed on their own, and the logging section of Settings carries the new third-party level
+
+#### MCP
+
+- **Added `get_instance_logs`** — an agent can read any log channel of the instance, not just the log of a generator, to diagnose the server itself. Paths and the server password are stripped from the lines, while the request line of an access record is kept readable
+
 ### ⚡ Performance
 
 - **Formed batches by size wherever the delay bounds nothing** — `batch.delay` caps the time span of the timestamps one batch covers, which bounds the lag batching adds to delivery. Timestamps that have already passed carry no such lag, and sample mode emits on no schedule at all, so in both cases the cap only cut the stream into batches the size of the event rate. Both are now grouped by `batch.size` alone: half an hour of live backlog at 10 events per second drains in 2 batches instead of 1798. `batch.delay` still forms the batches of timestamps ahead of real time in live mode, and still applies everywhere `batch.size` is unset, where it is the only limit a batch has. A sample-mode run through a per-batch formatter such as `json-batch` writes larger arrays than before as a result

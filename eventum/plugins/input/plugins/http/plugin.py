@@ -11,6 +11,8 @@ from numpy import datetime64
 from numpy.typing import NDArray
 from pydantic import BaseModel, Field
 
+from eventum.logging.asgi import LogContextMiddleware
+from eventum.logging.channels import bind_log_context, capture_log_context
 from eventum.plugins.input.base.plugin import InputPlugin, InputPluginParams
 from eventum.plugins.input.exceptions import PluginGenerationError
 from eventum.plugins.input.plugins.http.config import HttpInputPluginConfig
@@ -99,9 +101,14 @@ class HttpInputPlugin(
             status_code=200,
             response_description='Stopped',
         )
+        # The server runs on a thread of its own and handles every
+        # request in a context of its own, neither of which inherits
+        # the context of the generator - carry it into both, so the
+        # records of this server belong to the generator it serves.
+        self._log_context = capture_log_context()
         self._server = uvicorn.Server(
             uvicorn.Config(
-                self._app,
+                LogContextMiddleware(self._app, self._log_context),
                 host=self._config.host,
                 port=self._config.port,
                 log_config=None,
@@ -166,6 +173,11 @@ class HttpInputPlugin(
         self._is_stopping = True
         self._server.should_exit = True
 
+    def _run_server(self) -> None:
+        """Run the server, logging on behalf of the generator."""
+        bind_log_context(self._log_context)
+        self._server.run()
+
     def _watch_server(self, future: Future) -> None:
         """Watch server execution.
 
@@ -209,7 +221,7 @@ class HttpInputPlugin(
             thread_name_prefix=f'http-input-plugin-{self.id}-server:',
         ) as executor:
             future = executor.submit(
-                self._server.run,
+                self._run_server,
             )
             future.add_done_callback(self._watch_server)
 

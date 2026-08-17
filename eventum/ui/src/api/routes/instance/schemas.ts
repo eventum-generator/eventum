@@ -133,8 +133,20 @@ export type GenerationParameters = z.infer<typeof GenerationParametersSchema>;
 export const LOG_LEVELS = ['debug', 'info', 'warning', 'error', 'critical'];
 export const LOG_FORMATS = ['plain', 'json'];
 
+export const INSTANCE_LOG_CHANNELS = [
+  'main',
+  'server',
+  'server_access',
+  'mcp',
+] as const;
+export type InstanceLogChannel = (typeof INSTANCE_LOG_CHANNELS)[number];
+
 export const LogParametersSchema = z.object({
   level: z.preprocess(emptyToUndefined, z.enum(LOG_LEVELS).optional()),
+  third_party_level: z.preprocess(
+    emptyToUndefined,
+    z.enum(LOG_LEVELS).optional()
+  ),
   format: z.preprocess(emptyToUndefined, z.enum(LOG_FORMATS).optional()),
   max_bytes: z.preprocess(
     emptyToUndefined,

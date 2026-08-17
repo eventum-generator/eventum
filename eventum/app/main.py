@@ -16,6 +16,7 @@ from eventum.app.startup import (
     StartupGeneratorParametersList,
 )
 from eventum.exceptions import ContextualError
+from eventum.logging.channels import bind_component
 from eventum.security.manage import SECURITY_SETTINGS
 from eventum.utils import net_accounting
 
@@ -244,6 +245,8 @@ class App:
         terminates the instance via the hook so the app does not keep
         running without its server.
         """
+        bind_component('server')
+
         if self._server is None:
             return
 

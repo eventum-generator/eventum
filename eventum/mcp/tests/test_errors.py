@@ -146,6 +146,22 @@ def test_scrub_log_line_reduces_paths_and_redacts(tmp_path: Path) -> None:
     assert '[redacted]' in out
 
 
+def test_scrub_log_line_preserves_request_lines(tmp_path: Path) -> None:
+    """The target of a request line survives path reduction."""
+    gens = tmp_path / 'generators'
+    logs = tmp_path / 'logs'
+    line = (
+        '127.0.0.1:5316 - "GET /api/instance/info HTTP/1.1" 200 '
+        'from /home/u/app/main.py'
+    )
+
+    out = scrub_log_line(line, gens, logs, [])
+
+    assert '"GET /api/instance/info HTTP/1.1"' in out
+    assert '/home/u/app' not in out
+    assert 'main.py' in out
+
+
 def test_scrub_log_line_preserves_urls(tmp_path: Path) -> None:
     """A URL is not mangled into a path basename."""
     gens = tmp_path / 'generators'

@@ -14,6 +14,7 @@ from eventum.core.parameters import GenerationParameters
 from eventum.mcp.context import ServerLiveContext
 from eventum.mcp.errors import ToolFailure
 from eventum.mcp.tools.instance import (
+    get_instance_logs,
     restart_instance,
     stop_instance,
     update_settings,
@@ -192,3 +193,71 @@ async def test_restart_instance_read_only_blocked(tmp_path: Path) -> None:
 
     assert isinstance(result, ToolFailure)
     restart.assert_not_called()
+
+
+# --- get_instance_logs ---
+
+
+async def test_get_instance_logs_reads_the_channel(tmp_path: Path) -> None:
+    """Each channel is read from the file of its own."""
+    (tmp_path / 'main.log').write_text('Started\n', encoding='utf-8')
+    (tmp_path / 'server_access.log').write_text(
+        '127.0.0.1:5316 - "GET /api/instance/info HTTP/1.1" 200\n',
+        encoding='utf-8',
+    )
+    ctx = _ctx(tmp_path)
+
+    assert await get_instance_logs(ctx) == {
+        'channel': 'main',
+        'lines': ['Started'],
+    }
+    assert await get_instance_logs(ctx, 'server_access') == {
+        'channel': 'server_access',
+        'lines': ['127.0.0.1:5316 - "GET /api/instance/info HTTP/1.1" 200'],
+    }
+
+
+async def test_get_instance_logs_of_silent_channel(tmp_path: Path) -> None:
+    """A channel that has logged nothing reads as empty."""
+    ctx = _ctx(tmp_path)
+
+    assert await get_instance_logs(ctx, 'mcp') == {
+        'channel': 'mcp',
+        'lines': [],
+    }
+
+
+async def test_get_instance_logs_keeps_the_requested_tail(
+    tmp_path: Path,
+) -> None:
+    """Only the requested number of trailing lines is returned."""
+    (tmp_path / 'main.log').write_text(
+        ''.join(f'line {i}\n' for i in range(10)),
+        encoding='utf-8',
+    )
+    ctx = _ctx(tmp_path)
+
+    result = await get_instance_logs(ctx, 'main', 2)
+
+    assert result == {'channel': 'main', 'lines': ['line 8', 'line 9']}
+
+
+async def test_get_instance_logs_scrubs_paths_and_password(
+    tmp_path: Path,
+) -> None:
+    """Paths and the server password never reach the agent."""
+    settings = _settings(tmp_path)
+    (tmp_path / 'main.log').write_text(
+        f'Loaded {tmp_path / "generators" / "demo" / "generator.yml"} '
+        f'with {settings.server.auth.password}\n',
+        encoding='utf-8',
+    )
+    ctx = _ctx(tmp_path, settings=settings)
+
+    result = await get_instance_logs(ctx)
+
+    assert isinstance(result, dict)
+    line = result['lines'][0]
+    assert str(tmp_path) not in line
+    assert settings.server.auth.password not in line
+    assert 'demo/generator.yml' in line

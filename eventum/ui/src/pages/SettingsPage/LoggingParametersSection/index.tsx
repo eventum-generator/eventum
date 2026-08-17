@@ -18,18 +18,36 @@ export const LoggingParametersSection: FC<LoggingParametersSectionProps> = ({
 }) => {
   return (
     <Stack gap="xs">
-      <Select
-        label={
-          <LabelWithTooltip
-            label="Logging level"
-            tooltip="Minimal severity of messages to log"
-          />
-        }
-        data={LOG_LEVELS}
-        placeholder="level"
-        {...form.getInputProps('level')}
-        key={form.key('level')}
-      />
+      <Group grow align="start">
+        <Select
+          label={
+            <LabelWithTooltip
+              label="Logging level"
+              tooltip="Minimal severity of messages to log"
+            />
+          }
+          data={LOG_LEVELS}
+          placeholder="level"
+          {...form.getInputProps('level')}
+          key={form.key('level')}
+        />
+        <Select
+          label={
+            <LabelWithTooltip
+              label="Third-party level"
+              tooltip={
+                'Minimal severity of messages to log from third-party ' +
+                'libraries, independent of the logging level ' +
+                '(default: warning)'
+              }
+            />
+          }
+          data={LOG_LEVELS}
+          placeholder="level"
+          {...form.getInputProps('third_party_level')}
+          key={form.key('third_party_level')}
+        />
+      </Group>
       <Select
         label={
           <LabelWithTooltip label="Logs format" tooltip="Logging format" />
