@@ -139,13 +139,24 @@ def test_client_cert_without_ssl():
 # --- Plugin tests ---
 
 
-def _make_mock_writer() -> MagicMock:
+def _make_mock_writer(
+    buffered: int = 0,
+    high_water_mark: int = 65536,
+) -> MagicMock:
+    transport = MagicMock(spec=asyncio.Transport)
+    transport.get_write_buffer_size = MagicMock(return_value=buffered)
+    transport.get_write_buffer_limits = MagicMock(
+        return_value=(high_water_mark // 4, high_water_mark),
+    )
+    transport.abort = MagicMock()
+
     writer = MagicMock(spec=asyncio.StreamWriter)
     writer.write = MagicMock()
     writer.drain = AsyncMock()
     writer.close = MagicMock()
     writer.wait_closed = AsyncMock()
     writer.is_closing = MagicMock(return_value=False)
+    writer.transport = transport
     return writer
 
 
@@ -388,3 +399,82 @@ async def test_plugin_reconnect_failure(mock_open_conn):
 
     with pytest.raises(PluginWriteError, match='reconnect'):
         await plugin.write(events=['event1'])
+
+
+@pytest.mark.asyncio
+@patch(
+    'eventum.plugins.output.plugins.tcp.plugin.asyncio.open_connection',
+)
+async def test_plugin_refuses_to_write_into_backed_up_connection(
+    mock_open_conn,
+):
+    """Events are failed rather than piled up on a target behind."""
+    writer = _make_mock_writer(buffered=70000, high_water_mark=65536)
+    mock_open_conn.return_value = (MagicMock(), writer)
+
+    plugin = TcpOutputPlugin(config=_make_config(), params={'id': 1})
+    await plugin.open()
+
+    with pytest.raises(PluginWriteError, match='not accepting data'):
+        await plugin.write(events=['event'])
+
+    writer.write.assert_not_called()
+
+
+@pytest.mark.asyncio
+@patch(
+    'eventum.plugins.output.plugins.tcp.plugin.asyncio.open_connection',
+)
+async def test_plugin_writes_into_connection_below_the_mark(mock_open_conn):
+    """Data still buffered under the mark is no reason to refuse."""
+    writer = _make_mock_writer(buffered=30000, high_water_mark=65536)
+    mock_open_conn.return_value = (MagicMock(), writer)
+
+    plugin = TcpOutputPlugin(config=_make_config(), params={'id': 1})
+    await plugin.open()
+
+    assert await plugin.write(events=['event']) == 1
+    writer.write.assert_called_once()
+
+
+@pytest.mark.asyncio
+@patch(
+    'eventum.plugins.output.plugins.tcp.plugin.asyncio.open_connection',
+)
+async def test_plugin_drops_connection_when_write_is_cancelled(
+    mock_open_conn,
+):
+    """A write given up on takes its connection with it."""
+    writer = _make_mock_writer()
+    writer.drain = AsyncMock(side_effect=asyncio.CancelledError)
+    mock_open_conn.return_value = (MagicMock(), writer)
+
+    plugin = TcpOutputPlugin(config=_make_config(), params={'id': 1})
+    await plugin.open()
+
+    with pytest.raises(asyncio.CancelledError):
+        await plugin.write(events=['event'])
+
+    writer.transport.abort.assert_called_once()
+
+
+@pytest.mark.asyncio
+@patch('eventum.plugins.output.plugins.tcp.plugin._CLOSE_TIMEOUT', 0.05)
+@patch(
+    'eventum.plugins.output.plugins.tcp.plugin.asyncio.open_connection',
+)
+async def test_plugin_close_gives_up_on_undelivered_data(mock_open_conn):
+    """Closing does not wait for a target that stopped reading."""
+    async def never_closes() -> None:
+        await asyncio.sleep(30)
+
+    writer = _make_mock_writer(buffered=50000)
+    writer.wait_closed = AsyncMock(side_effect=never_closes)
+    mock_open_conn.return_value = (MagicMock(), writer)
+
+    plugin = TcpOutputPlugin(config=_make_config(), params={'id': 1})
+    await plugin.open()
+
+    await asyncio.wait_for(plugin.close(), timeout=2)
+
+    writer.transport.abort.assert_called_once()

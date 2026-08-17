@@ -12,6 +12,9 @@ from eventum.plugins.output.exceptions import PluginOpenError, PluginWriteError
 from eventum.plugins.output.plugins.tcp.config import TcpOutputPluginConfig
 from eventum.plugins.output.ssl import create_ssl_context
 
+_CLOSE_TIMEOUT = 5.0
+"""Seconds a closing connection is given to deliver what it buffered."""
+
 
 class TcpOutputPlugin(
     OutputPlugin[TcpOutputPluginConfig, OutputPluginParams],
@@ -100,9 +103,35 @@ class TcpOutputPlugin(
 
     @override
     async def _close(self) -> None:
+        await self._drop_connection()
+
+    async def _drop_connection(self) -> None:
+        """Close the connection, giving up on what it cannot flush.
+
+        Notes
+        -----
+        Closing a connection waits for the data still buffered in it to
+        reach the target, which a target that stopped reading never
+        lets happen. The wait is therefore bounded, and what is left
+        after it is discarded along with the connection.
+
+        """
+        buffered = self._writer.transport.get_write_buffer_size()
         self._writer.close()
+
         try:
-            await self._writer.wait_closed()
+            await asyncio.wait_for(
+                self._writer.wait_closed(),
+                timeout=_CLOSE_TIMEOUT,
+            )
+        except TimeoutError:
+            self._writer.transport.abort()
+            await self._logger.awarning(
+                'Connection dropped with data still awaiting delivery',
+                host=self._config.host,
+                port=self._config.port,
+                size=buffered,
+            )
         except OSError as e:
             await self._logger.aerror(
                 'Error while closing TCP connection',
@@ -111,9 +140,8 @@ class TcpOutputPlugin(
 
     async def _reconnect(self) -> None:
         """Reconnect to TCP server after connection loss."""
-        self._writer.close()
         with contextlib.suppress(OSError):
-            await self._writer.wait_closed()
+            await self._drop_connection()
 
         try:
             _, self._writer = await asyncio.wait_for(
@@ -141,10 +169,46 @@ class TcpOutputPlugin(
             port=self._config.port,
         )
 
+    def _check_target_keeps_up(self) -> None:
+        """Check the connection is not backed up with undelivered data.
+
+        Raises
+        ------
+        PluginWriteError
+            If the data awaiting delivery is over what the connection
+            buffers before it asks to be drained.
+
+        Notes
+        -----
+        Handing data to a connection never blocks and is bounded by
+        nothing, so a target that stopped reading would have the events
+        of every batch pile up in the buffer. Refusing to add to a
+        buffer that is already over its mark bounds it at that mark plus
+        one batch, and the events are reported as failed - which they
+        are, nothing delivered them.
+
+        """
+        transport = self._writer.transport
+        buffered = transport.get_write_buffer_size()
+        _, high_water_mark = transport.get_write_buffer_limits()
+
+        if buffered > high_water_mark:
+            msg = 'Target is not accepting data fast enough'
+            raise PluginWriteError(
+                msg,
+                context={
+                    'host': self._config.host,
+                    'port': self._config.port,
+                    'size': buffered,
+                },
+            )
+
     @override
     async def _write(self, events: Sequence[str]) -> int:
         if self._writer.is_closing():
             await self._reconnect()
+
+        self._check_target_keeps_up()
 
         try:
             data = b''.join(
@@ -163,6 +227,12 @@ class TcpOutputPlugin(
         try:
             self._writer.write(data)
             await self._writer.drain()
+        except asyncio.CancelledError:
+            # The batch sits in the buffer of the connection already and
+            # nothing is going to flush it now that the write is given
+            # up on, so the connection goes with it.
+            self._writer.transport.abort()
+            raise
         except OSError as e:
             msg = 'Failed to send events'
             raise PluginWriteError(
