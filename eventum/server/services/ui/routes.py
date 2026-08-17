@@ -6,11 +6,14 @@ from fastapi import APIRouter, HTTPException, status
 from fastapi.responses import FileResponse
 
 import eventum
+from eventum.server.services.ui.cache import SHELL_CACHE_CONTROL
 
 router = APIRouter()
 
 
 WWW_DIR = Path(eventum.__file__).parent / 'www'
+
+SHELL_HEADERS = {'cache-control': SHELL_CACHE_CONTROL}
 
 
 @router.get('/{resource:path}')
@@ -26,6 +29,6 @@ async def handle_spa_route(resource: str) -> FileResponse:
         and file_path.exists()
         and file_path.is_file()
     ):
-        return FileResponse(file_path)
+        return FileResponse(file_path, headers=SHELL_HEADERS)
 
-    return FileResponse(WWW_DIR / 'index.html')
+    return FileResponse(WWW_DIR / 'index.html', headers=SHELL_HEADERS)
