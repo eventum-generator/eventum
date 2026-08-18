@@ -150,14 +150,16 @@ Full documentation at **[eventum.run](https://eventum.run)**:
   <img src="https://repobeats.axiom.co/api/embed/f22feef9f6aaae3972c8368e5e425dd06be42c87.svg" alt="Repobeats analytics image" />
 </p>
 
+## Star History
+
 <p align="center">
-  <a href="https://star-history.com/#eventum-generator/eventum&Date">
-    <picture>
-      <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/svg?repos=eventum-generator/eventum&type=Date&theme=dark" />
-      <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/svg?repos=eventum-generator/eventum&type=Date" />
-      <img alt="Star History Chart" src="https://api.star-history.com/svg?repos=eventum-generator/eventum&type=Date" width="680" />
-    </picture>
-  </a>
+<a href="https://www.star-history.com/?repos=eventum-generator%2Feventum&type=date&legend=top-left">
+ <picture>
+   <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/chart?repos=eventum-generator/eventum&type=date&theme=dark&legend=top-left&sealed_token=tCYUdE3KrJjqf4xX1VbQo5rxwlhSN410KyP9dnqLyyhdjt1M7nsjFtm-w1w2wR3D0D8te3ytgYS0VmJkHiR_urxSyRJb0Pt9JBS2DC_hd9f8qwBDfu_JfO4NzmR1K7tWjjLTcdWahzQQKJMlQyBtct6kKEXo7t3mOIUe2kP0ARW-RJxrt5HV-hqOeGS8" />
+   <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/chart?repos=eventum-generator/eventum&type=date&legend=top-left&sealed_token=tCYUdE3KrJjqf4xX1VbQo5rxwlhSN410KyP9dnqLyyhdjt1M7nsjFtm-w1w2wR3D0D8te3ytgYS0VmJkHiR_urxSyRJb0Pt9JBS2DC_hd9f8qwBDfu_JfO4NzmR1K7tWjjLTcdWahzQQKJMlQyBtct6kKEXo7t3mOIUe2kP0ARW-RJxrt5HV-hqOeGS8" />
+   <img alt="Star History Chart" src="https://api.star-history.com/chart?repos=eventum-generator/eventum&type=date&legend=top-left&sealed_token=tCYUdE3KrJjqf4xX1VbQo5rxwlhSN410KyP9dnqLyyhdjt1M7nsjFtm-w1w2wR3D0D8te3ytgYS0VmJkHiR_urxSyRJb0Pt9JBS2DC_hd9f8qwBDfu_JfO4NzmR1K7tWjjLTcdWahzQQKJMlQyBtct6kKEXo7t3mOIUe2kP0ARW-RJxrt5HV-hqOeGS8" />
+ </picture>
+</a>
 </p>
 
 ## License
