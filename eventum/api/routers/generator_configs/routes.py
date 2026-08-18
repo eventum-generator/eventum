@@ -1,7 +1,9 @@
 """Routes."""
 
 import asyncio
+import os
 import shutil
+import tempfile
 from pathlib import Path
 from typing import Annotated
 
@@ -17,6 +19,7 @@ from fastapi import (
     status,
 )
 from pydantic import ValidationError
+from starlette.background import BackgroundTask
 
 from eventum.api.dependencies.app import (
     GeneratorManagerDep,
@@ -47,6 +50,12 @@ from eventum.api.routers.generator_configs.models import (
 )
 from eventum.api.utils.file_streaming import stream_snapshot
 from eventum.api.utils.response_description import merge_responses
+from eventum.app.archiving import (
+    ArchiveContentError,
+    ArchiveError,
+    pack_project,
+    unpack_project,
+)
 from eventum.app.renaming import (
     RenameBlockedError,
     RenameConflictError,
@@ -421,6 +430,186 @@ async def rename_generator_config(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=str(e),
         ) from None
+
+
+@router.get(
+    '/{name}/export',
+    description=(
+        'Export generator directory with specified name as a ZIP archive. '
+        'Entries named in `exclude` are left out with everything under '
+        'them.'
+    ),
+    response_description='ZIP archive of the generator directory',
+    responses=merge_responses(
+        check_directory_is_allowed.responses,
+        check_configuration_exists.responses,
+        {
+            200: {'content': {'application/zip': {}}},
+            400: {
+                'description': (
+                    'Excluded entry is not a name of a top level entry, '
+                    'or is the generator configuration itself'
+                ),
+            },
+            500: {
+                'description': (
+                    'Configuration cannot be exported due to OS error'
+                ),
+            },
+        },
+    ),
+)
+async def export_generator_config(
+    name: Annotated[
+        str,
+        CheckDirectoryIsAllowedDep,
+        CheckConfigurationExistsDep,
+    ],
+    settings: SettingsDep,
+    exclude: Annotated[
+        list[str] | None,
+        Query(
+            description=(
+                'Names of top level entries to leave out of the archive'
+            ),
+        ),
+    ] = None,
+) -> responses.FileResponse:
+    excluded = set(exclude or [])
+    config_filename = settings.path.generator_config_filename.name
+
+    for entry in excluded:
+        if not entry or entry != Path(entry).name or entry in {'.', '..'}:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail='Excluded entry must be a top level entry name',
+            )
+
+        if entry == config_filename:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=(
+                    'Generator configuration cannot be excluded, since '
+                    'the archive would not be importable without it'
+                ),
+            )
+
+    project_dir = (settings.path.generators_dir / name).resolve()
+
+    # The archive is built into a temporary file rather than in memory:
+    # a project holds output files and samples of any size. The file is
+    # removed once the response is sent.
+    descriptor, archive_name = tempfile.mkstemp(suffix='.zip')
+    os.close(descriptor)
+    archive_path = Path(archive_name)
+
+    try:
+        await asyncio.to_thread(
+            lambda: pack_project(
+                project_dir,
+                archive_path,
+                exclude=excluded,
+            ),
+        )
+    except ArchiveError as e:
+        await asyncio.to_thread(archive_path.unlink, missing_ok=True)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f'Configuration cannot be exported: {e}',
+        ) from None
+
+    return responses.FileResponse(
+        archive_path,
+        media_type='application/zip',
+        filename=f'{name}.zip',
+        background=BackgroundTask(archive_path.unlink, missing_ok=True),
+    )
+
+
+@router.post(
+    '/{name}/import',
+    description=(
+        'Import generator directory with specified name from a ZIP '
+        'archive. The archive must hold a generator configuration, and '
+        'the directory holding it becomes the root of the imported '
+        'generator.'
+    ),
+    responses=merge_responses(
+        check_directory_is_allowed.responses,
+        check_configuration_not_exists.responses,
+        {
+            409: {'description': 'Directory already exists'},
+            422: {
+                'description': (
+                    'Archive cannot be read or holds no generator '
+                    'configuration'
+                ),
+            },
+            500: {
+                'description': (
+                    'Configuration cannot be imported due to OS error'
+                ),
+            },
+        },
+    ),
+    status_code=status.HTTP_201_CREATED,
+)
+async def import_generator_config(
+    name: Annotated[
+        str,
+        CheckDirectoryIsAllowedDep,
+        CheckConfigurationNotExistsDep,
+    ],
+    content: UploadFile,
+    settings: SettingsDep,
+) -> None:
+    generators_dir = settings.path.generators_dir
+    destination = (generators_dir / name).resolve()
+
+    if destination.exists():
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail='Directory already exists',
+        )
+
+    try:
+        generators_dir.mkdir(parents=True, exist_ok=True)
+        staging = Path(
+            await asyncio.to_thread(tempfile.mkdtemp, dir=generators_dir)
+        )
+    except OSError as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f'Configuration cannot be imported due to OS error: {e}',
+        ) from None
+
+    # The project is unpacked one level below the staging directory, so
+    # that a directory holding a generator configuration appears
+    # directly inside `path.generators_dir` - and thus in the list of
+    # generators - only once the import is complete.
+    unpacked = staging / 'project'
+
+    try:
+        await asyncio.to_thread(
+            lambda: unpack_project(
+                content.file,
+                unpacked,
+                settings.path.generator_config_filename.name,
+            ),
+        )
+        await asyncio.to_thread(unpacked.rename, destination)
+    except ArchiveContentError as e:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            detail=f'Archive cannot be imported: {e}',
+        ) from None
+    except (ArchiveError, OSError) as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f'Configuration cannot be imported due to OS error: {e}',
+        ) from None
+    finally:
+        await asyncio.to_thread(shutil.rmtree, staging, ignore_errors=True)
 
 
 @router.get(
