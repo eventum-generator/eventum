@@ -1,13 +1,18 @@
 import { AxiosRequestConfig, AxiosResponse } from 'axios';
 
+/** One field-level problem in a payload: where it sits and what is
+ * wrong with it. */
+export interface ValidationIssue {
+  path: string;
+  message: string;
+}
+
 export interface APIErrorOptions {
   message: string;
   details?: string;
   response?: AxiosResponse;
   requestConfig?: AxiosRequestConfig;
-  responseValidationErrors?: {
-    errors: string[];
-  };
+  responseValidationErrors?: ValidationIssue[];
 }
 
 export class APIError extends Error {
@@ -15,8 +20,7 @@ export class APIError extends Error {
   public readonly details?: string;
   public readonly response?: AxiosResponse;
   public readonly requestConfig?: AxiosRequestConfig;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  public readonly responseValidationErrors?: any;
+  public readonly responseValidationErrors?: ValidationIssue[];
 
   constructor({
     message,
