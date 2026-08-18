@@ -10,13 +10,16 @@
   min-height: 0;
 }
 
-/* Command bar */
+/* Command bar. Wraps rather than overflowing: the project name, the pipeline
+   strip and the save controls each keep their size and take another line when
+   the row runs out of width. */
 .studio-commandbar {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 16px;
   flex: 0 0 auto;
+  flex-wrap: wrap;
 }
 
 /* Body row: explorer | center | inspector */
@@ -189,14 +192,22 @@
   color: var(--mantine-color-dimmed);
 }
 
-/* Pipeline strip in the command bar */
+/* Pipeline strip in the command bar. The three stages hold their size and the
+   strip scrolls within whatever width the bar can give it. */
 .studio-pipeline {
   display: flex;
   align-items: center;
   gap: 2px;
+  min-width: 0;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.studio-pipeline::-webkit-scrollbar {
+  display: none;
 }
 .studio-stage {
   display: flex;
+  flex: 0 0 auto;
   align-items: center;
   gap: 8px;
   padding: 6px 12px;
@@ -233,6 +244,7 @@
   color: var(--mantine-color-white);
 }
 .studio-stage-arrow {
+  flex: 0 0 auto;
   color: var(--mantine-color-dimmed);
   padding: 0 2px;
 }

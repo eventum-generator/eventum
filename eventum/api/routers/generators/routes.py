@@ -60,7 +60,8 @@ from eventum.app.renaming import (
 from eventum.core.generator import Generator
 from eventum.core.parameters import GeneratorParameters
 from eventum.core.resources import ThreadCpuTimes, sample_thread_cpu_times
-from eventum.logging.file_paths import construct_generator_logfile_path
+from eventum.logging.channels import generator_channel
+from eventum.logging.file_paths import construct_channel_logfile_path
 
 router = APIRouter()
 ws_router = APIRouter()
@@ -605,10 +606,10 @@ async def stream_generator_logs(
             reason='Generator with specified id does not exist',
         )
 
-    path = construct_generator_logfile_path(
+    path = construct_channel_logfile_path(
         format=settings.log.format,
         logs_dir=settings.path.logs,
-        generator_id=id,
+        channel=generator_channel(id),
     )
 
     if not path.exists():

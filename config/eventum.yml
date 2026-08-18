@@ -140,6 +140,11 @@ generation.write_timeout : 10
 # Optional, default is "info"
 log.level: info
 
+# Logging level of third-party libraries, independent of log.level
+# Available values are "debug", "info", "warning", "error", "critical"
+# Optional, default is "warning"
+log.third_party_level: warning
+
 # Logging format
 # Available options are "plain" and "json"
 # Optional, default is "plain"

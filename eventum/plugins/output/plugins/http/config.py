@@ -61,6 +61,13 @@ class HttpOutputPluginConfig(OutputPluginConfig, frozen=True):
     proxy_url : HttpUrl | None, default=None
         HTTP(S) proxy address.
 
+    concurrency : int, default=100
+        Maximum number of requests performed concurrently, it also
+        sets the size of the connection pool kept toward the target.
+        Formatters that produce a string per event send one request
+        per event, so this value bounds how much of a batch is in
+        flight at a time.
+
     Notes
     -----
     By default one line JSON batch formatter is used for events.
@@ -88,6 +95,7 @@ class HttpOutputPluginConfig(OutputPluginConfig, frozen=True):
     client_cert: Path | None = Field(default=None)
     client_cert_key: Path | None = Field(default=None)
     proxy_url: HttpUrl | None = Field(default=None)
+    concurrency: int = Field(default=100, ge=1)
     formatter: FormatterConfigT = Field(
         default_factory=lambda: JsonFormatterConfig(
             format=Format.JSON_BATCH,

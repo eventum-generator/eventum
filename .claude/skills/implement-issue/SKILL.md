@@ -108,5 +108,5 @@ On user approval (commits and pushes require an explicit ask):
 
 ## Notes
 
-- Side-improvements spotted during implementation: keep a one-line list and offer to file them as follow-up issues after the PR is open. Do not expand the current diff.
+- Side-improvements spotted during implementation: keep a one-line list and offer to file them as follow-up issues after the PR is open, through the `issue` skill. Do not expand the current diff.
 - Merge, tag, and release belong to the `release` skill. Not current.

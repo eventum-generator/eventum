@@ -7,6 +7,7 @@ import click
 import structlog
 
 import eventum.logging.config as logconf
+from eventum.logging.channels import bind_component
 
 logger = structlog.stdlib.get_logger()
 
@@ -59,6 +60,8 @@ def cli(
     """
     # Stdout is the MCP JSON-RPC channel - route logs to stderr only.
     logconf.use_stderr(level=log_level)
+
+    bind_component('mcp')
 
     if keyring_cryptfile is not None:
         from eventum.security.manage import SECURITY_SETTINGS

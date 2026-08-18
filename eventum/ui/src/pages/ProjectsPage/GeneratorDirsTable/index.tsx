@@ -78,77 +78,84 @@ export const GeneratorDirsTable: FC<GeneratorDirsTableProps> = ({
   return (
     <Stack>
       <Paper withBorder p="sm">
-        <Table>
-          <Table.Thead>
-            {table.getHeaderGroups().map((headerGroup) => (
-              <Table.Tr key={headerGroup.id}>
-                {headerGroup.headers.map((header) => {
-                  const meta = header.column.columnDef?.meta as
-                    | { style?: React.CSSProperties }
-                    | undefined;
+        {/* Overflow belongs inside the panel - a table wide enough to push the
+            document takes the whole page sideways with it. */}
+        <Table.ScrollContainer minWidth={560} type="native">
+          <Table>
+            <Table.Thead>
+              {table.getHeaderGroups().map((headerGroup) => (
+                <Table.Tr key={headerGroup.id}>
+                  {headerGroup.headers.map((header) => {
+                    const meta = header.column.columnDef?.meta as
+                      | { style?: React.CSSProperties }
+                      | undefined;
 
-                  const style: React.CSSProperties = meta?.style ?? {};
+                    const style: React.CSSProperties = meta?.style ?? {};
 
-                  return (
-                    <Table.Th key={header.id} style={style}>
-                      {header.isPlaceholder ? null : (
-                        <Group gap="xs" wrap="nowrap">
-                          {flexRender(
-                            header.column.columnDef.header,
-                            header.getContext()
-                          )}
+                    return (
+                      <Table.Th key={header.id} style={style}>
+                        {header.isPlaceholder ? null : (
+                          <Group gap="xs" wrap="nowrap">
+                            {flexRender(
+                              header.column.columnDef.header,
+                              header.getContext()
+                            )}
 
-                          {header.column.getCanSort() && (
-                            <>
-                              {header.column.getIsSorted() === 'asc' && (
-                                <ActionIcon
-                                  variant="transparent"
-                                  size="sm"
-                                  onClick={header.column.getToggleSortingHandler()}
-                                >
-                                  <IconSortAscending size={16} />
-                                </ActionIcon>
-                              )}
-                              {header.column.getIsSorted() === 'desc' && (
-                                <ActionIcon
-                                  variant="transparent"
-                                  size="sm"
-                                  onClick={header.column.getToggleSortingHandler()}
-                                >
-                                  <IconSortDescending size={16} />
-                                </ActionIcon>
-                              )}
-                              {header.column.getIsSorted() === false && (
-                                <ActionIcon
-                                  variant="transparent"
-                                  size="sm"
-                                  onClick={header.column.getToggleSortingHandler()}
-                                >
-                                  <IconArrowsSort size={16} />
-                                </ActionIcon>
-                              )}
-                            </>
-                          )}
-                        </Group>
+                            {header.column.getCanSort() && (
+                              <>
+                                {header.column.getIsSorted() === 'asc' && (
+                                  <ActionIcon
+                                    variant="transparent"
+                                    size="sm"
+                                    onClick={header.column.getToggleSortingHandler()}
+                                  >
+                                    <IconSortAscending size={16} />
+                                  </ActionIcon>
+                                )}
+                                {header.column.getIsSorted() === 'desc' && (
+                                  <ActionIcon
+                                    variant="transparent"
+                                    size="sm"
+                                    onClick={header.column.getToggleSortingHandler()}
+                                  >
+                                    <IconSortDescending size={16} />
+                                  </ActionIcon>
+                                )}
+                                {header.column.getIsSorted() === false && (
+                                  <ActionIcon
+                                    variant="transparent"
+                                    size="sm"
+                                    onClick={header.column.getToggleSortingHandler()}
+                                  >
+                                    <IconArrowsSort size={16} />
+                                  </ActionIcon>
+                                )}
+                              </>
+                            )}
+                          </Group>
+                        )}
+                      </Table.Th>
+                    );
+                  })}
+                </Table.Tr>
+              ))}
+            </Table.Thead>
+            <Table.Tbody>
+              {table.getRowModel().rows.map((row) => (
+                <Table.Tr key={row.id}>
+                  {row.getVisibleCells().map((cell) => (
+                    <Table.Td key={cell.id}>
+                      {flexRender(
+                        cell.column.columnDef.cell,
+                        cell.getContext()
                       )}
-                    </Table.Th>
-                  );
-                })}
-              </Table.Tr>
-            ))}
-          </Table.Thead>
-          <Table.Tbody>
-            {table.getRowModel().rows.map((row) => (
-              <Table.Tr key={row.id}>
-                {row.getVisibleCells().map((cell) => (
-                  <Table.Td key={cell.id}>
-                    {flexRender(cell.column.columnDef.cell, cell.getContext())}
-                  </Table.Td>
-                ))}
-              </Table.Tr>
-            ))}
-          </Table.Tbody>
-        </Table>
+                    </Table.Td>
+                  ))}
+                </Table.Tr>
+              ))}
+            </Table.Tbody>
+          </Table>
+        </Table.ScrollContainer>
         {table.getFilteredRowModel().rows.length === 0 && (
           <Center mt="xs">
             <Text size="sm" c="dimmed">

@@ -2,7 +2,7 @@ import { ItemInstance } from '@headless-tree/core';
 import { ActionIcon, Box, Button, Center, Stack, Text } from '@mantine/core';
 import { modals } from '@mantine/modals';
 import { IconDeviceFloppy, IconPointFilled, IconX } from '@tabler/icons-react';
-import { FC, useEffect, useMemo } from 'react';
+import { CSSProperties, FC, useEffect, useMemo } from 'react';
 
 import { FileEditor } from '../../common/EditorTab/FileEditor';
 import { FileNodeItemIcon } from '../../common/FileTree/Tree/FileNodeItemIcon';
@@ -37,7 +37,11 @@ const OpenFile: FC<OpenFileProps> = ({ item, active }) => {
   );
 };
 
-export const EditorPanel: FC = () => {
+interface EditorPanelProps {
+  style?: CSSProperties;
+}
+
+export const EditorPanel: FC<EditorPanelProps> = ({ style }) => {
   const {
     projectName,
     openedItems,
@@ -75,7 +79,7 @@ export const EditorPanel: FC = () => {
   }
 
   return (
-    <div className="studio-panel studio-editor">
+    <div className="studio-panel studio-editor" style={style}>
       <div className="studio-panel-header">
         <span className="studio-panel-title">Editor</span>
         {openedItems.length > 0 && (

@@ -23,11 +23,17 @@ import { LabelWithTooltip } from '@/components/ui/LabelWithTooltip';
 
 interface GenerationParametersSectionProps {
   form: UseFormReturnType<GenerationParameters>;
+  /**
+   * Emission mode these parameters belong to, when it is known - the
+   * batching note names what forms a batch in that mode. Left out where
+   * the parameters are application-wide defaults serving both modes.
+   */
+  liveMode?: boolean;
 }
 
 export const GenerationParametersSection: FC<
   GenerationParametersSectionProps
-> = ({ form }) => {
+> = ({ form, liveMode }) => {
   const formValues = form.getValues();
   const [batchingMode, setBatchingMode] = useState<
     'size' | 'delay' | 'combined'
@@ -46,6 +52,36 @@ export const GenerationParametersSection: FC<
   const [memoryLimited, setMemoryLimited] = useState(
     formValues.queue?.max_event_bytes !== null
   );
+
+  /**
+   * What actually forms a batch under the current mode. Delay bounds
+   * the lag batching adds to delivery, so it only forms batches out of
+   * timestamps that are still waited for - unless no size is set, when
+   * it is the only limit a batch has.
+   */
+  const getBatchingNote = (): string | null => {
+    if (batchingMode === 'size') {
+      return null;
+    }
+
+    if (batchingMode === 'delay') {
+      return liveMode === false
+        ? 'No size is set, so batches are formed by time span even in sample mode.'
+        : null;
+    }
+
+    if (liveMode === true) {
+      return 'Timestamps that have already passed are formed into batches by size alone.';
+    }
+
+    if (liveMode === false) {
+      return 'Sample mode emits on no schedule, so batches are formed by size alone.';
+    }
+
+    return 'Delay forms batches only out of timestamps still ahead of real time in live mode. Past timestamps, and every timestamp in sample mode, are batched by size alone.';
+  };
+
+  const batchingNote = getBatchingNote();
 
   form.watch('batch.size', ({ value }) => {
     setBatchSize(value);
@@ -199,7 +235,7 @@ export const GenerationParametersSection: FC<
               label={
                 <LabelWithTooltip
                   label="Batch delay"
-                  tooltip="Maximum time for single batch to accumulate incoming timestamps"
+                  tooltip="Maximum time span of timestamps for single batch. In live mode timestamps that are already due are batched by size instead"
                 />
               }
               placeholder="seconds"
@@ -211,6 +247,11 @@ export const GenerationParametersSection: FC<
               key={form.key('batch.delay')}
             />
           </Group>
+          {batchingNote && (
+            <Text size="xs" c="dimmed">
+              {batchingNote}
+            </Text>
+          )}
           <Alert
             variant="default"
             icon={<AlertIcon variant="info" />}

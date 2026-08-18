@@ -24,6 +24,7 @@ from eventum.cli.pydantic_converter import from_model
 from eventum.cli.splash_screen import SPLASH_SCREEN
 from eventum.core.generator import Generator
 from eventum.core.parameters import GeneratorParameters
+from eventum.logging.channels import bind_component
 from eventum.security.manage import SECURITY_SETTINGS
 from eventum.utils.dotted_keys import DottedKeyError, expand_dotted_keys
 from eventum.utils.validation_prettier import prettify_validation_errors
@@ -95,7 +96,10 @@ def _start_app_instance(config: str) -> App:
         logs_dir=settings.path.logs,
         backup_count=settings.log.backups,
         max_bytes=settings.log.max_bytes,
+        third_party_level=settings.log.third_party_level.upper(),  # type: ignore[arg-type]
     )
+
+    bind_component('main')
 
     click.echo(SPLASH_SCREEN)
 

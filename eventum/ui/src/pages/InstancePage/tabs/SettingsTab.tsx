@@ -202,6 +202,7 @@ export const SettingsTab: FC<SettingsTabProps> = ({ form }) => {
       <Section label="Generation">
         <GenerationParametersSection
           form={form as unknown as UseFormReturnType<GenerationParameters>}
+          liveMode={liveMode}
         />
       </Section>
     </Stack>

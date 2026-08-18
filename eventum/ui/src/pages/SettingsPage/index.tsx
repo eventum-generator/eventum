@@ -286,13 +286,21 @@ export default function SettingsPage() {
             </Group>
           </Box>
 
-          <Flex gap="xl" align="flex-start">
+          {/* The section list holds 230px and never shrinks, so side by side
+              the form is left with whatever remains - below the breakpoint
+              that is less than a single control needs. Stack them instead,
+              and let the list scroll away with the page once it is on top. */}
+          <Flex
+            gap="xl"
+            align="flex-start"
+            direction={{ base: 'column', sm: 'row' }}
+          >
             <Box
-              w={230}
+              w={{ base: '100%', sm: 230 }}
+              pos={{ base: 'static', sm: 'sticky' }}
+              top={128}
               style={{
                 flexShrink: 0,
-                position: 'sticky',
-                top: 128,
                 alignSelf: 'flex-start',
               }}
             >
