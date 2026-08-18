@@ -427,6 +427,226 @@ def test_get_file_declares_no_length(client, tmp_settings):
     assert 'content-length' not in response.headers
 
 
+def test_get_file_download_saves_as_attachment(client, tmp_settings):
+    gen_dir = _create_config(tmp_settings, 'download_gen')
+    (gen_dir / 'output.ndjson').write_text('{"a": 1}\n')
+
+    response = client.get(
+        '/configs/download_gen/file/output.ndjson',
+        params={'download': True},
+    )
+
+    assert response.status_code == 200
+    assert response.text == '{"a": 1}\n'
+    assert response.headers['content-disposition'] == (
+        'attachment; filename="output.ndjson"'
+    )
+    # An executable type would turn a downloadable file into
+    # same-origin script the moment the disposition stopped applying.
+    assert response.headers['content-type'] == 'application/octet-stream'
+    assert response.headers['x-content-type-options'] == 'nosniff'
+
+
+def test_get_file_download_names_the_file_not_its_path(
+    client,
+    tmp_settings,
+):
+    gen_dir = _create_config(tmp_settings, 'nested_gen')
+    (gen_dir / 'templates').mkdir()
+    (gen_dir / 'templates' / 'event.jinja').write_text('{{ ts }}')
+
+    response = client.get(
+        '/configs/nested_gen/file/templates/event.jinja',
+        params={'download': True},
+    )
+
+    assert response.status_code == 200
+    assert response.headers['content-disposition'] == (
+        'attachment; filename="event.jinja"'
+    )
+
+
+def test_get_file_download_encodes_non_ascii_name(client, tmp_settings):
+    gen_dir = _create_config(tmp_settings, 'non_ascii_gen')
+    (gen_dir / NON_ASCII_VALUE).write_text('content')
+
+    response = client.get(
+        f'/configs/non_ascii_gen/file/{NON_ASCII_VALUE}',
+        params={'download': True},
+    )
+
+    assert response.status_code == 200
+    assert "filename*=utf-8''" in response.headers['content-disposition']
+
+
+def test_get_file_download_declares_no_length(client, tmp_settings):
+    # The body is a snapshot of a file a generator may be appending to,
+    # so its length is as unknown here as it is for an inline read.
+    gen_dir = _create_config(tmp_settings, 'download_length_gen')
+    (gen_dir / 'output.ndjson').write_text('{"a": 1}\n')
+
+    response = client.get(
+        '/configs/download_length_gen/file/output.ndjson',
+        params={'download': True},
+    )
+
+    assert response.status_code == 200
+    assert 'content-length' not in response.headers
+
+
+def test_get_file_serves_inline_by_default(client, tmp_settings):
+    gen_dir = _create_config(tmp_settings, 'inline_gen')
+    (gen_dir / 'notes.txt').write_text('file content')
+
+    response = client.get('/configs/inline_gen/file/notes.txt')
+
+    assert response.status_code == 200
+    assert response.headers['content-type'] == 'text/plain; charset=utf-8'
+    assert response.headers['x-content-type-options'] == 'nosniff'
+    assert 'content-disposition' not in response.headers
+
+
+# --- Symlink escape ---
+
+# A relative path with no '..' in it still leaves the generator
+# directory when a component of it is a symlink: the relative-path check
+# reads the path as written, while the symlink is only followed once the
+# path is resolved.
+
+
+@pytest.fixture
+def escaping_gen(tmp_settings, tmp_path):
+    """Generator directory holding a symlink to a file outside it."""
+    gen_dir = _create_config(tmp_settings, 'symlink_gen')
+    outside = tmp_path / 'outside'
+    outside.mkdir()
+    (outside / 'secret.txt').write_text('secret content')
+    (gen_dir / 'link.txt').symlink_to(outside / 'secret.txt')
+    (gen_dir / 'linked_dir').symlink_to(outside, target_is_directory=True)
+
+    return gen_dir
+
+
+def test_get_file_symlink_escape_blocked(client, escaping_gen):
+    response = client.get('/configs/symlink_gen/file/link.txt')
+
+    assert response.status_code == 403
+
+
+def test_get_file_symlink_dir_escape_blocked(client, escaping_gen):
+    response = client.get('/configs/symlink_gen/file/linked_dir/secret.txt')
+
+    assert response.status_code == 403
+
+
+def test_upload_file_symlink_escape_blocked(client, escaping_gen, tmp_path):
+    response = client.post(
+        '/configs/symlink_gen/file/linked_dir/planted.txt',
+        files={'content': ('planted.txt', b'planted')},
+    )
+
+    assert response.status_code == 403
+    assert not (tmp_path / 'outside' / 'planted.txt').exists()
+
+
+def test_put_file_symlink_escape_blocked(client, escaping_gen, tmp_path):
+    response = client.put(
+        '/configs/symlink_gen/file/link.txt',
+        files={'content': ('link.txt', b'overwritten')},
+    )
+
+    assert response.status_code == 403
+    assert (tmp_path / 'outside' / 'secret.txt').read_text() == (
+        'secret content'
+    )
+
+
+def test_delete_file_symlink_escape_blocked(client, escaping_gen, tmp_path):
+    response = client.delete('/configs/symlink_gen/file/link.txt')
+
+    assert response.status_code == 403
+    assert (tmp_path / 'outside' / 'secret.txt').exists()
+
+
+def test_makedir_symlink_escape_blocked(client, escaping_gen, tmp_path):
+    response = client.post(
+        '/configs/symlink_gen/file-makedir/linked_dir/planted',
+    )
+
+    assert response.status_code == 403
+    assert not (tmp_path / 'outside' / 'planted').exists()
+
+
+def test_move_file_symlink_escape_blocked(client, escaping_gen, tmp_path):
+    response = client.post(
+        '/configs/symlink_gen/file-move',
+        params={
+            'source': 'link.txt',
+            'destination': 'moved.txt',
+        },
+    )
+
+    assert response.status_code == 403
+    assert (tmp_path / 'outside' / 'secret.txt').exists()
+
+
+def test_move_file_symlink_escape_of_destination_blocked(
+    client,
+    escaping_gen,
+    tmp_path,
+):
+    (escaping_gen / 'notes.txt').write_text('notes')
+
+    response = client.post(
+        '/configs/symlink_gen/file-move',
+        params={
+            'source': 'notes.txt',
+            'destination': 'linked_dir/notes.txt',
+        },
+    )
+
+    assert response.status_code == 403
+    assert not (tmp_path / 'outside' / 'notes.txt').exists()
+
+
+def test_copy_file_symlink_escape_blocked(client, escaping_gen, tmp_path):
+    (escaping_gen / 'notes.txt').write_text('notes')
+
+    response = client.post(
+        '/configs/symlink_gen/file-copy',
+        params={
+            'source': 'notes.txt',
+            'destination': 'linked_dir/notes.txt',
+        },
+    )
+
+    assert response.status_code == 403
+    assert not (tmp_path / 'outside' / 'notes.txt').exists()
+
+
+def test_symlink_inside_the_generator_still_works(client, tmp_settings):
+    # A symlink that stays within the generator directory is a file of
+    # that generator like any other.
+    gen_dir = _create_config(tmp_settings, 'inner_link_gen')
+    (gen_dir / 'samples').mkdir()
+    (gen_dir / 'samples' / 'hosts.csv').write_text('host\nweb-01\n')
+    (gen_dir / 'hosts.csv').symlink_to(gen_dir / 'samples' / 'hosts.csv')
+
+    response = client.get('/configs/inner_link_gen/file/hosts.csv')
+
+    assert response.status_code == 200
+    assert response.text == 'host\nweb-01\n'
+
+
+def test_delete_generator_root_still_blocked(client, tmp_settings):
+    _create_config(tmp_settings, 'root_gen')
+
+    response = client.delete('/configs/root_gen/file/')
+
+    assert response.status_code == 403
+    assert (tmp_settings.path.generators_dir / 'root_gen').is_dir()
+
+
 def test_get_file_not_found(client, tmp_settings):
     _create_config(tmp_settings, 'missing_file_gen')
 

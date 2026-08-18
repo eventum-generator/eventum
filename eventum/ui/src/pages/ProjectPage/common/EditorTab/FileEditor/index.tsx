@@ -1,8 +1,17 @@
 import { keymap } from '@codemirror/view';
-import { Alert, Box, Skeleton, useMantineColorScheme } from '@mantine/core';
+import {
+  Alert,
+  Box,
+  Button,
+  Group,
+  Skeleton,
+  useMantineColorScheme,
+} from '@mantine/core';
 import { notifications } from '@mantine/notifications';
+import { IconDownload } from '@tabler/icons-react';
 import CodeMirror from '@uiw/react-codemirror';
 import bytes from 'bytes';
+import { basename } from 'pathe';
 import { FC, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 
@@ -14,11 +23,13 @@ import {
   useGeneratorFileTree,
   usePutGeneratorFileMutation,
 } from '@/api/hooks/useGeneratorConfigs';
+import { getGeneratorFileDownloadUrl } from '@/api/routes/generator-configs';
 import { findFileNode } from '@/api/routes/generator-configs/modules/file-tree';
 import { AlertIcon } from '@/components/ui/AlertIcon';
 import { ShowErrorDetailsAnchor } from '@/components/ui/ShowErrorDetailsAnchor';
 import { useProjectName } from '@/pages/ProjectPage/hooks/useProjectName';
 import { cmTheme } from '@/theme/codemirror';
+import { downloadUrl } from '@/utils/download';
 
 // Files above this size are not requested at all: transferring one takes
 // as long as the link needs, and the editor cannot usefully display it.
@@ -157,8 +168,26 @@ export const FileEditor: FC<FileEditorProps> = ({
           icon={<AlertIcon variant="warn" />}
           title="File is too large to open"
         >
-          {bytes(fileSize)} exceeds the editor limit of{' '}
-          {bytes(MAX_EDITABLE_SIZE)}. Open the file outside of Studio.
+          <Group justify="space-between" wrap="nowrap" gap="md">
+            <span>
+              {bytes(fileSize)} exceeds the editor limit of{' '}
+              {bytes(MAX_EDITABLE_SIZE)}.
+            </span>
+            <Button
+              variant="default"
+              size="xs"
+              leftSection={<IconDownload size={16} />}
+              style={{ flexShrink: 0 }}
+              onClick={() =>
+                downloadUrl(
+                  getGeneratorFileDownloadUrl(projectName, filePath),
+                  basename(filePath)
+                )
+              }
+            >
+              Download
+            </Button>
+          </Group>
         </Alert>
       </Box>
     );
