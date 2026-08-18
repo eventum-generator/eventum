@@ -1,7 +1,6 @@
 """Routes."""
 
 import asyncio
-import os
 import shutil
 import tempfile
 from pathlib import Path
@@ -19,7 +18,6 @@ from fastapi import (
     status,
 )
 from pydantic import ValidationError
-from starlette.background import BackgroundTask
 
 from eventum.api.dependencies.app import (
     GeneratorManagerDep,
@@ -58,7 +56,7 @@ from eventum.api.utils.response_description import merge_responses
 from eventum.app.archiving import (
     ArchiveContentError,
     ArchiveError,
-    pack_project,
+    iter_project_archive,
     unpack_project,
 )
 from eventum.app.models.settings import Settings
@@ -81,6 +79,16 @@ from eventum.utils.fs_utils import (
 from eventum.utils.validation_prettier import prettify_validation_errors
 
 router = APIRouter()
+
+
+class _ArchiveResponse(responses.StreamingResponse):
+    """Streamed archive response.
+
+    Declares the media type an archive is served with, which is what
+    the generated schema documents the response as.
+    """
+
+    media_type = DOWNLOAD_MEDIA_TYPE
 
 
 def _resolve_file(settings: Settings, name: str, relative: Path) -> Path:
@@ -497,20 +505,15 @@ async def rename_generator_config(
         'them.'
     ),
     response_description='ZIP archive of the generator directory',
+    response_class=_ArchiveResponse,
     responses=merge_responses(
         check_directory_is_allowed.responses,
         check_configuration_exists.responses,
         {
-            200: {'content': {DOWNLOAD_MEDIA_TYPE: {}}},
             400: {
                 'description': (
                     'Excluded entry is not a name of a top level entry, '
                     'or is the generator configuration itself'
-                ),
-            },
-            500: {
-                'description': (
-                    'Configuration cannot be exported due to OS error'
                 ),
             },
         },
@@ -531,7 +534,7 @@ async def export_generator_config(
             ),
         ),
     ] = None,
-) -> responses.FileResponse:
+) -> responses.StreamingResponse:
     excluded = set(exclude or [])
     config_filename = settings.path.generator_config_filename.name
 
@@ -553,33 +556,14 @@ async def export_generator_config(
 
     project_dir = (settings.path.generators_dir / name).resolve()
 
-    # The archive is built into a temporary file rather than in memory:
-    # a project holds output files and samples of any size. The file is
-    # removed once the response is sent.
-    descriptor, archive_name = tempfile.mkstemp(suffix='.zip')
-    os.close(descriptor)
-    archive_path = Path(archive_name)
-
-    try:
-        await asyncio.to_thread(
-            lambda: pack_project(
-                project_dir,
-                archive_path,
-                exclude=excluded,
-            ),
-        )
-    except ArchiveError as e:
-        await asyncio.to_thread(archive_path.unlink, missing_ok=True)
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f'Configuration cannot be exported: {e}',
-        ) from None
-
-    return responses.FileResponse(
-        archive_path,
-        media_type=DOWNLOAD_MEDIA_TYPE,
+    # The archive is compressed as it is sent, so a project holding
+    # output files of any size neither waits to be packed in full nor
+    # takes a second copy of itself on disk. Content length is left
+    # undeclared for the same reason: the size is not known until the
+    # last entry is written.
+    return _ArchiveResponse(
+        iter_project_archive(project_dir, exclude=excluded),
         headers=build_file_headers(f'{name}.zip'),
-        background=BackgroundTask(archive_path.unlink, missing_ok=True),
     )
 
 

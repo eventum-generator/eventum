@@ -7,11 +7,12 @@ uploaded archive safe to extract, and the limits live here, so every
 driver adapter behaves the same.
 """
 
+import io
 import stat
 import zipfile
-from collections.abc import Collection, Iterable
+from collections.abc import Collection, Iterable, Iterator
 from pathlib import Path
-from typing import IO
+from typing import IO, Any
 
 from eventum.exceptions import ContextualError
 
@@ -23,6 +24,12 @@ MAX_ARCHIVE_ENTRIES = 10_000
 MAX_UNPACKED_SIZE = 512 * 1024 * 1024
 
 _EXTRACT_CHUNK_SIZE = 64 * 1024
+_PACK_CHUNK_SIZE = 64 * 1024
+
+# Metadata of a project a Finder-made archive carries beside it. The
+# directory is not part of the project, and unpacking it would leave a
+# copy of it in the workspace.
+_METADATA_DIR = '__MACOSX'
 
 
 class ArchiveError(ContextualError):
@@ -33,16 +40,48 @@ class ArchiveContentError(ArchiveError):
     """Archive does not hold a project that can be extracted."""
 
 
-def pack_project(
+class _ArchiveStream(io.RawIOBase):
+    """Sink that hands what is written to it back in chunks.
+
+    Stands in for the file an archive is normally written to, so the
+    archive can be produced without one: `zipfile` writes here, and
+    the caller takes what has accumulated after every step. Since the
+    sink cannot seek, sizes and checksums are written after each entry
+    as data descriptors, which is what the format provides for exactly
+    this case.
+    """
+
+    def __init__(self) -> None:
+        self._buffer = bytearray()
+
+    def writable(self) -> bool:
+        """Report the sink as writable."""
+        return True
+
+    def write(self, b: Any) -> int:
+        """Accumulate written bytes."""
+        self._buffer += b
+        return len(b)
+
+    def take(self) -> bytes:
+        """Return what has accumulated and empty the sink."""
+        chunk = bytes(self._buffer)
+        del self._buffer[:]
+        return chunk
+
+
+def iter_project_archive(
     project_dir: Path,
-    destination: Path,
     *,
     exclude: Collection[str] = (),
-) -> None:
-    """Pack a project directory into a ZIP archive.
+) -> Iterator[bytes]:
+    """Produce a ZIP archive of a project directory chunk by chunk.
 
     Entries are stored relative to `project_dir`, so the archive holds
-    the project without a wrapping directory.
+    the project without a wrapping directory. Nothing is buffered
+    whole: the caller receives each chunk as it is compressed, and a
+    project of any size is packed in constant memory and without a
+    file to hold the result.
 
     Symbolic links are left out. A link is stored as the content of
     the file it points at, so one pointing outside the project would
@@ -53,18 +92,19 @@ def pack_project(
     project_dir : Path
         Directory to pack.
 
-    destination : Path
-        Path of the archive to write. An existing file is replaced.
-
     exclude : Collection[str], default ()
         Names of top level entries to leave out, with everything under
         them.
 
+    Yields
+    ------
+    bytes
+        Next chunk of the archive. A chunk may be empty.
+
     Raises
     ------
     ArchiveError
-        If the project directory does not exist, cannot be read, or
-        the archive cannot be written.
+        If the project directory does not exist or cannot be read.
 
     """
     if not project_dir.is_dir():
@@ -72,10 +112,11 @@ def pack_project(
         raise ArchiveError(msg, context={'path': str(project_dir)})
 
     excluded = frozenset(exclude)
+    stream = _ArchiveStream()
 
     try:
         with zipfile.ZipFile(
-            destination,
+            stream,
             mode='w',
             compression=zipfile.ZIP_DEFLATED,
         ) as archive:
@@ -85,14 +126,56 @@ def pack_project(
                 if relative.parts[0] in excluded or path.is_symlink():
                     continue
 
-                if path.is_dir() or path.is_file():
-                    archive.write(path, arcname=relative)
+                if path.is_dir():
+                    _write_dir_entry(archive, path, relative)
+                    yield stream.take()
+                elif path.is_file():
+                    yield from _write_file_entry(
+                        archive,
+                        path,
+                        relative,
+                        stream,
+                    )
+
+        yield stream.take()
     except OSError as e:
         msg = 'Failed to pack project'
         raise ArchiveError(
             msg,
             context={'reason': str(e), 'path': str(project_dir)},
         ) from None
+
+
+def _write_dir_entry(
+    archive: zipfile.ZipFile,
+    path: Path,
+    relative: Path,
+) -> None:
+    """Write the entry of a directory, keeping its timestamp."""
+    entry = zipfile.ZipInfo.from_file(path, relative)
+    entry.CRC = 0
+    entry.compress_size = 0
+    entry.file_size = 0
+
+    archive.mkdir(entry)
+
+
+def _write_file_entry(
+    archive: zipfile.ZipFile,
+    path: Path,
+    relative: Path,
+    stream: _ArchiveStream,
+) -> Iterator[bytes]:
+    """Write the entry of a file, yielding the archive as it grows."""
+    entry = zipfile.ZipInfo.from_file(path, relative)
+    entry.compress_type = zipfile.ZIP_DEFLATED
+
+    with path.open('rb') as source, archive.open(entry, 'w') as target:
+        while chunk := source.read(_PACK_CHUNK_SIZE):
+            target.write(chunk)
+            yield stream.take()
+
+    yield stream.take()
 
 
 def unpack_project(
@@ -111,7 +194,9 @@ def unpack_project(
 
     Everything that is not a regular file or a directory is rejected,
     as are entries pointing outside the destination, so an archive
-    from an untrusted source cannot write anywhere else.
+    from an untrusted source cannot write anywhere else. The metadata
+    directory a Finder-made archive carries beside the project is
+    skipped, since it is not part of it.
 
     Parameters
     ----------
@@ -221,6 +306,11 @@ def _entry_path(filename: str) -> Path:
     return path
 
 
+def _is_metadata(path: Path) -> bool:
+    """Check whether an entry belongs to the metadata directory."""
+    return _METADATA_DIR in path.parts
+
+
 def _find_project_root(
     entries: Iterable[zipfile.ZipInfo],
     config_filename: str,
@@ -241,7 +331,7 @@ def _find_project_root(
             for entry in entries
             if not entry.is_dir()
         )
-        if path.name == config_filename
+        if path.name == config_filename and not _is_metadata(path)
     ]
 
     if not configs:
@@ -298,7 +388,7 @@ def _extract_entries(
     for entry in entries:
         path = _entry_path(entry.filename)
 
-        if path == root or not path.is_relative_to(root):
+        if path == root or not path.is_relative_to(root) or _is_metadata(path):
             continue
 
         target = (destination / path.relative_to(root)).resolve()

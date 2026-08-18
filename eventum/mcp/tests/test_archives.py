@@ -105,14 +105,18 @@ def test_export_escaping_name(tmp_path: Path) -> None:
 
 
 def test_export_over_inline_limit(tmp_path: Path, monkeypatch) -> None:
-    """Archive above the limit is refused in favour of the REST API."""
+    """Archive above the limit is refused in favour of the REST API.
+
+    Packing stops at the limit, so the failure names the limit alone -
+    the size of an archive never finished is not known.
+    """
     _gen(tmp_path)
     monkeypatch.setattr(archives, 'MAX_INLINE_ARCHIVE_SIZE', 1)
 
     result = export_generator(_ctx(tmp_path), 'g')
 
     assert isinstance(result, ToolFailure)
-    assert result.details['limit'] == 1
+    assert result.details == {'name': 'g', 'limit': 1}
 
 
 def test_import_creates_generator(tmp_path: Path) -> None:
@@ -211,6 +215,7 @@ def test_import_over_inline_limit(tmp_path: Path, monkeypatch) -> None:
 
     assert isinstance(result, ToolFailure)
     assert result.details['limit'] == 1
+    assert result.details['size'] > 1
 
 
 def test_export_and_import_round_trip(tmp_path: Path) -> None:

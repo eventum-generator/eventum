@@ -25,7 +25,7 @@ from mcp.server.fastmcp import FastMCP
 from eventum.app import workspace
 from eventum.app.archiving import (
     ArchiveError,
-    pack_project,
+    iter_project_archive,
     unpack_project,
 )
 from eventum.app.workspace import WorkspaceError
@@ -109,43 +109,47 @@ def _pack_inline(
 ) -> dict[str, Any] | ToolFailure:
     """Pack a project and return it base64 encoded.
 
+    Packing stops as soon as the archive passes the inline limit, so a
+    project too large to return is refused instead of being packed
+    whole first.
+
     Returns the archive payload, or a ToolFailure to forward.
     """
-    with tempfile.TemporaryDirectory() as staging:
-        archive_path = Path(staging) / f'{name}.zip'
+    content = bytearray()
 
-        try:
-            pack_project(project_dir, archive_path, exclude=excluded)
-            size = archive_path.stat().st_size
+    try:
+        for chunk in iter_project_archive(project_dir, exclude=excluded):
+            content += chunk
 
-            if size > MAX_INLINE_ARCHIVE_SIZE:
-                return _oversized_failure(name, size)
-
-            content = archive_path.read_bytes()
-        except ArchiveError as e:
-            return to_tool_error(e, context.generators_dir)
-        except OSError as e:
-            return _os_error_failure(
-                'Failed to pack generator', context, name, e
-            )
+            if len(content) > MAX_INLINE_ARCHIVE_SIZE:
+                return _oversized_failure(name)
+    except ArchiveError as e:
+        return to_tool_error(e, context.generators_dir)
+    except OSError as e:
+        return _os_error_failure('Failed to pack generator', context, name, e)
 
     return {
         'filename': f'{name}.zip',
-        'size_in_bytes': size,
+        'size_in_bytes': len(content),
         'content_base64': base64.b64encode(content).decode('ascii'),
     }
 
 
-def _oversized_failure(name: str, size: int) -> ToolFailure:
-    """Failure for an archive over the inline transfer limit."""
-    return ToolFailure(
-        error=_TRANSFER_HINT,
-        details={
-            'name': name,
-            'size': size,
-            'limit': MAX_INLINE_ARCHIVE_SIZE,
-        },
-    )
+def _oversized_failure(name: str, size: int | None = None) -> ToolFailure:
+    """Failure for an archive over the inline transfer limit.
+
+    The size is reported when it is known - packing stops as soon as an
+    archive passes the limit, so on that route it is not.
+    """
+    details: dict[str, Any] = {
+        'name': name,
+        'limit': MAX_INLINE_ARCHIVE_SIZE,
+    }
+
+    if size is not None:
+        details['size'] = size
+
+    return ToolFailure(error=_TRANSFER_HINT, details=details)
 
 
 def _os_error_failure(

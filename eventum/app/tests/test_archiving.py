@@ -3,6 +3,7 @@
 import io
 import stat
 import zipfile
+from datetime import datetime
 from pathlib import Path
 
 import pytest
@@ -11,7 +12,7 @@ from eventum.app import archiving
 from eventum.app.archiving import (
     ArchiveContentError,
     ArchiveError,
-    pack_project,
+    iter_project_archive,
     unpack_project,
 )
 
@@ -32,6 +33,13 @@ def project_dir(tmp_path: Path) -> Path:
     return path
 
 
+def _pack(project_dir: Path, destination: Path, **kwargs) -> None:
+    """Collect a packed project into a file."""
+    with destination.open('wb') as f:
+        for chunk in iter_project_archive(project_dir, **kwargs):
+            f.write(chunk)
+
+
 def _archive_names(path: Path) -> set[str]:
     with zipfile.ZipFile(path) as archive:
         return {name.rstrip('/') for name in archive.namelist()}
@@ -48,13 +56,13 @@ def _build_archive(entries: dict[str, str]) -> io.BytesIO:
     return buffer
 
 
-# --- pack_project ---
+# --- packing ---
 
 
 def test_pack_stores_paths_relative_to_project(project_dir, tmp_path):
     destination = tmp_path / 'project.zip'
 
-    pack_project(project_dir, destination)
+    _pack(project_dir, destination)
 
     assert _archive_names(destination) == {
         CONFIG_FILENAME,
@@ -68,7 +76,7 @@ def test_pack_stores_paths_relative_to_project(project_dir, tmp_path):
 def test_pack_excludes_named_top_level_entries(project_dir, tmp_path):
     destination = tmp_path / 'project.zip'
 
-    pack_project(project_dir, destination, exclude=['output'])
+    _pack(project_dir, destination, exclude=['output'])
 
     assert _archive_names(destination) == {
         CONFIG_FILENAME,
@@ -81,7 +89,7 @@ def test_pack_keeps_empty_directories(project_dir, tmp_path):
     (project_dir / 'samples').mkdir()
     destination = tmp_path / 'project.zip'
 
-    pack_project(project_dir, destination)
+    _pack(project_dir, destination)
 
     assert 'samples' in _archive_names(destination)
 
@@ -92,14 +100,70 @@ def test_pack_skips_symlinks(project_dir, tmp_path):
     (project_dir / 'link.txt').symlink_to(outside)
 
     destination = tmp_path / 'project.zip'
-    pack_project(project_dir, destination)
+    _pack(project_dir, destination)
 
     assert 'link.txt' not in _archive_names(destination)
 
 
 def test_pack_missing_project(tmp_path):
     with pytest.raises(ArchiveError):
-        pack_project(tmp_path / 'absent', tmp_path / 'project.zip')
+        _pack(tmp_path / 'absent', tmp_path / 'project.zip')
+
+
+def test_pack_keeps_modification_times(project_dir, tmp_path):
+    destination = tmp_path / 'project.zip'
+
+    _pack(project_dir, destination)
+
+    with zipfile.ZipFile(destination) as archive:
+        packed = archive.getinfo(CONFIG_FILENAME).date_time
+
+    # ZIP stores local time, which is what `datetime.fromtimestamp`
+    # returns without a timezone.
+    modified = datetime.fromtimestamp(  # noqa: DTZ006
+        (project_dir / CONFIG_FILENAME).stat().st_mtime,
+    )
+
+    assert packed[:5] == (
+        modified.year,
+        modified.month,
+        modified.day,
+        modified.hour,
+        modified.minute,
+    )
+
+
+# --- iter_project_archive ---
+
+
+def test_iter_yields_the_archive_in_chunks(project_dir, tmp_path):
+    # A project is packed without ever holding the archive whole, so
+    # the content arrives as several chunks rather than one.
+    (project_dir / 'samples').mkdir()
+    (project_dir / 'samples' / 'big.csv').write_text('x' * 500_000)
+
+    chunks = [chunk for chunk in iter_project_archive(project_dir) if chunk]
+    content = b''.join(chunks)
+
+    assert len(chunks) > 1
+
+    with zipfile.ZipFile(io.BytesIO(content)) as archive:
+        assert archive.testzip() is None
+        assert {name.rstrip('/') for name in archive.namelist()} == {
+            CONFIG_FILENAME,
+            'templates',
+            'templates/event.jinja',
+            'output',
+            'output/events.log',
+            'samples',
+            'samples/big.csv',
+        }
+        assert len(archive.read('samples/big.csv')) == 500_000
+
+
+def test_iter_missing_project(tmp_path):
+    with pytest.raises(ArchiveError):
+        list(iter_project_archive(tmp_path / 'absent'))
 
 
 # --- unpack_project ---
@@ -254,6 +318,21 @@ def test_unpack_rejects_written_size_over_limit(tmp_path, monkeypatch):
         unpack_project(archive, tmp_path / 'unpacked', CONFIG_FILENAME)
 
 
+def test_unpack_skips_finder_metadata(tmp_path):
+    archive = _build_archive(
+        {
+            CONFIG_FILENAME: 'input: []',
+            '__MACOSX/._' + CONFIG_FILENAME: 'metadata',
+        },
+    )
+    destination = tmp_path / 'unpacked'
+
+    written = unpack_project(archive, destination, CONFIG_FILENAME)
+
+    assert written == 1
+    assert not (destination / '__MACOSX').exists()
+
+
 def test_unpack_not_an_archive(tmp_path):
     with pytest.raises(ArchiveContentError):
         unpack_project(
@@ -265,7 +344,7 @@ def test_unpack_not_an_archive(tmp_path):
 
 def test_pack_and_unpack_round_trip(project_dir, tmp_path):
     destination = tmp_path / 'project.zip'
-    pack_project(project_dir, destination)
+    _pack(project_dir, destination)
 
     unpacked = tmp_path / 'unpacked'
 
