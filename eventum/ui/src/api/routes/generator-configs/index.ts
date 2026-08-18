@@ -108,6 +108,40 @@ export async function getGeneratorFile(
   );
 }
 
+/**
+ * Build the URL a browser downloads a project file from.
+ *
+ * The transfer goes through a plain navigation rather than the API client:
+ * the browser streams the response straight to disk, while reading it here
+ * would hold the whole file in memory - the very thing the editor size limit
+ * avoids. Being same origin, the navigation carries the session cookie.
+ */
+export function getGeneratorFileDownloadUrl(
+  name: string,
+  filepath: string
+): string {
+  return apiClient.getUri({
+    url: `/generator-configs/${encodePathSegment(name)}/file/${encodeFilePath(
+      filepath
+    )}`,
+    params: { download: true },
+  });
+}
+
+// A name reaches the URL as typed by whoever created the file, so every
+// character that carries meaning in a URL - '#', '?', '%', a space - is
+// escaped. Separators are kept, since the path is a path.
+function encodeFilePath(filepath: string): string {
+  return filepath
+    .split('/')
+    .map((segment) => encodePathSegment(segment))
+    .join('/');
+}
+
+function encodePathSegment(segment: string): string {
+  return encodeURIComponent(segment);
+}
+
 export async function uploadGeneratorFile(
   name: string,
   filepath: string,

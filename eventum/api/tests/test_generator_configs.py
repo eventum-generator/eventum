@@ -427,6 +427,85 @@ def test_get_file_declares_no_length(client, tmp_settings):
     assert 'content-length' not in response.headers
 
 
+def test_get_file_download_saves_as_attachment(client, tmp_settings):
+    gen_dir = _create_config(tmp_settings, 'download_gen')
+    (gen_dir / 'output.ndjson').write_text('{"a": 1}\n')
+
+    response = client.get(
+        '/configs/download_gen/file/output.ndjson',
+        params={'download': True},
+    )
+
+    assert response.status_code == 200
+    assert response.text == '{"a": 1}\n'
+    assert response.headers['content-disposition'] == (
+        'attachment; filename="output.ndjson"'
+    )
+    # An executable type would turn a downloadable file into
+    # same-origin script the moment the disposition stopped applying.
+    assert response.headers['content-type'] == 'application/octet-stream'
+    assert response.headers['x-content-type-options'] == 'nosniff'
+
+
+def test_get_file_download_names_the_file_not_its_path(
+    client,
+    tmp_settings,
+):
+    gen_dir = _create_config(tmp_settings, 'nested_gen')
+    (gen_dir / 'templates').mkdir()
+    (gen_dir / 'templates' / 'event.jinja').write_text('{{ ts }}')
+
+    response = client.get(
+        '/configs/nested_gen/file/templates/event.jinja',
+        params={'download': True},
+    )
+
+    assert response.status_code == 200
+    assert response.headers['content-disposition'] == (
+        'attachment; filename="event.jinja"'
+    )
+
+
+def test_get_file_download_encodes_non_ascii_name(client, tmp_settings):
+    gen_dir = _create_config(tmp_settings, 'non_ascii_gen')
+    (gen_dir / NON_ASCII_VALUE).write_text('content')
+
+    response = client.get(
+        f'/configs/non_ascii_gen/file/{NON_ASCII_VALUE}',
+        params={'download': True},
+    )
+
+    assert response.status_code == 200
+    assert "filename*=utf-8''" in response.headers['content-disposition']
+
+
+def test_get_file_download_declares_no_length(client, tmp_settings):
+    # The body is a snapshot of a file a generator may be appending to,
+    # so its length is as unknown here as it is for an inline read.
+    gen_dir = _create_config(tmp_settings, 'download_length_gen')
+    (gen_dir / 'output.ndjson').write_text('{"a": 1}\n')
+
+    response = client.get(
+        '/configs/download_length_gen/file/output.ndjson',
+        params={'download': True},
+    )
+
+    assert response.status_code == 200
+    assert 'content-length' not in response.headers
+
+
+def test_get_file_serves_inline_by_default(client, tmp_settings):
+    gen_dir = _create_config(tmp_settings, 'inline_gen')
+    (gen_dir / 'notes.txt').write_text('file content')
+
+    response = client.get('/configs/inline_gen/file/notes.txt')
+
+    assert response.status_code == 200
+    assert response.headers['content-type'] == 'text/plain; charset=utf-8'
+    assert response.headers['x-content-type-options'] == 'nosniff'
+    assert 'content-disposition' not in response.headers
+
+
 # --- Symlink escape ---
 
 # A relative path with no '..' in it still leaves the generator

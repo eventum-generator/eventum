@@ -45,6 +45,11 @@ from eventum.api.routers.generator_configs.models import (
     GeneratorDirExtendedInfo,
     RenameGeneratorDirRequest,
 )
+from eventum.api.utils.file_response import (
+    DOWNLOAD_MEDIA_TYPE,
+    INLINE_MEDIA_TYPE,
+    build_file_headers,
+)
 from eventum.api.utils.file_streaming import stream_snapshot
 from eventum.api.utils.response_description import merge_responses
 from eventum.app.models.settings import Settings
@@ -546,7 +551,8 @@ async def get_generator_file_tree(
     '/{name}/file/{filepath:path}',
     description=(
         'Read file from specified path inside generator directory '
-        'with specified name.'
+        'with specified name. Set `download` to receive the file as an '
+        'attachment instead of inline content.'
     ),
     response_description=('File content.'),
     responses=merge_responses(
@@ -571,6 +577,15 @@ async def get_generator_file(
         Annotated[Path, CheckFilepathIsDirectlyRelativeDep],
     ],
     settings: SettingsDep,
+    download: Annotated[  # noqa: FBT002
+        bool,
+        Query(
+            description=(
+                'Serve the file as an attachment saved under its name '
+                'instead of content rendered inline'
+            ),
+        ),
+    ] = False,
 ) -> responses.StreamingResponse:
     path = _resolve_file(settings, name, filepath)
 
@@ -596,7 +611,8 @@ async def get_generator_file(
     # length would stop matching the sent body.
     return responses.StreamingResponse(
         stream_snapshot(file),
-        media_type='text/plain',
+        media_type=DOWNLOAD_MEDIA_TYPE if download else INLINE_MEDIA_TYPE,
+        headers=build_file_headers(path.name if download else None),
     )
 
 

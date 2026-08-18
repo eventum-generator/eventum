@@ -5,20 +5,24 @@ import {
   IconChevronDown,
   IconChevronRight,
   IconCursorText,
+  IconDownload,
   IconFilePlus,
   IconFolderPlus,
   IconTrash,
 } from '@tabler/icons-react';
 import bytes from 'bytes';
 import { useContextMenu } from 'mantine-contextmenu';
-import { dirname, join } from 'pathe';
+import { basename, dirname, join } from 'pathe';
 import { FC } from 'react';
 
 import { CreateItemModal } from './CreateItemModal';
 import { FileNodeItemIcon } from './FileNodeItemIcon';
 import { useCreateGeneratorDirectoryMutation } from '@/api/hooks/useGeneratorConfigs';
+import { getGeneratorFileDownloadUrl } from '@/api/routes/generator-configs';
 import { FileNode } from '@/api/routes/generator-configs/schemas';
+import { useProjectName } from '@/pages/ProjectPage/hooks/useProjectName';
 import { CONFIRM } from '@/theme/copy';
+import { downloadUrl } from '@/utils/download';
 
 interface TreeItemProps {
   item: ItemInstance<FileNode>;
@@ -40,6 +44,7 @@ export const TreeItem: FC<TreeItemProps> = ({
   'use no memo';
 
   const { showContextMenu } = useContextMenu();
+  const { projectName } = useProjectName();
   const createDir = useCreateGeneratorDirectoryMutation();
 
   const fileSize = item.isFolder() ? null : item.getItemData().size_in_bytes;
@@ -117,6 +122,39 @@ export const TreeItem: FC<TreeItemProps> = ({
                   ),
                 }),
             },
+            // A directory has no single file to save; the config file, which
+            // cannot be renamed or deleted, can still be taken out of Studio.
+            ...(item.isFolder()
+              ? []
+              : [
+                  {
+                    key: 'download',
+                    title: (
+                      <NavLink
+                        label="Download"
+                        bdrs="6px"
+                        p="1px 4px 1px 4px"
+                        leftSection={<IconDownload size={16} />}
+                        // The size is what the choice turns on - a file the
+                        // editor refuses to open is the reason this exists.
+                        rightSection={
+                          fileSize === null ? undefined : (
+                            <Text fz={11} c="dimmed">
+                              {bytes(fileSize, { decimalPlaces: 0 })}
+                            </Text>
+                          )
+                        }
+                      />
+                    ),
+                    onClick: () => {
+                      const filepath = item.getId();
+                      downloadUrl(
+                        getGeneratorFileDownloadUrl(projectName, filepath),
+                        basename(filepath)
+                      );
+                    },
+                  },
+                ]),
             // The config file cannot be renamed or deleted from the tree.
             ...(isConfigFile
               ? []
