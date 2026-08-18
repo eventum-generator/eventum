@@ -465,6 +465,7 @@ async def test_plugin_drops_connection_when_write_is_cancelled(
 )
 async def test_plugin_close_gives_up_on_undelivered_data(mock_open_conn):
     """Closing does not wait for a target that stopped reading."""
+
     async def never_closes() -> None:
         await asyncio.sleep(30)
 
