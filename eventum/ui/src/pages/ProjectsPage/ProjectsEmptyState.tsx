@@ -1,9 +1,10 @@
-import { Button, Paper, Stack, Text, ThemeIcon } from '@mantine/core';
+import { Button, Group, Paper, Stack, Text, ThemeIcon } from '@mantine/core';
 import { IconFolderPlus } from '@tabler/icons-react';
 import { FC } from 'react';
 
 interface ProjectsEmptyStateProps {
   onCreate: () => void;
+  onImport: () => void;
 }
 
 /**
@@ -12,6 +13,7 @@ interface ProjectsEmptyStateProps {
  */
 export const ProjectsEmptyState: FC<ProjectsEmptyStateProps> = ({
   onCreate,
+  onImport,
 }) => (
   <Paper withBorder p="xl">
     <Stack align="center" gap="sm" py="xl">
@@ -21,11 +23,15 @@ export const ProjectsEmptyState: FC<ProjectsEmptyStateProps> = ({
       <Text fw={600}>No projects yet</Text>
       <Text size="sm" c="dimmed" ta="center" maw={420}>
         A project holds the configuration, templates, and sample data for one
-        generator. Create one to start producing events.
+        generator. Create one to start producing events, or import one packed
+        elsewhere.
       </Text>
-      <Button mt="xs" onClick={onCreate}>
-        Create new project
-      </Button>
+      <Group mt="xs">
+        <Button variant="default" onClick={onImport}>
+          Import project
+        </Button>
+        <Button onClick={onCreate}>Create new project</Button>
+      </Group>
     </Stack>
   </Paper>
 );

@@ -1,10 +1,16 @@
 import { Button, Group, List, Menu, Stack, Text } from '@mantine/core';
 import { modals } from '@mantine/modals';
 import { notifications } from '@mantine/notifications';
-import { IconCursorText, IconEdit, IconTrash } from '@tabler/icons-react';
+import {
+  IconCursorText,
+  IconEdit,
+  IconPackageExport,
+  IconTrash,
+} from '@tabler/icons-react';
 import { FC, ReactNode } from 'react';
 import { Link } from 'react-router-dom';
 
+import { ExportProjectModal } from '../ExportProjectModal';
 import { RenameProjectModal } from '../RenameProjectModal';
 import {
   useDeleteGeneratorConfigMutation,
@@ -41,6 +47,14 @@ export const RowActions: FC<RowActionsProps> = ({
         />
       ),
       size: 'md',
+    });
+  }
+
+  function handleExport() {
+    modals.open({
+      title: 'Export project',
+      children: <ExportProjectModal projectName={dirName} />,
+      size: 'lg',
     });
   }
 
@@ -124,6 +138,13 @@ export const RowActions: FC<RowActionsProps> = ({
           onClick={handleRename}
         >
           Rename
+        </Menu.Item>
+
+        <Menu.Item
+          leftSection={<IconPackageExport size={14} />}
+          onClick={handleExport}
+        >
+          Export
         </Menu.Item>
 
         <Menu.Divider />

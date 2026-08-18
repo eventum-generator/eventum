@@ -16,10 +16,12 @@ import {
   createGeneratorDirectory,
   deleteGeneratorConfig,
   deleteGeneratorFile,
+  exportGeneratorProject,
   getGeneratorConfig,
   getGeneratorConfigPath,
   getGeneratorFile,
   getGeneratorFileTree,
+  importGeneratorProject,
   listGeneratorDirs,
   moveGeneratorFile,
   putGeneratorFile,
@@ -118,6 +120,31 @@ export function useDeleteGeneratorConfigMutation() {
 
   return useMutation({
     mutationFn: ({ name }: { name: string }) => deleteGeneratorConfig(name),
+    onSuccess: async (_, { name }) => {
+      dropProjectQueries(queryClient, name);
+
+      await Promise.all(
+        GENERATOR_CONFIG_DIRS_COMMON_QUERY_KEYS.map((key) =>
+          queryClient.invalidateQueries({ queryKey: key, exact: true })
+        )
+      );
+    },
+  });
+}
+
+export function useExportGeneratorProjectMutation() {
+  return useMutation({
+    mutationFn: ({ name, exclude }: { name: string; exclude?: string[] }) =>
+      exportGeneratorProject(name, exclude),
+  });
+}
+
+export function useImportGeneratorProjectMutation() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({ name, archive }: { name: string; archive: File }) =>
+      importGeneratorProject(name, archive),
     onSuccess: async (_, { name }) => {
       dropProjectQueries(queryClient, name);
 

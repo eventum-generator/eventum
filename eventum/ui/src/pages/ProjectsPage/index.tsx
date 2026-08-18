@@ -19,6 +19,7 @@ import { useMemo } from 'react';
 
 import { CreateProjectModal } from './CreateProjectModal';
 import { GeneratorDirsTable, UsageMode } from './GeneratorDirsTable';
+import { ImportProjectModal } from './ImportProjectModal';
 import { ProjectsEmptyState } from './ProjectsEmptyState';
 import { useGeneratorDirs } from '@/api/hooks/useGeneratorConfigs';
 import { AlertIcon } from '@/components/ui/AlertIcon';
@@ -81,6 +82,17 @@ export default function ProjectsPage() {
         size: 'lg',
       });
 
+    const openImportModal = () =>
+      modals.open({
+        title: 'Import project',
+        children: (
+          <ImportProjectModal
+            existingProjectNames={generatorDirs.map((item) => item.name)}
+          />
+        ),
+        size: 'lg',
+      });
+
     const total = generatorDirs.length;
 
     if (total === 0) {
@@ -88,7 +100,10 @@ export default function ProjectsPage() {
         <Container size="100%">
           <Stack>
             <PageTitle title="Projects" />
-            <ProjectsEmptyState onCreate={openCreateModal} />
+            <ProjectsEmptyState
+              onCreate={openCreateModal}
+              onImport={openImportModal}
+            />
           </Stack>
         </Container>
       );
@@ -156,7 +171,12 @@ export default function ProjectsPage() {
                   ]}
                 />
               </Group>
-              <Button onClick={openCreateModal}>Create new</Button>
+              <Group gap="sm">
+                <Button variant="default" onClick={openImportModal}>
+                  Import
+                </Button>
+                <Button onClick={openCreateModal}>Create new</Button>
+              </Group>
             </Group>
           </Paper>
 

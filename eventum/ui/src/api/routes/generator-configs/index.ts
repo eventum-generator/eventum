@@ -81,6 +81,41 @@ export async function renameGeneratorConfig(
   );
 }
 
+export async function exportGeneratorProject(
+  name: string,
+  exclude: string[] = []
+): Promise<Blob> {
+  const response = await apiClient.get(
+    `/generator-configs/${encodeURIComponent(name)}/export`,
+    {
+      params: exclude.length > 0 ? { exclude } : undefined,
+      // Repeats the key per value (`exclude=a&exclude=b`), which is the
+      // shape the backend reads a list of query values in.
+      paramsSerializer: { indexes: null },
+      responseType: 'blob',
+      timeout: TRANSFER_TIMEOUT,
+    }
+  );
+
+  return response.data as Blob;
+}
+
+export async function importGeneratorProject(name: string, archive: File) {
+  const form = new FormData();
+  form.append('content', archive, archive.name);
+
+  await apiClient.post(
+    `/generator-configs/${encodeURIComponent(name)}/import`,
+    form,
+    {
+      headers: {
+        'Content-Type': undefined,
+      },
+      timeout: TRANSFER_TIMEOUT,
+    }
+  );
+}
+
 export async function getGeneratorConfigPath(name: string): Promise<string> {
   return await validateResponse(
     GeneratorConfigPathSchema,
