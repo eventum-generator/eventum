@@ -15,6 +15,7 @@ import { InstanceInfo } from '@/api/routes/instance/schemas';
 import { ROUTE_PATHS } from '@/routing/paths';
 import {
   CPU_THRESHOLDS,
+  FD_THRESHOLDS,
   MEMORY_THRESHOLDS,
   levelColor,
 } from '@/utils/levelColor';
@@ -54,6 +55,10 @@ export const IdentityGrid: FC<{ info: InstanceInfo }> = ({ info }) => {
   const memPct =
     info.memory_total_bytes > 0
       ? (info.memory_used_bytes / info.memory_total_bytes) * 100
+      : 0;
+  const fdPct =
+    info.process_max_fds > 0
+      ? (info.process_open_fds / info.process_max_fds) * 100
       : 0;
 
   return (
@@ -115,7 +120,15 @@ export const IdentityGrid: FC<{ info: InstanceInfo }> = ({ info }) => {
           )}
           caption={`${bytes(info.memory_used_bytes)} / ${bytes(
             info.memory_total_bytes
-          )}`}
+          )} · app ${bytes(info.process_memory_bytes)}`}
+        />
+        <Vital
+          label="Descriptors"
+          pct={fdPct}
+          color={levelColor(fdPct, FD_THRESHOLDS.warn, FD_THRESHOLDS.bad)}
+          caption={`${info.process_open_fds} open of ${
+            info.process_max_fds || '?'
+          }`}
         />
         <Anchor
           component={Link}

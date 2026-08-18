@@ -45,9 +45,36 @@ export const OutputPluginStatsSchema = PluginStatsSchema.extend({
 });
 export type OutputPluginStats = z.infer<typeof OutputPluginStatsSchema>;
 
+export const QueueStatsSchema = z.object({
+  size: z.int().min(0),
+  maxsize: z.int().min(1),
+  size_bytes: z.int().min(0),
+  max_bytes: z.int().min(1).nullable(),
+});
+export type QueueStats = z.infer<typeof QueueStatsSchema>;
+
+export const QueuesStatsSchema = z.object({
+  timestamps: QueueStatsSchema,
+  events: QueueStatsSchema,
+});
+export type QueuesStats = z.infer<typeof QueuesStatsSchema>;
+
+export const ResourcesStatsSchema = z.object({
+  thread_count: z.int().min(0),
+  cpu_seconds: z.number().min(0),
+  run_delay_seconds: z.number().min(0),
+  disk_read_bytes: z.int().min(0),
+  disk_written_bytes: z.int().min(0),
+  network_sent_bytes: z.int().min(0),
+  network_received_bytes: z.int().min(0),
+  queues: QueuesStatsSchema,
+});
+export type ResourcesStats = z.infer<typeof ResourcesStatsSchema>;
+
 export const GeneratorStatsSchema = z.object({
   id: z.string(),
   start_time: z.string(),
+  resources: ResourcesStatsSchema,
   input: z.array(InputPluginStatsSchema),
   event: EventPluginStatsSchema,
   output: z.array(OutputPluginStatsSchema),

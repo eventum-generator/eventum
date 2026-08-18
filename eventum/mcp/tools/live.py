@@ -18,6 +18,7 @@ from eventum.app.startup import (
 )
 from eventum.app.workspace import WorkspaceError
 from eventum.core.generator import Generator
+from eventum.core.resources import QueueUsage
 from eventum.logging.channels import generator_channel
 from eventum.logging.file_paths import construct_channel_logfile_path
 from eventum.mcp.context import LiveContext
@@ -120,6 +121,36 @@ def _stats_dict(generator: Generator) -> dict[str, Any]:
         'total_written': total_written,
         'input_eps': total_generated / uptime if uptime > 0 else 0.0,
         'output_eps': total_written / uptime if uptime > 0 else 0.0,
+        'resources': _resources_dict(generator),
+    }
+
+
+def _resources_dict(generator: Generator) -> dict[str, Any]:
+    """Build a JSON-able dict of what a running generator occupies."""
+    resources = generator.get_resources()
+
+    return {
+        'thread_count': resources.thread_count,
+        'cpu_seconds': resources.cpu_seconds,
+        'run_delay_seconds': resources.run_delay_seconds,
+        'disk_read_bytes': resources.disk_read_bytes,
+        'disk_written_bytes': resources.disk_written_bytes,
+        'network_sent_bytes': resources.network_sent_bytes,
+        'network_received_bytes': resources.network_received_bytes,
+        'queues': {
+            'timestamps': _queue_dict(resources.queues.timestamps),
+            'events': _queue_dict(resources.queues.events),
+        },
+    }
+
+
+def _queue_dict(queue: QueueUsage) -> dict[str, Any]:
+    """Build a JSON-able dict of the fill level of one pipeline queue."""
+    return {
+        'size': queue.size,
+        'maxsize': queue.maxsize,
+        'size_bytes': queue.size_bytes,
+        'max_bytes': queue.max_bytes,
     }
 
 
@@ -297,7 +328,8 @@ async def get_generator_stats(
             details={'id': generator_id},
         )
     try:
-        return _stats_dict(generator)
+        # Reading the resources goes through the OS, so it blocks.
+        return await asyncio.to_thread(_stats_dict, generator)
     except RuntimeError:
         return ToolFailure(
             error='Generator is not running',

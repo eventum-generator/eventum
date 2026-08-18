@@ -35,38 +35,6 @@ const Attr: FC<{ icon: ReactNode; label: string; children: ReactNode }> = ({
   </Group>
 );
 
-/** A small on/off state chip: a coloured dot and label in a bordered pill. */
-const StateChip: FC<{ on: boolean }> = ({ on }) => (
-  <span
-    style={{
-      display: 'inline-flex',
-      alignItems: 'center',
-      gap: 6,
-      height: 20,
-      padding: '0 8px',
-      borderRadius: 999,
-      border: '1px solid var(--mantine-color-default-border)',
-      fontSize: 11,
-      fontWeight: 600,
-      color: on
-        ? 'var(--mantine-color-green-text)'
-        : 'var(--mantine-color-dimmed)',
-    }}
-  >
-    <span
-      style={{
-        width: 6,
-        height: 6,
-        borderRadius: '50%',
-        background: on
-          ? 'var(--mantine-color-green-text)'
-          : 'var(--mantine-color-dimmed)',
-      }}
-    />
-    {on ? 'On' : 'Off'}
-  </span>
-);
-
 interface AboutPanelProps {
   instanceId: string;
   generatorParams: GeneratorParameters;
@@ -108,7 +76,9 @@ export const AboutPanel: FC<AboutPanelProps> = ({
         </Text>
       </Attr>
       <Attr icon={<IconRocket size={16} />} label="Autostart">
-        <StateChip on={autostart} />
+        <Text size="sm" fw={500} c={autostart ? undefined : 'dimmed'}>
+          {autostart ? 'On' : 'Off'}
+        </Text>
       </Attr>
       <Attr icon={<IconWorld size={16} />} label="Timezone">
         <Text size="sm" fw={500}>

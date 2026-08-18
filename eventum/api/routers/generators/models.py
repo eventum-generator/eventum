@@ -82,11 +82,112 @@ class OutputPluginStats(PluginStats, frozen=True, extra='forbid'):
     )
 
 
+class QueueStats(BaseModel, frozen=True, extra='forbid'):
+    """Fill level of a queue between two pipeline stages."""
+
+    size: int = Field(
+        ge=0,
+        description='Number of batches waiting in the queue',
+    )
+    maxsize: int = Field(
+        ge=1,
+        description='Maximum number of batches the queue holds',
+    )
+    size_bytes: int = Field(
+        ge=0,
+        description=(
+            'Number of bytes the batches waiting in the queue occupy'
+        ),
+    )
+    max_bytes: int | None = Field(
+        ge=1,
+        description=(
+            'Maximum number of bytes the queue holds, null if their '
+            'size is not limited'
+        ),
+    )
+
+
+class QueuesStats(BaseModel, frozen=True, extra='forbid'):
+    """Fill levels of the queues between the pipeline stages."""
+
+    timestamps: QueueStats = Field(
+        description='Queue between the input and the event stage',
+    )
+    events: QueueStats = Field(
+        description='Queue between the event and the output stage',
+    )
+
+
+class ResourcesStats(BaseModel, frozen=True, extra='forbid'):
+    """Runtime resources occupied by a generator.
+
+    Memory is absent by nature: generators share the process heap, so
+    the share of it belonging to one generator is not observable. Queue
+    fill levels stand in for it, since the queues hold the bulk of what
+    a generator keeps in flight.
+    """
+
+    thread_count: int = Field(
+        ge=0,
+        description='Number of threads the generator runs',
+    )
+    cpu_seconds: float = Field(
+        ge=0,
+        description=(
+            'CPU time consumed by those threads since the generator '
+            'started, growing over the lifetime of the generator'
+        ),
+    )
+    run_delay_seconds: float = Field(
+        ge=0,
+        description=(
+            'Time those threads spent ready to run while waiting for a '
+            'processor since the generator started, growing over the '
+            'lifetime of the generator; reported on Linux only'
+        ),
+    )
+    disk_read_bytes: int = Field(
+        ge=0,
+        description=(
+            'Number of bytes those threads read through the file '
+            'system since the generator started; reported on Linux only'
+        ),
+    )
+    disk_written_bytes: int = Field(
+        ge=0,
+        description=(
+            'Number of bytes those threads wrote through the file '
+            'system since the generator started; reported on Linux only'
+        ),
+    )
+    network_sent_bytes: int = Field(
+        ge=0,
+        description=(
+            'Number of bytes those threads sent over the network since '
+            'the generator started'
+        ),
+    )
+    network_received_bytes: int = Field(
+        ge=0,
+        description=(
+            'Number of bytes those threads received over the network '
+            'since the generator started'
+        ),
+    )
+    queues: QueuesStats = Field(
+        description='Fill levels of the queues between the pipeline stages',
+    )
+
+
 class GeneratorStats(BaseModel, frozen=True, extra='forbid'):
     """Stats of generator."""
 
     id: str = Field(min_length=1, description='Generator id')
     start_time: datetime = Field(description='Start time of the generator')
+    resources: ResourcesStats = Field(
+        description='Runtime resources occupied by the generator',
+    )
     input: list[InputPluginStats] = Field(
         description='Input plugins statistics',
     )

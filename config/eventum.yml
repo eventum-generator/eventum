@@ -109,6 +109,15 @@ generation.queue.max_timestamp_batches: 10
 # Optional, default is 10
 generation.queue.max_event_batches: 10
 
+# Maximum number of bytes the batches waiting in events queue occupy
+# together. Applies alongside the limit on their number, whichever is
+# reached first, and keeps what the queue accumulates bounded no matter
+# how large the events are. What a generator occupies while producing
+# and writing a batch follows the batch size instead. Set to null to
+# leave the size of the queue unlimited
+# Optional, default is 268435456 (256 MiB)
+generation.queue.max_event_bytes: 268435456
+
 
 # Whether to keep chronological order of event using their timestamps
 # by disabling output plugins concurrency

@@ -69,10 +69,11 @@ def _collect_output(output_q: PipelineQueue) -> list:
     """Drain all items from output queue until sentinel."""
     results = []
     while True:
-        item = output_q.get()
-        if item is None:
+        held = output_q.get()
+        held.release()
+        if held.item is None:
             break
-        results.append(item)
+        results.append(held.item)
     return results
 
 
@@ -437,7 +438,7 @@ def test_execute_closes_output_on_input_shutdown():
     stage_thread.start()
 
     # If output.close() was NOT called, this would hang forever
-    result = output_q.get()
+    result = output_q.get().item
     stage_thread.join(timeout=5)
 
     assert not stage_thread.is_alive()
@@ -517,7 +518,7 @@ def test_execute_fatal_error_shuts_down_input():
     stage_thread.start()
 
     # Output should still be closed (sentinel received)
-    result = output_q.get()
+    result = output_q.get().item
     stage_thread.join(timeout=5)
 
     assert not stage_thread.is_alive()

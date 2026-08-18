@@ -1,8 +1,7 @@
 """Server parameters."""
 
-import warnings
 from pathlib import Path
-from typing import Any, Literal, Self
+from typing import Literal, Self
 
 from pydantic import BaseModel, Field, field_validator, model_validator
 
@@ -182,13 +181,6 @@ class ServerParameters(BaseModel, extra='forbid', frozen=True):
     mcp : MCPParameters
         MCP service parameters.
 
-    Notes
-    -----
-    The flat `ui_enabled` and `api_enabled` keys are deprecated
-    aliases for `ui.enabled` and `api.enabled` and will be removed
-    in version 2.8. They still work but emit a deprecation warning
-    and cannot be combined with their nested counterparts.
-
     """
 
     ui: UIParameters = Field(default_factory=lambda: UIParameters())
@@ -198,36 +190,3 @@ class ServerParameters(BaseModel, extra='forbid', frozen=True):
     ssl: SSLParameters = Field(default_factory=lambda: SSLParameters())
     auth: AuthParameters = Field(default_factory=lambda: AuthParameters())
     mcp: MCPParameters = Field(default_factory=lambda: MCPParameters())
-
-    @model_validator(mode='before')
-    @classmethod
-    def _migrate_deprecated_toggles(cls, data: Any) -> Any:
-        """Fold deprecated flat service toggles into nested sections."""
-        if not isinstance(data, dict):
-            return data
-
-        migrated = dict(data)
-        for old_key, new_key in (
-            ('ui_enabled', 'ui'),
-            ('api_enabled', 'api'),
-        ):
-            if old_key not in migrated:
-                continue
-
-            if new_key in migrated:
-                msg = (
-                    f'`server.{old_key}` is deprecated and cannot be '
-                    f'combined with `server.{new_key}`; use '
-                    f'`server.{new_key}.enabled` instead'
-                )
-                raise ValueError(msg)
-
-            warnings.warn(
-                f'`server.{old_key}` is deprecated and will be removed '
-                f'in version 2.8; use `server.{new_key}.enabled` instead',
-                DeprecationWarning,
-                stacklevel=2,
-            )
-            migrated[new_key] = {'enabled': migrated.pop(old_key)}
-
-        return migrated
