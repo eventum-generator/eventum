@@ -16,6 +16,7 @@ import { FC } from 'react';
 import { useInstanceInfo } from '@/api/hooks/useInstance';
 import { AlertIcon } from '@/components/ui/AlertIcon';
 import { ResponsibleCopyButton } from '@/components/ui/ResponsibleCopyButton';
+import { describeGilState } from '@/utils/gilState';
 
 export const AboutModal: FC = () => {
   const {
@@ -48,6 +49,8 @@ export const AboutModal: FC = () => {
   }
 
   if (isInstanceInfoSuccess) {
+    const gil = describeGilState(instanceInfo);
+
     return (
       <Stack gap="xs">
         {[
@@ -68,6 +71,8 @@ export const AboutModal: FC = () => {
                 value: instanceInfo.python_implementation,
               },
               { label: 'Compiler', value: instanceInfo.python_compiler },
+              { label: 'Build', value: gil.build },
+              { label: 'GIL', value: gil.value },
             ],
           },
           {
