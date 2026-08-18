@@ -15,6 +15,7 @@ All notable changes to this project will be documented in this file.
 #### Eventum Studio
 
 - **Added a channel switch to the instance log viewer** — Main, Server, Access and MCP logs are each streamed on their own, and the logging section of Settings carries the new third-party level
+- **Reordered the error details dialog by diagnostic value** — the dialog opened with a title and a line derived from the status code, while the sentence the server actually sent sat below the full request and response. It now leads with what the server reported, followed by the context or the rejected fields named alongside it, then one line naming the call and its status. The raw request and response moved behind a single toggle, each drawn as its own card - the request line or the status code at the top, headers as a key-value list, body highlighted and clipped only when long. A response that does not match its schema lists the fields it failed on instead of reporting only `Unexpected server response`
 
 #### MCP
 
