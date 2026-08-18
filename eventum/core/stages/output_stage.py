@@ -10,10 +10,10 @@ from eventum.plugins.output.exceptions import PluginOpenError, PluginWriteError
 from eventum.utils.throttler import Throttler
 
 if TYPE_CHECKING:
-    from collections.abc import Sequence
+    from collections.abc import Callable, Sequence
 
     from eventum.core.parameters import GeneratorParameters
-    from eventum.core.queue import PipelineQueue
+    from eventum.core.queue import Held, PipelineQueue
     from eventum.plugins.output.base.plugin import OutputPlugin
 
 logger = structlog.stdlib.get_logger()
@@ -117,10 +117,17 @@ class OutputStage:
         await logger.adebug('Starting to consume events queue')
 
         while True:
-            events = await asyncio.to_thread(input.get)
+            held = await asyncio.to_thread(input.get)
+            events = held.item
 
             if events is None:
                 break
+
+            # The batch keeps occupying memory until every plugin is
+            # done writing it, so its queue counts it until then - a
+            # write that takes its time holds the producer back instead
+            # of letting batches pile up in unfinished tasks.
+            release = self._releaser(held, len(self._plugins))
 
             for plugin in self._plugins:
                 await self._semaphore.acquire()
@@ -136,6 +143,7 @@ class OutputStage:
                 gathering_tasks.append(task)
 
                 task.add_done_callback(self._handle_write_result)
+                task.add_done_callback(release)
 
             if self._params.keep_order:
                 await asyncio.gather(
@@ -151,6 +159,43 @@ class OutputStage:
                 return_exceptions=True,
             )
             self._tasks.clear()
+
+    @staticmethod
+    def _releaser(
+        held: Held[list[str]],
+        writes: int,
+    ) -> Callable[[asyncio.Task], None]:
+        """Build a callback releasing the batch after its last write.
+
+        Parameters
+        ----------
+        held : Held[list[str]]
+            Hold of the batch being written.
+
+        writes : int
+            Number of writes the batch is handed to.
+
+        Returns
+        -------
+        Callable[[asyncio.Task], None]
+            Callback to add to every write task of the batch.
+
+        Notes
+        -----
+        Counting is safe without a lock: task callbacks run on the event
+        loop, one at a time.
+
+        """
+        remaining = writes
+
+        def release(_task: asyncio.Task) -> None:
+            nonlocal remaining
+            remaining -= 1
+
+            if remaining <= 0:
+                held.release()
+
+        return release
 
     def _report_write_timeouts(self, task_name: str) -> None:
         """Report write operations of the task that timed out.

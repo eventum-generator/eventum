@@ -85,6 +85,9 @@ All three scopes share one interface. Individual ops on `globals` are thread-saf
 | `as_dict` | `() -> dict` |
 | `state[key]` | Equivalent to `state.get(key)`. |
 | `acquire` / `release` | `() -> None` - `globals` only, for atomic compound ops. |
+| `release_if_held` | `() -> int` - `globals` only, drops every hold of the calling thread. |
+
+The `globals` lock never lives across events: a hold a template leaves behind is released once the event is over, so a failed render cannot block other generators.
 
 ### Dispatch
 
@@ -103,6 +106,8 @@ Call any of these from a template to stop rendering immediately with the specifi
 Docs: ../docs/content/docs/plugins/event/template/subprocess.mdx
 
 `subprocess.run(command, cwd=None, env=None, timeout=None) -> SubprocessResult` executes `command` in shell, captures output. Returns `SubprocessResult(stdout: str, stderr: str, exit_code: int)`. Raises `subprocess.TimeoutExpired` on timeout.
+
+Calls run under fixed ceilings, not settings: `timeout` defaults to 30s and is clamped to 300s, a timed-out command is killed together with the processes it spawned, and a stream exceeding 8 MiB fails the call with `SubprocessOutputLimitError`.
 
 ### Samples
 

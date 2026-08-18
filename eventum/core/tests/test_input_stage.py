@@ -66,10 +66,11 @@ def _collect_output(output_q: PipelineQueue) -> list:
     """Drain all items from output queue until sentinel."""
     results = []
     while True:
-        item = output_q.get()
-        if item is None:
+        held = output_q.get()
+        held.release()
+        if held.item is None:
             break
-        results.append(item)
+        results.append(held.item)
     return results
 
 
@@ -235,7 +236,7 @@ def test_execute_no_sources_closes_output():
     )
     stage_thread.start()
 
-    result = output_q.get()
+    result = output_q.get().item
     stage_thread.join(timeout=5)
 
     assert not stage_thread.is_alive()
@@ -371,7 +372,7 @@ def test_execute_plugin_generation_error():
     )
     stage_thread.start()
 
-    result = output_q.get()
+    result = output_q.get().item
     stage_thread.join(timeout=5)
 
     assert not stage_thread.is_alive()

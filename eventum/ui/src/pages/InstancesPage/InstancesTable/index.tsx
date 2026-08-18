@@ -47,6 +47,19 @@ function countErrors(stats: GeneratorStats): number {
   return stats.event.produce_failed + outputFailed;
 }
 
+/**
+ * Share of one core an instance has taken on average since it started. The
+ * list is fetched once rather than polled, so there is no earlier sample to
+ * derive the share at this moment from - the Monitoring page does that.
+ */
+function averageCpuShare(stats: GeneratorStats): number | undefined {
+  if (stats.uptime <= 0) {
+    return undefined;
+  }
+
+  return (stats.resources.cpu_seconds / stats.uptime) * 100;
+}
+
 interface InstancesTableProps {
   data: GeneratorsInfo;
   instancesFilter?: string;
@@ -104,6 +117,7 @@ export const InstancesTable: FC<InstancesTableProps> = ({
         return {
           ...instance,
           flow: stats ? stats.output_eps : undefined,
+          cpu: stats ? averageCpuShare(stats) : undefined,
           errors: stats ? countErrors(stats) : undefined,
           written: stats ? stats.total_written : undefined,
         };

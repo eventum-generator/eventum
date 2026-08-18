@@ -1,13 +1,21 @@
-import { Alert, Container, Skeleton, Stack } from '@mantine/core';
-import { ReactNode, useEffect } from 'react';
+import {
+  Alert,
+  Container,
+  Group,
+  SimpleGrid,
+  Skeleton,
+  Stack,
+} from '@mantine/core';
+import { ReactNode, useEffect, useMemo, useState } from 'react';
 
 import { ErrorsChart } from './ErrorsChart';
-import { InstanceLoad } from './InstanceLoad';
+import { InstancesSection } from './InstancesSection';
 import { NoRunningGenerators } from './NoRunningGenerators';
-import { PipelineFlow } from './PipelineFlow';
 import { ResourceTiles } from './ResourceTiles';
+import { StateStrip } from './StateStrip';
 import { ThroughputChart } from './ThroughputChart';
-import { useMetricsHistory } from './history';
+import { WindowSelector } from './WindowSelector';
+import { MAX_POINTS, instanceUsageRows, useMetricsHistory } from './history';
 import { aggregateFlow } from './metrics';
 import { useRunningGeneratorsStats } from '@/api/hooks/useGenerators';
 import { useInstanceInfo } from '@/api/hooks/useInstance';
@@ -31,6 +39,8 @@ export default function MonitoringPage() {
     refetch: refetchStats,
   } = useRunningGeneratorsStats();
 
+  const [points, setPoints] = useState(MAX_POINTS);
+
   useEffect(() => {
     const interval = setInterval(() => {
       void refetchInfo();
@@ -43,7 +53,7 @@ export default function MonitoringPage() {
 
   const stats = generatorsStats ?? [];
 
-  const { resources, flow, load, current } = useMetricsHistory({
+  const { resources, flow, load, usage, current } = useMetricsHistory({
     instanceInfo,
     instanceUpdatedAt,
     stats,
@@ -51,7 +61,7 @@ export default function MonitoringPage() {
   });
 
   const flowAgg = aggregateFlow(stats);
-  const inputPlugins = stats.reduce((n, s) => n + s.input.length, 0);
+  const rows = useMemo(() => instanceUsageRows(usage), [usage]);
 
   let liveSection: ReactNode;
   if (isStatsLoading) {
@@ -61,17 +71,23 @@ export default function MonitoringPage() {
   } else {
     liveSection = (
       <>
-        <PipelineFlow flow={flowAgg} inputPlugins={inputPlugins} />
-
-        <ThroughputChart
-          flow={flow}
-          inputEps={current.inputEps}
-          outputEps={current.outputEps}
+        <StateStrip
+          flow={flowAgg}
+          current={current}
+          rows={rows}
+          instances={stats.length}
         />
 
-        {current.failing && <ErrorsChart flow={flow} />}
-
-        <InstanceLoad load={load} />
+        <SimpleGrid cols={{ base: 1, lg: 2 }} spacing="md">
+          <ThroughputChart
+            flow={flow}
+            inputEps={current.inputEps}
+            outputEps={current.outputEps}
+            points={points}
+            height={150}
+          />
+          <ErrorsChart flow={flow} points={points} height={150} />
+        </SimpleGrid>
       </>
     );
   }
@@ -79,7 +95,10 @@ export default function MonitoringPage() {
   return (
     <Container size="100%">
       <Stack gap="md">
-        <PageTitle title="Monitoring" />
+        <Group justify="space-between" align="center" wrap="wrap" gap="md">
+          <PageTitle title="Monitoring" />
+          <WindowSelector points={points} onChange={setPoints} />
+        </Group>
 
         {isInfoError && (
           <Alert
@@ -102,8 +121,19 @@ export default function MonitoringPage() {
               info={instanceInfo}
               resources={resources}
               current={current}
+              points={points}
             />
           )
+        )}
+
+        {stats.length > 0 && (
+          <InstancesSection
+            rows={rows}
+            load={load}
+            flow={flow}
+            stats={stats}
+            points={points}
+          />
         )}
       </Stack>
     </Container>

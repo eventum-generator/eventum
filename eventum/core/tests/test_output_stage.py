@@ -395,3 +395,78 @@ async def test_semaphore_limits_concurrency():
 
     await stage.execute(input=input_q)
     assert max_concurrent <= 2
+
+
+# - Memory of the batches being written -------------------------------
+
+
+@pytest.mark.asyncio
+async def test_batch_keeps_counting_until_its_writes_finish():
+    """A batch being written still counts against its queue."""
+    started = asyncio.Event()
+    finish = asyncio.Event()
+
+    async def blocking_write(events):
+        started.set()
+        await finish.wait()
+        return len(events)
+
+    plugin = _make_mock_output_plugin()
+    plugin.write.side_effect = blocking_write
+
+    stage = _make_output_stage(plugins=[plugin])
+    input_q: PipelineQueue[list[str]] = PipelineQueue(
+        maxsize=10,
+        sizer=lambda batch: len(batch),
+        max_bytes=100,
+    )
+    input_q.put(['a', 'b', 'c'])
+
+    execution = asyncio.create_task(stage.execute(input=input_q))
+    await asyncio.wait_for(started.wait(), timeout=2)
+
+    # Out of the queue, into a write that has not finished.
+    assert input_q.size == 0
+    assert input_q.size_bytes == 3
+
+    finish.set()
+    await asyncio.to_thread(input_q.close)
+    await asyncio.wait_for(execution, timeout=2)
+
+    assert input_q.size_bytes == 0
+
+
+@pytest.mark.asyncio
+async def test_batch_counts_until_the_last_plugin_is_done():
+    """A batch written to several plugins waits for all of them."""
+    finish = asyncio.Event()
+    started = asyncio.Semaphore(0)
+
+    async def blocking_write(events):
+        started.release()
+        await finish.wait()
+        return len(events)
+
+    plugins = [_make_mock_output_plugin() for _ in range(3)]
+    for plugin in plugins:
+        plugin.write.side_effect = blocking_write
+
+    stage = _make_output_stage(plugins=plugins)
+    input_q: PipelineQueue[list[str]] = PipelineQueue(
+        maxsize=10,
+        sizer=lambda batch: len(batch),
+        max_bytes=100,
+    )
+    input_q.put(['a', 'b'])
+
+    execution = asyncio.create_task(stage.execute(input=input_q))
+    for _ in plugins:
+        await asyncio.wait_for(started.acquire(), timeout=2)
+
+    assert input_q.size_bytes == 2
+
+    finish.set()
+    await asyncio.to_thread(input_q.close)
+    await asyncio.wait_for(execution, timeout=2)
+
+    assert input_q.size_bytes == 0

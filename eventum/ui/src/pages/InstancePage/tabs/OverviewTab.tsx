@@ -1,15 +1,18 @@
-import { Grid, Stack, Text } from '@mantine/core';
+import { Divider, Grid, Skeleton, Stack, Text } from '@mantine/core';
+import { ReactFlowProvider } from '@xyflow/react';
 import { FC } from 'react';
 
 import { AboutPanel } from '../dashboard/AboutPanel';
-import { InstanceDashboard } from '../dashboard/InstanceDashboard';
-import { Section } from '../primitives';
+import { LivePanel } from '../dashboard/LivePanel';
+import { Section, SectionLabel } from '../primitives';
 import { ScenariosCard } from './ScenariosCard';
 import {
   GeneratorParameters,
   GeneratorStats,
   GeneratorStatus,
 } from '@/api/routes/generators/schemas';
+import { PipelineFlow } from '@/pages/InstancesPage/InstancesTable/metrics/PipelineGraph';
+import { ThroughputChart } from '@/pages/MonitoringPage/ThroughputChart';
 import type { FlowPoint } from '@/pages/MonitoringPage/history';
 
 interface OverviewTabProps {
@@ -24,8 +27,15 @@ interface OverviewTabProps {
   flow: FlowPoint[];
   inputEps: number;
   outputEps: number;
+  cpuPercent: number;
 }
 
+/**
+ * The instance from its state down to the views that explain it: what it is
+ * doing right now and what that costs across the full width, then the two
+ * views of its run - throughput over the window and the stage-by-stage graph -
+ * beside what the instance is.
+ */
 export const OverviewTab: FC<OverviewTabProps> = ({
   instanceId,
   status,
@@ -38,42 +48,66 @@ export const OverviewTab: FC<OverviewTabProps> = ({
   flow,
   inputEps,
   outputEps,
+  cpuPercent,
 }) => (
-  <Grid gutter="lg">
-    <Grid.Col span={{ base: 12, md: 8 }}>
-      {status.is_running ? (
-        <InstanceDashboard
-          stats={stats}
-          flow={flow}
-          inputEps={inputEps}
-          outputEps={outputEps}
-        />
-      ) : (
-        <Section label="Pipeline">
-          <Text size="sm" c="dimmed">
-            Instance is not running. Start it to see live pipeline activity.
-          </Text>
-        </Section>
-      )}
-    </Grid.Col>
-    <Grid.Col span={{ base: 12, md: 4 }}>
-      <Stack gap="lg">
+  <Stack gap="lg">
+    {status.is_running && stats && (
+      <LivePanel
+        stats={stats}
+        inputEps={inputEps}
+        outputEps={outputEps}
+        cpuPercent={cpuPercent}
+      />
+    )}
+
+    <Grid gutter="lg">
+      <Grid.Col span={{ base: 12, md: 8 }}>
+        {!status.is_running ? (
+          <Section label="Resources">
+            <Text size="sm" c="dimmed">
+              Instance is not running. Start it to see what it produces and what
+              it occupies.
+            </Text>
+          </Section>
+        ) : stats ? (
+          <Stack gap="lg">
+            <ThroughputChart
+              flow={flow}
+              inputEps={inputEps}
+              outputEps={outputEps}
+              height={200}
+            />
+            <Section label="Pipeline">
+              <ReactFlowProvider>
+                <PipelineFlow stats={stats} />
+              </ReactFlowProvider>
+            </Section>
+          </Stack>
+        ) : (
+          <Skeleton h={260} radius="lg" />
+        )}
+      </Grid.Col>
+      <Grid.Col span={{ base: 12, md: 4 }}>
         <Section label="About">
-          <AboutPanel
-            instanceId={instanceId}
-            generatorParams={generatorParams}
-            liveMode={liveMode}
-            autostart={autostart}
-          />
+          <Stack gap="md">
+            <AboutPanel
+              instanceId={instanceId}
+              generatorParams={generatorParams}
+              liveMode={liveMode}
+              autostart={autostart}
+            />
+            <Divider />
+            <Stack gap="sm">
+              <SectionLabel>Scenarios</SectionLabel>
+              <ScenariosCard
+                instanceId={instanceId}
+                memberScenarios={memberScenarios}
+                allScenarios={allScenarios}
+              />
+            </Stack>
+          </Stack>
         </Section>
-        <Section label="Scenarios">
-          <ScenariosCard
-            instanceId={instanceId}
-            memberScenarios={memberScenarios}
-            allScenarios={allScenarios}
-          />
-        </Section>
-      </Stack>
-    </Grid.Col>
-  </Grid>
+      </Grid.Col>
+    </Grid>
+  </Stack>
 );

@@ -1,5 +1,5 @@
 from concurrent.futures import ThreadPoolExecutor
-from threading import RLock
+from threading import Event, RLock, Thread
 
 import pytest
 
@@ -108,3 +108,70 @@ def test_multi_thread_state_concurrent_increment(
             executor.submit(increment)
 
     assert multi_thread_state.get('i') == 10_000
+
+
+def test_multi_thread_state_release_without_acquire(
+    multi_thread_state: MultiThreadState,
+):
+    with pytest.raises(RuntimeError):
+        multi_thread_state.release()
+
+
+def test_multi_thread_state_release_if_held_without_holds(
+    multi_thread_state: MultiThreadState,
+):
+    assert multi_thread_state.release_if_held() == 0
+
+
+def test_multi_thread_state_release_if_held_releases_all_holds(
+    multi_thread_state: MultiThreadState,
+):
+    multi_thread_state.acquire()
+    multi_thread_state.acquire()
+
+    assert multi_thread_state.release_if_held() == 2
+    assert multi_thread_state.release_if_held() == 0
+
+
+def test_multi_thread_state_release_if_held_frees_lock_for_other_threads(
+    multi_thread_state: MultiThreadState,
+):
+    multi_thread_state.acquire()
+    multi_thread_state.release_if_held()
+
+    acquired = Event()
+
+    def acquire():
+        multi_thread_state.acquire()
+        acquired.set()
+        multi_thread_state.release()
+
+    thread = Thread(target=acquire, daemon=True)
+    thread.start()
+    thread.join(timeout=5)
+
+    assert acquired.is_set()
+
+
+def test_multi_thread_state_release_if_held_ignores_holds_of_other_threads(
+    multi_thread_state: MultiThreadState,
+):
+    held = Event()
+    release_requested = Event()
+
+    def hold():
+        multi_thread_state.acquire()
+        held.set()
+        release_requested.wait(timeout=5)
+        multi_thread_state.release()
+
+    thread = Thread(target=hold, daemon=True)
+    thread.start()
+
+    assert held.wait(timeout=5)
+    assert multi_thread_state.release_if_held() == 0
+
+    release_requested.set()
+    thread.join(timeout=5)
+
+    assert not thread.is_alive()

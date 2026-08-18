@@ -66,6 +66,14 @@ const templateGlobalStateCompletionMembers: Record<string, NamespaceMember> = {
       info: '() -> None',
     },
   },
+  release_if_held: {
+    completion: {
+      label: 'release_if_held',
+      type: 'function',
+      detail: 'Release every hold on the state lock',
+      info: '() -> int',
+    },
+  },
 };
 
 const namespaceCompletions: NamespaceMember = {

@@ -134,6 +134,38 @@ class InstanceInfo(BaseModel, extra='forbid', frozen=True):
         """Available RAM in bytes."""
         return psutil.virtual_memory().available
 
+    @computed_field  # type: ignore[prop-decorator]
+    @property
+    def process_memory_bytes(self) -> int:
+        """Resident memory of this application in bytes."""
+        try:
+            return _PROCESS.memory_info().rss
+        except psutil.Error, OSError:
+            return 0
+
+    # File descriptors. Reported for the application alone: the
+    # descriptor table belongs to the process and is shared by every
+    # thread in it, so a generator has no figure of its own.
+    @computed_field  # type: ignore[prop-decorator]
+    @property
+    def process_open_fds(self) -> int:
+        """Number of file descriptors this application holds open."""
+        try:
+            return _PROCESS.num_fds()
+        except psutil.Error, OSError, AttributeError:
+            return 0
+
+    @computed_field  # type: ignore[prop-decorator]
+    @property
+    def process_max_fds(self) -> int:
+        """Maximum number of file descriptors this application may open."""
+        try:
+            soft_limit, _ = _PROCESS.rlimit(psutil.RLIMIT_NOFILE)
+        except psutil.Error, OSError, AttributeError:
+            return 0
+
+        return soft_limit
+
     # Network
     @computed_field  # type: ignore[prop-decorator]
     @property
@@ -152,19 +184,33 @@ class InstanceInfo(BaseModel, extra='forbid', frozen=True):
     @property
     def disk_written_bytes(self) -> int:
         """Number of bytes written to disk by this application."""
-        try:
-            return _PROCESS.io_counters().write_bytes
-        except psutil.Error, OSError:
-            return 0
+        return self._disk_bytes('write')
 
     @computed_field  # type: ignore[prop-decorator]
     @property
     def disk_read_bytes(self) -> int:
         """Number of bytes read from disk by this application."""
+        return self._disk_bytes('read')
+
+    @staticmethod
+    def _disk_bytes(direction: str) -> int:
+        """Get bytes the application passed through the file system.
+
+        Counts the bytes handed to the system calls rather than the ones
+        that reached the block device, which is the counter a generator
+        is accounted by, so the two views stay comparable. Outside Linux
+        only the block device counter exists and is reported instead.
+        """
         try:
-            return _PROCESS.io_counters().read_bytes
+            counters = _PROCESS.io_counters()
         except psutil.Error, OSError:
             return 0
+
+        return getattr(
+            counters,
+            f'{direction}_chars',
+            getattr(counters, f'{direction}_bytes', 0),
+        )
 
     # Time
     boot_timestamp: float = Field(
