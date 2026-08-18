@@ -1,19 +1,23 @@
 /**
- * Save a blob to the user's machine under the given file name.
+ * Save a URL to disk through a download navigation.
  *
- * The object URL has to outlive the click that starts the download, so
- * it is revoked once the current task is done rather than right away.
+ * A download navigation is used rather than assigning `location`: the current
+ * page stays where it is, and a request that fails ends as a failed download
+ * instead of replacing the application with the server's error body.
+ *
+ * @param url - Same-origin URL to download from.
+ * @param filename - Name to suggest for the saved file.
  */
-export function downloadBlob(blob: Blob, filename: string) {
-  const url = URL.createObjectURL(blob);
+export function downloadUrl(url: string, filename: string): void {
   const anchor = document.createElement('a');
 
   anchor.href = url;
   anchor.download = filename;
+  anchor.rel = 'noopener';
+  anchor.style.display = 'none';
 
+  // Firefox dispatches the click only for an anchor that is in the document.
   document.body.append(anchor);
   anchor.click();
   anchor.remove();
-
-  setTimeout(() => URL.revokeObjectURL(url), 0);
 }

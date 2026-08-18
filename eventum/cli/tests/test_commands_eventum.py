@@ -27,7 +27,7 @@ CONFLICTING_SERVER_SECTION = (
     'server:\n  mcp.enabled: true\n  mcp:\n    enabled: false\n'
 )
 
-DEPRECATED_TOGGLE_SECTION = 'server:\n  ui_enabled: false\n'
+FLAT_TOGGLE_SECTION = 'server:\n  ui_enabled: false\n'
 
 
 def _write_config(
@@ -98,20 +98,21 @@ def test_start_app_instance_conflicting_dotted_keys(
     assert 'server.mcp.enabled' in captured.err
 
 
-def test_start_app_instance_warns_on_deprecated_toggle(
+def test_start_app_instance_rejects_flat_toggle(
     tmp_path: Path,
     capsys: pytest.CaptureFixture,
 ) -> None:
-    """Deprecated `ui_enabled` loads but prints a deprecation notice."""
+    """The removed flat `ui_enabled` key exits with a validation error."""
     config_path = _write_config(
         tmp_path,
-        DEPRECATED_TOGGLE_SECTION,
-        'deprecated.yml',
+        FLAT_TOGGLE_SECTION,
+        'flat_toggle.yml',
     )
 
-    settings = _start_app(config_path)
+    with pytest.raises(SystemExit) as exc:
+        _start_app(config_path)
 
-    assert settings.server.ui.enabled is False
+    assert exc.value.code == 1
     captured = capsys.readouterr()
+    assert 'Failed to validate settings' in captured.err
     assert 'server.ui_enabled' in captured.err
-    assert 'deprecated' in captured.err

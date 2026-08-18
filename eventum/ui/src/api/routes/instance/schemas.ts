@@ -7,6 +7,8 @@ export const InstanceInfoSchema = z.object({
   python_version: z.string(),
   python_implementation: z.string(),
   python_compiler: z.string(),
+  python_free_threaded: z.boolean(),
+  python_gil_enabled: z.boolean(),
   platform: z.string(),
   host_name: z.string(),
   host_ip_v4: z.string(),

@@ -1,7 +1,7 @@
 import { StateEffect } from '@codemirror/state';
 import { EditorView } from '@codemirror/view';
 import { UseQueryResult } from '@tanstack/react-query';
-import { act } from '@testing-library/react';
+import { act, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -14,12 +14,34 @@ import {
 import { FileNode } from '@/api/routes/generator-configs/schemas';
 import { ProjectNameProvider } from '@/pages/ProjectPage/context/ProjectNameContext';
 import { renderWithProviders } from '@/test/render';
+import { downloadUrl } from '@/utils/download';
 
 vi.mock('@/api/hooks/useGeneratorConfigs', () => ({
   useGeneratorFileTree: vi.fn(),
   useGeneratorFileContent: vi.fn(),
   usePutGeneratorFileMutation: vi.fn(),
 }));
+
+vi.mock('@/utils/download', () => ({
+  downloadUrl: vi.fn(),
+}));
+
+const OVERSIZED_PATH = 'output/events.json';
+const OVERSIZED_TREE: FileNode[] = [
+  {
+    name: 'output',
+    is_dir: true,
+    size_in_bytes: null,
+    children: [
+      {
+        name: 'events.json',
+        is_dir: false,
+        size_in_bytes: 12 * 1024 * 1024,
+        children: null,
+      },
+    ],
+  },
+];
 
 const PROJECT = 'demo';
 const FILE_PATH = 'templates/event.json.jinja';
@@ -60,6 +82,7 @@ beforeEach(() => {
   vi.mocked(usePutGeneratorFileMutation).mockReturnValue({
     mutate: save,
   } as unknown as ReturnType<typeof usePutGeneratorFileMutation>);
+  vi.mocked(downloadUrl).mockClear();
 });
 
 function openEditor() {
@@ -142,6 +165,43 @@ describe('FileEditor', () => {
         content: `${FILE_CONTENT}edited`,
       },
       expect.anything()
+    );
+  });
+
+  it('offers a file it refuses to open for download instead', async () => {
+    const user = userEvent.setup();
+    vi.mocked(useGeneratorFileTree).mockReturnValue(resolved(OVERSIZED_TREE));
+
+    renderWithProviders(
+      <ProjectNameProvider initialProjectName={PROJECT}>
+        <FileEditor filePath={OVERSIZED_PATH} setSaved={vi.fn()} />
+      </ProjectNameProvider>
+    );
+
+    expect(screen.getByText(/too large to open/)).toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: 'Download' }));
+
+    expect(downloadUrl).toHaveBeenCalledWith(
+      '/api/generator-configs/demo/file/output/events.json?download=true',
+      'events.json'
+    );
+  });
+
+  it('does not request the content of a file it refuses to open', () => {
+    // Transferring it is what the limit exists to avoid.
+    vi.mocked(useGeneratorFileTree).mockReturnValue(resolved(OVERSIZED_TREE));
+
+    renderWithProviders(
+      <ProjectNameProvider initialProjectName={PROJECT}>
+        <FileEditor filePath={OVERSIZED_PATH} setSaved={vi.fn()} />
+      </ProjectNameProvider>
+    );
+
+    expect(vi.mocked(useGeneratorFileContent)).toHaveBeenCalledWith(
+      PROJECT,
+      OVERSIZED_PATH,
+      { enabled: false }
     );
   });
 });

@@ -81,23 +81,17 @@ export async function renameGeneratorConfig(
   );
 }
 
-export async function exportGeneratorProject(
+export function getGeneratorProjectExportUrl(
   name: string,
   exclude: string[] = []
-): Promise<Blob> {
-  const response = await apiClient.get(
-    `/generator-configs/${encodeURIComponent(name)}/export`,
-    {
-      params: exclude.length > 0 ? { exclude } : undefined,
-      // Repeats the key per value (`exclude=a&exclude=b`), which is the
-      // shape the backend reads a list of query values in.
-      paramsSerializer: { indexes: null },
-      responseType: 'blob',
-      timeout: TRANSFER_TIMEOUT,
-    }
-  );
-
-  return response.data as Blob;
+): string {
+  return apiClient.getUri({
+    url: `/generator-configs/${encodePathSegment(name)}/export`,
+    params: exclude.length > 0 ? { exclude } : undefined,
+    // Repeats the key per value (`exclude=a&exclude=b`), which is the
+    // shape the backend reads a list of query values in.
+    paramsSerializer: { indexes: null },
+  });
 }
 
 export async function importGeneratorProject(name: string, archive: File) {
@@ -105,7 +99,7 @@ export async function importGeneratorProject(name: string, archive: File) {
   form.append('content', archive, archive.name);
 
   await apiClient.post(
-    `/generator-configs/${encodeURIComponent(name)}/import`,
+    `/generator-configs/${encodePathSegment(name)}/import`,
     form,
     {
       headers: {
@@ -141,6 +135,40 @@ export async function getGeneratorFile(
       timeout: TRANSFER_TIMEOUT,
     })
   );
+}
+
+/**
+ * Build the URL a browser downloads a project file from.
+ *
+ * The transfer goes through a plain navigation rather than the API client:
+ * the browser streams the response straight to disk, while reading it here
+ * would hold the whole file in memory - the very thing the editor size limit
+ * avoids. Being same origin, the navigation carries the session cookie.
+ */
+export function getGeneratorFileDownloadUrl(
+  name: string,
+  filepath: string
+): string {
+  return apiClient.getUri({
+    url: `/generator-configs/${encodePathSegment(name)}/file/${encodeFilePath(
+      filepath
+    )}`,
+    params: { download: true },
+  });
+}
+
+// A name reaches the URL as typed by whoever created the file, so every
+// character that carries meaning in a URL - '#', '?', '%', a space - is
+// escaped. Separators are kept, since the path is a path.
+function encodeFilePath(filepath: string): string {
+  return filepath
+    .split('/')
+    .map((segment) => encodePathSegment(segment))
+    .join('/');
+}
+
+function encodePathSegment(segment: string): string {
+  return encodeURIComponent(segment);
 }
 
 export async function uploadGeneratorFile(

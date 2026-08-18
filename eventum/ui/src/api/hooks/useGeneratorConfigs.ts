@@ -16,7 +16,6 @@ import {
   createGeneratorDirectory,
   deleteGeneratorConfig,
   deleteGeneratorFile,
-  exportGeneratorProject,
   getGeneratorConfig,
   getGeneratorConfigPath,
   getGeneratorFile,
@@ -129,13 +128,6 @@ export function useDeleteGeneratorConfigMutation() {
         )
       );
     },
-  });
-}
-
-export function useExportGeneratorProjectMutation() {
-  return useMutation({
-    mutationFn: ({ name, exclude }: { name: string; exclude?: string[] }) =>
-      exportGeneratorProject(name, exclude),
   });
 }
 

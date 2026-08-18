@@ -15,16 +15,13 @@ import { IconFile, IconFolder } from '@tabler/icons-react';
 import bytes from 'bytes';
 import { FC, useState } from 'react';
 
-import {
-  useExportGeneratorProjectMutation,
-  useGeneratorFileTree,
-} from '@/api/hooks/useGeneratorConfigs';
+import { useGeneratorFileTree } from '@/api/hooks/useGeneratorConfigs';
 import { useInstanceSettings } from '@/api/hooks/useInstance';
+import { getGeneratorProjectExportUrl } from '@/api/routes/generator-configs';
 import { FileNode } from '@/api/routes/generator-configs/schemas';
 import { AlertIcon } from '@/components/ui/AlertIcon';
 import { ShowErrorDetailsAnchor } from '@/components/ui/ShowErrorDetailsAnchor';
-import { downloadBlob } from '@/utils/download';
-import { showErrorNotification } from '@/utils/notifications';
+import { downloadUrl } from '@/utils/download';
 
 /** Size of a node with everything under it. */
 function nodeSize(node: FileNode): number {
@@ -40,7 +37,6 @@ interface ExportProjectModalProps {
 export const ExportProjectModal: FC<ExportProjectModalProps> = ({
   projectName,
 }) => {
-  const exportProject = useExportGeneratorProjectMutation();
   const [excluded, setExcluded] = useState<string[]>([]);
 
   const {
@@ -55,17 +51,15 @@ export const ExportProjectModal: FC<ExportProjectModalProps> = ({
     instanceSettings?.path.generator_config_filename ?? 'generator.yml';
 
   function handleExport() {
-    exportProject.mutate(
-      { name: projectName, exclude: excluded },
-      {
-        onSuccess: (archive) => {
-          downloadBlob(archive, `${projectName}.zip`);
-          modals.closeAll();
-        },
-        onError: (exportError) =>
-          showErrorNotification('Failed to export project', exportError),
-      }
+    // The archive is fetched by the browser rather than read into the
+    // page: a project holds output files of any size, and buffering
+    // one in memory to hand it back is what a download navigation
+    // avoids.
+    downloadUrl(
+      getGeneratorProjectExportUrl(projectName, excluded),
+      `${projectName}.zip`
     );
+    modals.closeAll();
   }
 
   if (isLoading) {
@@ -155,9 +149,7 @@ export const ExportProjectModal: FC<ExportProjectModalProps> = ({
         <Text size="sm" c="dimmed">
           {bytes(includedSize)} before compression
         </Text>
-        <Button loading={exportProject.isPending} onClick={handleExport}>
-          Export
-        </Button>
+        <Button onClick={handleExport}>Export</Button>
       </Group>
     </Stack>
   );

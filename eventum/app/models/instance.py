@@ -2,6 +2,8 @@
 
 import platform
 import socket
+import sys
+import sysconfig
 from datetime import datetime
 
 import psutil
@@ -11,6 +13,38 @@ import eventum
 from eventum.utils.net_accounting import bytes_received, bytes_sent
 
 _PROCESS = psutil.Process()
+
+
+def _is_free_threaded() -> bool:
+    """Check whether the interpreter is built without the GIL.
+
+    Returns
+    -------
+    bool
+        `True` if interpreter is a free threaded build, `False`
+        otherwise.
+
+    """
+    # The config var is 1 on a free threaded build, 0 or absent otherwise
+    return bool(sysconfig.get_config_var('Py_GIL_DISABLED'))
+
+
+def _is_gil_enabled() -> bool:
+    """Check whether the GIL is enabled at the moment of the call.
+
+    Returns
+    -------
+    bool
+        `True` if the GIL is currently enabled, `False` otherwise.
+
+    Notes
+    -----
+    On a free threaded build the GIL can be enabled back at any time -
+    by `PYTHON_GIL=1`, by `-X gil=1`, or by importing an extension
+    module that does not declare free threading support.
+
+    """
+    return sys._is_gil_enabled()  # noqa: SLF001
 
 
 class InstanceInfo(BaseModel, extra='forbid', frozen=True):
@@ -36,6 +70,14 @@ class InstanceInfo(BaseModel, extra='forbid', frozen=True):
     python_compiler: str = Field(
         default_factory=platform.python_compiler,
         description='Python compiler',
+    )
+    python_free_threaded: bool = Field(
+        default_factory=_is_free_threaded,
+        description='Whether Python is a free threaded build',
+    )
+    python_gil_enabled: bool = Field(
+        default_factory=_is_gil_enabled,
+        description='Whether the GIL is currently enabled',
     )
 
     # Platform

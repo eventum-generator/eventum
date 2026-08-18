@@ -93,6 +93,8 @@ export const Header: FC<HeaderProps> = ({
               modals.open({
                 title: 'About Eventum',
                 children: <AboutModal />,
+                size: 540,
+                padding: 'xl',
               });
             }}
           />
