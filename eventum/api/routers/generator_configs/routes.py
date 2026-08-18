@@ -47,12 +47,18 @@ from eventum.api.routers.generator_configs.models import (
 )
 from eventum.api.utils.file_streaming import stream_snapshot
 from eventum.api.utils.response_description import merge_responses
+from eventum.app.models.settings import Settings
 from eventum.app.renaming import (
     RenameBlockedError,
     RenameConflictError,
     RenameError,
     RenameNotFoundError,
     rename_project,
+)
+from eventum.app.workspace import (
+    WorkspaceError,
+    resolve_generator_dir,
+    resolve_generator_file,
 )
 from eventum.utils.fs_utils import (
     calculate_dir_size,
@@ -61,6 +67,52 @@ from eventum.utils.fs_utils import (
 from eventum.utils.validation_prettier import prettify_validation_errors
 
 router = APIRouter()
+
+
+def _resolve_file(settings: Settings, name: str, relative: Path) -> Path:
+    """Resolve a path inside a generator directory.
+
+    Rejects a path that leaves the directory through a symlink, which
+    the relative-path check does not cover: it reads the path as
+    written, while a symlink is only followed once the path is
+    resolved.
+
+    Parameters
+    ----------
+    settings : Settings
+        Application settings holding the generators directory.
+
+    name : str
+        Name of the generator directory.
+
+    relative : Path
+        Path to resolve within the generator directory.
+
+    Returns
+    -------
+    Path
+        Resolved absolute path.
+
+    Raises
+    ------
+    HTTPException
+        If the path leads outside the generator directory.
+
+    """
+    try:
+        return resolve_generator_file(
+            generators_dir=settings.path.generators_dir,
+            name=name,
+            relative=relative,
+        )
+    except WorkspaceError:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=(
+                'Accessing files outside the generator directory '
+                'is not allowed'
+            ),
+        ) from None
 
 
 @router.get(
@@ -502,6 +554,7 @@ async def get_generator_file_tree(
         check_configuration_exists.responses,
         check_filepath_is_directly_relative.responses,
         {
+            403: {'description': 'Path is outside the generator directory'},
             404: {'description': 'File does not exist'},
             500: {'description': 'File cannot be read due to OS error'},
         },
@@ -519,7 +572,7 @@ async def get_generator_file(
     ],
     settings: SettingsDep,
 ) -> responses.StreamingResponse:
-    path = (settings.path.generators_dir / name / filepath).resolve()
+    path = _resolve_file(settings, name, filepath)
 
     if not path.is_file():
         raise HTTPException(
@@ -558,6 +611,7 @@ async def get_generator_file(
         check_configuration_exists.responses,
         check_filepath_is_directly_relative.responses,
         {
+            403: {'description': 'Path is outside the generator directory'},
             409: {'description': 'File already exists'},
             500: {'description': 'File cannot be uploaded due to OS error'},
         },
@@ -574,7 +628,7 @@ async def upload_generator_file(
     content: UploadFile,
     settings: SettingsDep,
 ) -> None:
-    path = (settings.path.generators_dir / name / filepath).resolve()
+    path = _resolve_file(settings, name, filepath)
 
     if path.exists():
         raise HTTPException(
@@ -605,6 +659,7 @@ async def upload_generator_file(
         check_configuration_exists.responses,
         check_filepath_is_directly_relative.responses,
         {
+            403: {'description': 'Path is outside the generator directory'},
             409: {'description': 'File already exists'},
             500: {
                 'description': 'Directory cannot be created due to OS error',
@@ -622,7 +677,7 @@ async def create_generator_directory(
     filepath: Annotated[Path, CheckFilepathIsDirectlyRelativeDep],
     settings: SettingsDep,
 ) -> None:
-    path = (settings.path.generators_dir / name / filepath).resolve()
+    path = _resolve_file(settings, name, filepath)
 
     if path.exists():
         raise HTTPException(
@@ -650,6 +705,7 @@ async def create_generator_directory(
         check_configuration_exists.responses,
         check_filepath_is_directly_relative.responses,
         {
+            403: {'description': 'Path is outside the generator directory'},
             404: {'description': 'File does not exist'},
             500: {'description': 'File cannot be uploaded due to OS error'},
         },
@@ -665,7 +721,7 @@ async def put_generator_file(
     content: UploadFile,
     settings: SettingsDep,
 ) -> None:
-    path = (settings.path.generators_dir / name / filepath).resolve()
+    path = _resolve_file(settings, name, filepath)
 
     if not path.exists():
         raise HTTPException(
@@ -695,6 +751,7 @@ async def put_generator_file(
         check_configuration_exists.responses,
         check_filepath_is_directly_relative.responses,
         {
+            403: {'description': 'Path is outside the generator directory'},
             404: {'description': 'File does not exist'},
             500: {'description': 'File cannot be deleted due to OS error'},
         },
@@ -709,7 +766,7 @@ async def delete_generator_file(
     filepath: Annotated[Path, CheckFilepathIsDirectlyRelativeDep],
     settings: SettingsDep,
 ) -> None:
-    path = (settings.path.generators_dir / name / filepath).resolve()
+    path = _resolve_file(settings, name, filepath)
 
     if not path.exists():
         raise HTTPException(
@@ -717,7 +774,9 @@ async def delete_generator_file(
             detail='File does not exist',
         )
 
-    if path == (settings.path.generators_dir / name):
+    # Both sides are resolved, so the comparison holds wherever the
+    # generators directory itself is reached through a symlink.
+    if path == resolve_generator_dir(settings.path.generators_dir, name):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail='Deleting entire generator directory is not allowed',
@@ -747,6 +806,7 @@ async def delete_generator_file(
         check_configuration_exists.responses,
         check_filepath_is_directly_relative.responses,
         {
+            403: {'description': 'Path is outside the generator directory'},
             404: {'description': 'Source file does not exist'},
             409: {'description': 'Destination file already exists'},
             500: {'description': 'File cannot be moved due to OS error'},
@@ -777,8 +837,8 @@ async def move_generator_file(
     source = await check_filepath_is_directly_relative(source)
     destination = await check_filepath_is_directly_relative(destination)
 
-    source = (settings.path.generators_dir / name / source).resolve()
-    destination = (settings.path.generators_dir / name / destination).resolve()
+    source = _resolve_file(settings, name, source)
+    destination = _resolve_file(settings, name, destination)
 
     if not source.exists():
         raise HTTPException(
@@ -817,6 +877,7 @@ async def move_generator_file(
         check_configuration_exists.responses,
         check_filepath_is_directly_relative.responses,
         {
+            403: {'description': 'Path is outside the generator directory'},
             404: {'description': 'Source file does not exist'},
             409: {'description': 'Destination file already exists'},
             500: {'description': 'File cannot be copied due to OS error'},
@@ -847,8 +908,8 @@ async def copy_generator_file(
     source = await check_filepath_is_directly_relative(source)
     destination = await check_filepath_is_directly_relative(destination)
 
-    source = (settings.path.generators_dir / name / source).resolve()
-    destination = (settings.path.generators_dir / name / destination).resolve()
+    source = _resolve_file(settings, name, source)
+    destination = _resolve_file(settings, name, destination)
 
     if not source.exists():
         raise HTTPException(

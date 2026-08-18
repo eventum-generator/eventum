@@ -427,6 +427,147 @@ def test_get_file_declares_no_length(client, tmp_settings):
     assert 'content-length' not in response.headers
 
 
+# --- Symlink escape ---
+
+# A relative path with no '..' in it still leaves the generator
+# directory when a component of it is a symlink: the relative-path check
+# reads the path as written, while the symlink is only followed once the
+# path is resolved.
+
+
+@pytest.fixture
+def escaping_gen(tmp_settings, tmp_path):
+    """Generator directory holding a symlink to a file outside it."""
+    gen_dir = _create_config(tmp_settings, 'symlink_gen')
+    outside = tmp_path / 'outside'
+    outside.mkdir()
+    (outside / 'secret.txt').write_text('secret content')
+    (gen_dir / 'link.txt').symlink_to(outside / 'secret.txt')
+    (gen_dir / 'linked_dir').symlink_to(outside, target_is_directory=True)
+
+    return gen_dir
+
+
+def test_get_file_symlink_escape_blocked(client, escaping_gen):
+    response = client.get('/configs/symlink_gen/file/link.txt')
+
+    assert response.status_code == 403
+
+
+def test_get_file_symlink_dir_escape_blocked(client, escaping_gen):
+    response = client.get('/configs/symlink_gen/file/linked_dir/secret.txt')
+
+    assert response.status_code == 403
+
+
+def test_upload_file_symlink_escape_blocked(client, escaping_gen, tmp_path):
+    response = client.post(
+        '/configs/symlink_gen/file/linked_dir/planted.txt',
+        files={'content': ('planted.txt', b'planted')},
+    )
+
+    assert response.status_code == 403
+    assert not (tmp_path / 'outside' / 'planted.txt').exists()
+
+
+def test_put_file_symlink_escape_blocked(client, escaping_gen, tmp_path):
+    response = client.put(
+        '/configs/symlink_gen/file/link.txt',
+        files={'content': ('link.txt', b'overwritten')},
+    )
+
+    assert response.status_code == 403
+    assert (tmp_path / 'outside' / 'secret.txt').read_text() == (
+        'secret content'
+    )
+
+
+def test_delete_file_symlink_escape_blocked(client, escaping_gen, tmp_path):
+    response = client.delete('/configs/symlink_gen/file/link.txt')
+
+    assert response.status_code == 403
+    assert (tmp_path / 'outside' / 'secret.txt').exists()
+
+
+def test_makedir_symlink_escape_blocked(client, escaping_gen, tmp_path):
+    response = client.post(
+        '/configs/symlink_gen/file-makedir/linked_dir/planted',
+    )
+
+    assert response.status_code == 403
+    assert not (tmp_path / 'outside' / 'planted').exists()
+
+
+def test_move_file_symlink_escape_blocked(client, escaping_gen, tmp_path):
+    response = client.post(
+        '/configs/symlink_gen/file-move',
+        params={
+            'source': 'link.txt',
+            'destination': 'moved.txt',
+        },
+    )
+
+    assert response.status_code == 403
+    assert (tmp_path / 'outside' / 'secret.txt').exists()
+
+
+def test_move_file_symlink_escape_of_destination_blocked(
+    client,
+    escaping_gen,
+    tmp_path,
+):
+    (escaping_gen / 'notes.txt').write_text('notes')
+
+    response = client.post(
+        '/configs/symlink_gen/file-move',
+        params={
+            'source': 'notes.txt',
+            'destination': 'linked_dir/notes.txt',
+        },
+    )
+
+    assert response.status_code == 403
+    assert not (tmp_path / 'outside' / 'notes.txt').exists()
+
+
+def test_copy_file_symlink_escape_blocked(client, escaping_gen, tmp_path):
+    (escaping_gen / 'notes.txt').write_text('notes')
+
+    response = client.post(
+        '/configs/symlink_gen/file-copy',
+        params={
+            'source': 'notes.txt',
+            'destination': 'linked_dir/notes.txt',
+        },
+    )
+
+    assert response.status_code == 403
+    assert not (tmp_path / 'outside' / 'notes.txt').exists()
+
+
+def test_symlink_inside_the_generator_still_works(client, tmp_settings):
+    # A symlink that stays within the generator directory is a file of
+    # that generator like any other.
+    gen_dir = _create_config(tmp_settings, 'inner_link_gen')
+    (gen_dir / 'samples').mkdir()
+    (gen_dir / 'samples' / 'hosts.csv').write_text('host\nweb-01\n')
+    (gen_dir / 'hosts.csv').symlink_to(gen_dir / 'samples' / 'hosts.csv')
+
+    response = client.get('/configs/inner_link_gen/file/hosts.csv')
+
+    assert response.status_code == 200
+    assert response.text == 'host\nweb-01\n'
+
+
+def test_delete_generator_root_still_blocked(client, tmp_settings):
+    _create_config(tmp_settings, 'root_gen')
+
+    response = client.delete('/configs/root_gen/file/')
+
+    assert response.status_code == 403
+    assert (tmp_settings.path.generators_dir / 'root_gen').is_dir()
+
+
 def test_get_file_not_found(client, tmp_settings):
     _create_config(tmp_settings, 'missing_file_gen')
 

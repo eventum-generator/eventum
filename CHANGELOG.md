@@ -54,6 +54,10 @@ All notable changes to this project will be documented in this file.
 - **Released the global template state lock at the end of every event** — a template that called `globals.acquire()` and never reached `globals.release()`, most often because rendering failed in between, held the process-wide lock for good, freezing every other generator that reads or writes global state along with the Studio and MCP views of it. Templates can also drop their own holds through `globals.release_if_held()`
 - **Bounded the requests the `http` output keeps in flight** — a formatter that serializes each event on its own (`plain`, `json`, `template`) made the plugin open a request per event, so a batch of the default size fired up to 10000 requests at once through a pool of 100 connections, and the write was cancelled on its timeout with every event it carried counted as failed. The number of requests performed at a time is now capped by the plugin's new `concurrency` field, 100 by default, which sizes the connection pool as well. Failures of one write are reported as one line per status code with a count, in place of one line per event
 
+#### API/CLI
+
+- **Blocked access to files a project only points at** — a path made of plain directory names, with no `..` anywhere in it, still left the project directory whenever a symlink stood along it, and the file it landed on was read, written, moved, copied or deleted like a file of the project. Such a path is now refused; a symlink that stays inside the project keeps working as before
+
 ### 📝 Other Changes
 
 - **Removed the flat `server.ui_enabled` and `server.api_enabled` keys** — deprecated in 2.7.0 in favour of `server.ui.enabled` and `server.api.enabled`, they were accepted with a notice at startup for one release and are now rejected as unknown settings. A configuration still holding one has to move the value under its nested section
