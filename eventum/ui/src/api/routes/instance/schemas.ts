@@ -17,6 +17,9 @@ export const InstanceInfoSchema = z.object({
   memory_total_bytes: z.number().int(),
   memory_used_bytes: z.number().int(),
   memory_available_bytes: z.number().int(),
+  process_memory_bytes: z.number().int(),
+  process_open_fds: z.number().int(),
+  process_max_fds: z.number().int(),
   network_sent_bytes: z.number().int(),
   network_received_bytes: z.number().int(),
   disk_written_bytes: z.number().int(),
@@ -110,6 +113,10 @@ const QueueParametersSchema = z.object({
   max_event_batches: z.preprocess(
     emptyToUndefined,
     z.number().int().gte(1).optional()
+  ),
+  max_event_bytes: z.preprocess(
+    emptyToUndefined,
+    z.number().int().gte(1).nullable().optional()
   ),
 });
 export type QueueParameters = z.infer<typeof QueueParametersSchema>;

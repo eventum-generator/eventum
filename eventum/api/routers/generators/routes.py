@@ -1,6 +1,7 @@
 """Routes."""
 
 import asyncio
+from datetime import datetime
 from typing import Annotated
 
 from fastapi import (
@@ -36,7 +37,10 @@ from eventum.api.routers.generators.models import (
     GeneratorStatus,
     InputPluginStats,
     OutputPluginStats,
+    QueuesStats,
+    QueueStats,
     RenameGeneratorRequest,
+    ResourcesStats,
 )
 from eventum.api.utils.log_streaming import stream_log_file_to_websocket
 from eventum.api.utils.response_description import merge_responses
@@ -45,7 +49,7 @@ from eventum.api.utils.websocket_annotations import (
     Receives,
     Rejects,
 )
-from eventum.app.manager import ManagingError
+from eventum.app.manager import GeneratorManager, ManagingError
 from eventum.app.renaming import (
     RenameBlockedError,
     RenameConflictError,
@@ -53,7 +57,9 @@ from eventum.app.renaming import (
     RenameNotFoundError,
     rename_instance,
 )
+from eventum.core.generator import Generator
 from eventum.core.parameters import GeneratorParameters
+from eventum.core.resources import ThreadCpuTimes, sample_thread_cpu_times
 from eventum.logging.channels import generator_channel
 from eventum.logging.file_paths import construct_channel_logfile_path
 
@@ -314,26 +320,70 @@ async def delete_generator(
         ) from None
 
 
-@router.get(
-    '/{id}/stats',
-    description='Get stats of running generator',
-    responses=_get_generator.responses,
-)
-async def get_generator_stats(
-    id: str,
-    generator: GeneratorDep,
+def _build_stats(
+    generator_id: str,
+    generator: Generator,
+    start_time: datetime,
+    cpu_times: ThreadCpuTimes | None = None,
 ) -> GeneratorStats:
-    if generator.is_running and generator.start_time is not None:
-        plugins = generator.get_plugins_info()
-    else:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail='Generator is not running',
-        )
+    """Build stats of a running generator.
+
+    Parameters
+    ----------
+    generator_id : str
+        ID of the generator.
+
+    generator : Generator
+        Generator to read the stats from.
+
+    start_time : datetime
+        Start time of the generator.
+
+    cpu_times : ThreadCpuTimes | None, default=None
+        Already sampled CPU times of the process threads to read from
+        instead of sampling them.
+
+    Returns
+    -------
+    GeneratorStats
+        Stats of the generator.
+
+    Raises
+    ------
+    RuntimeError
+        If the generator stopped executing, so its runtime information
+        is gone.
+
+    """
+    plugins = generator.get_plugins_info()
+    resources = generator.get_resources(cpu_times)
 
     return GeneratorStats(
-        id=id,
-        start_time=generator.start_time,
+        id=generator_id,
+        start_time=start_time,
+        resources=ResourcesStats(
+            thread_count=resources.thread_count,
+            cpu_seconds=resources.cpu_seconds,
+            run_delay_seconds=resources.run_delay_seconds,
+            disk_read_bytes=resources.disk_read_bytes,
+            disk_written_bytes=resources.disk_written_bytes,
+            network_sent_bytes=resources.network_sent_bytes,
+            network_received_bytes=resources.network_received_bytes,
+            queues=QueuesStats(
+                timestamps=QueueStats(
+                    size=resources.queues.timestamps.size,
+                    maxsize=resources.queues.timestamps.maxsize,
+                    size_bytes=resources.queues.timestamps.size_bytes,
+                    max_bytes=resources.queues.timestamps.max_bytes,
+                ),
+                events=QueueStats(
+                    size=resources.queues.events.size,
+                    maxsize=resources.queues.events.maxsize,
+                    size_bytes=resources.queues.events.size_bytes,
+                    max_bytes=resources.queues.events.max_bytes,
+                ),
+            ),
+        ),
         input=[
             InputPluginStats(
                 plugin_name=plugin.name,
@@ -362,6 +412,89 @@ async def get_generator_stats(
     )
 
 
+def _collect_running_stats(
+    generator_manager: GeneratorManager,
+) -> list[GeneratorStats]:
+    """Build stats of every running generator.
+
+    Parameters
+    ----------
+    generator_manager : GeneratorManager
+        Manager holding the generators.
+
+    Returns
+    -------
+    list[GeneratorStats]
+        Stats of the generators that are running.
+
+    Notes
+    -----
+    CPU times of the process threads are sampled once for all of the
+    generators, since reading them costs the same however many are
+    accounted for. A generator that is removed or stops while its stats
+    are being built is left out instead of failing the whole response.
+
+    """
+    cpu_times = sample_thread_cpu_times()
+    stats: list[GeneratorStats] = []
+
+    for generator_id in generator_manager.generator_ids:
+        try:
+            generator = generator_manager.get_generator(generator_id)
+        except ManagingError:
+            continue
+
+        start_time = generator.start_time
+
+        if not generator.is_running or start_time is None:
+            continue
+
+        try:
+            stats.append(
+                _build_stats(
+                    generator_id,
+                    generator,
+                    start_time,
+                    cpu_times,
+                ),
+            )
+        except RuntimeError:
+            continue
+
+    return stats
+
+
+@router.get(
+    '/{id}/stats',
+    description='Get stats of running generator',
+    responses=_get_generator.responses,
+)
+async def get_generator_stats(
+    id: str,
+    generator: GeneratorDep,
+) -> GeneratorStats:
+    start_time = generator.start_time
+
+    if not generator.is_running or start_time is None:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail='Generator is not running',
+        )
+
+    try:
+        return await asyncio.to_thread(
+            _build_stats,
+            id,
+            generator,
+            start_time,
+        )
+    except RuntimeError:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail='Generator is not running',
+        ) from None
+
+
 @router.get(
     '/group-actions/stats-running',
     description='Get stats of all running generators',
@@ -370,49 +503,7 @@ async def get_generator_stats(
 async def get_running_generators_stats(
     generator_manager: GeneratorManagerDep,
 ) -> list[GeneratorStats]:
-    stats: list[GeneratorStats] = []
-
-    for generator_id in generator_manager.generator_ids:
-        generator = generator_manager.get_generator(generator_id)
-
-        if not generator.is_running or generator.start_time is None:
-            continue
-
-        plugins = generator.get_plugins_info()
-
-        stats.append(
-            GeneratorStats(
-                id=generator_id,
-                start_time=generator.start_time,
-                input=[
-                    InputPluginStats(
-                        plugin_name=plugin.name,
-                        plugin_id=plugin.id,
-                        generated=plugin.generated,
-                    )
-                    for plugin in plugins.input
-                ],
-                event=EventPluginStats(
-                    plugin_name=plugins.event.name,
-                    plugin_id=plugins.event.id,
-                    produced=plugins.event.produced,
-                    produce_failed=plugins.event.produce_failed,
-                    dropped=plugins.event.dropped,
-                ),
-                output=[
-                    OutputPluginStats(
-                        plugin_name=plugin.name,
-                        plugin_id=plugin.id,
-                        written=plugin.written,
-                        write_failed=plugin.write_failed,
-                        format_failed=plugin.format_failed,
-                    )
-                    for plugin in plugins.output
-                ],
-            ),
-        )
-
-    return stats
+    return await asyncio.to_thread(_collect_running_stats, generator_manager)
 
 
 @router.post(

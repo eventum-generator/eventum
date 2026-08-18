@@ -38,6 +38,13 @@ interface InstanceHistory {
   flow: FlowPoint[];
   inputEps: number;
   outputEps: number;
+  cpuPercent: number;
+}
+
+/** Cumulative CPU time of one instance at a moment in time. */
+interface CpuPoint {
+  t: number;
+  cpuSeconds: number;
 }
 
 /**
@@ -68,7 +75,9 @@ export function useInstanceHistory(
 
   const [flow, setFlow] = useState<FlowPoint[]>([]);
   const [rates, setRates] = useState({ inputEps: 0, outputEps: 0 });
+  const [cpuPercent, setCpuPercent] = useState(0);
   const prevPoint = useRef<FlowPoint | null>(null);
+  const prevCpu = useRef<CpuPoint | null>(null);
 
   useEffect(() => {
     if (!stats || dataUpdatedAt === 0) {
@@ -88,6 +97,21 @@ export function useInstanceHistory(
     }
     prevPoint.current = point;
     setFlow((buffer) => [...buffer, point].slice(-RAW_POINTS));
+
+    // CPU time is cumulative, so its share of a core over the last poll
+    // interval is the only reading that reflects the load right now.
+    const cpu: CpuPoint = {
+      t: dataUpdatedAt,
+      cpuSeconds: stats.resources.cpu_seconds,
+    };
+    const prevSample = prevCpu.current;
+    if (prevSample) {
+      const dt = (cpu.t - prevSample.t) / 1000;
+      setCpuPercent(rate(cpu.cpuSeconds, prevSample.cpuSeconds, dt) * 100);
+    } else {
+      setCpuPercent((cpu.cpuSeconds / Math.max(stats.uptime, 1)) * 100);
+    }
+    prevCpu.current = cpu;
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [dataUpdatedAt]);
 
@@ -96,5 +120,6 @@ export function useInstanceHistory(
     flow,
     inputEps: rates.inputEps,
     outputEps: rates.outputEps,
+    cpuPercent,
   };
 }

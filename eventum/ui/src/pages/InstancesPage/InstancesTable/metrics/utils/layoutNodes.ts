@@ -15,7 +15,7 @@ export const HANDLE_Y = 20;
 
 const NODE_SPACING_Y = 100;
 const GRAPH_PADDING = 60;
-const MIN_GRAPH_HEIGHT = 300;
+const MIN_GRAPH_HEIGHT = 180;
 const MAX_NODE_HEIGHT = 120;
 
 export interface PipelineNodeData extends Record<string, unknown> {

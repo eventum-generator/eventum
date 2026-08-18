@@ -15,6 +15,12 @@ export function formatEps(value: number): string {
   return value.toFixed(2);
 }
 
+/** Human duration keeping sub-second precision (e.g. 0.25s, 2h 14m). */
+export function formatSeconds(seconds: number): string {
+  const value = Math.max(0, seconds);
+  return value < 60 ? `${value.toFixed(2)}s` : formatUptime(value);
+}
+
 /** Coarse human uptime from seconds (e.g. 2h 14m). */
 export function formatUptime(seconds: number): string {
   const s = Math.max(0, Math.floor(seconds));

@@ -1,9 +1,12 @@
 # type: ignore
 import os
 from datetime import datetime
+from threading import Event, Thread
 
+import pytest
 from jinja2 import DictLoader
 
+from eventum.plugins.event.exceptions import PluginProduceError
 from eventum.plugins.event.plugins.template.config import (
     CSVSampleConfig,
     ItemsSampleConfig,
@@ -411,7 +414,7 @@ def test_modules():
     )
 
     assert len(events) == 1
-    assert events.pop() in list(str(n) for n in range(0, 11))
+    assert events.pop() in list(str(n) for n in range(11))
 
 
 def test_timestamp():
@@ -532,3 +535,65 @@ def test_tags():
 
     assert len(events) == 1
     assert events.pop() == 'interesting'
+
+
+def build_single_template_plugin(template: str) -> TemplateEventPlugin:
+    return TemplateEventPlugin(
+        config=TemplateEventPluginConfig(
+            root=TemplateEventPluginConfigForGeneralModes(
+                params={},
+                samples={},
+                mode=TemplatePickingMode.ALL,
+                templates=[
+                    {
+                        'test': TemplateConfigForGeneralModes(
+                            template='test.jinja'
+                        )
+                    }
+                ],
+            )
+        ),
+        params={
+            'id': 1,
+            'templates_loader': DictLoader(mapping={'test.jinja': template}),
+        },
+    )
+
+
+def global_state_is_free(plugin: TemplateEventPlugin) -> bool:
+    acquired = Event()
+
+    def acquire():
+        plugin.global_state.acquire()
+        acquired.set()
+        plugin.global_state.release()
+
+    thread = Thread(target=acquire, daemon=True)
+    thread.start()
+    thread.join(timeout=5)
+
+    return acquired.is_set()
+
+
+def test_leaked_global_state_lock_is_released():
+    plugin = build_single_template_plugin('{%- do globals.acquire() -%}ok')
+
+    events = plugin.produce(
+        params={'tags': tuple(), 'timestamp': datetime.now().astimezone()}
+    )
+
+    assert events == ['ok']
+    assert global_state_is_free(plugin)
+
+
+def test_leaked_global_state_lock_is_released_on_failed_render():
+    plugin = build_single_template_plugin(
+        '{%- do globals.acquire() -%}{{ 1 / 0 }}'
+    )
+
+    with pytest.raises(PluginProduceError):
+        plugin.produce(
+            params={'tags': tuple(), 'timestamp': datetime.now().astimezone()}
+        )
+
+    assert global_state_is_free(plugin)

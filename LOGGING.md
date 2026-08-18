@@ -41,6 +41,11 @@
         <td>Timeout in seconds</td>
         <td>int</td>
     </tr>
+    <tr>
+        <td>size</td>
+        <td>Size in bytes</td>
+        <td>int</td>
+    </tr>
 
 </table>
 

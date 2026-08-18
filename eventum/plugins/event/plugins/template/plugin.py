@@ -57,6 +57,7 @@ from eventum.plugins.event.plugins.template.template_pickers import (
     get_picker_class,
 )
 from eventum.plugins.exceptions import PluginConfigurationError
+from eventum.utils.throttler import Throttler
 from eventum.utils.traceback_utils import shorten_traceback
 
 
@@ -113,6 +114,7 @@ class TemplateEventPlugin(
 
         self._logger.debug('Connecting to global state')
         self._global_state = TemplateEventPlugin.GLOBAL_STATE
+        self._leaked_lock_throttler = Throttler(limit=1, period=10)
 
         loader = params.get('templates_loader', None)
         if loader is None:
@@ -402,8 +404,51 @@ class TemplateEventPlugin(
 
         return rendered
 
+    def _release_leaked_global_lock(self) -> None:
+        """Release the global state lock if a template left it held.
+
+        A template that acquires the global state and does not release
+        it - directly, or because rendering failed in between - would
+        block every other generator and every reader of the global
+        state in the process. The lock is not meant to be held across
+        events, so holds left after producing are dropped here.
+        """
+        holds = self._global_state.release_if_held()
+
+        if holds:
+            self._leaked_lock_throttler(
+                self._logger.warning,
+                'Released global state lock left acquired by template',
+                count=holds,
+            )
+
     @override
     def _produce(self, params: ProduceParams) -> list[str]:
+        try:
+            return self._pick_and_render(params)
+        finally:
+            self._release_leaked_global_lock()
+
+    def _pick_and_render(self, params: ProduceParams) -> list[str]:
+        """Pick templates and render them, repicking on request.
+
+        Returns
+        -------
+        list[str]
+            Rendered events.
+
+        Raises
+        ------
+        PluginEventDroppedError
+            If a template dropped the event.
+
+        PluginEventsExhaustedError
+            If a template signalled the end of generation.
+
+        PluginProduceError
+            If rendering failed or the repick limit is exceeded.
+
+        """
         self._event_context['timestamp'] = params['timestamp']
         self._event_context['tags'] = params['tags']
 
