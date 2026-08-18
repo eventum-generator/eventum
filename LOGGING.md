@@ -46,6 +46,11 @@
         <td>Size in bytes</td>
         <td>int</td>
     </tr>
+    <tr>
+        <td>limit</td>
+        <td>Upper bound the value is checked against</td>
+        <td>int</td>
+    </tr>
 
 </table>
 
