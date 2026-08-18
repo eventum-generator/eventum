@@ -2,6 +2,7 @@
 
 import asyncio
 import shutil
+import tempfile
 from pathlib import Path
 from typing import Annotated
 
@@ -52,6 +53,12 @@ from eventum.api.utils.file_response import (
 )
 from eventum.api.utils.file_streaming import stream_snapshot
 from eventum.api.utils.response_description import merge_responses
+from eventum.app.archiving import (
+    ArchiveContentError,
+    ArchiveError,
+    iter_project_archive,
+    unpack_project,
+)
 from eventum.app.models.settings import Settings
 from eventum.app.renaming import (
     RenameBlockedError,
@@ -72,6 +79,16 @@ from eventum.utils.fs_utils import (
 from eventum.utils.validation_prettier import prettify_validation_errors
 
 router = APIRouter()
+
+
+class _ArchiveResponse(responses.StreamingResponse):
+    """Streamed archive response.
+
+    Declares the media type an archive is served with, which is what
+    the generated schema documents the response as.
+    """
+
+    media_type = DOWNLOAD_MEDIA_TYPE
 
 
 def _resolve_file(settings: Settings, name: str, relative: Path) -> Path:
@@ -478,6 +495,162 @@ async def rename_generator_config(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=str(e),
         ) from None
+
+
+@router.get(
+    '/{name}/export',
+    description=(
+        'Export generator directory with specified name as a ZIP archive. '
+        'Entries named in `exclude` are left out with everything under '
+        'them.'
+    ),
+    response_description='ZIP archive of the generator directory',
+    response_class=_ArchiveResponse,
+    responses=merge_responses(
+        check_directory_is_allowed.responses,
+        check_configuration_exists.responses,
+        {
+            400: {
+                'description': (
+                    'Excluded entry is not a name of a top level entry, '
+                    'or is the generator configuration itself'
+                ),
+            },
+        },
+    ),
+)
+async def export_generator_config(
+    name: Annotated[
+        str,
+        CheckDirectoryIsAllowedDep,
+        CheckConfigurationExistsDep,
+    ],
+    settings: SettingsDep,
+    exclude: Annotated[
+        list[str] | None,
+        Query(
+            description=(
+                'Names of top level entries to leave out of the archive'
+            ),
+        ),
+    ] = None,
+) -> responses.StreamingResponse:
+    excluded = set(exclude or [])
+    config_filename = settings.path.generator_config_filename.name
+
+    for entry in excluded:
+        if not entry or entry != Path(entry).name or entry in {'.', '..'}:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail='Excluded entry must be a top level entry name',
+            )
+
+        if entry == config_filename:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=(
+                    'Generator configuration cannot be excluded, since '
+                    'the archive would not be importable without it'
+                ),
+            )
+
+    project_dir = (settings.path.generators_dir / name).resolve()
+
+    # The archive is compressed as it is sent, so a project holding
+    # output files of any size neither waits to be packed in full nor
+    # takes a second copy of itself on disk. Content length is left
+    # undeclared for the same reason: the size is not known until the
+    # last entry is written.
+    return _ArchiveResponse(
+        iter_project_archive(project_dir, exclude=excluded),
+        headers=build_file_headers(f'{name}.zip'),
+    )
+
+
+@router.post(
+    '/{name}/import',
+    description=(
+        'Import generator directory with specified name from a ZIP '
+        'archive. The archive must hold a generator configuration, and '
+        'the directory holding it becomes the root of the imported '
+        'generator.'
+    ),
+    responses=merge_responses(
+        check_directory_is_allowed.responses,
+        check_configuration_not_exists.responses,
+        {
+            409: {'description': 'Directory already exists'},
+            422: {
+                'description': (
+                    'Archive cannot be read or holds no generator '
+                    'configuration'
+                ),
+            },
+            500: {
+                'description': (
+                    'Configuration cannot be imported due to OS error'
+                ),
+            },
+        },
+    ),
+    status_code=status.HTTP_201_CREATED,
+)
+async def import_generator_config(
+    name: Annotated[
+        str,
+        CheckDirectoryIsAllowedDep,
+        CheckConfigurationNotExistsDep,
+    ],
+    content: UploadFile,
+    settings: SettingsDep,
+) -> None:
+    generators_dir = settings.path.generators_dir
+    destination = (generators_dir / name).resolve()
+
+    if destination.exists():
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail='Directory already exists',
+        )
+
+    try:
+        generators_dir.mkdir(parents=True, exist_ok=True)
+        staging = Path(
+            await asyncio.to_thread(tempfile.mkdtemp, dir=generators_dir)
+        )
+    except OSError as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f'Configuration cannot be imported due to OS error: {e}',
+        ) from None
+
+    # The project is unpacked one level below the staging directory, so
+    # that a directory holding a generator configuration appears
+    # directly inside `path.generators_dir` - and thus in the list of
+    # generators - only once the import is complete.
+    unpacked = staging / 'project'
+
+    try:
+        await asyncio.to_thread(
+            lambda: unpack_project(
+                content.file,
+                unpacked,
+                settings.path.generator_config_filename.name,
+            ),
+        )
+        await asyncio.to_thread(unpacked.rename, destination)
+    except ArchiveContentError as e:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            detail=f'Archive cannot be imported: {e}',
+        ) from None
+    except (ArchiveError, OSError) as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f'Configuration cannot be imported due to OS error: {e}',
+        ) from None
+    finally:
+        await asyncio.to_thread(shutil.rmtree, staging, ignore_errors=True)
 
 
 @router.get(

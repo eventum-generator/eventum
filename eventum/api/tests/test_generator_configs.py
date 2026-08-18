@@ -1,5 +1,7 @@
 """Tests for generator configs API router."""
 
+import io
+import zipfile
 from unittest.mock import MagicMock, patch
 
 import aiofiles
@@ -788,3 +790,176 @@ def test_rename_config_nested_name(client, tmp_settings):
 
     assert response.status_code == 422
     assert (tmp_settings.path.generators_dir / 'ren_gen').is_dir()
+
+
+# --- GET /{name}/export ---
+
+
+def _archive_names(content: bytes) -> set[str]:
+    with zipfile.ZipFile(io.BytesIO(content)) as archive:
+        return {name.rstrip('/') for name in archive.namelist()}
+
+
+def _build_archive(entries: dict[str, str]) -> bytes:
+    buffer = io.BytesIO()
+
+    with zipfile.ZipFile(buffer, mode='w') as archive:
+        for name, content in entries.items():
+            archive.writestr(name, content)
+
+    return buffer.getvalue()
+
+
+def test_export_config(client, tmp_settings):
+    gen_dir = _create_config(tmp_settings, 'gen1')
+    (gen_dir / 'templates').mkdir()
+    (gen_dir / 'templates' / 'event.jinja').write_text('{}')
+
+    response = client.get('/configs/gen1/export')
+
+    assert response.status_code == 200
+    assert response.headers['content-type'] == 'application/octet-stream'
+    assert response.headers['content-disposition'] == (
+        'attachment; filename="gen1.zip"'
+    )
+    assert response.headers['x-content-type-options'] == 'nosniff'
+    assert _archive_names(response.content) == {
+        'generator.yml',
+        'templates',
+        'templates/event.jinja',
+    }
+
+
+def test_export_config_excludes_entries(client, tmp_settings):
+    gen_dir = _create_config(tmp_settings, 'gen1')
+    (gen_dir / 'output').mkdir()
+    (gen_dir / 'output' / 'events.log').write_text('event')
+
+    response = client.get('/configs/gen1/export', params={'exclude': 'output'})
+
+    assert response.status_code == 200
+    assert _archive_names(response.content) == {'generator.yml'}
+
+
+def test_export_config_rejects_excluded_configuration(client, tmp_settings):
+    _create_config(tmp_settings, 'gen1')
+
+    response = client.get(
+        '/configs/gen1/export', params={'exclude': 'generator.yml'}
+    )
+
+    assert response.status_code == 400
+
+
+def test_export_config_rejects_nested_exclude(client, tmp_settings):
+    _create_config(tmp_settings, 'gen1')
+
+    response = client.get(
+        '/configs/gen1/export', params={'exclude': 'output/events.log'}
+    )
+
+    assert response.status_code == 400
+
+
+def test_export_config_not_found(client):
+    response = client.get('/configs/absent/export')
+
+    assert response.status_code == 404
+
+
+# --- POST /{name}/import ---
+
+
+def test_import_config(client, tmp_settings):
+    archive = _build_archive(
+        {
+            'generator.yml': 'input: []',
+            'templates/event.jinja': '{}',
+        },
+    )
+
+    response = client.post(
+        '/configs/imported/import',
+        files={'content': ('project.zip', archive, 'application/zip')},
+    )
+
+    assert response.status_code == 201
+
+    gen_dir = tmp_settings.path.generators_dir / 'imported'
+    assert (gen_dir / 'generator.yml').read_text() == 'input: []'
+    assert (gen_dir / 'templates' / 'event.jinja').read_text() == '{}'
+
+
+def test_import_config_strips_wrapping_directory(client, tmp_settings):
+    archive = _build_archive({'web-nginx/generator.yml': 'input: []'})
+
+    response = client.post(
+        '/configs/imported/import',
+        files={'content': ('project.zip', archive, 'application/zip')},
+    )
+
+    assert response.status_code == 201
+    assert (
+        tmp_settings.path.generators_dir / 'imported' / 'generator.yml'
+    ).is_file()
+
+
+def test_import_config_leaves_no_staging_directory(client, tmp_settings):
+    archive = _build_archive({'generator.yml': 'input: []'})
+
+    client.post(
+        '/configs/imported/import',
+        files={'content': ('project.zip', archive, 'application/zip')},
+    )
+
+    assert [
+        path.name for path in tmp_settings.path.generators_dir.iterdir()
+    ] == ['imported']
+
+
+def test_import_config_already_exists(client, tmp_settings):
+    _create_config(tmp_settings, 'gen1')
+    archive = _build_archive({'generator.yml': 'input: []'})
+
+    response = client.post(
+        '/configs/gen1/import',
+        files={'content': ('project.zip', archive, 'application/zip')},
+    )
+
+    assert response.status_code == 409
+
+
+def test_import_config_directory_exists(client, tmp_settings):
+    (tmp_settings.path.generators_dir / 'gen1').mkdir()
+    archive = _build_archive({'generator.yml': 'input: []'})
+
+    response = client.post(
+        '/configs/gen1/import',
+        files={'content': ('project.zip', archive, 'application/zip')},
+    )
+
+    assert response.status_code == 409
+
+
+def test_import_config_not_an_archive(client, tmp_settings):
+    response = client.post(
+        '/configs/imported/import',
+        files={
+            'content': ('project.zip', b'not an archive', 'application/zip')
+        },
+    )
+
+    assert response.status_code == 422
+    assert not (tmp_settings.path.generators_dir / 'imported').exists()
+    assert list(tmp_settings.path.generators_dir.iterdir()) == []
+
+
+def test_import_config_without_configuration(client, tmp_settings):
+    archive = _build_archive({'templates/event.jinja': '{}'})
+
+    response = client.post(
+        '/configs/imported/import',
+        files={'content': ('project.zip', archive, 'application/zip')},
+    )
+
+    assert response.status_code == 422

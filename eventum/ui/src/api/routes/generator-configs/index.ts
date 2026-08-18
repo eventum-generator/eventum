@@ -81,6 +81,35 @@ export async function renameGeneratorConfig(
   );
 }
 
+export function getGeneratorProjectExportUrl(
+  name: string,
+  exclude: string[] = []
+): string {
+  return apiClient.getUri({
+    url: `/generator-configs/${encodePathSegment(name)}/export`,
+    params: exclude.length > 0 ? { exclude } : undefined,
+    // Repeats the key per value (`exclude=a&exclude=b`), which is the
+    // shape the backend reads a list of query values in.
+    paramsSerializer: { indexes: null },
+  });
+}
+
+export async function importGeneratorProject(name: string, archive: File) {
+  const form = new FormData();
+  form.append('content', archive, archive.name);
+
+  await apiClient.post(
+    `/generator-configs/${encodePathSegment(name)}/import`,
+    form,
+    {
+      headers: {
+        'Content-Type': undefined,
+      },
+      timeout: TRANSFER_TIMEOUT,
+    }
+  );
+}
+
 export async function getGeneratorConfigPath(name: string): Promise<string> {
   return await validateResponse(
     GeneratorConfigPathSchema,

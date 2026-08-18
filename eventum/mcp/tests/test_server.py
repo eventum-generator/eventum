@@ -24,6 +24,8 @@ _EXPECTED_TOOLS = {
     'write_generator_file',
     'delete_generator_file',
     'delete_generator',
+    'export_generator',
+    'import_generator',
     'validate_generator',
     'preview_timestamps',
     'preview_events',

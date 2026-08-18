@@ -11,6 +11,11 @@ business logic.
   services `api/` uses.
 - **Never import `eventum.api`.** Share via `core/`+`app/`, never call
   the HTTP API over the network, never reach into `api/routers/*`.
+  This binds the code of this package, not what a tool tells its
+  client: pointing the agent at a REST endpoint - as the server
+  instructions and the archive tools do for a payload too large to
+  carry inline - is the intended way out, since stdio has no server
+  to call and the HTTP mount is already inside the same process.
 - **Capability via DI, not branching.** Tools depend on a context
   Protocol (`AuthoringContext`, `LiveContext`); they must not
   branch on transport or concrete context type. Live-only tools are
