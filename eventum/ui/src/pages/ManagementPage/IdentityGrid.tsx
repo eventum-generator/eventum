@@ -12,7 +12,9 @@ import { Link } from 'react-router-dom';
 import { formatFreq } from './format';
 import { Attr, AttrValue, InfoCard, LiveUptime, Meter } from './primitives';
 import { InstanceInfo } from '@/api/routes/instance/schemas';
+import { AlertIcon } from '@/components/ui/AlertIcon';
 import { ROUTE_PATHS } from '@/routing/paths';
+import { describeGilState } from '@/utils/gilState';
 import {
   CPU_THRESHOLDS,
   FD_THRESHOLDS,
@@ -52,6 +54,8 @@ const Vital: FC<{
 );
 
 export const IdentityGrid: FC<{ info: InstanceInfo }> = ({ info }) => {
+  const gil = describeGilState(info);
+
   const memPct =
     info.memory_total_bytes > 0
       ? (info.memory_used_bytes / info.memory_total_bytes) * 100
@@ -72,6 +76,14 @@ export const IdentityGrid: FC<{ info: InstanceInfo }> = ({ info }) => {
         </Attr>
         <Attr label="Implementation">
           <AttrValue>{info.python_implementation}</AttrValue>
+        </Attr>
+        <Attr label="GIL">
+          <Group gap={6} wrap="nowrap" justify="flex-end" align="center">
+            {gil.warning && <AlertIcon variant="warn" size={15} />}
+            <AttrValue title={gil.hint} color={gil.color}>
+              {gil.value}
+            </AttrValue>
+          </Group>
         </Attr>
         <Attr label="Compiler">
           <AttrValue title={info.python_compiler}>
