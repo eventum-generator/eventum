@@ -6,9 +6,10 @@ into the generators directory. Packing and path safety go through
 contains no archive logic.
 
 Archive bytes travel inline in the tool payload and land in the
-agent's context, so an archive above the inline limit is refused and
-the REST API carries it instead - the fallback the server
-instructions describe.
+agent's context. A client able to make HTTP requests and write files
+is better served by the REST API, which moves the same archive as a
+file; an archive above the inline limit has no other route and is
+refused - the fallback the server instructions describe.
 """
 
 import base64
@@ -380,10 +381,13 @@ def register(
         in ``content_base64``.
 
         Archive content is carried in the result and lands in the
-        conversation, so an archive over 128 KiB is refused: transfer
-        it through the REST API instead. Passing the directories that
-        hold generated output in ``exclude`` usually brings a project
-        back under the limit.
+        conversation. If this client can make HTTP requests and write
+        files, take the archive from the REST API instead - ``GET
+        /api/generator-configs/{name}/export`` returns the same file
+        and leaves the conversation free of it. For the same reason an
+        archive over 128 KiB is refused and the REST API is the only
+        route left. Passing the directories that hold generated output
+        in ``exclude`` usually brings a project back under the limit.
 
         Parameters
         ----------
@@ -423,8 +427,11 @@ def register(
         level. An existing generator is never overwritten.
 
         Archive content is carried in the call and lands in the
-        conversation, so an archive over 128 KiB is refused: transfer
-        it through the REST API instead.
+        conversation. If this client can make HTTP requests, upload the
+        archive to the REST API instead - ``POST
+        /api/generator-configs/{name}/import`` takes the same file. For
+        the same reason an archive over 128 KiB is refused and the REST
+        API is the only route left.
 
         Parameters
         ----------
