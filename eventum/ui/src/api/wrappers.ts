@@ -17,7 +17,10 @@ export async function validateResponse<S extends ZodType>(
         message: 'Unexpected server response',
         details:
           'Server respond with body that does not match to defined schema',
-        responseValidationErrors: z.treeifyError(error),
+        responseValidationErrors: error.issues.map((issue) => ({
+          path: issue.path.join('.'),
+          message: issue.message,
+        })),
       });
     }
     throw error;
