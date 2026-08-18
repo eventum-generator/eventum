@@ -56,6 +56,7 @@ All notable changes to this project will be documented in this file.
 
 ### 📝 Other Changes
 
+- **Removed the flat `server.ui_enabled` and `server.api_enabled` keys** — deprecated in 2.7.0 in favour of `server.ui.enabled` and `server.api.enabled`, they were accepted with a notice at startup for one release and are now rejected as unknown settings. A configuration still holding one has to move the value under its nested section
 - **Changed the application disk counters to file system bytes** — they reported what reached the block device, which the kernel credits to whichever thread it flushes the page cache from and which therefore cannot be broken down per instance. Both the application and the per-instance figures now count the bytes handed to the system calls, so they add up
 
 ## 2.7.0 (2026-08-01)
