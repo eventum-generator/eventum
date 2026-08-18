@@ -15,6 +15,7 @@ All notable changes to this project will be documented in this file.
 
 #### Eventum Studio
 
+- **Rebuilt the About dialog as an identity plate** — the version leads, the runtime and the host follow as one aligned sheet of labelled facts in the mono, tabular treatment the rest of Studio uses for identity values, and the build and the GIL state sit among them. Copying the full information is a labelled button in place of a bare icon
 - **Added a channel switch to the instance log viewer** — Main, Server, Access and MCP logs are each streamed on their own, and the logging section of Settings carries the new third-party level
 
 #### MCP
