@@ -20,6 +20,11 @@ export function validateProjectName(
   return null;
 }
 
+/** Fold everything a project name cannot hold into a single dash. */
+function fold(value: string): string {
+  return value.split(/\W/).filter(Boolean).join('-');
+}
+
 /**
  * Derive a project name from the file name of an imported archive.
  *
@@ -30,7 +35,13 @@ export function validateProjectName(
  * themselves.
  */
 export function projectNameFromArchive(filename: string): string {
-  const withoutExtension = filename.replace(/\.[^./\\]+$/, '');
+  return fold(filename.replace(/\.[^./\\]+$/, ''));
+}
 
-  return withoutExtension.split(/\W/).filter(Boolean).join('-');
+/**
+ * Derive a project name from the directory an archive carries the
+ * project in. Unlike a file name, it holds no extension to drop.
+ */
+export function projectNameFromDirectory(directory: string): string {
+  return fold(directory);
 }

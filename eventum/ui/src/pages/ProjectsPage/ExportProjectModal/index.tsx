@@ -137,9 +137,7 @@ export const ExportProjectModal: FC<ExportProjectModalProps> = ({
                         </Group>
                       }
                       description={
-                        isConfig
-                          ? 'Without it the archive cannot be imported'
-                          : undefined
+                        isConfig ? 'Generator project file' : undefined
                       }
                     />
                     <Text size="sm" c="dimmed">
