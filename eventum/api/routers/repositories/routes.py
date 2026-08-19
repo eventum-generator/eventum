@@ -6,10 +6,13 @@ from typing import Annotated, Any
 from fastapi import APIRouter, Body, HTTPException, Path, Query, status
 
 from eventum.api.dependencies.app import RepositoriesDep
-from eventum.api.routers.repositories.models import InstallGeneratorRequest
+from eventum.api.routers.repositories.models import (
+    CatalogResponse,
+    InstalledGeneratorResponse,
+    InstallGeneratorRequest,
+)
 from eventum.api.utils.response_description import merge_responses
 from eventum.app.repositories import (
-    Catalog,
     CatalogEntryNotFoundError,
     CatalogError,
     ConnectedRepository,
@@ -22,6 +25,7 @@ from eventum.app.repositories import (
     RepositoryError,
     RepositoryFetchError,
     RepositoryNotFoundError,
+    RepositorySecretError,
     RepositoryStatus,
 )
 
@@ -45,7 +49,16 @@ _NOT_CONNECTED_RESPONSES: dict[int | str, dict[str, Any]] = {
 _FETCH_RESPONSES: dict[int | str, dict[str, Any]] = {
     502: {
         'description': (
-            'Repository cannot be fetched or publishes no catalog'
+            'Repository cannot be reached, or does not publish a '
+            'catalog that can be read'
+        ),
+    },
+}
+_SECRET_RESPONSES: dict[int | str, dict[str, Any]] = {
+    424: {
+        'description': (
+            'Secret the repository authenticates with is missing in '
+            'the keyring'
         ),
     },
 }
@@ -79,6 +92,7 @@ async def list_repositories(
     responses=merge_responses(
         _STORAGE_RESPONSES,
         _FETCH_RESPONSES,
+        _SECRET_RESPONSES,
         {
             409: {
                 'description': (
@@ -114,6 +128,8 @@ async def add_repository(
             status_code=status.HTTP_409_CONFLICT,
             detail=str(e),
         ) from None
+    except RepositorySecretError as e:
+        raise _secret_error(e) from None
     except RepositoryFetchError as e:
         raise _fetch_error(e) from None
     except RepositoryError as e:
@@ -130,6 +146,7 @@ async def add_repository(
     responses=merge_responses(
         _STORAGE_RESPONSES,
         _NOT_CONNECTED_RESPONSES,
+        _SECRET_RESPONSES,
     ),
 )
 async def check_repository(
@@ -140,6 +157,8 @@ async def check_repository(
         return await asyncio.to_thread(repositories.check, name)
     except RepositoryNotFoundError as e:
         raise _not_found_error(e) from None
+    except RepositorySecretError as e:
+        raise _secret_error(e) from None
     except RepositoryError as e:
         raise _storage_error(e) from None
 
@@ -184,11 +203,15 @@ async def remove_repository(
 async def get_catalog(
     name: NameParam,
     repositories: RepositoriesDep,
-) -> Catalog:
+) -> CatalogResponse:
     try:
-        return await asyncio.to_thread(repositories.get_catalog, name)
+        return CatalogResponse.of(
+            await asyncio.to_thread(repositories.get_catalog, name),
+        )
     except RepositoryNotFoundError as e:
         raise _not_found_error(e) from None
+    except RepositorySecretError as e:
+        raise _secret_error(e) from None
     except (RepositoryFetchError, CatalogError) as e:
         raise _fetch_error(e) from None
     except RepositoryError as e:
@@ -205,16 +228,21 @@ async def get_catalog(
         _STORAGE_RESPONSES,
         _NOT_CONNECTED_RESPONSES,
         _FETCH_RESPONSES,
+        _SECRET_RESPONSES,
     ),
 )
 async def refresh_catalog(
     name: NameParam,
     repositories: RepositoriesDep,
-) -> Catalog:
+) -> CatalogResponse:
     try:
-        return await asyncio.to_thread(repositories.refresh, name)
+        return CatalogResponse.of(
+            await asyncio.to_thread(repositories.refresh, name),
+        )
     except RepositoryNotFoundError as e:
         raise _not_found_error(e) from None
+    except RepositorySecretError as e:
+        raise _secret_error(e) from None
     except (RepositoryFetchError, CatalogError) as e:
         raise _fetch_error(e) from None
     except RepositoryError as e:
@@ -227,9 +255,10 @@ async def refresh_catalog(
         'Install the published generator with specified name as a '
         'generator directory of the workspace.'
     ),
+    response_description='Generator directory that was written',
     responses=merge_responses(
         _STORAGE_RESPONSES,
-        _FETCH_RESPONSES,
+        _SECRET_RESPONSES,
         {
             400: {'description': 'Requested directory name is not allowed'},
             404: {
@@ -239,10 +268,11 @@ async def refresh_catalog(
                 ),
             },
             409: {'description': 'Directory already exists'},
-            422: {
+            502: {
                 'description': (
-                    'Published generator holds no generator '
-                    'configuration or exceeds the size limits'
+                    'Repository cannot be reached, or publishes a '
+                    'generator that holds no generator configuration '
+                    'or exceeds the size limits'
                 ),
             },
         },
@@ -257,9 +287,9 @@ async def install_generator(
         Body(description='Generator directory to install into'),
     ],
     repositories: RepositoriesDep,
-) -> None:
+) -> InstalledGeneratorResponse:
     try:
-        await asyncio.to_thread(
+        installed = await asyncio.to_thread(
             repositories.install,
             name,
             entry,
@@ -277,12 +307,13 @@ async def install_generator(
             status_code=status.HTTP_409_CONFLICT,
             detail=str(e),
         ) from None
-    except InstallContentError as e:
-        raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
-            detail=f'Generator cannot be installed: {e}',
-        ) from None
-    except (RepositoryFetchError, CatalogError) as e:
+    except RepositorySecretError as e:
+        raise _secret_error(e) from None
+    except (
+        RepositoryFetchError,
+        CatalogError,
+        InstallContentError,
+    ) as e:
         raise _fetch_error(e) from None
     except InstallError as e:
         raise HTTPException(
@@ -292,12 +323,32 @@ async def install_generator(
     except RepositoryError as e:
         raise _storage_error(e) from None
 
+    return InstalledGeneratorResponse(
+        name=request.name,
+        file_count=installed,
+    )
+
 
 def _not_found_error(error: RepositoryError) -> HTTPException:
     """Build the response of a missing repository or catalog entry."""
     return HTTPException(
         status_code=status.HTTP_404_NOT_FOUND,
         detail=str(error),
+    )
+
+
+def _secret_error(error: RepositoryError) -> HTTPException:
+    """Build the response of a secret that cannot be read.
+
+    A repository whose secret is missing is not a repository that is
+    unavailable: nothing was asked of it, and what has to change is
+    the keyring of this instance.
+    """
+    parts = [str(error), error.context.get('hint')]
+
+    return HTTPException(
+        status_code=status.HTTP_424_FAILED_DEPENDENCY,
+        detail='. '.join(str(part) for part in parts if part),
     )
 
 

@@ -23,6 +23,7 @@ from eventum.app.repositories import (
     RepositoryError,
     RepositoryFetchError,
     RepositoryNotFoundError,
+    RepositorySecretError,
     RepositoryStatus,
 )
 
@@ -145,6 +146,26 @@ def test_list_reports_broken_file(client, tmp_path):
     assert response.status_code == 500
 
 
+def test_add_checks_the_repository_by_default(stub, stub_client):
+    stub_client.post(
+        '/repositories/',
+        json={'name': 'packs', 'url': 'https://example.com/packs.git'},
+    )
+
+    _, kwargs = stub.add.call_args
+    assert kwargs == {'verify': True}
+
+
+def test_add_can_skip_the_check(stub, stub_client):
+    stub_client.post(
+        '/repositories/?verify=false',
+        json={'name': 'packs', 'url': 'https://example.com/packs.git'},
+    )
+
+    _, kwargs = stub.add.call_args
+    assert kwargs == {'verify': False}
+
+
 def test_add_reports_an_unreachable_repository(stub, stub_client):
     stub.add.side_effect = RepositoryFetchError(
         'Failed to reach repository',
@@ -231,6 +252,20 @@ def test_get_catalog_reports_fetch_failure(stub, stub_client, error):
     assert response.status_code == 502
 
 
+def test_a_failure_carries_no_secret_value(stub, stub_client):
+    # The reason a remote gives may quote what was sent to it, and the
+    # value of a secret is the one thing that may not come back out.
+    stub.get_catalog.side_effect = RepositoryFetchError(
+        'Failed to fetch repository',
+        context={'reason': 'unexpected http resp 401 for https://host/p.git'},
+    )
+
+    response = stub_client.get('/repositories/packs/catalog')
+
+    assert 'ghp_' not in response.text
+    assert response.status_code == 502
+
+
 def test_get_catalog_carries_the_reason(stub, stub_client):
     stub.get_catalog.side_effect = RepositoryFetchError(
         'Failed to fetch repository',
@@ -269,7 +304,23 @@ def test_install(stub, stub_client):
     )
 
     assert response.status_code == 201
+    assert response.json() == {'name': 'nginx', 'file_count': 3}
     stub.install.assert_called_once_with('packs', 'web-nginx', 'nginx')
+
+
+def test_install_reports_a_missing_secret(stub, stub_client):
+    stub.install.side_effect = RepositorySecretError(
+        'Failed to read the secret of the repository',
+        context={'hint': 'Add the secret using the eventum-keyring CLI'},
+    )
+
+    response = stub_client.post(
+        '/repositories/packs/catalog/web-nginx/install',
+        json={'name': 'nginx'},
+    )
+
+    assert response.status_code == 424
+    assert 'eventum-keyring' in response.json()['detail']
 
 
 @pytest.mark.parametrize('name', ['..', '.', 'nested/name', ''])
@@ -288,7 +339,7 @@ def test_install_rejects_project_name(stub_client, name):
         (CatalogEntryNotFoundError('absent', context={}), 404),
         (InstallNameError('bad name', context={}), 400),
         (InstallConflictError('exists', context={}), 409),
-        (InstallContentError('too large', context={}), 422),
+        (InstallContentError('too large', context={}), 502),
         (InstallError('cannot write', context={}), 500),
         (RepositoryFetchError('unreachable', context={}), 502),
     ],
