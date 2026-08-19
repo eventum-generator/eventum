@@ -1,5 +1,6 @@
 import { ModalsProvider } from '@mantine/modals';
-import userEvent from '@testing-library/user-event';
+import { screen } from '@testing-library/react';
+import userEvent, { UserEvent } from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
 import { describe, expect, it, vi } from 'vitest';
 
@@ -9,6 +10,7 @@ import { renderWithProviders } from '@/test/render';
 interface Handlers {
   onMenuClick: () => void;
   onMobileMenuClick: () => void;
+  onOpenHighlights?: () => void;
 }
 
 function renderHeader(handlers: Handlers): void {
@@ -19,6 +21,11 @@ function renderHeader(handlers: Handlers): void {
       </ModalsProvider>
     </MemoryRouter>
   );
+}
+
+/** Open the user menu, which holds the application entries. */
+async function openUserMenu(user: UserEvent): Promise<void> {
+  await user.click(screen.getByRole('button', { name: /eventum/ }));
 }
 
 /** Both burgers are always in the document - which one the user can reach is
@@ -68,5 +75,34 @@ describe('Header', () => {
 
     expect(onMobileMenuClick).toHaveBeenCalledTimes(1);
     expect(onMenuClick).not.toHaveBeenCalled();
+  });
+
+  it('opens the release panels from the user menu', async () => {
+    const onOpenHighlights = vi.fn();
+    const user = userEvent.setup();
+    renderHeader({
+      onMenuClick: vi.fn(),
+      onMobileMenuClick: vi.fn(),
+      onOpenHighlights,
+    });
+
+    await openUserMenu(user);
+    await user.click(await screen.findByRole('menuitem', { name: /new/ }));
+
+    expect(onOpenHighlights).toHaveBeenCalledTimes(1);
+  });
+
+  it('offers no release panels on an instance that has none', async () => {
+    const user = userEvent.setup();
+    renderHeader({ onMenuClick: vi.fn(), onMobileMenuClick: vi.fn() });
+
+    await openUserMenu(user);
+
+    expect(
+      await screen.findByRole('menuitem', { name: /About/ })
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole('menuitem', { name: /new/ })
+    ).not.toBeInTheDocument();
   });
 });

@@ -35,6 +35,24 @@ Object.defineProperty(globalThis, 'matchMedia', {
     }) as unknown as MediaQueryList,
 });
 
+// jsdom resolves no `calc()` over a CSS variable, which is how Mantine
+// writes every size, so reading the computed style of a component throws
+// instead of answering. Everything that measures an element runs into it,
+// and the positioner behind a dropdown does so after the test that opened
+// it has finished, where a throw counts as an unhandled error and fails
+// the run. Such a read is answered with the style of an element outside
+// the document instead - the empty values measuring code already handles.
+const resolveStyle = globalThis.getComputedStyle.bind(globalThis);
+const unstyledElement = document.createElement('div');
+
+globalThis.getComputedStyle = ((element: Element, pseudoElement?: string) => {
+  try {
+    return resolveStyle(element, pseudoElement);
+  } catch {
+    return resolveStyle(unstyledElement);
+  }
+}) as typeof globalThis.getComputedStyle;
+
 class ResizeObserverStub implements ResizeObserver {
   observe = noop;
   unobserve = noop;

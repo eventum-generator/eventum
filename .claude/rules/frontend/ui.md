@@ -9,6 +9,7 @@ Eventum Studio is a React + TypeScript SPA built on Mantine, react-query, Zod, a
 - `ui/src/api/routes/<resource>/` - API wrappers and Zod schemas per backend resource.
 - `ui/src/api/hooks/` - react-query hooks per resource.
 - `ui/src/routing/config.tsx` - route definitions; pages are lazy-loaded.
+- `ui/src/releases/` - the release panels shown after an upgrade, and the animated scenes they are drawn from.
 
 ## Theming
 
