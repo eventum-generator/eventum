@@ -6,7 +6,7 @@ Event plugins turn a timestamp into zero or more event strings. Pipeline executo
 
 - Inherit `EventPlugin[FooConfig, FooParams]`; config inherits `EventPluginConfig`, params inherits `EventPluginParams`.
 - Implement `_produce` - returns a `list[str]` (empty list means "drop this timestamp").
-- `ProduceParams` is the `TypedDict` passed to `_produce`, carrying `timestamp` and `tags`. It doubles as the request body model of the preview `produce` endpoint, so every field of it must be JSON-serializable - a runtime object handed to a plugin belongs in a subclass owned by that plugin.
+- `ProduceParams` is the `TypedDict` passed to `_produce`, carrying `timestamp` and `tags` - what the pipeline knows about one event, and nothing else. A runtime object a plugin hands to user code belongs in a subclass that plugin owns, not here. The preview endpoint keeps its own body model and translates at the boundary, so this contract answers to the pipeline alone.
 
 ## Signals vs errors
 

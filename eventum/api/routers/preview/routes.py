@@ -44,6 +44,7 @@ from eventum.api.routers.preview.models import (
     FormattingResult,
     ProducedEventsInfo,
     ProduceEventErrorInfo,
+    ProduceParamsRequest,
     VersatileDatetimeParametersBody,
 )
 from eventum.api.routers.preview.plugins_storage import EVENT_PLUGINS
@@ -139,7 +140,7 @@ async def initialize_event_plugin(
 async def produce_events(
     plugin: EventPluginFromStorageDep,
     params_list: Annotated[
-        list[ProduceParams],
+        list[ProduceParamsRequest],
         Body(
             description=(
                 'List of timestamps and input plugins tags to use '
@@ -149,7 +150,12 @@ async def produce_events(
     ],
 ) -> ProducedEventsInfo:
     result = await asyncio.to_thread(
-        produce_events_with_plugin, plugin, params_list
+        produce_events_with_plugin,
+        plugin,
+        [
+            ProduceParams(timestamp=params.timestamp, tags=params.tags)
+            for params in params_list
+        ],
     )
 
     return ProducedEventsInfo(

@@ -25,6 +25,7 @@ Auth is attached at `include_router()` level, not per-route. Use `HttpAuthDepend
 - `description` and `response_description` are required on every route decorator - they are the OpenAPI source of truth.
 - Use `merge_responses()` from `api/utils/response_description.py` when a route has multiple structured error responses.
 - Translate domain exceptions at the boundary: catch `ManagingError` (and similar) and raise `HTTPException(status_code, detail=...)`. Domain exceptions must not reach the client.
+- Translate domain types at the boundary too: a body or a response is annotated with a model from `models.py`, never with a `TypedDict` or dataclass owned by `core/` or the plugins. Sharing one type makes the published schema hostage to a domain contract - and a runtime field added there breaks app startup.
 
 ## WebSocket routes
 
