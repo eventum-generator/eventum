@@ -1,9 +1,4 @@
-import { validateProjectName } from '../ProjectsPage/project-name';
-
-/** Fold everything a project name cannot hold into a single dash. */
-function fold(value: string): string {
-  return value.split(/\W/).filter(Boolean).join('-');
-}
+import { fold, validateProjectName } from '../ProjectsPage/project-name';
 
 /**
  * Propose a project name for a published generator that the workspace

@@ -1,6 +1,7 @@
 import {
   ActionIcon,
   Alert,
+  Anchor,
   Badge,
   Button,
   Center,
@@ -178,105 +179,118 @@ export const RepositoryCatalog: FC<RepositoryCatalogProps> = ({
           No generator matches &quot;{query}&quot;.
         </Text>
       ) : (
-        <Table highlightOnHover>
-          <Table.Thead>
-            <Table.Tr>
-              <Table.Th w="30%">Generator</Table.Th>
-              <Table.Th>Summary</Table.Th>
-              <Table.Th style={{ whiteSpace: 'nowrap' }}>Size</Table.Th>
-              <Table.Th
-                style={{
-                  width: '1%',
-                  whiteSpace: 'nowrap',
-                  textAlign: 'right',
-                }}
-              >
-                Actions
-              </Table.Th>
-            </Table.Tr>
-          </Table.Thead>
-          <Table.Tbody>
-            {entries.map((entry) => (
-              <Table.Tr
-                key={entry.name}
-                onClick={() => openDetailsModal(entry)}
-                style={{ cursor: 'pointer' }}
-              >
-                <Table.Td>
-                  <Group gap="xs" wrap="nowrap">
-                    <Text size="sm" fw={600}>
-                      {entry.title ?? entry.name}
-                    </Text>
-                    {entry.installed_as.length > 0 && (
-                      <Tooltip
-                        label={
-                          entry.installed_as.some((item) => item.outdated)
-                            ? 'The repository publishes this generator with content the installed project does not hold'
-                            : `Installed as ${entry.installed_as
-                                .map((item) => item.project)
-                                .join(', ')}`
-                        }
+        <Table.ScrollContainer minWidth={900} type="native">
+          <Table highlightOnHover>
+            <Table.Thead>
+              <Table.Tr>
+                <Table.Th w="30%">Generator</Table.Th>
+                <Table.Th>Summary</Table.Th>
+                <Table.Th style={{ whiteSpace: 'nowrap' }}>Size</Table.Th>
+                <Table.Th
+                  style={{
+                    width: '1%',
+                    whiteSpace: 'nowrap',
+                    textAlign: 'right',
+                  }}
+                >
+                  Actions
+                </Table.Th>
+              </Table.Tr>
+            </Table.Thead>
+            <Table.Tbody>
+              {entries.map((entry) => (
+                <Table.Tr
+                  key={entry.name}
+                  onClick={() => openDetailsModal(entry)}
+                  style={{ cursor: 'pointer' }}
+                >
+                  <Table.Td>
+                    <Group gap="xs" wrap="nowrap">
+                      <Anchor
+                        component="button"
+                        type="button"
+                        size="sm"
+                        fw={600}
+                        c="var(--mantine-color-text)"
+                        underline="never"
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          openDetailsModal(entry);
+                        }}
                       >
-                        <Badge
-                          size="xs"
-                          variant="light"
-                          color={
+                        {entry.title ?? entry.name}
+                      </Anchor>
+                      {entry.installed_as.length > 0 && (
+                        <Tooltip
+                          label={
                             entry.installed_as.some((item) => item.outdated)
-                              ? 'yellow'
-                              : 'green'
+                              ? 'The repository publishes this generator with content the installed project does not hold'
+                              : `Installed as ${entry.installed_as
+                                  .map((item) => item.project)
+                                  .join(', ')}`
                           }
                         >
-                          {entry.installed_as.some((item) => item.outdated)
-                            ? 'update available'
-                            : 'installed'}
-                        </Badge>
-                      </Tooltip>
+                          <Badge
+                            size="xs"
+                            variant="light"
+                            color={
+                              entry.installed_as.some((item) => item.outdated)
+                                ? 'yellow'
+                                : 'green'
+                            }
+                          >
+                            {entry.installed_as.some((item) => item.outdated)
+                              ? 'update available'
+                              : 'installed'}
+                          </Badge>
+                        </Tooltip>
+                      )}
+                    </Group>
+                    <Text size="xs" c="dimmed">
+                      {entry.name}
+                    </Text>
+                  </Table.Td>
+                  <Table.Td>
+                    <Text size="sm" c="dimmed">
+                      {entry.summary ?? '-'}
+                    </Text>
+                  </Table.Td>
+                  <Table.Td>
+                    <Text size="sm" c="dimmed" style={{ whiteSpace: 'nowrap' }}>
+                      {bytes(entry.size)} · {entry.file_count}{' '}
+                      {entry.file_count === 1 ? 'file' : 'files'}
+                    </Text>
+                  </Table.Td>
+                  <Table.Td style={{ textAlign: 'right' }}>
+                    {entry.installed_as.length > 0 ? (
+                      <Button
+                        variant="default"
+                        size="compact-sm"
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          openProject(entry.installed_as[0]!.project);
+                        }}
+                      >
+                        Open
+                      </Button>
+                    ) : (
+                      <Button
+                        variant="default"
+                        size="compact-sm"
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          openInstallModal(entry);
+                        }}
+                      >
+                        Install
+                      </Button>
                     )}
-                  </Group>
-                  <Text size="xs" c="dimmed">
-                    {entry.name}
-                  </Text>
-                </Table.Td>
-                <Table.Td>
-                  <Text size="sm" c="dimmed">
-                    {entry.summary ?? '-'}
-                  </Text>
-                </Table.Td>
-                <Table.Td>
-                  <Text size="sm" c="dimmed" style={{ whiteSpace: 'nowrap' }}>
-                    {bytes(entry.size)} · {entry.file_count}{' '}
-                    {entry.file_count === 1 ? 'file' : 'files'}
-                  </Text>
-                </Table.Td>
-                <Table.Td style={{ textAlign: 'right' }}>
-                  {entry.installed_as.length > 0 ? (
-                    <Button
-                      variant="default"
-                      size="compact-sm"
-                      onClick={(event) => {
-                        event.stopPropagation();
-                        openProject(entry.installed_as[0]!.project);
-                      }}
-                    >
-                      Open
-                    </Button>
-                  ) : (
-                    <Button
-                      variant="default"
-                      size="compact-sm"
-                      onClick={(event) => {
-                        event.stopPropagation();
-                        openInstallModal(entry);
-                      }}
-                    >
-                      Install
-                    </Button>
-                  )}
-                </Table.Td>
-              </Table.Tr>
-            ))}
-          </Table.Tbody>
-        </Table>
+                  </Table.Td>
+                </Table.Tr>
+              ))}
+            </Table.Tbody>
+          </Table>
+        </Table.ScrollContainer>
       )}
     </Stack>
   );

@@ -33,6 +33,22 @@ describe('buildEntryUrl', () => {
     ).toBe('https://gitlab.com/team/packs/-/tree/main/generators/a');
   });
 
+  it('keeps the separators of a branch name that holds slashes', () => {
+    expect(
+      buildEntryUrl(
+        'https://github.com/team/packs.git',
+        'release/1.0',
+        'generators/a'
+      )
+    ).toBe('https://github.com/team/packs/tree/release/1.0/generators/a');
+  });
+
+  it('uses the GitLab layout for a self-hosted GitLab', () => {
+    expect(
+      buildEntryUrl('https://gitlab.company.com/team/packs', 'main', 'gen/a')
+    ).toBe('https://gitlab.company.com/team/packs/-/tree/main/gen/a');
+  });
+
   it('links nothing for a host whose layout is unknown', () => {
     expect(
       buildEntryUrl('https://git.example.com/packs.git', 'main', 'generators/a')

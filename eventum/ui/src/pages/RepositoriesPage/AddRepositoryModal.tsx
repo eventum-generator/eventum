@@ -16,13 +16,15 @@ import { describeAPIError } from '@/api/errorReport';
 import { APIError } from '@/api/errors';
 import { useAddRepositoryMutation } from '@/api/hooks/useRepositories';
 import { useSecretNames } from '@/api/hooks/useSecrets';
+import {
+  REPOSITORY_NAME_PATTERN,
+  REPOSITORY_REF_PATTERN,
+} from '@/api/routes/repositories/schemas';
 import { AlertIcon } from '@/components/ui/AlertIcon';
 import {
   showErrorNotification,
   showSuccessNotification,
 } from '@/utils/notifications';
-
-const NAME_PATTERN = /^[a-zA-Z0-9](?:[a-zA-Z0-9._-]*[a-zA-Z0-9])?$/;
 
 // The status a repository that did not answer comes back with. Every
 // other failure is the request itself being wrong, and retrying it
@@ -55,11 +57,23 @@ export const AddRepositoryModal: FC<AddRepositoryModalProps> = ({
     validate: {
       name: (value) => {
         if (!value) return 'Name is required';
-        if (!NAME_PATTERN.test(value)) {
+        if (!REPOSITORY_NAME_PATTERN.test(value)) {
           return 'Only letters, digits and symbols "-", "_" and "." are allowed';
         }
         if (existingNames.includes(value)) {
           return 'Repository with such name is already connected';
+        }
+        return null;
+      },
+      ref: (value) => {
+        if (!value) return null;
+        if (
+          !REPOSITORY_REF_PATTERN.test(value) ||
+          value.includes('..') ||
+          value.endsWith('/') ||
+          value.endsWith('.lock')
+        ) {
+          return 'Not a valid branch or tag name';
         }
         return null;
       },

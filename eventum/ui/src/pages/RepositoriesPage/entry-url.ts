@@ -25,15 +25,22 @@ export function buildEntryUrl(
     .join('/')
     .replace(/\.git$/, '');
   const base = `${parsed.origin}/${repository}`;
-  const revision = ref ?? 'HEAD';
+
+  // A branch name may hold slashes, and they are path separators in
+  // the address as well - escaping them whole turns "release/1.0"
+  // into a page neither host serves.
+  const revision = (ref ?? 'HEAD')
+    .split('/')
+    .map((segment) => encodeURIComponent(segment))
+    .join('/');
   const host = parsed.hostname.toLowerCase();
 
-  if (host === 'github.com' || host.endsWith('.githubusercontent.com')) {
-    return `${base}/tree/${encodeURIComponent(revision)}/${path}`;
+  if (host === 'github.com') {
+    return `${base}/tree/${revision}/${path}`;
   }
 
   if (host === 'gitlab.com' || host.startsWith('gitlab.')) {
-    return `${base}/-/tree/${encodeURIComponent(revision)}/${path}`;
+    return `${base}/-/tree/${revision}/${path}`;
   }
 
   return null;

@@ -5,11 +5,14 @@ import { MemoryRouter } from 'react-router-dom';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import RepositoriesPage from './index';
+import { APIError } from '@/api/errors';
 import { listGeneratorDirs } from '@/api/routes/generator-configs';
 import {
+  addRepository,
   checkRepository,
   getCatalog,
   getRepositories,
+  installGenerator,
 } from '@/api/routes/repositories';
 import {
   Catalog,
@@ -31,6 +34,10 @@ vi.mock('@/api/routes/generator-configs', () => ({
   listGeneratorDirs: vi.fn(),
 }));
 
+vi.mock('@/api/hooks/useSecrets', () => ({
+  useSecretNames: () => ({ data: ['git_token'] }),
+}));
+
 const navigateMock = vi.fn();
 
 vi.mock('react-router-dom', async (importOriginal) => ({
@@ -42,18 +49,23 @@ const getRepositoriesMock = vi.mocked(getRepositories);
 const getCatalogMock = vi.mocked(getCatalog);
 const checkRepositoryMock = vi.mocked(checkRepository);
 const listGeneratorDirsMock = vi.mocked(listGeneratorDirs);
+const installGeneratorMock = vi.mocked(installGenerator);
+const addRepositoryMock = vi.mocked(addRepository);
 
 const REPOSITORY: ConnectedRepository = {
   name: 'packs',
   url: 'https://github.com/eventum-generator/content-packs.git',
   ref: 'master',
-  status: { state: 'available', checked_at: '2026-08-19T10:00:00Z' },
+  status: {
+    state: 'available',
+    checked_at: '2026-08-19T10:00:00Z',
+    reason: null,
+  },
 };
 
 const ENTRY = {
   name: 'web-nginx',
   path: 'generators/web-nginx',
-  tree: 'b'.repeat(40),
   title: 'Nginx Access Logs',
   summary: 'Produces nginx access log entries.',
   file_count: 3,
@@ -125,10 +137,17 @@ describe('RepositoriesPage', () => {
 
   it('checks a repository whose state is not known yet', async () => {
     getRepositoriesMock.mockResolvedValue([
-      { ...REPOSITORY, status: { state: 'unknown' } },
+      {
+        ...REPOSITORY,
+        status: { state: 'unknown', checked_at: null, reason: null },
+      },
     ]);
     listGeneratorDirsMock.mockResolvedValue([]);
-    checkRepositoryMock.mockResolvedValue({ state: 'available' });
+    checkRepositoryMock.mockResolvedValue({
+      state: 'available',
+      checked_at: '2026-08-19T10:00:00Z',
+      reason: null,
+    });
 
     renderPage();
 
@@ -258,6 +277,50 @@ describe('RepositoriesPage', () => {
     expect(screen.getByText(/in 3 files/)).toBeInTheDocument();
   });
 
+  it('offers to connect anyway when the repository did not answer', async () => {
+    getRepositoriesMock.mockResolvedValue([]);
+    listGeneratorDirsMock.mockResolvedValue([]);
+    addRepositoryMock.mockRejectedValueOnce(
+      new APIError({
+        message: 'Bad gateway',
+        response: {
+          status: 502,
+          data: { detail: 'Failed to reach repository: refused' },
+        } as never,
+      })
+    );
+
+    renderPage();
+    await userEvent.click(await screen.findByText('Connect repository'));
+
+    const url = 'https://github.com/eventum-generator/content-packs.git';
+    await waitFor(() =>
+      expect(
+        document.querySelector(`input[placeholder="${url}"]`)
+      ).not.toBeNull()
+    );
+
+    const inputs = document.querySelectorAll('.mantine-Modal-content input');
+    await userEvent.type(inputs[0] as HTMLElement, 'packs');
+    await userEvent.type(inputs[1] as HTMLElement, url);
+
+    const submit = screen
+      .getAllByText('Connect')
+      .find((element) => element.closest('.mantine-Modal-content'));
+    await userEvent.click(submit!);
+
+    const anyway = await screen.findByText('Connect anyway');
+    addRepositoryMock.mockResolvedValueOnce();
+    await userEvent.click(anyway);
+
+    await waitFor(() =>
+      expect(addRepositoryMock).toHaveBeenLastCalledWith(
+        expect.objectContaining({ name: 'packs' }),
+        false
+      )
+    );
+  });
+
   it('opens the dialog that connects a repository', async () => {
     getRepositoriesMock.mockResolvedValue([REPOSITORY]);
     listGeneratorDirsMock.mockResolvedValue([]);
@@ -363,6 +426,74 @@ describe('RepositoriesPage', () => {
     await userEvent.click(await screen.findByText('Open'));
 
     expect(navigateMock).toHaveBeenCalledWith('/projects/nginx');
+  });
+
+  it('installs the generator the dialog was opened for', async () => {
+    getRepositoriesMock.mockResolvedValue([REPOSITORY]);
+    listGeneratorDirsMock.mockResolvedValue([]);
+    getCatalogMock.mockResolvedValue(CATALOG);
+    installGeneratorMock.mockResolvedValue();
+
+    renderPage();
+    await openRepository();
+    await screen.findByText('Nginx Access Logs');
+
+    const [installButton] = screen.getAllByText('Install');
+    await userEvent.click(installButton!);
+    await waitFor(() =>
+      expect(document.querySelector('input[value="web-nginx"]')).not.toBeNull()
+    );
+
+    const submit = screen
+      .getAllByText('Install')
+      .find((element) => element.closest('.mantine-Modal-content'));
+    await userEvent.click(submit!);
+
+    await waitFor(() =>
+      expect(installGeneratorMock).toHaveBeenCalledWith(
+        'packs',
+        'web-nginx',
+        'web-nginx'
+      )
+    );
+  });
+
+  it('connects the repository the form was filled with', async () => {
+    getRepositoriesMock.mockResolvedValue([]);
+    listGeneratorDirsMock.mockResolvedValue([]);
+    addRepositoryMock.mockResolvedValue();
+
+    renderPage();
+    await userEvent.click(await screen.findByText('Connect repository'));
+
+    const url = 'https://github.com/eventum-generator/content-packs.git';
+    await waitFor(() =>
+      expect(
+        document.querySelector(`input[placeholder="${url}"]`)
+      ).not.toBeNull()
+    );
+
+    const inputs = document.querySelectorAll('.mantine-Modal-content input');
+    await userEvent.type(inputs[0] as HTMLElement, 'packs');
+    await userEvent.type(inputs[1] as HTMLElement, url);
+
+    const submit = screen
+      .getAllByText('Connect')
+      .find((element) => element.closest('.mantine-Modal-content'));
+    await userEvent.click(submit!);
+
+    await waitFor(() =>
+      expect(addRepositoryMock).toHaveBeenCalledWith(
+        {
+          name: 'packs',
+          url,
+          ref: undefined,
+          username: undefined,
+          secret: undefined,
+        },
+        true
+      )
+    );
   });
 
   it('reports a repository that cannot be fetched', async () => {

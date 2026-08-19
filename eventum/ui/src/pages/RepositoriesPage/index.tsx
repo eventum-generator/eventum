@@ -1,6 +1,5 @@
 import {
   Accordion,
-  ActionIcon,
   Alert,
   Button,
   Center,
@@ -10,22 +9,18 @@ import {
   Paper,
   Stack,
   Text,
-  Tooltip,
 } from '@mantine/core';
 import { modals } from '@mantine/modals';
-import { IconPlus, IconRefresh, IconTrash } from '@tabler/icons-react';
-import { useEffect, useRef, useState } from 'react';
+import { IconPlus } from '@tabler/icons-react';
+import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 
 import { AddRepositoryModal } from './AddRepositoryModal';
 import { RepositoriesEmptyState } from './RepositoriesEmptyState';
-import { RepositoryCatalog } from './RepositoryCatalog';
-import { RepositoryStatusBadge } from './RepositoryStatusBadge';
+import { RepositoryRow } from './RepositoryRow';
 import { useGeneratorDirs } from '@/api/hooks/useGeneratorConfigs';
 import {
-  useCheckRepositoryMutation,
   useDeleteRepositoryMutation,
-  useRefreshCatalogMutation,
   useRepositories,
 } from '@/api/hooks/useRepositories';
 import { AlertIcon } from '@/components/ui/AlertIcon';
@@ -51,41 +46,6 @@ export default function RepositoriesPage() {
   const { data: generatorDirs } = useGeneratorDirs(false);
 
   const deleteRepository = useDeleteRepositoryMutation();
-  const refreshCatalog = useRefreshCatalogMutation();
-  const checkRepository = useCheckRepositoryMutation();
-
-  // A status is what the instance found when it last asked, and it
-  // knows nothing until it does - so every repository not checked in
-  // this process is checked once, when the page opens.
-  const checked = useRef(new Set<string>());
-  const [checking, setChecking] = useState<string[]>([]);
-  const checkMutate = checkRepository.mutate;
-
-  useEffect(() => {
-    if (repositories === undefined) return;
-
-    const pending = repositories.filter(
-      (item) =>
-        item.status.state === 'unknown' && !checked.current.has(item.name)
-    );
-
-    if (pending.length === 0) return;
-
-    for (const item of pending) {
-      checked.current.add(item.name);
-    }
-
-    setChecking((current) => [...current, ...pending.map((item) => item.name)]);
-
-    for (const item of pending) {
-      checkMutate(item.name, {
-        onSettled: () =>
-          setChecking((current) =>
-            current.filter((name) => name !== item.name)
-          ),
-      });
-    }
-  }, [repositories, checkMutate]);
 
   if (isLoading) {
     return (
@@ -129,18 +89,6 @@ export default function RepositoriesPage() {
       size: 'lg',
     });
 
-  const handleRefresh = (name: string) =>
-    refreshCatalog.mutate(name, {
-      onSuccess: (catalog) =>
-        showSuccessNotification(
-          'Refreshed',
-          `Repository "${name}" publishes ${catalog.entries.length} ` +
-            `${catalog.entries.length === 1 ? 'generator' : 'generators'}`
-        ),
-      onError: (mutationError) =>
-        showErrorNotification('Failed to refresh repository', mutationError),
-    });
-
   const handleDisconnect = (name: string) =>
     modals.openConfirmModal({
       title: 'Disconnect repository',
@@ -154,11 +102,18 @@ export default function RepositoriesPage() {
       confirmProps: { color: 'red' },
       onConfirm: () =>
         deleteRepository.mutate(name, {
-          onSuccess: () =>
+          onSuccess: () => {
+            // The panel of a repository that is gone must not stay
+            // open: a repository connected under that name again
+            // would be fetched without anyone asking for it.
+            setOpenedRepository((current) =>
+              current === name ? null : current
+            );
             showSuccessNotification(
               'Disconnected',
               `Repository "${name}" is disconnected`
-            ),
+            );
+          },
           onError: (mutationError) =>
             showErrorNotification(
               'Failed to disconnect repository',
@@ -208,56 +163,13 @@ export default function RepositoriesPage() {
           onChange={setOpenedRepository}
         >
           {repositories.map((repository) => (
-            <Accordion.Item key={repository.name} value={repository.name}>
-              <Center>
-                <Accordion.Control>
-                  <Group gap="xs" wrap="nowrap">
-                    <Text size="sm" fw={600}>
-                      {repository.name}
-                    </Text>
-                    <RepositoryStatusBadge
-                      status={repository.status}
-                      isChecking={checking.includes(repository.name)}
-                    />
-                  </Group>
-                  <Text size="xs" c="dimmed">
-                    {repository.url}
-                    {repository.ref ? ` · ${repository.ref}` : ''}
-                  </Text>
-                </Accordion.Control>
-                <Group gap="xs" pr="md" wrap="nowrap">
-                  <Tooltip label="Refresh catalog">
-                    <ActionIcon
-                      variant="subtle"
-                      c="var(--mantine-color-text)"
-                      loading={
-                        refreshCatalog.isPending &&
-                        refreshCatalog.variables === repository.name
-                      }
-                      onClick={() => handleRefresh(repository.name)}
-                    >
-                      <IconRefresh size={16} />
-                    </ActionIcon>
-                  </Tooltip>
-                  <Tooltip label="Disconnect">
-                    <ActionIcon
-                      variant="subtle"
-                      color="red"
-                      onClick={() => handleDisconnect(repository.name)}
-                    >
-                      <IconTrash size={16} />
-                    </ActionIcon>
-                  </Tooltip>
-                </Group>
-              </Center>
-              <Accordion.Panel>
-                <RepositoryCatalog
-                  repository={repository}
-                  existingProjectNames={existingProjectNames}
-                  enabled={openedRepository === repository.name}
-                />
-              </Accordion.Panel>
-            </Accordion.Item>
+            <RepositoryRow
+              key={repository.name}
+              repository={repository}
+              existingProjectNames={existingProjectNames}
+              isOpened={openedRepository === repository.name}
+              onDisconnect={() => handleDisconnect(repository.name)}
+            />
           ))}
         </Accordion>
       </Stack>

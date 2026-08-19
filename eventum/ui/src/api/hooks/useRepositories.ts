@@ -21,6 +21,13 @@ const GENERATOR_CONFIG_DIRS_QUERY_KEYS = [
   ['generator-config-dirs-extended'],
 ];
 
+// What a project of that name held before it was installed over must
+// not be served for the one written now.
+const PROJECT_QUERY_KEYS = [
+  ['generator-config-dirs'],
+  ['generator-config-dir-files'],
+];
+
 export function useRepositories() {
   return useQuery({
     queryKey: REPOSITORIES_QUERY_KEY,
@@ -97,6 +104,14 @@ export function useRefreshCatalogMutation() {
     onSuccess: (catalog, name) => {
       queryClient.setQueryData([...CATALOG_QUERY_KEY, name], catalog);
     },
+    onSettled: async () => {
+      // A fetch records what it found, so the state of the repository
+      // is no longer what the list was showing.
+      await queryClient.invalidateQueries({
+        queryKey: REPOSITORIES_QUERY_KEY,
+        exact: true,
+      });
+    },
   });
 }
 
@@ -113,13 +128,18 @@ export function useInstallGeneratorMutation() {
       entry: string;
       projectName: string;
     }) => installGenerator(name, entry, projectName),
-    onSuccess: async (_, { name }) => {
-      // The catalog names what of it is installed, so it is read
-      // again - from what was already fetched, without reaching the
+    onSuccess: async (_, { projectName }) => {
+      // Any catalog of the same remote names the new project, not
+      // only the one it was installed from, so every catalog is read
+      // again - from what was already fetched, without reaching a
       // repository.
-      await queryClient.invalidateQueries({
-        queryKey: [...CATALOG_QUERY_KEY, name],
-      });
+      await queryClient.invalidateQueries({ queryKey: CATALOG_QUERY_KEY });
+
+      // A project of this name may have been in the workspace before;
+      // nothing of it may be served for the one just written.
+      for (const key of PROJECT_QUERY_KEYS) {
+        queryClient.removeQueries({ queryKey: [...key, projectName] });
+      }
 
       await Promise.all(
         GENERATOR_CONFIG_DIRS_QUERY_KEYS.map((key) =>
