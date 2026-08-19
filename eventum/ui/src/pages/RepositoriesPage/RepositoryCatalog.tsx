@@ -250,33 +250,27 @@ export const RepositoryCatalog: FC<RepositoryCatalogProps> = ({
                 </Table.Td>
                 <Table.Td style={{ textAlign: 'right' }}>
                   {entry.installed_as.length > 0 ? (
-                    <Tooltip
-                      label={`Opens the project "${entry.installed_as[0]!.project}"`}
+                    <Button
+                      variant="default"
+                      size="compact-sm"
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        openProject(entry.installed_as[0]!.project);
+                      }}
                     >
-                      <Button
-                        variant="default"
-                        size="compact-sm"
-                        onClick={(event) => {
-                          event.stopPropagation();
-                          openProject(entry.installed_as[0]!.project);
-                        }}
-                      >
-                        Open
-                      </Button>
-                    </Tooltip>
+                      Open
+                    </Button>
                   ) : (
-                    <Tooltip label="Writes the generator into the workspace as a project">
-                      <Button
-                        variant="default"
-                        size="compact-sm"
-                        onClick={(event) => {
-                          event.stopPropagation();
-                          openInstallModal(entry);
-                        }}
-                      >
-                        Install
-                      </Button>
-                    </Tooltip>
+                    <Button
+                      variant="default"
+                      size="compact-sm"
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        openInstallModal(entry);
+                      }}
+                    >
+                      Install
+                    </Button>
                   )}
                 </Table.Td>
               </Table.Tr>
