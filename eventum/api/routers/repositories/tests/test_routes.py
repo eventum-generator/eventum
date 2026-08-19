@@ -132,6 +132,14 @@ def test_remove(client):
     assert client.get('/repositories/').json() == []
 
 
+def test_remove_reports_a_broken_file(stub, stub_client):
+    stub.remove.side_effect = RepositoryError('broken', context={})
+
+    response = stub_client.delete('/repositories/packs')
+
+    assert response.status_code == 500
+
+
 def test_remove_reports_missing(client):
     response = client.delete('/repositories/absent')
 
@@ -292,6 +300,90 @@ def test_get_catalog_reports_broken_file(stub, stub_client):
     )
 
 
+def test_add_reports_a_missing_secret(stub, stub_client):
+    stub.add.side_effect = RepositorySecretError(
+        'Failed to read the secret of the repository',
+        context={'hint': 'Add the secret using the eventum-keyring CLI'},
+    )
+
+    response = stub_client.post(
+        '/repositories/',
+        json={
+            'name': 'packs',
+            'url': 'https://example.com/packs.git',
+            'secret': 'git_token',
+        },
+    )
+
+    assert response.status_code == 424
+
+
+def test_add_reports_a_broken_file(stub, stub_client):
+    stub.add.side_effect = RepositoryError('broken', context={})
+
+    response = stub_client.post(
+        '/repositories/',
+        json={'name': 'packs', 'url': 'https://example.com/packs.git'},
+    )
+
+    assert response.status_code == 500
+
+
+def test_check_reports_a_missing_secret(stub, stub_client):
+    stub.check.side_effect = RepositorySecretError('absent', context={})
+
+    response = stub_client.post('/repositories/packs/check')
+
+    assert response.status_code == 424
+
+
+def test_check_reports_a_broken_file(stub, stub_client):
+    stub.check.side_effect = RepositoryError('broken', context={})
+
+    response = stub_client.post('/repositories/packs/check')
+
+    assert response.status_code == 500
+
+
+def test_get_catalog_reports_a_repository_that_is_not_connected(
+    stub,
+    stub_client,
+):
+    stub.get_catalog.side_effect = RepositoryNotFoundError(
+        'absent',
+        context={},
+    )
+
+    response = stub_client.get('/repositories/absent/catalog')
+
+    assert response.status_code == 404
+
+
+def test_get_catalog_reports_a_missing_secret(stub, stub_client):
+    stub.get_catalog.side_effect = RepositorySecretError('absent', context={})
+
+    response = stub_client.get('/repositories/packs/catalog')
+
+    assert response.status_code == 424
+
+
+@pytest.mark.parametrize(
+    ('error', 'expected_status'),
+    [
+        (RepositoryNotFoundError('absent', context={}), 404),
+        (RepositorySecretError('no secret', context={}), 424),
+        (CatalogError('no catalog', context={}), 502),
+        (RepositoryError('broken', context={}), 500),
+    ],
+)
+def test_refresh_reports_failure(stub, stub_client, error, expected_status):
+    stub.refresh.side_effect = error
+
+    response = stub_client.post('/repositories/packs/refresh')
+
+    assert response.status_code == expected_status
+
+
 # --- install ---
 
 
@@ -342,6 +434,7 @@ def test_install_rejects_project_name(stub_client, name):
         (InstallContentError('too large', context={}), 502),
         (InstallError('cannot write', context={}), 500),
         (RepositoryFetchError('unreachable', context={}), 502),
+        (RepositoryError('broken', context={}), 500),
     ],
 )
 def test_install_reports_failure(stub, stub_client, error, expected_status):

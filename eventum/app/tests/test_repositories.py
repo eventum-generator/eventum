@@ -2,6 +2,7 @@
 
 import os
 import threading
+from unittest.mock import patch
 from pathlib import Path
 from wsgiref.simple_server import WSGIRequestHandler, make_server
 
@@ -17,6 +18,8 @@ from eventum.app.repositories import (
     CatalogEntryNotFoundError,
     CatalogError,
     InstallConflictError,
+    InstallContentError,
+    InstallError,
     InstallNameError,
     Repositories,
     Repository,
@@ -36,6 +39,7 @@ from eventum.app.repositories.source import (
     SOURCE_FILENAME,
     build_source,
     read_source,
+    write_source,
 )
 from eventum.app.repositories.installing import install_entry
 from eventum.app.repositories.storage import RepositoriesFile
@@ -205,6 +209,11 @@ def service(tmp_path):
 def test_repository_rejects_url_scheme(url):
     with pytest.raises(ValidationError):
         Repository(name='packs', url=url)
+
+
+def test_repository_rejects_an_url_without_a_host():
+    with pytest.raises(ValidationError):
+        Repository(name='packs', url='https:///packs.git')
 
 
 def test_repository_rejects_url_with_credentials():
@@ -499,6 +508,43 @@ def test_catalog_refuses_a_tree_nested_too_deeply(tmp_path):
         read_catalog(source, revision, config_filename=CONFIG_FILENAME)
 
 
+def test_catalog_refuses_a_directory_that_is_absent(tmp_path):
+    source = tmp_path / 'missing'
+    source.mkdir()
+    repo = Repo.init(str(source))
+    store = repo.object_store
+
+    blob = Blob.from_string(b'x')
+    store.add_object(blob)
+
+    entry = Tree()
+    entry.add(b'generator.yml', 0o100644, blob.id)
+    # A directory entry naming an object the repository does not hold.
+    entry.add(b'templates', 0o040000, b'a' * 40)
+    store.add_object(entry)
+
+    generators = Tree()
+    generators.add(b'web-nginx', 0o040000, entry.id)
+    store.add_object(generators)
+
+    root = Tree()
+    root.add(b'generators', 0o040000, generators.id)
+    store.add_object(root)
+
+    commit = Commit()
+    commit.tree = root.id
+    commit.author = commit.committer = b'Tester <tester@example.com>'
+    commit.commit_time = commit.author_time = 0
+    commit.commit_timezone = commit.author_timezone = 0
+    commit.message = b'missing'
+    store.add_object(commit)
+    revision = commit.id.decode()
+    repo.close()
+
+    with pytest.raises(CatalogError):
+        read_catalog(source, revision, config_filename=CONFIG_FILENAME)
+
+
 def test_catalog_refuses_a_directory_that_is_not_one(tmp_path):
     source = tmp_path / 'confused'
     source.mkdir()
@@ -745,6 +791,261 @@ def test_install_reports_unknown_entry(fetched, tmp_path):
             config_filename=CONFIG_FILENAME,
             source=SOURCE,
         )
+
+
+def test_catalog_refuses_a_tree_wider_than_can_be_read(fetched):
+    path, revision = fetched
+
+    with (
+        patch('eventum.app.repositories.catalog.MAX_TREE_NODES', 1),
+        pytest.raises(CatalogError),
+    ):
+        read_catalog(path, revision, config_filename=CONFIG_FILENAME)
+
+
+def test_catalog_leaves_out_a_readme_too_large_to_read(fetched):
+    path, revision = fetched
+
+    with patch('eventum.app.repositories.catalog.MAX_README_SIZE', 1):
+        catalog = read_catalog(
+            path,
+            revision,
+            config_filename=CONFIG_FILENAME,
+        )
+
+    entry = next(e for e in catalog.entries if e.name == 'web-nginx')
+    assert entry.title is None
+    assert entry.summary is None
+
+
+def test_catalog_clips_a_summary_that_runs_on(fetched):
+    path, revision = fetched
+
+    with patch('eventum.app.repositories.catalog.MAX_SUMMARY_LENGTH', 20):
+        catalog = read_catalog(
+            path,
+            revision,
+            config_filename=CONFIG_FILENAME,
+        )
+
+    entry = next(e for e in catalog.entries if e.name == 'web-nginx')
+    assert entry.summary is not None
+    assert entry.summary.endswith('...')
+
+
+def test_catalog_takes_no_title_from_a_readme_without_a_heading(
+    source_repo,
+    tmp_path,
+):
+    readme = source_repo / 'generators' / 'linux-auditd' / 'README.md'
+    readme.write_text('Produces audit records.\n\n- a list item\n')
+    repo = Repo(str(source_repo))
+    porcelain.add(repo, [str(readme)])
+    porcelain.commit(
+        repo,
+        message=b'add a readme without a heading',
+        committer=b'Tester <tester@example.com>',
+        author=b'Tester <tester@example.com>',
+    )
+    revision = repo.head().decode()
+    repo.close()
+
+    catalog = read_catalog(
+        source_repo,
+        revision,
+        config_filename=CONFIG_FILENAME,
+    )
+    entry = next(e for e in catalog.entries if e.name == 'linux-auditd')
+
+    assert entry.title is None
+    assert entry.summary == 'Produces audit records.'
+
+
+def test_catalog_reads_a_generator_without_a_readme(fetched):
+    path, revision = fetched
+
+    catalog = read_catalog(path, revision, config_filename=CONFIG_FILENAME)
+    entry = next(e for e in catalog.entries if e.name == 'linux-auditd')
+
+    assert entry.title is None
+    assert entry.summary is None
+
+
+# --- failures of the file system and of the repository ---
+
+
+def test_storage_reports_an_unwritable_file(tmp_path):
+    directory = tmp_path / 'locked'
+    directory.mkdir()
+    file = RepositoriesFile(file_path=directory / 'repositories.yml')
+    directory.chmod(0o500)
+
+    try:
+        with pytest.raises(RepositoryError) as info:
+            file.write([{'name': 'packs', 'url': 'https://example.com/p'}])
+    finally:
+        directory.chmod(0o700)
+
+    assert 'reason' in info.value.context
+
+
+def test_storage_reports_a_file_that_is_not_utf8(tmp_path):
+    path = tmp_path / 'repositories.yml'
+    path.write_bytes(b'- name: \xff\xfe\n')
+
+    with pytest.raises(RepositoryError):
+        RepositoriesFile(file_path=path).read()
+
+
+def test_source_of_a_project_without_one_is_none(tmp_path):
+    project = tmp_path / 'project'
+    project.mkdir()
+
+    assert read_source(project) is None
+
+
+def test_source_that_no_longer_parses_is_none(tmp_path):
+    project = tmp_path / 'project'
+    project.mkdir()
+    (project / SOURCE_FILENAME).write_text('- not: a mapping\n')
+
+    assert read_source(project) is None
+
+
+def test_source_reports_a_project_that_cannot_be_written(tmp_path):
+    project = tmp_path / 'project'
+    project.mkdir()
+    project.chmod(0o500)
+
+    try:
+        with pytest.raises(RepositoryError):
+            write_source(project, SOURCE)
+    finally:
+        project.chmod(0o700)
+
+
+def test_catalog_reports_a_directory_that_is_not_a_repository(tmp_path):
+    with pytest.raises(CatalogError):
+        read_catalog(
+            tmp_path / 'absent',
+            '0' * 40,
+            config_filename=CONFIG_FILENAME,
+        )
+
+
+def test_catalog_reports_a_revision_the_repository_lacks(fetched):
+    path, _ = fetched
+
+    with pytest.raises(CatalogError):
+        read_catalog(path, 'a' * 40, config_filename=CONFIG_FILENAME)
+
+
+def test_install_refuses_a_generator_with_too_many_files(fetched, tmp_path):
+    path, revision = fetched
+
+    with (
+        patch('eventum.app.repositories.installing.MAX_ARCHIVE_ENTRIES', 1),
+        pytest.raises(InstallContentError),
+    ):
+        install_entry(
+            repo_path=path,
+            revision=revision,
+            entry='web-nginx',
+            generators_dir=tmp_path / 'generators',
+            project_name='nginx',
+            config_filename=CONFIG_FILENAME,
+            source=SOURCE,
+        )
+
+
+def test_install_refuses_a_generator_over_the_size_limit(fetched, tmp_path):
+    path, revision = fetched
+
+    with (
+        patch('eventum.app.repositories.installing.MAX_UNPACKED_SIZE', 1),
+        pytest.raises(InstallContentError),
+    ):
+        install_entry(
+            repo_path=path,
+            revision=revision,
+            entry='web-nginx',
+            generators_dir=tmp_path / 'generators',
+            project_name='nginx',
+            config_filename=CONFIG_FILENAME,
+            source=SOURCE,
+        )
+
+
+def test_install_refuses_a_directory_that_is_not_a_generator(
+    fetched,
+    tmp_path,
+):
+    # A directory of the repository that holds no generator
+    # configuration is not published, and cannot be installed either.
+    path, revision = fetched
+
+    with pytest.raises(InstallContentError):
+        install_entry(
+            repo_path=path,
+            revision=revision,
+            entry='not-a-generator',
+            generators_dir=tmp_path / 'generators',
+            project_name='notes',
+            config_filename=CONFIG_FILENAME,
+            source=SOURCE,
+        )
+
+
+def test_install_reports_an_unwritable_workspace(fetched, tmp_path):
+    path, revision = fetched
+    generators_dir = tmp_path / 'generators'
+    generators_dir.mkdir()
+    generators_dir.chmod(0o500)
+
+    try:
+        with pytest.raises(InstallError):
+            install_entry(
+                repo_path=path,
+                revision=revision,
+                entry='web-nginx',
+                generators_dir=generators_dir,
+                project_name='nginx',
+                config_filename=CONFIG_FILENAME,
+                source=SOURCE,
+            )
+    finally:
+        generators_dir.chmod(0o700)
+
+
+def test_service_refuses_to_fetch_once_closed(service, repository):
+    service.add(repository, verify=False)
+    service.close()
+
+    with pytest.raises(RepositoryError):
+        service.get_catalog('packs')
+
+
+def test_service_reports_an_entry_the_catalog_lacks(service, repository):
+    service.add(repository)
+    service.get_catalog('packs')
+
+    with pytest.raises(CatalogEntryNotFoundError):
+        service.install('packs', 'absent', 'nginx')
+
+
+def test_service_marks_a_repository_that_stopped_answering(service, git_url):
+    service.add(Repository(name='packs', url=git_url, ref='master'))
+    service.get_catalog('packs')
+
+    # The remote is gone by the time the catalog is read again.
+    service._fetch_timeout = 5.0  # noqa: SLF001
+    broken = Repository(name='packs', url='http://127.0.0.1:1/p.git')
+    service._write((broken,))  # noqa: SLF001
+
+    with pytest.raises(RepositoryFetchError):
+        service.refresh('packs')
+
+    assert service.get_all_with_status()[0].status.state == 'unavailable'
 
 
 # --- service operations ---
