@@ -60,6 +60,11 @@ export async function installGenerator(
   );
 }
 
+// Pages the endpoint serves, and how many repositories each of them
+// holds. Mirrors what the backend enforces, so the last page is known
+// without asking for one it would refuse.
+export const MAX_DISCOVERY_PAGES = 10;
+
 export async function discoverRepositories(
   query: string,
   page = 1

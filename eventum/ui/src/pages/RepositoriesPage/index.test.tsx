@@ -31,6 +31,7 @@ vi.mock('@/api/routes/repositories', () => ({
   checkRepository: vi.fn(),
   installGenerator: vi.fn(),
   discoverRepositories: vi.fn(),
+  MAX_DISCOVERY_PAGES: 10,
 }));
 
 vi.mock('@/api/routes/generator-configs', () => ({
@@ -576,6 +577,61 @@ describe('RepositoriesPage', () => {
     expect(
       await screen.findByRole('button', { name: 'Connected' })
     ).toBeDisabled();
+  });
+
+  it('pages through what is published', async () => {
+    getRepositoriesMock.mockResolvedValue([]);
+    listGeneratorDirsMock.mockResolvedValue([]);
+
+    const second = {
+      ...DISCOVERY.entries[0]!,
+      name: 'more-packs',
+      full_name: 'someone/more-packs',
+      url: 'https://github.com/someone/more-packs.git',
+      official: false,
+    };
+    discoverRepositoriesMock.mockImplementation((_query, page) =>
+      Promise.resolve(
+        page === 1
+          ? { ...DISCOVERY, total_count: 2 }
+          : { ...DISCOVERY, total_count: 2, entries: [second] }
+      )
+    );
+
+    renderPage();
+    await userEvent.click(await screen.findByText('Discover'));
+    await userEvent.click(
+      await screen.findByRole('button', { name: 'Load more' })
+    );
+
+    expect(await screen.findByText('someone/more-packs')).toBeInTheDocument();
+    // Everything the search matched is listed, so nothing is left to load.
+    expect(
+      screen.queryByRole('button', { name: 'Load more' })
+    ).not.toBeInTheDocument();
+    expect(discoverRepositoriesMock).toHaveBeenLastCalledWith('', 2);
+  });
+
+  it('says what is left out when the pages run out', async () => {
+    getRepositoriesMock.mockResolvedValue([]);
+    listGeneratorDirsMock.mockResolvedValue([]);
+    // A page that came back short is the last one, whatever the total
+    // says - the search reaches only so far.
+    discoverRepositoriesMock.mockResolvedValue({
+      ...DISCOVERY,
+      total_count: 400,
+      entries: [],
+    });
+
+    renderPage();
+    await userEvent.click(await screen.findByText('Discover'));
+
+    expect(
+      await screen.findByText('Nothing published matches')
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole('button', { name: 'Load more' })
+    ).not.toBeInTheDocument();
   });
 
   it('reports a search that was refused', async () => {

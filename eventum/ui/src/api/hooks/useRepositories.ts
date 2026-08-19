@@ -1,6 +1,12 @@
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import {
+  useInfiniteQuery,
+  useMutation,
+  useQuery,
+  useQueryClient,
+} from '@tanstack/react-query';
 
 import {
+  MAX_DISCOVERY_PAGES,
   addRepository,
   checkRepository,
   deleteRepository,
@@ -54,9 +60,29 @@ export function useRepositoryCatalog(name: string, enabled: boolean) {
 }
 
 export function useDiscoveredRepositories(query: string, enabled: boolean) {
-  return useQuery({
+  return useInfiniteQuery({
     queryKey: [...DISCOVERY_QUERY_KEY, query],
-    queryFn: () => discoverRepositories(query),
+    queryFn: ({ pageParam }) => discoverRepositories(query, pageParam),
+    initialPageParam: 1,
+    getNextPageParam: (lastPage, pages) => {
+      const listed = pages.reduce(
+        (count, page) => count + page.entries.length,
+        0
+      );
+
+      // The endpoint serves a bounded number of pages, and a page that
+      // came back short is the last one whatever the total says.
+      if (
+        pages.length >= MAX_DISCOVERY_PAGES ||
+        lastPage.entries.length === 0 ||
+        listed >= lastPage.total_count
+      ) {
+        // Read by react-query as "there is no page after this one".
+        return null;
+      }
+
+      return pages.length + 1;
+    },
     enabled,
     staleTime: DISCOVERY_STALE_TIME,
     // Searching is rate limited, so a failed search is reported rather

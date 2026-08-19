@@ -124,11 +124,17 @@ export const DiscoverRepositories: FC<DiscoverRepositoriesProps> = ({
   const [searched] = useDebouncedValue(query, TYPING_PAUSE);
 
   const {
-    data: discovery,
+    data,
     isLoading,
     isError,
     error,
+    hasNextPage,
+    isFetchingNextPage,
+    fetchNextPage,
   } = useDiscoveredRepositories(searched.trim(), true);
+
+  const discovery = data?.pages[0];
+  const listed = data?.pages.flatMap((page) => page.entries) ?? [];
 
   return (
     <Stack>
@@ -188,7 +194,7 @@ export const DiscoverRepositories: FC<DiscoverRepositoriesProps> = ({
         </Alert>
       )}
 
-      {discovery?.entries.length === 0 && (
+      {discovery !== undefined && listed.length === 0 && (
         <Paper withBorder p="xl">
           <Stack align="center" gap="xs" py="lg">
             <Text fw={600}>Nothing published matches</Text>
@@ -201,13 +207,32 @@ export const DiscoverRepositories: FC<DiscoverRepositoriesProps> = ({
         </Paper>
       )}
 
-      {discovery?.entries.map((repository) => (
+      {listed.map((repository) => (
         <RepositoryCard
           key={repository.full_name}
           repository={repository}
           onConnect={() => onConnect(repository)}
         />
       ))}
+
+      {hasNextPage && (
+        <Button
+          variant="default"
+          loading={isFetchingNextPage}
+          onClick={() => void fetchNextPage()}
+        >
+          Load more
+        </Button>
+      )}
+
+      {discovery !== undefined &&
+        !hasNextPage &&
+        listed.length < discovery.total_count && (
+          <Text size="sm" c="dimmed" ta="center">
+            The first {listed.length} of {discovery.total_count} are listed.
+            Narrow the search to reach the rest.
+          </Text>
+        )}
 
       {discovery !== undefined && (
         <Text size="xs" c="dimmed">
