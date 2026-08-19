@@ -1,16 +1,35 @@
-import { Button, Group, Select, Stack, TextInput } from '@mantine/core';
+import {
+  Alert,
+  Anchor,
+  Button,
+  Group,
+  Select,
+  Stack,
+  Text,
+  TextInput,
+} from '@mantine/core';
 import { useForm } from '@mantine/form';
 import { modals } from '@mantine/modals';
-import { FC } from 'react';
+import { FC, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 
+import { describeAPIError } from '@/api/errorReport';
+import { APIError } from '@/api/errors';
 import { useAddRepositoryMutation } from '@/api/hooks/useRepositories';
 import { useSecretNames } from '@/api/hooks/useSecrets';
+import { AlertIcon } from '@/components/ui/AlertIcon';
+import { ROUTE_PATHS } from '@/routing/paths';
 import {
   showErrorNotification,
   showSuccessNotification,
 } from '@/utils/notifications';
 
 const NAME_PATTERN = /^[a-zA-Z0-9](?:[a-zA-Z0-9._-]*[a-zA-Z0-9])?$/;
+
+// The status a repository that did not answer comes back with. Every
+// other failure is the request itself being wrong, and retrying it
+// unchecked would fail the same way.
+const UNREACHABLE_STATUS = 502;
 
 interface AddRepositoryModalProps {
   existingNames: string[];
@@ -19,8 +38,10 @@ interface AddRepositoryModalProps {
 export const AddRepositoryModal: FC<AddRepositoryModalProps> = ({
   existingNames,
 }) => {
+  const navigate = useNavigate();
   const addRepository = useAddRepositoryMutation();
   const { data: secretNames } = useSecretNames();
+  const [unreachable, setUnreachable] = useState<string | null>(null);
 
   const form = useForm({
     initialValues: {
@@ -56,14 +77,19 @@ export const AddRepositoryModal: FC<AddRepositoryModalProps> = ({
     onSubmitPreventDefault: 'always',
   });
 
-  function handleAdd() {
+  function connect(verify: boolean) {
+    setUnreachable(null);
+
     addRepository.mutate(
       {
-        name: form.values.name,
-        url: form.values.url,
-        ref: form.values.ref || undefined,
-        username: form.values.username || undefined,
-        secret: form.values.secret || undefined,
+        repository: {
+          name: form.values.name,
+          url: form.values.url,
+          ref: form.values.ref || undefined,
+          username: form.values.username || undefined,
+          secret: form.values.secret || undefined,
+        },
+        verify,
       },
       {
         onSuccess: () => {
@@ -73,14 +99,23 @@ export const AddRepositoryModal: FC<AddRepositoryModalProps> = ({
             `Repository "${form.values.name}" is connected`
           );
         },
-        onError: (error) =>
-          showErrorNotification('Failed to connect repository', error),
+        onError: (error) => {
+          if (
+            error instanceof APIError &&
+            error.response?.status === UNREACHABLE_STATUS
+          ) {
+            setUnreachable(describeAPIError(error).reported);
+            return;
+          }
+
+          showErrorNotification('Failed to connect repository', error);
+        },
       }
     );
   }
 
   return (
-    <form onSubmit={form.onSubmit(handleAdd)}>
+    <form onSubmit={form.onSubmit(() => connect(true))}>
       <Stack>
         <TextInput
           label="Name"
@@ -96,6 +131,7 @@ export const AddRepositoryModal: FC<AddRepositoryModalProps> = ({
         <TextInput
           label="Branch or tag"
           description="Left empty, the default branch is fetched"
+          placeholder="master"
           {...form.getInputProps('ref')}
         />
         <TextInput
@@ -105,12 +141,51 @@ export const AddRepositoryModal: FC<AddRepositoryModalProps> = ({
         />
         <Select
           label="Secret"
-          description="Keyring secret holding the password or access token"
+          description={
+            <>
+              For a private repository - the secret of the keyring holding its
+              password or access token. Its name, not the value and not a{' '}
+              <code>{'${secrets.*}'}</code> reference. Secrets are added on the{' '}
+              <Anchor
+                component="button"
+                type="button"
+                size="xs"
+                onClick={() => {
+                  modals.closeAll();
+                  void navigate(ROUTE_PATHS.SECRETS);
+                }}
+              >
+                Secrets
+              </Anchor>{' '}
+              page.
+            </>
+          }
           data={secretNames ?? []}
+          nothingFoundMessage="The keyring holds no secrets yet"
           searchable
           clearable
           {...form.getInputProps('secret')}
         />
+
+        {unreachable !== null && (
+          <Alert
+            variant="default"
+            icon={<AlertIcon variant="warn" />}
+            title="The repository did not answer"
+          >
+            <Stack gap="xs" align="start">
+              <Text size="sm">{unreachable}</Text>
+              <Button
+                variant="default"
+                size="compact-sm"
+                loading={addRepository.isPending}
+                onClick={() => connect(false)}
+              >
+                Connect anyway
+              </Button>
+            </Stack>
+          </Alert>
+        )}
 
         <Group justify="end">
           <Button

@@ -1,15 +1,15 @@
-import { Button, Group, Stack, Text, TextInput } from '@mantine/core';
+import { Anchor, Button, Group, Stack, Text, TextInput } from '@mantine/core';
 import { useForm } from '@mantine/form';
 import { modals } from '@mantine/modals';
-import { FC } from 'react';
+import { notifications } from '@mantine/notifications';
+import { FC, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 
 import { validateProjectName } from '../ProjectsPage/project-name';
 import { useInstallGeneratorMutation } from '@/api/hooks/useRepositories';
 import { CatalogEntry } from '@/api/routes/repositories/schemas';
-import {
-  showErrorNotification,
-  showSuccessNotification,
-} from '@/utils/notifications';
+import { ROUTE_PATHS } from '@/routing/paths';
+import { showErrorNotification } from '@/utils/notifications';
 
 interface InstallGeneratorModalProps {
   repositoryName: string;
@@ -27,6 +27,7 @@ export const InstallGeneratorModal: FC<InstallGeneratorModalProps> = ({
   entry,
   existingProjectNames,
 }) => {
+  const navigate = useNavigate();
   const installGenerator = useInstallGeneratorMutation();
 
   const form = useForm({
@@ -40,20 +41,47 @@ export const InstallGeneratorModal: FC<InstallGeneratorModalProps> = ({
     onSubmitPreventDefault: 'always',
   });
 
+  // The name arrives proposed rather than empty, so a name already
+  // taken is stated at once instead of leaving a disabled button
+  // without a reason.
+  useEffect(() => {
+    form.validate();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   function handleInstall() {
+    const projectName = form.values.projectName;
+
     installGenerator.mutate(
       {
         name: repositoryName,
         entry: entry.name,
-        projectName: form.values.projectName,
+        projectName,
       },
       {
         onSuccess: () => {
           modals.closeAll();
-          showSuccessNotification(
-            'Installed',
-            `Generator is installed as "${form.values.projectName}"`
-          );
+          notifications.show({
+            title: 'Installed',
+            message: (
+              <>
+                Generator is installed as &quot;{projectName}&quot;.{' '}
+                <Anchor
+                  component="button"
+                  type="button"
+                  size="sm"
+                  onClick={() =>
+                    void navigate(
+                      ROUTE_PATHS.PROJECT.replace(':projectName', projectName)
+                    )
+                  }
+                >
+                  Open project
+                </Anchor>
+              </>
+            ),
+            color: 'green',
+          });
         },
         onError: (error) =>
           showErrorNotification('Failed to install generator', error),

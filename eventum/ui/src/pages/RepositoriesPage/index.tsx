@@ -14,13 +14,15 @@ import {
 } from '@mantine/core';
 import { modals } from '@mantine/modals';
 import { IconPlus, IconRefresh, IconTrash } from '@tabler/icons-react';
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 import { AddRepositoryModal } from './AddRepositoryModal';
 import { RepositoriesEmptyState } from './RepositoriesEmptyState';
 import { RepositoryCatalog } from './RepositoryCatalog';
+import { RepositoryStatusBadge } from './RepositoryStatusBadge';
 import { useGeneratorDirs } from '@/api/hooks/useGeneratorConfigs';
 import {
+  useCheckRepositoryMutation,
   useDeleteRepositoryMutation,
   useRefreshCatalogMutation,
   useRepositories,
@@ -47,6 +49,40 @@ export default function RepositoriesPage() {
 
   const deleteRepository = useDeleteRepositoryMutation();
   const refreshCatalog = useRefreshCatalogMutation();
+  const checkRepository = useCheckRepositoryMutation();
+
+  // A status is what the instance found when it last asked, and it
+  // knows nothing until it does - so every repository not checked in
+  // this process is checked once, when the page opens.
+  const checked = useRef(new Set<string>());
+  const [checking, setChecking] = useState<string[]>([]);
+  const checkMutate = checkRepository.mutate;
+
+  useEffect(() => {
+    if (repositories === undefined) return;
+
+    const pending = repositories.filter(
+      (item) =>
+        item.status.state === 'unknown' && !checked.current.has(item.name)
+    );
+
+    if (pending.length === 0) return;
+
+    for (const item of pending) {
+      checked.current.add(item.name);
+    }
+
+    setChecking((current) => [...current, ...pending.map((item) => item.name)]);
+
+    for (const item of pending) {
+      checkMutate(item.name, {
+        onSettled: () =>
+          setChecking((current) =>
+            current.filter((name) => name !== item.name)
+          ),
+      });
+    }
+  }, [repositories, checkMutate]);
 
   if (isLoading) {
     return (
@@ -171,9 +207,15 @@ export default function RepositoriesPage() {
             <Accordion.Item key={repository.name} value={repository.name}>
               <Center>
                 <Accordion.Control>
-                  <Text size="sm" fw={600}>
-                    {repository.name}
-                  </Text>
+                  <Group gap="xs" wrap="nowrap">
+                    <Text size="sm" fw={600}>
+                      {repository.name}
+                    </Text>
+                    <RepositoryStatusBadge
+                      status={repository.status}
+                      isChecking={checking.includes(repository.name)}
+                    />
+                  </Group>
                   <Text size="xs" c="dimmed">
                     {repository.url}
                     {repository.ref ? ` · ${repository.ref}` : ''}
@@ -183,6 +225,7 @@ export default function RepositoriesPage() {
                   <Tooltip label="Refresh catalog">
                     <ActionIcon
                       variant="subtle"
+                      c="var(--mantine-color-text)"
                       loading={
                         refreshCatalog.isPending &&
                         refreshCatalog.variables === repository.name
@@ -205,7 +248,7 @@ export default function RepositoriesPage() {
               </Center>
               <Accordion.Panel>
                 <RepositoryCatalog
-                  repositoryName={repository.name}
+                  repository={repository}
                   existingProjectNames={existingProjectNames}
                   enabled={openedRepository === repository.name}
                 />
