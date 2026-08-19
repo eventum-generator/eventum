@@ -2,13 +2,14 @@
 
 import re
 import stat
+from collections.abc import Iterator
 from datetime import UTC, datetime, timedelta, timezone
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 from typing import cast
 
 from dulwich.errors import NotGitRepository
 from dulwich.object_store import BaseObjectStore
-from dulwich.objects import Blob, Commit, ObjectID, Tree
+from dulwich.objects import Blob, Commit, ObjectID, Tree, TreeEntry
 from dulwich.repo import Repo
 
 from eventum.app.repositories.exceptions import (
@@ -29,6 +30,16 @@ README_FILENAME = 'README.md'
 MAX_README_SIZE = 256 * 1024
 
 MAX_SUMMARY_LENGTH = 400
+MAX_TITLE_LENGTH = 200
+
+# A tree is walked before anything about the repository that published
+# it is known, and a tree is a graph rather than a hierarchy: one
+# subtree may be listed by many others, so a walk that follows every
+# entry of a handful of objects can visit an exponential number of
+# paths. What is visited is therefore counted and remembered, and a
+# tree that reaches either bound is refused instead of walked.
+MAX_TREE_NODES = 100_000
+MAX_TREE_DEPTH = 64
 
 _HEADING = re.compile(r'^#\s+(?P<title>.+?)\s*$')
 _SKIPPED_LINE = re.compile(r'^(?:#{1,6}\s|[-*+>|]|\d+\.\s|```|<|!?\[)')
@@ -203,14 +214,7 @@ def _resolve_generators_tree(store: BaseObjectStore, commit: Commit) -> Tree:
         If the directory is missing.
 
     """
-    try:
-        root = cast('Tree', store[commit.tree])
-    except KeyError:
-        msg = 'Fetched repository does not hold the revision'
-        raise CatalogError(
-            msg,
-            context={'value': commit.id.decode()},
-        ) from None
+    root = load_tree(store, commit.tree)
 
     try:
         mode, sha = root[GENERATORS_DIR.encode()]
@@ -221,7 +225,7 @@ def _resolve_generators_tree(store: BaseObjectStore, commit: Commit) -> Tree:
         msg = 'Repository publishes no generators directory'
         raise CatalogError(msg, context={'path': GENERATORS_DIR})
 
-    return cast('Tree', store[sha])
+    return load_tree(store, sha)
 
 
 def _iter_directories(
@@ -230,10 +234,7 @@ def _iter_directories(
 ) -> list[tuple[str, Tree]]:
     """Return the subdirectories of a tree, named and loaded."""
     return [
-        (
-            entry.path.decode(errors='replace'),
-            cast('Tree', store[entry.sha]),
-        )
+        (entry.path.decode(errors='replace'), load_tree(store, entry.sha))
         for entry in tree.items()
         if stat.S_ISDIR(entry.mode)
     ]
@@ -259,27 +260,142 @@ def _read_entry(
     )
 
 
+def load_tree(store: BaseObjectStore, sha: bytes) -> Tree:
+    """Return the tree with the provided hash.
+
+    What a repository publishes is read before anything about it is
+    known, so the mode bits of an entry are a claim rather than a
+    fact: an entry marked as a directory may name a blob, or name
+    nothing at all.
+
+    Parameters
+    ----------
+    store : BaseObjectStore
+        Object store of the fetched repository.
+
+    sha : bytes
+        Hash of the object to load.
+
+    Returns
+    -------
+    Tree
+        Loaded tree.
+
+    Raises
+    ------
+    CatalogError
+        If the repository holds no such object, or holds something
+        other than a tree under that hash.
+
+    """
+    try:
+        obj = store[ObjectID(sha)]
+    except KeyError:
+        msg = 'Repository refers to an object it does not hold'
+        raise CatalogError(
+            msg,
+            context={'value': sha.decode(errors='replace')},
+        ) from None
+
+    if not isinstance(obj, Tree):
+        msg = 'Repository holds a directory entry that is not a directory'
+        raise CatalogError(
+            msg,
+            context={'value': sha.decode(errors='replace')},
+        )
+
+    return obj
+
+
 def _measure(store: BaseObjectStore, tree: Tree) -> tuple[int, int]:
     """Return the number and the total size of the files of a tree.
 
     Only regular files are counted, since only they are installed.
+
+    Raises
+    ------
+    CatalogError
+        If the tree is deeper or larger than a published generator may
+        be, or refers to an object the repository does not hold.
+
     """
     file_count = 0
     size = 0
 
-    for entry in tree.items():
-        if stat.S_ISDIR(entry.mode):
-            nested_count, nested_size = _measure(
-                store,
-                cast('Tree', store[entry.sha]),
-            )
-            file_count += nested_count
-            size += nested_size
-        elif stat.S_ISREG(entry.mode):
+    for _, entry in walk_tree(store, tree):
+        if stat.S_ISREG(entry.mode):
             file_count += 1
-            size += store[entry.sha].raw_length()
+            size += store[ObjectID(entry.sha)].raw_length()
 
     return file_count, size
+
+
+def walk_tree(
+    store: BaseObjectStore,
+    tree: Tree,
+) -> Iterator[tuple[PurePosixPath, TreeEntry]]:
+    """Yield every entry of a tree with the path it sits at.
+
+    The walk is bounded and remembers the subtrees it has seen, so a
+    tree that lists one subtree from many places is walked once rather
+    than once per path leading to it.
+
+    Parameters
+    ----------
+    store : BaseObjectStore
+        Object store of the fetched repository.
+
+    tree : Tree
+        Tree to walk.
+
+    Yields
+    ------
+    tuple[PurePosixPath, TreeEntry]
+        Path of the entry relative to the walked tree, and the entry.
+
+    Raises
+    ------
+    CatalogError
+        If the tree is deeper or holds more entries than a published
+        generator may, or refers to an object the repository does not
+        hold.
+
+    """
+    pending: list[tuple[PurePosixPath, Tree, int]] = [
+        (PurePosixPath(), tree, 0),
+    ]
+    seen: set[bytes] = {bytes(tree.id)}
+    visited = 0
+
+    while pending:
+        prefix, current, depth = pending.pop()
+
+        for entry in current.items():
+            visited += 1
+
+            if visited > MAX_TREE_NODES:
+                msg = 'Repository holds more entries than can be read'
+                raise CatalogError(
+                    msg,
+                    context={'count': visited, 'limit': MAX_TREE_NODES},
+                )
+
+            path = prefix / entry.path.decode(errors='replace')
+
+            yield path, entry
+
+            if not stat.S_ISDIR(entry.mode) or bytes(entry.sha) in seen:
+                continue
+
+            if depth + 1 > MAX_TREE_DEPTH:
+                msg = 'Repository holds a directory nested too deeply'
+                raise CatalogError(
+                    msg,
+                    context={'count': depth + 1, 'limit': MAX_TREE_DEPTH},
+                )
+
+            seen.add(bytes(entry.sha))
+            pending.append((path, load_tree(store, entry.sha), depth + 1))
 
 
 def _read_readme(
@@ -317,7 +433,10 @@ def _parse_readme(content: str) -> tuple[str | None, str | None]:
         match = _HEADING.match(line)
 
         if match is not None:
-            title = match.group('title')
+            title = _clip(
+                _strip_markup(match.group('title')),
+                MAX_TITLE_LENGTH,
+            )
             index = position + 1
             break
 
@@ -341,12 +460,17 @@ def _parse_readme(content: str) -> tuple[str | None, str | None]:
     if not paragraph:
         return title, None
 
-    summary = _strip_markup(' '.join(paragraph))
-
-    if len(summary) > MAX_SUMMARY_LENGTH:
-        summary = summary[:MAX_SUMMARY_LENGTH].rstrip() + '...'
+    summary = _clip(_strip_markup(' '.join(paragraph)), MAX_SUMMARY_LENGTH)
 
     return title, summary
+
+
+def _clip(text: str, limit: int) -> str:
+    """Return a line of readme prose no longer than a limit."""
+    if len(text) <= limit:
+        return text
+
+    return text[:limit].rstrip() + '...'
 
 
 def _strip_markup(text: str) -> str:

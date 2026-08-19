@@ -185,7 +185,8 @@ class InstalledProject(BaseModel, extra='forbid', frozen=True):
 
     outdated : bool
         Whether the repository publishes the generator with content
-        different from what the project holds.
+        different from what was installed. It says nothing about
+        changes made to the project since.
 
     """
 
@@ -228,10 +229,10 @@ class CatalogEntry(BaseModel, extra='forbid', frozen=True):
 
     """
 
-    name: str
-    path: str
-    title: str | None
-    summary: str | None
+    name: str = Field(max_length=255)
+    path: str = Field(max_length=4096)
+    title: str | None = Field(max_length=250)
+    summary: str | None = Field(max_length=500)
     file_count: int
     size: int
     tree: str
@@ -287,8 +288,12 @@ def identify_repository(url: str) -> str:
 
     """
     parts = urlsplit(url)
+
+    # A host names the same machine whatever its case; a path does
+    # not name the same repository on a host that tells "Team" and
+    # "team" apart, which is every host but a few.
     host = (parts.hostname or '').lower()
     port = f':{parts.port}' if parts.port is not None else ''
     path = parts.path.rstrip('/').removesuffix('.git').rstrip('/')
 
-    return f'{host}{port}{path}'.lower()
+    return f'{host}{port}{path}'
