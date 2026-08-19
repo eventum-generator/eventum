@@ -3,6 +3,8 @@ import {
   CatalogSchema,
   ConnectedRepositories,
   ConnectedRepositoriesSchema,
+  Discovery,
+  DiscoverySchema,
   Repository,
   RepositoryStatus,
   RepositoryStatusSchema,
@@ -55,5 +57,17 @@ export async function installGenerator(
     `/repositories/${encodeURIComponent(name)}/catalog/` +
       `${encodeURIComponent(entry)}/install`,
     { name: projectName }
+  );
+}
+
+export async function discoverRepositories(
+  query: string,
+  page = 1
+): Promise<Discovery> {
+  return await validateResponse(
+    DiscoverySchema,
+    apiClient.get('/repositories/discover', {
+      params: { query: query || undefined, page },
+    })
   );
 }

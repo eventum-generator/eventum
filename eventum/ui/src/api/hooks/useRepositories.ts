@@ -4,6 +4,7 @@ import {
   addRepository,
   checkRepository,
   deleteRepository,
+  discoverRepositories,
   getCatalog,
   getRepositories,
   installGenerator,
@@ -13,6 +14,11 @@ import { Repository } from '@/api/routes/repositories/schemas';
 
 const REPOSITORIES_QUERY_KEY = ['repositories'];
 const CATALOG_QUERY_KEY = ['repository-catalog'];
+const DISCOVERY_QUERY_KEY = ['repository-discovery'];
+
+// The instance holds what it read for ten minutes and answers from it,
+// so asking again inside that window only repeats the same answer.
+const DISCOVERY_STALE_TIME = 10 * 60 * 1000;
 
 // Installing writes a project directory, so the lists of projects the
 // workspace shows are no longer current.
@@ -47,6 +53,18 @@ export function useRepositoryCatalog(name: string, enabled: boolean) {
   });
 }
 
+export function useDiscoveredRepositories(query: string, enabled: boolean) {
+  return useQuery({
+    queryKey: [...DISCOVERY_QUERY_KEY, query],
+    queryFn: () => discoverRepositories(query),
+    enabled,
+    staleTime: DISCOVERY_STALE_TIME,
+    // Searching is rate limited, so a failed search is reported rather
+    // than repeated.
+    retry: false,
+  });
+}
+
 export function useAddRepositoryMutation() {
   const queryClient = useQueryClient();
 
@@ -59,10 +77,15 @@ export function useAddRepositoryMutation() {
       verify: boolean;
     }) => addRepository(repository, verify),
     onSuccess: async () => {
-      await queryClient.invalidateQueries({
-        queryKey: REPOSITORIES_QUERY_KEY,
-        exact: true,
-      });
+      await Promise.all([
+        queryClient.invalidateQueries({
+          queryKey: REPOSITORIES_QUERY_KEY,
+          exact: true,
+        }),
+        // The published list marks what is already connected, and one
+        // of them just became connected.
+        queryClient.invalidateQueries({ queryKey: DISCOVERY_QUERY_KEY }),
+      ]);
     },
   });
 }
@@ -74,10 +97,13 @@ export function useDeleteRepositoryMutation() {
     mutationFn: (name: string) => deleteRepository(name),
     onSuccess: async (_, name) => {
       queryClient.removeQueries({ queryKey: [...CATALOG_QUERY_KEY, name] });
-      await queryClient.invalidateQueries({
-        queryKey: REPOSITORIES_QUERY_KEY,
-        exact: true,
-      });
+      await Promise.all([
+        queryClient.invalidateQueries({
+          queryKey: REPOSITORIES_QUERY_KEY,
+          exact: true,
+        }),
+        queryClient.invalidateQueries({ queryKey: DISCOVERY_QUERY_KEY }),
+      ]);
     },
   });
 }

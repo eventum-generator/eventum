@@ -8,6 +8,7 @@ import {
   Loader,
   Paper,
   Stack,
+  Tabs,
   Text,
 } from '@mantine/core';
 import { modals } from '@mantine/modals';
@@ -16,13 +17,16 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 
 import { AddRepositoryModal } from './AddRepositoryModal';
+import { DiscoverRepositories } from './DiscoverRepositories';
 import { RepositoriesEmptyState } from './RepositoriesEmptyState';
 import { RepositoryRow } from './RepositoryRow';
+import { proposeRepositoryName } from './repository-name';
 import { useGeneratorDirs } from '@/api/hooks/useGeneratorConfigs';
 import {
   useDeleteRepositoryMutation,
   useRepositories,
 } from '@/api/hooks/useRepositories';
+import { DiscoveredRepository } from '@/api/routes/repositories/schemas';
 import { AlertIcon } from '@/components/ui/AlertIcon';
 import { PageTitle } from '@/components/ui/PageTitle';
 import { ShowErrorDetailsAnchor } from '@/components/ui/ShowErrorDetailsAnchor';
@@ -32,9 +36,13 @@ import {
   showSuccessNotification,
 } from '@/utils/notifications';
 
+const CONNECTED_TAB = 'connected';
+const DISCOVER_TAB = 'discover';
+
 export default function RepositoriesPage() {
   const navigate = useNavigate();
   const [openedRepository, setOpenedRepository] = useState<string | null>(null);
+  const [tab, setTab] = useState<string | null>(CONNECTED_TAB);
 
   const {
     data: repositories,
@@ -77,16 +85,25 @@ export default function RepositoriesPage() {
 
   const existingProjectNames = generatorDirs ?? [];
 
-  const openAddModal = () =>
+  const existingNames = repositories.map((item) => item.name);
+
+  const openAddModal = (prefilled?: { name: string; url: string }) =>
     modals.open({
       title: 'Connect repository',
       children: (
         <AddRepositoryModal
-          existingNames={repositories.map((item) => item.name)}
+          existingNames={existingNames}
           onOpenSecrets={() => void navigate(ROUTE_PATHS.SECRETS)}
+          prefilled={prefilled}
         />
       ),
       size: 'lg',
+    });
+
+  const connectPublished = (repository: DiscoveredRepository) =>
+    openAddModal({
+      name: proposeRepositoryName(repository.name, existingNames),
+      url: repository.url,
     });
 
   const handleDisconnect = (name: string) =>
@@ -124,54 +141,68 @@ export default function RepositoriesPage() {
 
   const total = repositories.length;
 
-  if (total === 0) {
-    return (
-      <Container size="100%">
-        <Stack>
-          <PageTitle title="Repositories" />
-          <RepositoriesEmptyState onConnect={openAddModal} />
-        </Stack>
-      </Container>
-    );
-  }
-
   return (
     <Container size="100%">
       <Stack>
         <Group align="baseline" gap="sm">
           <PageTitle title="Repositories" />
           <Text size="sm" c="dimmed">
-            {total} {total === 1 ? 'repository' : 'repositories'}
+            {total} {total === 1 ? 'repository' : 'repositories'} connected
           </Text>
         </Group>
 
-        <Paper withBorder p="sm">
-          <Group justify="space-between">
-            <Text size="sm" c="dimmed">
-              Open a repository to read what it publishes and install a
-              generator as a project.
-            </Text>
-            <Button leftSection={<IconPlus size={16} />} onClick={openAddModal}>
-              Connect
-            </Button>
-          </Group>
-        </Paper>
+        <Tabs value={tab} onChange={setTab} keepMounted={false}>
+          <Tabs.List mb="md">
+            <Tabs.Tab value={CONNECTED_TAB}>Connected</Tabs.Tab>
+            <Tabs.Tab value={DISCOVER_TAB}>Discover</Tabs.Tab>
+          </Tabs.List>
 
-        <Accordion
-          variant="separated"
-          value={openedRepository}
-          onChange={setOpenedRepository}
-        >
-          {repositories.map((repository) => (
-            <RepositoryRow
-              key={repository.name}
-              repository={repository}
-              existingProjectNames={existingProjectNames}
-              isOpened={openedRepository === repository.name}
-              onDisconnect={() => handleDisconnect(repository.name)}
-            />
-          ))}
-        </Accordion>
+          <Tabs.Panel value={CONNECTED_TAB}>
+            {total === 0 ? (
+              <RepositoriesEmptyState
+                onConnect={() => openAddModal()}
+                onDiscover={() => setTab(DISCOVER_TAB)}
+              />
+            ) : (
+              <Stack>
+                <Paper withBorder p="sm">
+                  <Group justify="space-between">
+                    <Text size="sm" c="dimmed">
+                      Open a repository to read what it publishes and install a
+                      generator as a project.
+                    </Text>
+                    <Button
+                      leftSection={<IconPlus size={16} />}
+                      onClick={() => openAddModal()}
+                    >
+                      Connect
+                    </Button>
+                  </Group>
+                </Paper>
+
+                <Accordion
+                  variant="separated"
+                  value={openedRepository}
+                  onChange={setOpenedRepository}
+                >
+                  {repositories.map((repository) => (
+                    <RepositoryRow
+                      key={repository.name}
+                      repository={repository}
+                      existingProjectNames={existingProjectNames}
+                      isOpened={openedRepository === repository.name}
+                      onDisconnect={() => handleDisconnect(repository.name)}
+                    />
+                  ))}
+                </Accordion>
+              </Stack>
+            )}
+          </Tabs.Panel>
+
+          <Tabs.Panel value={DISCOVER_TAB}>
+            <DiscoverRepositories onConnect={connectPublished} />
+          </Tabs.Panel>
+        </Tabs>
       </Stack>
     </Container>
   );

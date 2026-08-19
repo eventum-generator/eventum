@@ -1,9 +1,11 @@
-import { Button, Paper, Stack, Text, ThemeIcon } from '@mantine/core';
+import { Button, Group, Paper, Stack, Text, ThemeIcon } from '@mantine/core';
 import { IconGitBranch } from '@tabler/icons-react';
 import { FC } from 'react';
 
 interface RepositoriesEmptyStateProps {
   onConnect: () => void;
+  /** Opens the list of repositories published in the open. */
+  onDiscover: () => void;
 }
 
 /**
@@ -12,6 +14,7 @@ interface RepositoriesEmptyStateProps {
  */
 export const RepositoriesEmptyState: FC<RepositoriesEmptyStateProps> = ({
   onConnect,
+  onDiscover,
 }) => (
   <Paper withBorder p="xl">
     <Stack align="center" gap="sm" py="xl">
@@ -24,9 +27,12 @@ export const RepositoriesEmptyState: FC<RepositoriesEmptyStateProps> = ({
         browse what it offers and install a generator as a project of this
         workspace.
       </Text>
-      <Button mt="xs" onClick={onConnect}>
-        Connect repository
-      </Button>
+      <Group mt="xs">
+        <Button onClick={onConnect}>Connect repository</Button>
+        <Button variant="default" onClick={onDiscover}>
+          Discover published
+        </Button>
+      </Group>
     </Stack>
   </Paper>
 );

@@ -36,11 +36,15 @@ interface AddRepositoryModalProps {
   /** Opens the page secrets are managed on. Passed in rather than
    *  navigated to here: modal content is rendered outside the router. */
   onOpenSecrets: () => void;
+  /** Name and address to open the form on, filled in when a
+   *  repository of the published list is being connected. */
+  prefilled?: { name: string; url: string };
 }
 
 export const AddRepositoryModal: FC<AddRepositoryModalProps> = ({
   existingNames,
   onOpenSecrets,
+  prefilled,
 }) => {
   const addRepository = useAddRepositoryMutation();
   const { data: secretNames } = useSecretNames();
@@ -48,8 +52,8 @@ export const AddRepositoryModal: FC<AddRepositoryModalProps> = ({
 
   const form = useForm({
     initialValues: {
-      name: '',
-      url: '',
+      name: prefilled?.name ?? '',
+      url: prefilled?.url ?? '',
       ref: '',
       username: '',
       secret: '',

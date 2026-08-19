@@ -10,6 +10,7 @@ import { listGeneratorDirs } from '@/api/routes/generator-configs';
 import {
   addRepository,
   checkRepository,
+  discoverRepositories,
   getCatalog,
   getRepositories,
   installGenerator,
@@ -17,6 +18,7 @@ import {
 import {
   Catalog,
   ConnectedRepository,
+  Discovery,
 } from '@/api/routes/repositories/schemas';
 import { renderWithProviders } from '@/test/render';
 
@@ -28,6 +30,7 @@ vi.mock('@/api/routes/repositories', () => ({
   deleteRepository: vi.fn(),
   checkRepository: vi.fn(),
   installGenerator: vi.fn(),
+  discoverRepositories: vi.fn(),
 }));
 
 vi.mock('@/api/routes/generator-configs', () => ({
@@ -51,6 +54,7 @@ const checkRepositoryMock = vi.mocked(checkRepository);
 const listGeneratorDirsMock = vi.mocked(listGeneratorDirs);
 const installGeneratorMock = vi.mocked(installGenerator);
 const addRepositoryMock = vi.mocked(addRepository);
+const discoverRepositoriesMock = vi.mocked(discoverRepositories);
 
 const REPOSITORY: ConnectedRepository = {
   name: 'packs',
@@ -88,6 +92,31 @@ const CATALOG: Catalog = {
       summary: 'Produces auditd records.',
     },
   ],
+};
+
+const DISCOVERY: Discovery = {
+  topic: 'eventum-generators',
+  query: '',
+  entries: [
+    {
+      name: 'content-packs',
+      full_name: 'eventum-generator/content-packs',
+      url: 'https://github.com/eventum-generator/content-packs.git',
+      page_url: 'https://github.com/eventum-generator/content-packs',
+      owner: 'eventum-generator',
+      description: 'Ready-made generators',
+      topics: ['eventum-generators'],
+      stars: 42,
+      updated_at: '2026-08-01T10:00:00Z',
+      license: 'Apache-2.0',
+      archived: false,
+      official: true,
+      connected: false,
+    },
+  ],
+  total_count: 1,
+  refreshed_at: '2026-08-19T10:00:00Z',
+  rate: { remaining: 9, reset_at: '2026-08-19T10:05:00Z' },
 };
 
 function renderPage() {
@@ -494,6 +523,72 @@ describe('RepositoriesPage', () => {
         true
       )
     );
+  });
+
+  it('lists what is published in the open', async () => {
+    getRepositoriesMock.mockResolvedValue([]);
+    listGeneratorDirsMock.mockResolvedValue([]);
+    discoverRepositoriesMock.mockResolvedValue(DISCOVERY);
+
+    renderPage();
+    await userEvent.click(await screen.findByText('Discover'));
+
+    expect(
+      await screen.findByText('eventum-generator/content-packs')
+    ).toBeInTheDocument();
+    // What the list is must be stated, not implied.
+    expect(
+      screen.getByText('Published by their authors, reviewed by nobody')
+    ).toBeInTheDocument();
+  });
+
+  it('opens the connect dialog on a published repository', async () => {
+    getRepositoriesMock.mockResolvedValue([]);
+    listGeneratorDirsMock.mockResolvedValue([]);
+    discoverRepositoriesMock.mockResolvedValue(DISCOVERY);
+
+    renderPage();
+    await userEvent.click(await screen.findByText('Discover'));
+    await userEvent.click(
+      await screen.findByRole('button', { name: 'Connect' })
+    );
+
+    // The dialog opens on the repository that was picked, so nothing
+    // has to be typed to connect it.
+    const url = await screen.findByDisplayValue(
+      'https://github.com/eventum-generator/content-packs.git'
+    );
+    expect(url).toBeInTheDocument();
+    expect(screen.getByDisplayValue('content-packs')).toBeInTheDocument();
+  });
+
+  it('does not offer to connect what is already connected', async () => {
+    getRepositoriesMock.mockResolvedValue([]);
+    listGeneratorDirsMock.mockResolvedValue([]);
+    discoverRepositoriesMock.mockResolvedValue({
+      ...DISCOVERY,
+      entries: [{ ...DISCOVERY.entries[0]!, connected: true }],
+    });
+
+    renderPage();
+    await userEvent.click(await screen.findByText('Discover'));
+
+    expect(
+      await screen.findByRole('button', { name: 'Connected' })
+    ).toBeDisabled();
+  });
+
+  it('reports a search that was refused', async () => {
+    getRepositoriesMock.mockResolvedValue([]);
+    listGeneratorDirsMock.mockResolvedValue([]);
+    discoverRepositoriesMock.mockRejectedValue(new Error('rate limited'));
+
+    renderPage();
+    await userEvent.click(await screen.findByText('Discover'));
+
+    expect(
+      await screen.findByText('Failed to search published repositories')
+    ).toBeInTheDocument();
   });
 
   it('reports a repository that cannot be fetched', async () => {
