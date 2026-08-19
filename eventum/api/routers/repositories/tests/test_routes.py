@@ -14,12 +14,17 @@ from eventum.app.repositories import (
     CatalogEntryNotFoundError,
     CatalogError,
     ConnectedRepository,
+    DiscoveredRepository,
+    Discovery,
+    DiscoveryRate,
     InstallConflictError,
     InstallContentError,
     InstallError,
     InstallNameError,
     Repositories,
     Repository,
+    RepositoryDiscoveryError,
+    RepositoryDiscoveryLimitError,
     RepositoryError,
     RepositoryFetchError,
     RepositoryNotFoundError,
@@ -446,3 +451,101 @@ def test_install_reports_failure(stub, stub_client, error, expected_status):
     )
 
     assert response.status_code == expected_status
+
+
+# --- discovery ---
+
+DISCOVERY = Discovery(
+    topic='eventum-generators',
+    query='',
+    entries=(
+        DiscoveredRepository(
+            name='content-packs',
+            full_name='eventum-generator/content-packs',
+            url='https://github.com/eventum-generator/content-packs.git',
+            page_url='https://github.com/eventum-generator/content-packs',
+            owner='eventum-generator',
+            description='Ready-made generators',
+            topics=('eventum-generators',),
+            stars=42,
+            updated_at=datetime(2026, 1, 1, tzinfo=UTC),
+            license='Apache-2.0',
+            official=True,
+            connected=True,
+        ),
+    ),
+    total_count=1,
+    refreshed_at=datetime(2026, 1, 1, tzinfo=UTC),
+    rate=DiscoveryRate(remaining=9, reset_at=datetime(2026, 1, 1, tzinfo=UTC)),
+)
+
+
+def test_discover_lists_published_repositories(stub, stub_client):
+    stub.discover.return_value = DISCOVERY
+
+    response = stub_client.get('/repositories/discover?query=nginx&page=2')
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body['topic'] == 'eventum-generators'
+    assert body['entries'][0]['full_name'] == (
+        'eventum-generator/content-packs'
+    )
+    assert body['entries'][0]['connected'] is True
+    stub.discover.assert_called_once_with('nginx', 2)
+
+
+def test_discover_is_not_read_as_a_repository_name(stub, stub_client):
+    # The route sits beside "/{name}/catalog", so a repository named
+    # "discover" must not take the path of the search.
+    stub.discover.return_value = DISCOVERY
+
+    assert stub_client.get('/repositories/discover').status_code == 200
+    stub.get_catalog.assert_not_called()
+
+
+def test_discover_rejects_a_page_out_of_range(stub_client):
+    assert stub_client.get('/repositories/discover?page=0').status_code == 422
+    assert stub_client.get('/repositories/discover?page=99').status_code == 422
+
+
+def test_discover_reports_a_spent_quota(stub, stub_client):
+    stub.discover.side_effect = RepositoryDiscoveryLimitError(
+        'rate limited',
+        context={'reason': 'API rate limit exceeded', 'seconds': 31},
+    )
+
+    response = stub_client.get('/repositories/discover')
+
+    assert response.status_code == 429
+    assert response.headers['retry-after'] == '31'
+
+
+def test_discover_reports_a_spent_quota_without_a_delay(stub, stub_client):
+    stub.discover.side_effect = RepositoryDiscoveryLimitError(
+        'rate limited',
+        context={'reason': 'API rate limit exceeded', 'seconds': None},
+    )
+
+    response = stub_client.get('/repositories/discover')
+
+    assert response.status_code == 429
+    assert 'retry-after' not in response.headers
+
+
+def test_discover_reports_a_failed_search(stub, stub_client):
+    stub.discover.side_effect = RepositoryDiscoveryError(
+        'unreachable',
+        context={'reason': 'connection refused'},
+    )
+
+    response = stub_client.get('/repositories/discover')
+
+    assert response.status_code == 502
+    assert 'connection refused' in response.json()['detail']
+
+
+def test_discover_reports_an_unreadable_list(stub, stub_client):
+    stub.discover.side_effect = RepositoryError('broken', context={})
+
+    assert stub_client.get('/repositories/discover').status_code == 500

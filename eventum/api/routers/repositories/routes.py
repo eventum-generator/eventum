@@ -13,15 +13,20 @@ from eventum.api.routers.repositories.models import (
 )
 from eventum.api.utils.response_description import merge_responses
 from eventum.app.repositories import (
+    MAX_DISCOVERY_PAGE,
+    MAX_DISCOVERY_QUERY_LENGTH,
     CatalogEntryNotFoundError,
     CatalogError,
     ConnectedRepository,
+    Discovery,
     InstallConflictError,
     InstallContentError,
     InstallError,
     InstallNameError,
     Repository,
     RepositoryConflictError,
+    RepositoryDiscoveryError,
+    RepositoryDiscoveryLimitError,
     RepositoryError,
     RepositoryFetchError,
     RepositoryNotFoundError,
@@ -131,6 +136,52 @@ async def add_repository(
     except RepositorySecretError as e:
         raise _secret_error(e) from None
     except RepositoryFetchError as e:
+        raise _fetch_error(e) from None
+    except RepositoryError as e:
+        raise _storage_error(e) from None
+
+
+@router.get(
+    '/discover',
+    description=(
+        'Search the repositories that publish generators in the open. '
+        'A repository appears in the list by carrying the topic that '
+        'defines it, so what is listed is published by its authors and '
+        'reviewed by nobody.'
+    ),
+    response_description='Published repositories',
+    responses=merge_responses(
+        _STORAGE_RESPONSES,
+        {
+            429: {
+                'description': (
+                    'Searching is refused until the quota of this '
+                    'instance resets'
+                ),
+            },
+            502: {'description': 'Repositories cannot be searched'},
+        },
+    ),
+)
+async def discover_repositories(
+    repositories: RepositoriesDep,
+    query: Annotated[
+        str | None,
+        Query(
+            description='Words to narrow the list with',
+            max_length=MAX_DISCOVERY_QUERY_LENGTH,
+        ),
+    ] = None,
+    page: Annotated[
+        int,
+        Query(description='Page of the results', ge=1, le=MAX_DISCOVERY_PAGE),
+    ] = 1,
+) -> Discovery:
+    try:
+        return await asyncio.to_thread(repositories.discover, query, page)
+    except RepositoryDiscoveryLimitError as e:
+        raise _rate_limited_error(e) from None
+    except RepositoryDiscoveryError as e:
         raise _fetch_error(e) from None
     except RepositoryError as e:
         raise _storage_error(e) from None
@@ -349,6 +400,23 @@ def _secret_error(error: RepositoryError) -> HTTPException:
     return HTTPException(
         status_code=status.HTTP_424_FAILED_DEPENDENCY,
         detail='. '.join(str(part) for part in parts if part),
+    )
+
+
+def _rate_limited_error(error: RepositoryError) -> HTTPException:
+    """Build the response of a search refused until the quota resets.
+
+    The delay is carried in `Retry-After` as well as in the message,
+    so a client that acts on the header waits the same time a reader
+    is told to.
+    """
+    delay = error.context.get('seconds')
+    parts = [str(error), error.context.get('hint')]
+
+    return HTTPException(
+        status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+        detail='. '.join(str(part) for part in parts if part),
+        headers=None if delay is None else {'Retry-After': str(delay)},
     )
 
 
