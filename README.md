@@ -22,6 +22,7 @@
   <img src="https://img.shields.io/badge/platform-🐧%20Linux%20%7C%20🐳%20Docker-lightgrey" alt="Platform: Linux | Docker" />
   <a href="https://hub.docker.com/r/rnv812/eventum-generator"><img src="https://img.shields.io/docker/v/rnv812/eventum-generator?label=docker&color=2986ff" alt="Docker" /></a>
   <a href="https://pepy.tech/projects/eventum-generator"><img src="https://static.pepy.tech/badge/eventum-generator?color=8282ef" alt="Downloads" /></a>
+  <a href="https://eventum.run/docs/studio/repositories"><img src="https://img.shields.io/badge/works%20with-GitHub-181717?logo=github&logoColor=white" alt="Works with GitHub" /></a>
   <a href="https://deepwiki.com/eventum-generator/eventum"><img src="https://deepwiki.com/badge.svg" alt="Ask DeepWiki"></a>
   <a href="https://www.bestpractices.dev/projects/13171"><img src="https://www.bestpractices.dev/projects/13171/baseline"></a>
   <a href="https://github.com/eventum-generator/eventum/blob/master/LICENSE"><img src="https://img.shields.io/github/license/eventum-generator/eventum?color=8282ef" alt="License" /></a>
@@ -58,6 +59,7 @@ Eventum produces synthetic events and delivers them anywhere — in real time or
 - **Multiple destinations** — fan-out to stdout, files, ClickHouse, OpenSearch, or any HTTP endpoint simultaneously
 - **Two modes** — stream events in real time at their scheduled timestamps, or generate everything as fast as possible
 - **Built-in web UI** — [Eventum Studio](https://eventum.run) for visual editing, event preview, and monitoring
+- **Ready-made generators** — connect a git repository that publishes generators and install one as a project; the repositories published on GitHub under the `eventum-generators` topic are listed in Studio
 - **REST API** — start, stop, and manage generators programmatically
 - **MCP server** — manage generators and author configurations from AI assistants via the Model Context Protocol
 - **Encrypted secrets** — credentials stored securely via an encrypted keyring
