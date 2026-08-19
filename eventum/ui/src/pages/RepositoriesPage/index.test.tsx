@@ -180,9 +180,9 @@ describe('RepositoriesPage', () => {
     expect(screen.getByText(/2 generators/)).toBeInTheDocument();
   });
 
-  it('marks a generator already installed', async () => {
+  it('names the action of a generator already installed', async () => {
     getRepositoriesMock.mockResolvedValue([REPOSITORY]);
-    listGeneratorDirsMock.mockResolvedValue([]);
+    listGeneratorDirsMock.mockResolvedValue(['nginx']);
     getCatalogMock.mockResolvedValue({
       ...CATALOG,
       entries: [
@@ -203,7 +203,11 @@ describe('RepositoriesPage', () => {
     renderPage();
     await openRepository();
 
-    expect(await screen.findByText('installed')).toBeInTheDocument();
+    // What the workspace already holds is stated by the action, so
+    // nothing repeats it beside the name.
+    expect(await screen.findByText('Install again')).toBeInTheDocument();
+    expect(screen.queryByText('installed')).not.toBeInTheDocument();
+    expect(screen.queryByText('update available')).not.toBeInTheDocument();
   });
 
   it('marks a generator that changed since it was installed', async () => {
@@ -230,6 +234,7 @@ describe('RepositoriesPage', () => {
     await openRepository();
 
     expect(await screen.findByText('update available')).toBeInTheDocument();
+    expect(screen.getByText('Install again')).toBeInTheDocument();
   });
 
   it('opens the details of a generator from its row', async () => {
@@ -285,6 +290,43 @@ describe('RepositoriesPage', () => {
     );
     expect(document.body.textContent).toContain(
       'Name of the directory the generator is installed into'
+    );
+  });
+
+  it('proposes a free name for a generator installed already', async () => {
+    getRepositoriesMock.mockResolvedValue([REPOSITORY]);
+    listGeneratorDirsMock.mockResolvedValue(['web-nginx']);
+    getCatalogMock.mockResolvedValue({
+      ...CATALOG,
+      entries: [
+        {
+          ...ENTRY,
+          installed_as: [
+            {
+              project: 'web-nginx',
+              revision: 'a'.repeat(40),
+              installed_at: '2026-08-19T10:00:00Z',
+              outdated: false,
+            },
+          ],
+        },
+      ],
+    });
+
+    renderPage();
+    await openRepository();
+    await screen.findByText('Nginx Access Logs');
+
+    const [installButton] = screen.getAllByText('Install again');
+    await userEvent.click(installButton!);
+
+    await waitFor(() =>
+      expect(
+        document.querySelector('input[value="web-nginx-2"]')
+      ).not.toBeNull()
+    );
+    expect(document.body.textContent).toContain(
+      'Already installed as web-nginx'
     );
   });
 

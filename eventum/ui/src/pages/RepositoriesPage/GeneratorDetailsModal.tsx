@@ -119,7 +119,9 @@ export const GeneratorDetailsModal: FC<GeneratorDetailsModalProps> = ({
         <Button variant="default" onClick={() => modals.closeAll()}>
           Close
         </Button>
-        <Button onClick={onInstall}>Install</Button>
+        <Button onClick={onInstall}>
+          {entry.installed_as.length > 0 ? 'Install again' : 'Install'}
+        </Button>
       </Group>
     </Stack>
   );

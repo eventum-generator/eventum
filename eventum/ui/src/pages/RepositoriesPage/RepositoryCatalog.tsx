@@ -10,6 +10,7 @@ import {
   Table,
   Text,
   TextInput,
+  Tooltip,
 } from '@mantine/core';
 import { modals } from '@mantine/modals';
 import { IconSearch, IconX } from '@tabler/icons-react';
@@ -203,20 +204,12 @@ export const RepositoryCatalog: FC<RepositoryCatalogProps> = ({
                     <Text size="sm" fw={600}>
                       {entry.title ?? entry.name}
                     </Text>
-                    {entry.installed_as.length > 0 && (
-                      <Badge
-                        size="xs"
-                        variant="light"
-                        color={
-                          entry.installed_as.some((item) => item.outdated)
-                            ? 'yellow'
-                            : 'green'
-                        }
-                      >
-                        {entry.installed_as.some((item) => item.outdated)
-                          ? 'update available'
-                          : 'installed'}
-                      </Badge>
+                    {entry.installed_as.some((item) => item.outdated) && (
+                      <Tooltip label="The repository publishes this generator with content the installed project does not hold">
+                        <Badge size="xs" variant="light" color="yellow">
+                          update available
+                        </Badge>
+                      </Tooltip>
                     )}
                   </Group>
                   <Text size="xs" c="dimmed">
@@ -235,16 +228,26 @@ export const RepositoryCatalog: FC<RepositoryCatalogProps> = ({
                   </Text>
                 </Table.Td>
                 <Table.Td style={{ textAlign: 'right' }}>
-                  <Button
-                    variant="default"
-                    size="compact-sm"
-                    onClick={(event) => {
-                      event.stopPropagation();
-                      openInstallModal(entry);
-                    }}
+                  <Tooltip
+                    label={
+                      entry.installed_as.length > 0
+                        ? 'Writes another project beside the one you have'
+                        : 'Writes the generator into the workspace as a project'
+                    }
                   >
-                    Install
-                  </Button>
+                    <Button
+                      variant="default"
+                      size="compact-sm"
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        openInstallModal(entry);
+                      }}
+                    >
+                      {entry.installed_as.length > 0
+                        ? 'Install again'
+                        : 'Install'}
+                    </Button>
+                  </Tooltip>
                 </Table.Td>
               </Table.Tr>
             ))}

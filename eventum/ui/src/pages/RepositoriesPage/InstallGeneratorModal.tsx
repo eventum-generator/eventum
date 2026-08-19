@@ -1,12 +1,22 @@
-import { Anchor, Button, Group, Stack, Text, TextInput } from '@mantine/core';
+import {
+  Alert,
+  Anchor,
+  Button,
+  Group,
+  Stack,
+  Text,
+  TextInput,
+} from '@mantine/core';
 import { useForm } from '@mantine/form';
 import { modals } from '@mantine/modals';
 import { notifications } from '@mantine/notifications';
 import { FC, useEffect } from 'react';
 
 import { validateProjectName } from '../ProjectsPage/project-name';
+import { proposeProjectName } from './project-name';
 import { useInstallGeneratorMutation } from '@/api/hooks/useRepositories';
 import { CatalogEntry } from '@/api/routes/repositories/schemas';
+import { AlertIcon } from '@/components/ui/AlertIcon';
 import { showErrorNotification } from '@/utils/notifications';
 
 interface InstallGeneratorModalProps {
@@ -16,11 +26,6 @@ interface InstallGeneratorModalProps {
   /** Opens the project that was installed. Passed in rather than
    *  navigated to here: modal content is rendered outside the router. */
   onOpenProject: (projectName: string) => void;
-}
-
-/** Fold everything a project name cannot hold into a single dash. */
-function proposeName(entryName: string): string {
-  return entryName.split(/\W/).filter(Boolean).join('-');
 }
 
 export const InstallGeneratorModal: FC<InstallGeneratorModalProps> = ({
@@ -33,7 +38,7 @@ export const InstallGeneratorModal: FC<InstallGeneratorModalProps> = ({
 
   const form = useForm({
     initialValues: {
-      projectName: proposeName(entry.name),
+      projectName: proposeProjectName(entry.name, existingProjectNames),
     },
     validate: {
       projectName: (value) => validateProjectName(value, existingProjectNames),
@@ -92,6 +97,17 @@ export const InstallGeneratorModal: FC<InstallGeneratorModalProps> = ({
         <Text size="sm" c="dimmed">
           {entry.title ?? entry.name}
         </Text>
+
+        {entry.installed_as.length > 0 && (
+          <Alert variant="default" icon={<AlertIcon variant="info" />}>
+            <Text size="sm">
+              Already installed as{' '}
+              {entry.installed_as.map((item) => item.project).join(', ')}.
+              Installing writes another project; the one you have is left as it
+              is.
+            </Text>
+          </Alert>
+        )}
         <TextInput
           label="Project name"
           description="Name of the directory the generator is installed into"
@@ -103,7 +119,7 @@ export const InstallGeneratorModal: FC<InstallGeneratorModalProps> = ({
             disabled={!form.isValid()}
             type="submit"
           >
-            Install
+            {entry.installed_as.length > 0 ? 'Install again' : 'Install'}
           </Button>
         </Group>
       </Stack>
