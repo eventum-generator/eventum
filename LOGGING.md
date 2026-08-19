@@ -216,6 +216,11 @@
         <td>IDs of non running generators</td>
         <td>list[str]</td>
     </tr>
+    <tr>
+        <td>ref</td>
+        <td>Git reference (branch or tag) of a connected repository</td>
+        <td>str</td>
+    </tr>
 </table>
 
 ## Plugins

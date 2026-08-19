@@ -16,7 +16,13 @@ from eventum.exceptions import ContextualError
 # Context keys safe to expose to an external agent. Anything else is
 # dropped. `file_path` is relativized to generators_dir (never
 # absolute).
-_ALLOWED_KEYS = frozenset({'file_path', 'reason', 'value', 'name'})
+_ALLOWED_KEYS = frozenset(
+    {'file_path', 'reason', 'value', 'name', 'hint', 'seconds'},
+)
+
+# Free-text keys scrubbed of absolute paths and secret values before
+# they are forwarded.
+_SCRUBBED_KEYS = ('reason', 'hint')
 
 # Quoted absolute POSIX path token as produced by OSError str()
 # (e.g. "No such file or directory: '/abs/path/x.yml'"). Captures the
@@ -157,10 +163,11 @@ def scrub_context(
 
     Keys not in ``_ALLOWED_KEYS`` are dropped. ``file_path`` values
     are relativized to ``generators_dir``; if the path falls outside
-    that directory, only the final component is kept. A ``reason``
-    value is run through ``_scrub_reason`` so absolute paths embedded
-    in OS error / validation strings are stripped and any value in
-    ``redact_values`` is replaced with ``[redacted]``.
+    that directory, only the final component is kept. The free-text
+    ``reason`` and ``hint`` values are run through ``_scrub_reason``
+    so absolute paths embedded in OS error / validation strings are
+    stripped and any value in ``redact_values`` is replaced with
+    ``[redacted]``.
 
     This is the single scrub point for the context dict on both
     routes that expose it: direct per-event use (``preview_events``)
@@ -176,9 +183,9 @@ def scrub_context(
         Base directory used to relativize paths.
 
     redact_values : list[str] | None, default None
-        Secret values to replace with ``[redacted]`` in ``reason``.
-        Secret redaction applies only to values listed here; callers
-        running real configs must pass the config's resolved
+        Secret values to replace with ``[redacted]`` in the free-text
+        values. Secret redaction applies only to values listed here;
+        callers running real configs must pass the config's resolved
         ``${secrets.*}`` values.
 
     Returns
@@ -199,12 +206,13 @@ def scrub_context(
         else:
             out[key] = value
 
-    if 'reason' in out:
-        out['reason'] = _scrub_reason(
-            str(out['reason']),
-            base,
-            redact_values or [],
-        )
+    for key in _SCRUBBED_KEYS:
+        if key in out:
+            out[key] = _scrub_reason(
+                str(out[key]),
+                base,
+                redact_values or [],
+            )
 
     return out
 

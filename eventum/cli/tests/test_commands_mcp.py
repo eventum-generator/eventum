@@ -12,7 +12,7 @@ from eventum.mcp.context import FileAuthoringContext
 
 @pytest.mark.parametrize(
     'needle',
-    ['read-only', 'keyring-cryptfile', 'config-filename'],
+    ['read-only', 'keyring-cryptfile', 'config-filename', 'repositories'],
 )
 def test_mcp_help_advertises_option(needle: str) -> None:
     """The 'mcp --help' output advertises the given option."""
@@ -118,3 +118,46 @@ def test_config_filename_propagates_into_context(
     context = captured['context']
     assert isinstance(context, FileAuthoringContext)
     assert context.config_filename == expected
+
+
+@pytest.mark.parametrize(
+    ('args', 'expected_name'),
+    [
+        ([], None),
+        (['--repositories', 'elsewhere.yml'], 'elsewhere.yml'),
+    ],
+)
+def test_repositories_file_propagates_into_context(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    args: list[str],
+    expected_name: str | None,
+) -> None:
+    """--repositories reaches the context; without it the default holds."""
+    captured: dict[str, object] = {}
+
+    def fake_build_server(context: object, **_: object) -> MagicMock:
+        captured['context'] = context
+        return MagicMock()
+
+    monkeypatch.setattr('eventum.logging.config.use_stderr', lambda **_: None)
+    monkeypatch.setattr('eventum.mcp.server.build_server', fake_build_server)
+
+    generators_dir = tmp_path / 'generators'
+    generators_dir.mkdir()
+
+    runner = CliRunner()
+    result = runner.invoke(
+        cli,
+        ['mcp', '--generators-dir', str(generators_dir), *args],
+    )
+
+    assert result.exit_code == 0
+    context = captured['context']
+    assert isinstance(context, FileAuthoringContext)
+
+    if expected_name is None:
+        assert context.repositories_file is None
+    else:
+        assert context.repositories_file is not None
+        assert context.repositories_file.name == expected_name

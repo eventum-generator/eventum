@@ -26,6 +26,10 @@ _EXPECTED_TOOLS = {
     'delete_generator',
     'export_generator',
     'import_generator',
+    'list_repositories',
+    'discover_repositories',
+    'get_repository_catalog',
+    'install_generator',
     'validate_generator',
     'preview_timestamps',
     'preview_events',
@@ -161,6 +165,7 @@ def live_ctx(tmp_path: Path) -> ServerLiveContext:
         log_format='plain',
         settings=MagicMock(),
         hooks=MagicMock(),
+        repositories=MagicMock(),
     )
 
 

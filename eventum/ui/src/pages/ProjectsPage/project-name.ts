@@ -21,7 +21,7 @@ export function validateProjectName(
 }
 
 /** Fold everything a project name cannot hold into a single dash. */
-function fold(value: string): string {
+export function fold(value: string): string {
   return value.split(/\W/).filter(Boolean).join('-');
 }
 

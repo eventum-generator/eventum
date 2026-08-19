@@ -19,6 +19,7 @@ from eventum.mcp.tools import discovery
 from eventum.mcp.tools import formatters as fmt_tools
 from eventum.mcp.tools import preview as preview_tools
 from eventum.mcp.tools import renaming as renaming_tools
+from eventum.mcp.tools import repositories as repository_tools
 from eventum.mcp.tools import run as run_tools
 from eventum.mcp.tools import samples as sample_tools
 from eventum.mcp.tools import secrets as secrets_tools
@@ -28,11 +29,12 @@ _INSTRUCTIONS = (
     'Eventum MCP server. Author, inspect, and operate synthetic data '
     'generators: discover plugins and their config schemas, read the '
     'template-context reference, the generator schema, and worked '
-    'examples, then write, validate, preview, and run generators, and '
-    'move a whole generator project in or out as a ZIP archive. Over '
-    'HTTP it also manages running generators - register, start, stop, '
-    'unregister, rename, and read their logs - groups them into '
-    'scenarios, renames a project or a scenario, '
+    'examples, then write, validate, preview, and run generators, '
+    'move a whole generator project in or out as a ZIP archive, and '
+    'install a ready-made generator published by a connected '
+    'repository. Over HTTP it also manages running generators - '
+    'register, start, stop, unregister, rename, and read their logs - '
+    'groups them into scenarios, renames a project or a scenario, '
     'reads and edits the shared global state, and reads or updates the '
     'instance settings and lifecycle. Write tools are gated on a '
     'writable server: the HTTP mount is read-only unless '
@@ -79,8 +81,9 @@ def build_server(
     -------
     FastMCP
         Server with discovery, formatter, sample, secret-listing,
-        workspace, archive, validate/preview, and run tools; the
-        templating-reference, generator-schema, examples, and
+        workspace, archive, connected-repository, validate/preview,
+        and run tools; the templating-reference, generator-schema,
+        examples, and
         workspace-configs resources; the authoring prompts; and,
         when ``live`` is set, the live generator-management, scenario,
         global-state, instance-control, and rename tools; the instance
@@ -100,6 +103,7 @@ def build_server(
     secrets_tools.register(mcp, context, transport=transport)
     ws_tools.register(mcp, context, transport=transport)
     archive_tools.register(mcp, context, transport=transport)
+    repository_tools.register(mcp, context, transport=transport)
     preview_tools.register(mcp, context, transport=transport)
     run_tools.register(mcp, context, transport=transport)
 

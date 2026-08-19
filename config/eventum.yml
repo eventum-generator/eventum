@@ -176,6 +176,12 @@ path.generators_dir: /app/config/generators/
 # Required, there is no default value
 path.keyring_cryptfile: /app/config/cryptfile.cfg
 
+# Absolute path to file with list of connected generator repositories.
+# When not provided, the file named "repositories.yml" next to the
+# startup file is used
+# Optional, default is null
+path.repositories: null
+
 # Filename for generator configurations. This parameter is used
 # by the API for detection directories with generator
 # configurations. Directory with generator configuration named

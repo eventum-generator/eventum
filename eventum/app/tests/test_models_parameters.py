@@ -304,3 +304,42 @@ def test_mcp_parameters_rejects_unknown_field() -> None:
     """Unknown fields are forbidden."""
     with pytest.raises(ValidationError):
         MCPParameters(unknown=True)  # type: ignore[call-arg]
+
+
+def test_repositories_defaults_next_to_the_startup_file():
+    parameters = PathParameters(
+        logs=Path('/opt/eventum/logs'),
+        startup=Path('/opt/eventum/startup.yml'),
+        generators_dir=Path('/opt/eventum/generators'),
+        keyring_cryptfile=Path('/opt/eventum/cryptfile.cfg'),
+    )
+
+    assert parameters.repositories is None
+    assert parameters.repositories_file == Path(
+        '/opt/eventum/repositories.yml',
+    )
+
+
+def test_repositories_is_taken_where_it_is_named():
+    parameters = PathParameters(
+        logs=Path('/opt/eventum/logs'),
+        startup=Path('/opt/eventum/startup.yml'),
+        generators_dir=Path('/opt/eventum/generators'),
+        keyring_cryptfile=Path('/opt/eventum/cryptfile.cfg'),
+        repositories=Path('/etc/eventum/repositories.yml'),
+    )
+
+    assert parameters.repositories_file == Path(
+        '/etc/eventum/repositories.yml',
+    )
+
+
+def test_repositories_must_be_absolute():
+    with pytest.raises(ValidationError):
+        PathParameters(
+            logs=Path('/opt/eventum/logs'),
+            startup=Path('/opt/eventum/startup.yml'),
+            generators_dir=Path('/opt/eventum/generators'),
+            keyring_cryptfile=Path('/opt/eventum/cryptfile.cfg'),
+            repositories=Path('repositories.yml'),
+        )

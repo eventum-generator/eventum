@@ -115,6 +115,25 @@ def test_scrub_context_reason_path_scrubbed_direct_route(
     assert out['file_path'] == 'g/replay.log'
 
 
+def test_scrub_context_keeps_and_scrubs_the_hint(tmp_path: Path) -> None:
+    """A hint is forwarded, with paths and secrets taken out of it.
+
+    The hint is what the user acts on - which secret to add, which
+    credentials to provide - so it travels with the failure, under the
+    same scrubbing as the reason.
+    """
+    gens = tmp_path / 'generators'
+    context = {
+        'hint': f"Add the secret named in '{gens / 'token.cfg'}'",
+        'url': 'https://example.com/packs.git',
+    }
+
+    out = scrub_context(context, gens)
+
+    assert out['hint'] == "Add the secret named in 'token.cfg'"
+    assert 'url' not in out
+
+
 def test_error_message_is_scrubbed(tmp_path: Path) -> None:
     """The top-level message is scrubbed too (defense-in-depth)."""
     gens = tmp_path / 'generators'
