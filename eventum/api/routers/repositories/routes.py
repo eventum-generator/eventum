@@ -321,8 +321,14 @@ def _fetch_error(error: RepositoryError) -> HTTPException:
 
 
 def _storage_error(error: RepositoryError) -> HTTPException:
-    """Build the response of an unreadable or unwritable list."""
+    """Build the response of an unreadable or unwritable list.
+
+    The reason names what the file system or the parser objected to,
+    which is what a caller looking at a failing instance acts on.
+    """
+    reason = error.context.get('reason')
+
     return HTTPException(
         status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-        detail=str(error),
+        detail=str(error) if reason is None else f'{error}: {reason}',
     )

@@ -244,11 +244,17 @@ def test_get_catalog_carries_the_reason(stub, stub_client):
 
 
 def test_get_catalog_reports_broken_file(stub, stub_client):
-    stub.get_catalog.side_effect = RepositoryError('broken', context={})
+    stub.get_catalog.side_effect = RepositoryError(
+        'Repositories file is not valid YAML',
+        context={'reason': 'line 2: mapping values are not allowed'},
+    )
 
     response = stub_client.get('/repositories/packs/catalog')
 
     assert response.status_code == 500
+    assert response.json()['detail'].endswith(
+        'mapping values are not allowed',
+    )
 
 
 # --- install ---
