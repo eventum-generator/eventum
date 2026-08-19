@@ -16,15 +16,15 @@ from eventum.mcp.tools.global_state import (
     get_global_state_key,
     set_global_state,
 )
-from eventum.plugins.event.plugins.template.plugin import TemplateEventPlugin
+from eventum.plugins.event.state import GLOBAL_STATE
 
 
 @pytest.fixture(autouse=True)
 def _clean_state() -> Iterator[None]:
     """Isolate each test from the process-wide global state."""
-    TemplateEventPlugin.GLOBAL_STATE.clear()
+    GLOBAL_STATE.clear()
     yield
-    TemplateEventPlugin.GLOBAL_STATE.clear()
+    GLOBAL_STATE.clear()
 
 
 def _ctx(tmp_path: Path, *, read_only: bool = False) -> ServerLiveContext:
@@ -106,7 +106,7 @@ async def test_delete_global_state_key_read_only_blocked(
 ) -> None:
     """A read-only server refuses to delete a key."""
     ctx = _ctx(tmp_path, read_only=True)
-    TemplateEventPlugin.GLOBAL_STATE.update({'a': 1})
+    GLOBAL_STATE.update({'a': 1})
 
     result = await delete_global_state_key(ctx, 'a')
 
@@ -128,7 +128,7 @@ async def test_clear_global_state(tmp_path: Path) -> None:
 async def test_clear_global_state_read_only_blocked(tmp_path: Path) -> None:
     """A read-only server refuses to clear global state."""
     ctx = _ctx(tmp_path, read_only=True)
-    TemplateEventPlugin.GLOBAL_STATE.update({'a': 1})
+    GLOBAL_STATE.update({'a': 1})
 
     result = await clear_global_state(ctx)
 

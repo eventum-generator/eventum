@@ -1,7 +1,7 @@
 # type: ignore
 import os
+from collections.abc import Callable
 from datetime import datetime
-from threading import Event, Thread
 
 import pytest
 from jinja2 import DictLoader
@@ -17,6 +17,7 @@ from eventum.plugins.event.plugins.template.config import (
     TemplatePickingMode,
 )
 from eventum.plugins.event.plugins.template.plugin import TemplateEventPlugin
+from eventum.plugins.event.state import GLOBAL_STATE
 
 STATIC_FILES_DIR = os.path.join(
     os.path.abspath(os.path.dirname(__file__)), 'static'
@@ -320,6 +321,7 @@ def test_shared_state():
     assert events == ['1', '2', '2', '3', '3', '4']
 
 
+@pytest.mark.usefixtures('clean_global_state')
 def test_global_state():
     plugin = TemplateEventPlugin(
         config=TemplateEventPluginConfig(
@@ -560,22 +562,24 @@ def build_single_template_plugin(template: str) -> TemplateEventPlugin:
     )
 
 
-def global_state_is_free(plugin: TemplateEventPlugin) -> bool:
-    acquired = Event()
+@pytest.mark.usefixtures('clean_global_state')
+def test_template_writes_to_process_wide_global_state():
+    plugin = build_single_template_plugin(
+        "{%- do globals.set('marker', 42) -%}ok"
+    )
 
-    def acquire():
-        plugin.global_state.acquire()
-        acquired.set()
-        plugin.global_state.release()
+    events = plugin.produce(
+        params={'tags': tuple(), 'timestamp': datetime.now().astimezone()}
+    )
 
-    thread = Thread(target=acquire, daemon=True)
-    thread.start()
-    thread.join(timeout=5)
-
-    return acquired.is_set()
+    assert events == ['ok']
+    assert plugin.global_state is GLOBAL_STATE
+    assert GLOBAL_STATE.get('marker') == 42
 
 
-def test_leaked_global_state_lock_is_released():
+def test_leaked_global_state_lock_is_released(
+    global_state_is_free: Callable[[], bool],
+):
     plugin = build_single_template_plugin('{%- do globals.acquire() -%}ok')
 
     events = plugin.produce(
@@ -583,10 +587,12 @@ def test_leaked_global_state_lock_is_released():
     )
 
     assert events == ['ok']
-    assert global_state_is_free(plugin)
+    assert global_state_is_free()
 
 
-def test_leaked_global_state_lock_is_released_on_failed_render():
+def test_leaked_global_state_lock_is_released_on_failed_render(
+    global_state_is_free: Callable[[], bool],
+):
     plugin = build_single_template_plugin(
         '{%- do globals.acquire() -%}{{ 1 / 0 }}'
     )
@@ -596,4 +602,4 @@ def test_leaked_global_state_lock_is_released_on_failed_render():
             params={'tags': tuple(), 'timestamp': datetime.now().astimezone()}
         )
 
-    assert global_state_is_free(plugin)
+    assert global_state_is_free()

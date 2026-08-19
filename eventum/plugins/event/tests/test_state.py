@@ -3,7 +3,7 @@ from threading import Event, RLock, Thread
 
 import pytest
 
-from eventum.plugins.event.plugins.template.state import (
+from eventum.plugins.event.state import (
     MultiThreadState,
     SingleThreadState,
 )
@@ -113,8 +113,23 @@ def test_multi_thread_state_concurrent_increment(
 def test_multi_thread_state_release_without_acquire(
     multi_thread_state: MultiThreadState,
 ):
-    with pytest.raises(RuntimeError):
+    with pytest.raises(RuntimeError, match='not acquired'):
         multi_thread_state.release()
+
+
+def test_multi_thread_state_release_after_balanced_acquire(
+    multi_thread_state: MultiThreadState,
+):
+    multi_thread_state.acquire()
+    multi_thread_state.release()
+
+    with pytest.raises(RuntimeError, match='not acquired'):
+        multi_thread_state.release()
+
+    # the unbalanced release left no negative hold behind
+    multi_thread_state.acquire()
+
+    assert multi_thread_state.release_if_held() == 1
 
 
 def test_multi_thread_state_release_if_held_without_holds(

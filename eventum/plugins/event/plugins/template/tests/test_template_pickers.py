@@ -10,7 +10,7 @@ from eventum.plugins.event.plugins.template.config import (
     TemplateTransition,
 )
 from eventum.plugins.event.plugins.template.fsm.fields import Eq
-from eventum.plugins.event.plugins.template.state import SingleThreadState
+from eventum.plugins.event.state import SingleThreadState
 from eventum.plugins.event.plugins.template.template_pickers import (
     AllTemplatePicker,
     AnyTemplatePicker,

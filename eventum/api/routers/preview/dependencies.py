@@ -27,7 +27,7 @@ from eventum.api.utils.response_description import (
 from eventum.core.plugins_initializer import InitializationError, init_plugin
 from eventum.plugins.event.base.plugin import EventPlugin
 from eventum.plugins.event.plugins.template.plugin import TemplateEventPlugin
-from eventum.plugins.event.plugins.template.state import (
+from eventum.plugins.event.state import (
     MultiThreadState,
     SingleThreadState,
 )
@@ -530,11 +530,10 @@ async def get_template_event_plugin_global_state(
         If some of the dependency fails to load.
 
     """
-    plugin = cast('TemplateEventPlugin', plugin)
     return plugin.global_state
 
 
 TemplateEventPluginGlobalStateDep = Annotated[
-    SingleThreadState,
+    MultiThreadState,
     Depends(get_template_event_plugin_global_state),
 ]

@@ -605,7 +605,7 @@ const namespaceCompletions: NamespaceMember = {
       completion: {
         label: 'globals',
         type: 'namespace',
-        detail: 'Global state of templates withing all generators',
+        detail: 'Global state shared across all generators',
       },
       members: templateGlobalStateCompletionMembers,
     },

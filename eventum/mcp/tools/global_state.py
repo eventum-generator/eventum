@@ -1,9 +1,9 @@
 """Global-state tools (HTTP transport only).
 
 Generators coordinate at runtime through the process-wide ``globals``
-state of the template event plugin. These tools read and edit that
-shared state. Values are arbitrary template-written runtime data (not
-keyring secrets) and are returned as-is, normalized to JSON-able types.
+state of the event stage. These tools read and edit that shared state.
+Values are arbitrary runtime data written by event plugins (not keyring
+secrets) and are returned as-is, normalized to JSON-able types.
 """
 
 import asyncio
@@ -14,13 +14,13 @@ from mcp.server.fastmcp import FastMCP
 from eventum.mcp.context import LiveContext
 from eventum.mcp.errors import ToolFailure, read_only_failure
 from eventum.mcp.observability import observe_failure
-from eventum.plugins.event.plugins.template.plugin import TemplateEventPlugin
+from eventum.plugins.event.state import GLOBAL_STATE
 from eventum.utils.json_utils import normalize_types
 
 
 async def get_global_state() -> dict[str, Any] | ToolFailure:
     """Return the whole global state as a JSON-able dict."""
-    state = await asyncio.to_thread(TemplateEventPlugin.GLOBAL_STATE.as_dict)
+    state = await asyncio.to_thread(GLOBAL_STATE.as_dict)
     try:
         return await asyncio.to_thread(normalize_types, state)
     except RuntimeError:
@@ -29,7 +29,7 @@ async def get_global_state() -> dict[str, Any] | ToolFailure:
 
 async def get_global_state_key(key: str) -> Any | ToolFailure:
     """Return one global-state value, or a failure if it is absent."""
-    value = await asyncio.to_thread(TemplateEventPlugin.GLOBAL_STATE.get, key)
+    value = await asyncio.to_thread(GLOBAL_STATE.get, key)
     if value is None:
         return ToolFailure(
             error='Key not found in global state', details={'key': key}
@@ -49,7 +49,7 @@ async def set_global_state(
     """Merge a mapping into the global state (existing keys overwritten)."""
     if context.read_only:
         return read_only_failure({})
-    await asyncio.to_thread(TemplateEventPlugin.GLOBAL_STATE.update, content)
+    await asyncio.to_thread(GLOBAL_STATE.update, content)
     return {'updated': sorted(content)}
 
 
@@ -59,7 +59,7 @@ async def delete_global_state_key(
     """Remove one key from the global state (no-op if absent)."""
     if context.read_only:
         return read_only_failure({'key': key})
-    await asyncio.to_thread(TemplateEventPlugin.GLOBAL_STATE.pop, key)
+    await asyncio.to_thread(GLOBAL_STATE.pop, key)
     return {'deleted': key}
 
 
@@ -69,7 +69,7 @@ async def clear_global_state(
     """Remove every key from the global state."""
     if context.read_only:
         return read_only_failure({})
-    await asyncio.to_thread(TemplateEventPlugin.GLOBAL_STATE.clear)
+    await asyncio.to_thread(GLOBAL_STATE.clear)
     return {'cleared': True}
 
 
@@ -80,9 +80,9 @@ def register(mcp: FastMCP, context: LiveContext, *, transport: str) -> None:
     async def _get_global_state_tool() -> dict[str, Any] | ToolFailure:
         """Return the shared global state of running generators.
 
-        The ``globals`` state is shared across every template event
-        plugin in the process; use it to inspect cross-generator
-        coordination state.
+        The ``globals`` state is shared across every event plugin in
+        the process; use it to inspect cross-generator coordination
+        state.
 
         Returns
         -------

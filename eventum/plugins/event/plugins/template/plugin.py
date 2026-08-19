@@ -2,7 +2,6 @@
 
 from collections.abc import MutableMapping
 from copy import copy
-from threading import RLock
 from typing import Any, NotRequired, override
 
 from jinja2 import (
@@ -45,10 +44,6 @@ from eventum.plugins.event.plugins.template.sample_reader import (
     SampleLoadError,
     SamplesReader,
 )
-from eventum.plugins.event.plugins.template.state import (
-    MultiThreadState,
-    SingleThreadState,
-)
 from eventum.plugins.event.plugins.template.subprocess_runner import (
     SubprocessRunner,
 )
@@ -56,8 +51,8 @@ from eventum.plugins.event.plugins.template.template_pickers import (
     TemplatePicker,
     get_picker_class,
 )
+from eventum.plugins.event.state import SingleThreadState
 from eventum.plugins.exceptions import PluginConfigurationError
-from eventum.utils.throttler import Throttler
 from eventum.utils.traceback_utils import shorten_traceback
 
 
@@ -81,8 +76,6 @@ class TemplateEventPlugin(
     """Event plugin for producing events using templates."""
 
     _JINJA_EXTENSIONS = ('jinja2.ext.do', 'jinja2.ext.loopcontrols')
-
-    GLOBAL_STATE = MultiThreadState(lock=RLock())
 
     @override
     def __init__(
@@ -111,10 +104,6 @@ class TemplateEventPlugin(
 
         self._logger.debug('Initializing shared state')
         self._shared_state = SingleThreadState()
-
-        self._logger.debug('Connecting to global state')
-        self._global_state = TemplateEventPlugin.GLOBAL_STATE
-        self._leaked_lock_throttler = Throttler(limit=1, period=10)
 
         loader = params.get('templates_loader', None)
         if loader is None:
@@ -404,30 +393,9 @@ class TemplateEventPlugin(
 
         return rendered
 
-    def _release_leaked_global_lock(self) -> None:
-        """Release the global state lock if a template left it held.
-
-        A template that acquires the global state and does not release
-        it - directly, or because rendering failed in between - would
-        block every other generator and every reader of the global
-        state in the process. The lock is not meant to be held across
-        events, so holds left after producing are dropped here.
-        """
-        holds = self._global_state.release_if_held()
-
-        if holds:
-            self._leaked_lock_throttler(
-                self._logger.warning,
-                'Released global state lock left acquired by template',
-                count=holds,
-            )
-
     @override
     def _produce(self, params: ProduceParams) -> list[str]:
-        try:
-            return self._pick_and_render(params)
-        finally:
-            self._release_leaked_global_lock()
+        return self._pick_and_render(params)
 
     def _pick_and_render(self, params: ProduceParams) -> list[str]:
         """Pick templates and render them, repicking on request.
@@ -500,11 +468,6 @@ class TemplateEventPlugin(
     def shared_state(self) -> SingleThreadState:
         """Shared state of templates."""
         return self._shared_state
-
-    @property
-    def global_state(self) -> MultiThreadState:
-        """Global state of templates."""
-        return self._global_state
 
     @property
     def subprocess_runner(self) -> SubprocessRunner:

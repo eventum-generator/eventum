@@ -10,6 +10,7 @@ packages = ["eventum"]
 exclude = [
     "eventum/ui/",
     "**/tests/",
+    "**/conftest.py",
 ]
 
 [project.urls]
