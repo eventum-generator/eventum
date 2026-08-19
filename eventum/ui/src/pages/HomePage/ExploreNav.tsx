@@ -2,6 +2,7 @@ import { Group, Paper, SimpleGrid, Stack, Text } from '@mantine/core';
 import {
   Icon,
   IconFolder,
+  IconGitBranch,
   IconPlayerPlay,
   IconTransform,
 } from '@tabler/icons-react';
@@ -29,6 +30,12 @@ const TILES: { icon: Icon; title: string; caption: string; path: string }[] = [
     caption: 'Build multi-generator scenarios',
     path: ROUTE_PATHS.SCENARIOS,
   },
+  {
+    icon: IconGitBranch,
+    title: 'Repositories',
+    caption: 'Install ready-made generators',
+    path: ROUTE_PATHS.REPOSITORIES,
+  },
 ];
 
 export const ExploreNav: FC = () => {
@@ -37,7 +44,7 @@ export const ExploreNav: FC = () => {
       <Text size="xs" tt="uppercase" lts="1.5px" fw={600} c="dimmed">
         Explore
       </Text>
-      <SimpleGrid cols={{ base: 1, xs: 3 }} spacing="md">
+      <SimpleGrid cols={{ base: 1, xs: 2, sm: 4 }} spacing="md">
         {TILES.map((tile) => (
           <Paper
             key={tile.title}
