@@ -3,18 +3,19 @@ import { useForm } from '@mantine/form';
 import { modals } from '@mantine/modals';
 import { notifications } from '@mantine/notifications';
 import { FC, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
 
 import { validateProjectName } from '../ProjectsPage/project-name';
 import { useInstallGeneratorMutation } from '@/api/hooks/useRepositories';
 import { CatalogEntry } from '@/api/routes/repositories/schemas';
-import { ROUTE_PATHS } from '@/routing/paths';
 import { showErrorNotification } from '@/utils/notifications';
 
 interface InstallGeneratorModalProps {
   repositoryName: string;
   entry: CatalogEntry;
   existingProjectNames: string[];
+  /** Opens the project that was installed. Passed in rather than
+   *  navigated to here: modal content is rendered outside the router. */
+  onOpenProject: (projectName: string) => void;
 }
 
 /** Fold everything a project name cannot hold into a single dash. */
@@ -26,8 +27,8 @@ export const InstallGeneratorModal: FC<InstallGeneratorModalProps> = ({
   repositoryName,
   entry,
   existingProjectNames,
+  onOpenProject,
 }) => {
-  const navigate = useNavigate();
   const installGenerator = useInstallGeneratorMutation();
 
   const form = useForm({
@@ -70,11 +71,7 @@ export const InstallGeneratorModal: FC<InstallGeneratorModalProps> = ({
                   component="button"
                   type="button"
                   size="sm"
-                  onClick={() =>
-                    void navigate(
-                      ROUTE_PATHS.PROJECT.replace(':projectName', projectName)
-                    )
-                  }
+                  onClick={() => onOpenProject(projectName)}
                 >
                   Open project
                 </Anchor>

@@ -15,6 +15,7 @@ import {
 import { modals } from '@mantine/modals';
 import { IconPlus, IconRefresh, IconTrash } from '@tabler/icons-react';
 import { useEffect, useRef, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 
 import { AddRepositoryModal } from './AddRepositoryModal';
 import { RepositoriesEmptyState } from './RepositoriesEmptyState';
@@ -30,12 +31,14 @@ import {
 import { AlertIcon } from '@/components/ui/AlertIcon';
 import { PageTitle } from '@/components/ui/PageTitle';
 import { ShowErrorDetailsAnchor } from '@/components/ui/ShowErrorDetailsAnchor';
+import { ROUTE_PATHS } from '@/routing/paths';
 import {
   showErrorNotification,
   showSuccessNotification,
 } from '@/utils/notifications';
 
 export default function RepositoriesPage() {
+  const navigate = useNavigate();
   const [openedRepository, setOpenedRepository] = useState<string | null>(null);
 
   const {
@@ -120,6 +123,7 @@ export default function RepositoriesPage() {
       children: (
         <AddRepositoryModal
           existingNames={repositories.map((item) => item.name)}
+          onOpenSecrets={() => void navigate(ROUTE_PATHS.SECRETS)}
         />
       ),
       size: 'lg',

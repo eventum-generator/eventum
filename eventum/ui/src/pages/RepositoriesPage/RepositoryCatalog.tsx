@@ -15,6 +15,7 @@ import { modals } from '@mantine/modals';
 import { IconSearch, IconX } from '@tabler/icons-react';
 import bytes from 'bytes';
 import { FC, useMemo, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 
 import { GeneratorDetailsModal } from './GeneratorDetailsModal';
 import { InstallGeneratorModal } from './InstallGeneratorModal';
@@ -25,6 +26,7 @@ import {
 } from '@/api/routes/repositories/schemas';
 import { AlertIcon } from '@/components/ui/AlertIcon';
 import { ShowErrorDetailsAnchor } from '@/components/ui/ShowErrorDetailsAnchor';
+import { ROUTE_PATHS } from '@/routing/paths';
 
 interface RepositoryCatalogProps {
   repository: ConnectedRepository;
@@ -50,6 +52,7 @@ export const RepositoryCatalog: FC<RepositoryCatalogProps> = ({
   existingProjectNames,
   enabled,
 }) => {
+  const navigate = useNavigate();
   const [query, setQuery] = useState('');
 
   const {
@@ -105,6 +108,11 @@ export const RepositoryCatalog: FC<RepositoryCatalogProps> = ({
           repositoryName={repository.name}
           entry={entry}
           existingProjectNames={existingProjectNames}
+          onOpenProject={(projectName) =>
+            void navigate(
+              ROUTE_PATHS.PROJECT.replace(':projectName', projectName)
+            )
+          }
         />
       ),
       size: 'lg',

@@ -11,14 +11,12 @@ import {
 import { useForm } from '@mantine/form';
 import { modals } from '@mantine/modals';
 import { FC, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
 
 import { describeAPIError } from '@/api/errorReport';
 import { APIError } from '@/api/errors';
 import { useAddRepositoryMutation } from '@/api/hooks/useRepositories';
 import { useSecretNames } from '@/api/hooks/useSecrets';
 import { AlertIcon } from '@/components/ui/AlertIcon';
-import { ROUTE_PATHS } from '@/routing/paths';
 import {
   showErrorNotification,
   showSuccessNotification,
@@ -33,12 +31,15 @@ const UNREACHABLE_STATUS = 502;
 
 interface AddRepositoryModalProps {
   existingNames: string[];
+  /** Opens the page secrets are managed on. Passed in rather than
+   *  navigated to here: modal content is rendered outside the router. */
+  onOpenSecrets: () => void;
 }
 
 export const AddRepositoryModal: FC<AddRepositoryModalProps> = ({
   existingNames,
+  onOpenSecrets,
 }) => {
-  const navigate = useNavigate();
   const addRepository = useAddRepositoryMutation();
   const { data: secretNames } = useSecretNames();
   const [unreachable, setUnreachable] = useState<string | null>(null);
@@ -152,7 +153,7 @@ export const AddRepositoryModal: FC<AddRepositoryModalProps> = ({
                 size="xs"
                 onClick={() => {
                   modals.closeAll();
-                  void navigate(ROUTE_PATHS.SECRETS);
+                  onOpenSecrets();
                 }}
               >
                 Secrets

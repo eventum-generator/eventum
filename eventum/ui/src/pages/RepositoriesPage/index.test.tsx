@@ -72,12 +72,16 @@ const CATALOG: Catalog = {
 };
 
 function renderPage() {
+  // The application mounts ModalsProvider above the router, so modal
+  // content renders outside it - the order is mirrored here, or a
+  // modal reaching for the router would pass in a test and fail in
+  // the application.
   return renderWithProviders(
-    <MemoryRouter>
-      <ModalsProvider>
+    <ModalsProvider>
+      <MemoryRouter>
         <RepositoriesPage />
-      </ModalsProvider>
-    </MemoryRouter>
+      </MemoryRouter>
+    </ModalsProvider>
   );
 }
 
@@ -240,6 +244,48 @@ describe('RepositoriesPage', () => {
     expect(await screen.findByText('generators/web-nginx')).toBeInTheDocument();
     expect(screen.getByText('Branch or tag')).toBeInTheDocument();
     expect(screen.getByText(/in 3 files/)).toBeInTheDocument();
+  });
+
+  it('opens the dialog that connects a repository', async () => {
+    getRepositoriesMock.mockResolvedValue([REPOSITORY]);
+    listGeneratorDirsMock.mockResolvedValue([]);
+
+    renderPage();
+    await userEvent.click(await screen.findByText('Connect'));
+
+    await waitFor(() =>
+      expect(
+        document.querySelector(
+          'input[placeholder="https://github.com/eventum-generator/content-packs.git"]'
+        )
+      ).not.toBeNull()
+    );
+    expect(document.body.textContent).toContain(
+      'Name the repository is referred to by'
+    );
+    expect(document.body.textContent).toContain(
+      'the secret of the keyring holding its'
+    );
+  });
+
+  it('opens the dialog that installs a generator', async () => {
+    getRepositoriesMock.mockResolvedValue([REPOSITORY]);
+    listGeneratorDirsMock.mockResolvedValue([]);
+    getCatalogMock.mockResolvedValue(CATALOG);
+
+    renderPage();
+    await openRepository();
+    await screen.findByText('Nginx Access Logs');
+
+    const [installButton] = screen.getAllByText('Install');
+    await userEvent.click(installButton!);
+
+    await waitFor(() =>
+      expect(document.querySelector('input[value="web-nginx"]')).not.toBeNull()
+    );
+    expect(document.body.textContent).toContain(
+      'Name of the directory the generator is installed into'
+    );
   });
 
   it('reports a repository that cannot be fetched', async () => {
