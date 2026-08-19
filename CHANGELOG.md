@@ -27,6 +27,7 @@ All notable changes to this project will be documented in this file.
 
 #### Plugins
 
+- **Handed the global state to the `script` plugin** — the process-wide `globals` state arrives in the `produce` function of a script as a `globals` key of its parameters, so a script correlates its events with other generators through the same keys Studio, the API and MCP already read and write. Scripts written against `timestamp` and `tags` alone keep working. The state is no longer a template facility - it belongs to the event stage, and the guarantee that a lock left acquired is released at the end of the event now holds for every event plugin
 - **Bounded what a shell command started from a template can consume** — a `subprocess.run` call now runs under a timeout of 30 seconds when the template passes none and at most 300 seconds when it asks for more, a command that runs out of time is killed together with the processes it spawned, and a command writing more than 8 MiB to one of its output streams is stopped with an error instead of having all of it held in memory. A call without an explicit timeout used to stall its generator indefinitely, leave background processes running and grow the memory of the whole instance
 
 #### MCP
