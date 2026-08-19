@@ -15,6 +15,8 @@ interface HeaderProps {
   onSignOut: () => void;
   onMenuClick: () => void;
   onMobileMenuClick: () => void;
+  /** Absent on an instance whose version has no panels to show. */
+  onOpenHighlights?: () => void;
 }
 
 export const Header: FC<HeaderProps> = ({
@@ -22,6 +24,7 @@ export const Header: FC<HeaderProps> = ({
   onSignOut,
   onMenuClick,
   onMobileMenuClick,
+  onOpenHighlights,
 }) => {
   return (
     // The header is a fixed 60px band, so nothing here may wrap - a second
@@ -89,6 +92,7 @@ export const Header: FC<HeaderProps> = ({
           <UserMenu
             username={username}
             onSignOut={onSignOut}
+            onOpenHighlights={onOpenHighlights}
             onOpenAboutModal={() => {
               modals.open({
                 title: 'About Eventum',

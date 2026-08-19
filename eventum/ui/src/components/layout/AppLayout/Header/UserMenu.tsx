@@ -10,18 +10,22 @@ import {
   IconChevronDown,
   IconInfoCircle,
   IconLogout,
+  IconSparkles,
 } from '@tabler/icons-react';
 import { FC } from 'react';
 
 interface UserMenuProps {
   username: string;
   onOpenAboutModal: () => void;
+  /** Absent on an instance whose version has no panels to show. */
+  onOpenHighlights?: () => void;
   onSignOut: () => void;
 }
 
 export const UserMenu: FC<UserMenuProps> = ({
   username,
   onOpenAboutModal,
+  onOpenHighlights,
   onSignOut,
 }) => {
   return (
@@ -57,6 +61,14 @@ export const UserMenu: FC<UserMenuProps> = ({
 
       <Menu.Dropdown w="195px">
         <Menu.Label>Application</Menu.Label>
+        {onOpenHighlights !== undefined && (
+          <Menu.Item
+            leftSection={<IconSparkles size="19px" />}
+            onClick={onOpenHighlights}
+          >
+            What&apos;s new
+          </Menu.Item>
+        )}
         <Menu.Item
           leftSection={<IconInfoCircle size="19px" />}
           onClick={onOpenAboutModal}

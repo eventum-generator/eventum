@@ -1,0 +1,190 @@
+/* The look of the release scenes.
+
+   Nothing animates from here: the take of each scene is one Motion
+   sequence, and this file only paints the parts and sets the state they
+   start from. Sizes are container units, so a scene scales with the
+   modal; colours are Mantine variables, so it follows the scheme. */
+
+.ev-scene {
+  container-type: inline-size;
+  position: relative;
+  width: 100%;
+  aspect-ratio: 460 / 232;
+  overflow: hidden;
+  font-family: var(--mantine-font-family);
+}
+
+/* The badge and the close button of the card lie over the top of the
+   scene, so the sketch itself is inset clear of both. Everything a scene
+   places is measured against this box. */
+.ev-scene-inset {
+  position: absolute;
+  inset: 21% 3.5% 6%;
+}
+
+.ev-scene-inset > *,
+.ev-pane > *,
+.ev-layer > *,
+.ev-group > * {
+  position: absolute;
+}
+
+/* ========== Surfaces ========== */
+
+.ev-pane {
+  border: 1px solid var(--mantine-color-default-border);
+  border-radius: 2.4cqw;
+  background-color: var(--mantine-color-body);
+  box-shadow: 0 1.4cqw 3cqw -2cqw rgb(0 0 0 / 18%);
+}
+
+.ev-row {
+  border-radius: 1.6cqw;
+}
+
+.ev-row-glow {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background-color: var(--mantine-color-primary-light);
+  opacity: 0;
+}
+
+.ev-layer {
+  opacity: 0;
+}
+
+/* ========== Content ========== */
+
+.ev-fill {
+  border-radius: 999px;
+  background-color: var(--mantine-color-default-border);
+  transform-origin: left center;
+}
+
+.ev-fill[data-tone='accent'] {
+  background-color: var(--mantine-color-primary-filled);
+}
+
+.ev-fill[data-tone='yellow'] {
+  background-color: var(--mantine-color-yellow-text);
+}
+
+.ev-fill[data-tone='red'] {
+  background-color: var(--mantine-color-red-text);
+}
+
+.ev-fill[data-tone='green'] {
+  background-color: var(--mantine-color-green-text);
+}
+
+/* Set on the line it is given, not hung from it. */
+.ev-label {
+  transform: translateY(-50%);
+  color: var(--mantine-color-dimmed);
+  font-size: 2.9cqw;
+  line-height: 1;
+  letter-spacing: -0.01em;
+  white-space: nowrap;
+}
+
+.ev-label-end {
+  transform: translate(-100%, -50%);
+}
+
+.ev-label[data-tone='accent'] {
+  color: var(--mantine-color-primary-text);
+}
+
+.ev-label[data-tone='yellow'] {
+  color: var(--mantine-color-yellow-text);
+}
+
+.ev-label[data-tone='red'] {
+  color: var(--mantine-color-red-text);
+}
+
+.ev-label[data-tone='green'] {
+  color: var(--mantine-color-green-text);
+}
+
+/* ========== Controls ========== */
+
+.ev-chip-face {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--mantine-color-default-border);
+  border-radius: 999px;
+  background-color: var(--mantine-color-default);
+  color: var(--mantine-color-dimmed);
+  font-size: 2.6cqw;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+.ev-chip[data-tone='red'] .ev-chip-face {
+  border-color: var(--mantine-color-red-outline);
+  color: var(--mantine-color-red-text);
+}
+
+.ev-chip[data-tone='yellow'] .ev-chip-face {
+  border-color: var(--mantine-color-yellow-outline);
+  color: var(--mantine-color-yellow-text);
+}
+
+.ev-chip-on {
+  border-color: var(--mantine-color-primary-filled);
+  background-color: var(--mantine-color-primary-light);
+  color: var(--mantine-color-primary-text);
+  opacity: 0;
+}
+
+/* ========== The pointer ========== */
+
+.ev-cursor {
+  width: 3.4cqw;
+  opacity: 0;
+}
+
+.ev-cursor-arrow {
+  display: block;
+  width: 100%;
+  height: auto;
+  fill: var(--mantine-color-text);
+  stroke: var(--mantine-color-body);
+  stroke-width: 1.2;
+  filter: drop-shadow(0 0.4cqw 0.8cqw rgb(0 0 0 / 25%));
+}
+
+/* The ring a tap leaves behind. */
+.ev-cursor-tap {
+  position: absolute;
+  left: -1.4cqw;
+  top: -1.4cqw;
+  width: 5cqw;
+  height: 5cqw;
+  border: 1px solid var(--mantine-color-primary-filled);
+  border-radius: 999px;
+  opacity: 0;
+}
+
+/* ========== At rest ========== */
+
+/* No take plays for a reader who asked for no motion, so the scene has
+   to read as a still: it rests in the state the click leaves behind. */
+@media (prefers-reduced-motion: reduce) {
+  .ev-stale {
+    opacity: 0;
+  }
+
+  /* Only the parts a take addresses: the still shows the one row and
+     the one chip the click picks, and no pointer, since none moved. */
+  .ev-row-glow[data-part],
+  .ev-chip-on[data-part],
+  .ev-layer {
+    opacity: 1;
+  }
+}

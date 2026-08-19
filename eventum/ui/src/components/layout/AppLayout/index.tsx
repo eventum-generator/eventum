@@ -6,6 +6,8 @@ import { Outlet, useNavigate } from 'react-router-dom';
 import { Header } from './Header';
 import { Navbar } from './Navbar';
 import { useCurrentUser, useLogoutMutation } from '@/api/hooks/useAuth';
+import { ReleaseHighlightsModal } from '@/components/modals/ReleaseHighlights';
+import { useReleaseHighlights } from '@/components/modals/ReleaseHighlights/useReleaseHighlights';
 import { ROUTE_PATHS } from '@/routing/paths';
 
 export default function AppLayout() {
@@ -27,6 +29,10 @@ export default function AppLayout() {
     defaultValue: true,
   });
   const [isMobileNavbarOpened, mobileNavbar] = useDisclosure(false);
+
+  // What the running version brought, shown once after an upgrade and
+  // from the user menu afterwards.
+  const highlights = useReleaseHighlights();
 
   if (isUserLoading) {
     return (
@@ -70,6 +76,9 @@ export default function AppLayout() {
           }
           onMenuClick={() => setNavbarOpened((prev) => !prev)}
           onMobileMenuClick={mobileNavbar.toggle}
+          onOpenHighlights={
+            highlights.release === undefined ? undefined : highlights.open
+          }
         />
       </AppShell.Header>
 
@@ -80,6 +89,12 @@ export default function AppLayout() {
       <AppShell.Main>
         <Outlet />
       </AppShell.Main>
+
+      <ReleaseHighlightsModal
+        release={highlights.release}
+        opened={highlights.opened}
+        onClose={highlights.close}
+      />
     </AppShell>
   );
 }
