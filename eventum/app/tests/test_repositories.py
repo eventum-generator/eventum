@@ -25,7 +25,11 @@ from eventum.app.repositories import (
     RepositoryNotFoundError,
 )
 from eventum.app.repositories.catalog import read_catalog
-from eventum.app.repositories.fetching import fetch_repository
+from eventum.app.repositories.fetching import (
+    fetch_repository,
+    probe_repository,
+)
+from eventum.app.repositories.installed import SOURCE_FILENAME, read_source
 from eventum.app.repositories.installing import install_entry
 from eventum.app.repositories.storage import RepositoriesFile
 
@@ -126,6 +130,37 @@ def repository(git_url):
 
 
 @pytest.fixture
+def unauthorized_url():
+    """Serve a host that asks every caller who they are."""
+
+    def application(environ, start_response):  # noqa: ANN001, ANN202, ARG001
+        start_response(
+            '401 Unauthorized',
+            [
+                ('WWW-Authenticate', 'Basic realm="git"'),
+                ('Content-Type', 'text/plain'),
+            ],
+        )
+        return [b'unauthorized']
+
+    server = make_server(
+        '127.0.0.1',
+        0,
+        application,
+        handler_class=_QuietHandler,
+    )
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+
+    try:
+        yield f'http://127.0.0.1:{server.server_address[1]}/packs.git'
+    finally:
+        server.shutdown()
+        thread.join(timeout=5)
+        server.server_close()
+
+
+@pytest.fixture
 def service(tmp_path):
     service = Repositories(
         file_path=tmp_path / 'repositories.yml',
@@ -222,7 +257,7 @@ def test_storage_rejects_broken_yaml(tmp_path):
 def test_service_adds_and_lists(service):
     repository = Repository(name='packs', url='https://example.com/p.git')
 
-    service.add(repository)
+    service.add(repository, verify=False)
 
     assert service.get_all().root == (repository,)
     assert service.get('packs') == repository
@@ -230,14 +265,17 @@ def test_service_adds_and_lists(service):
 
 def test_service_rejects_duplicate_name(service):
     repository = Repository(name='packs', url='https://example.com/p.git')
-    service.add(repository)
+    service.add(repository, verify=False)
 
     with pytest.raises(RepositoryConflictError):
-        service.add(repository)
+        service.add(repository, verify=False)
 
 
 def test_service_removes(service):
-    service.add(Repository(name='packs', url='https://example.com/p.git'))
+    service.add(
+        Repository(name='packs', url='https://example.com/p.git'),
+        verify=False,
+    )
 
     service.remove('packs')
 
@@ -253,7 +291,10 @@ def test_service_reports_missing_repository(service):
 
 
 def test_service_persists_without_unset_fields(service, tmp_path):
-    service.add(Repository(name='packs', url='https://example.com/p.git'))
+    service.add(
+        Repository(name='packs', url='https://example.com/p.git'),
+        verify=False,
+    )
 
     content = (tmp_path / 'repositories.yml').read_text()
 
@@ -308,6 +349,28 @@ def test_fetch_reports_unknown_ref(git_url, tmp_path):
         fetch_repository(repository, tmp_path / 'bare', timeout=15.0)
 
 
+def test_probe_hints_at_a_private_repository(unauthorized_url):
+    repository = Repository(name='packs', url=unauthorized_url)
+
+    with pytest.raises(RepositoryFetchError) as info:
+        probe_repository(repository, timeout=15.0)
+
+    assert 'hint' in info.value.context
+
+
+def test_probe_does_not_hint_when_credentials_are_named(unauthorized_url):
+    repository = Repository(
+        name='packs',
+        url=unauthorized_url,
+        username='someone',
+    )
+
+    with pytest.raises(RepositoryFetchError) as info:
+        probe_repository(repository, password='token', timeout=15.0)
+
+    assert 'hint' not in info.value.context
+
+
 def test_fetch_reports_empty_remote(tmp_path):
     source = tmp_path / 'empty'
     source.mkdir()
@@ -344,6 +407,24 @@ def test_fetch_reports_unreachable_remote(tmp_path):
 
     with pytest.raises(RepositoryFetchError):
         fetch_repository(repository, tmp_path / 'bare', timeout=5.0)
+
+
+def test_probe_accepts_reachable_repository(repository):
+    probe_repository(repository, timeout=15.0)
+
+
+def test_probe_reports_unknown_ref(git_url):
+    repository = Repository(name='packs', url=git_url, ref='absent')
+
+    with pytest.raises(RepositoryFetchError):
+        probe_repository(repository, timeout=15.0)
+
+
+def test_probe_reports_unreachable_remote():
+    repository = Repository(name='packs', url='http://127.0.0.1:1/p.git')
+
+    with pytest.raises(RepositoryFetchError):
+        probe_repository(repository, timeout=5.0)
 
 
 # --- catalog ---
@@ -557,9 +638,177 @@ def test_service_close_drops_everything(service, repository):
     assert service._cache_dir is None  # noqa: SLF001
 
 
+# --- checking and duplicates ---
+
+
+def test_service_verifies_a_repository_before_connecting(service):
+    repository = Repository(name='packs', url='http://127.0.0.1:1/p.git')
+
+    with pytest.raises(RepositoryFetchError):
+        service.add(repository)
+
+    assert service.get_all().root == ()
+
+
+def test_service_connects_a_reachable_repository(service, repository):
+    service.add(repository)
+
+    assert service.get_all().root == (repository,)
+
+
+def test_service_rejects_the_same_remote_at_the_same_ref(service):
+    service.add(
+        Repository(name='packs', url='https://example.com/p.git'),
+        verify=False,
+    )
+
+    with pytest.raises(RepositoryConflictError):
+        service.add(
+            Repository(name='other', url='https://example.com/p/'),
+            verify=False,
+        )
+
+
+def test_service_accepts_the_same_remote_at_another_ref(service):
+    service.add(
+        Repository(name='stable', url='https://example.com/p.git', ref='v1'),
+        verify=False,
+    )
+    service.add(
+        Repository(name='main', url='https://example.com/p.git', ref='main'),
+        verify=False,
+    )
+
+    assert len(service.get_all().root) == 2
+
+
+def test_service_reports_status_of_a_checked_repository(service, repository):
+    service.add(repository)
+
+    status = service.check('packs')
+
+    assert status.state == 'available'
+    assert status.checked_at is not None
+    assert service.get_all_with_status()[0].status.state == 'available'
+
+
+def test_service_reports_an_unreachable_repository(service):
+    service.add(
+        Repository(name='packs', url='http://127.0.0.1:1/p.git'),
+        verify=False,
+    )
+
+    status = service.check('packs')
+
+    assert status.state == 'unavailable'
+    assert status.reason
+
+
+def test_service_reports_unknown_status_until_checked(service):
+    service.add(
+        Repository(name='packs', url='https://example.com/p.git'),
+        verify=False,
+    )
+
+    assert service.get_all_with_status()[0].status.state == 'unknown'
+
+
+# --- origin of an installed project ---
+
+
+def test_install_records_the_origin(service, repository, tmp_path):
+    service.add(repository)
+
+    service.install('packs', 'web-nginx', 'nginx')
+
+    source = read_source(tmp_path / 'generators' / 'nginx')
+    assert source is not None
+    assert source.repository == 'packs'
+    assert source.entry == 'web-nginx'
+    assert source.url == repository.url
+    assert len(source.tree) == 40
+
+
+def test_catalog_marks_an_installed_generator(service, repository):
+    service.add(repository)
+    service.install('packs', 'web-nginx', 'nginx')
+
+    catalog = service.get_catalog('packs')
+    entry = next(e for e in catalog.entries if e.name == 'web-nginx')
+
+    assert [item.project for item in entry.installed_as] == ['nginx']
+    assert not entry.installed_as[0].outdated
+
+
+def test_catalog_marks_an_outdated_project(service, repository, tmp_path):
+    service.add(repository)
+    service.install('packs', 'web-nginx', 'nginx')
+
+    project = tmp_path / 'generators' / 'nginx'
+    source = (project / SOURCE_FILENAME).read_text()
+    (project / SOURCE_FILENAME).write_text(
+        source.replace(read_source(project).tree, 'a' * 40),
+    )
+
+    catalog = service.get_catalog('packs')
+    entry = next(e for e in catalog.entries if e.name == 'web-nginx')
+
+    assert entry.installed_as[0].outdated
+
+
+def test_catalog_recognizes_a_renamed_project(service, repository, tmp_path):
+    service.add(repository)
+    service.install('packs', 'web-nginx', 'nginx')
+    (tmp_path / 'generators' / 'nginx').rename(
+        tmp_path / 'generators' / 'renamed',
+    )
+
+    catalog = service.get_catalog('packs')
+    entry = next(e for e in catalog.entries if e.name == 'web-nginx')
+
+    assert [item.project for item in entry.installed_as] == ['renamed']
+
+
+def test_catalog_ignores_a_project_that_only_shares_a_name(
+    service,
+    repository,
+    tmp_path,
+):
+    service.add(repository)
+    project = tmp_path / 'generators' / 'web-nginx'
+    project.mkdir(parents=True)
+    (project / CONFIG_FILENAME).write_text('input: []\n')
+
+    catalog = service.get_catalog('packs')
+    entry = next(e for e in catalog.entries if e.name == 'web-nginx')
+
+    assert entry.installed_as == ()
+
+
+def test_catalog_ignores_an_origin_of_another_repository(
+    service,
+    repository,
+    tmp_path,
+):
+    service.add(repository)
+    service.install('packs', 'web-nginx', 'nginx')
+    project = tmp_path / 'generators' / 'nginx'
+    (project / SOURCE_FILENAME).write_text(
+        (project / SOURCE_FILENAME)
+        .read_text()
+        .replace(repository.url, 'https://elsewhere.example.com/packs.git'),
+    )
+
+    catalog = service.get_catalog('packs')
+    entry = next(e for e in catalog.entries if e.name == 'web-nginx')
+
+    assert entry.installed_as == ()
+
+
 def test_service_reports_missing_secret(service, git_url):
     service.add(
         Repository(name='packs', url=git_url, secret='absent-secret'),
+        verify=False,
     )
 
     with pytest.raises(RepositoryFetchError):

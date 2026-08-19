@@ -4,6 +4,7 @@ import shutil
 import tempfile
 import threading
 from dataclasses import dataclass
+from datetime import UTC, datetime
 from pathlib import Path
 
 import structlog
@@ -11,6 +12,7 @@ from pydantic import ValidationError
 
 from eventum.app.repositories.catalog import read_catalog
 from eventum.app.repositories.exceptions import (
+    CatalogEntryNotFoundError,
     RepositoryConflictError,
     RepositoryError,
     RepositoryFetchError,
@@ -19,12 +21,23 @@ from eventum.app.repositories.exceptions import (
 from eventum.app.repositories.fetching import (
     DEFAULT_FETCH_TIMEOUT,
     fetch_repository,
+    probe_repository,
+)
+from eventum.app.repositories.installed import (
+    build_source,
+    collect_installed,
+    write_source,
 )
 from eventum.app.repositories.installing import install_entry
 from eventum.app.repositories.models import (
     Catalog,
+    CatalogEntry,
+    ConnectedRepository,
+    InstalledProject,
     Repository,
     RepositoryList,
+    RepositoryStatus,
+    identify_repository,
 )
 from eventum.app.repositories.storage import RepositoriesFile
 from eventum.security.manage import get_secret
@@ -35,6 +48,8 @@ logger = structlog.stdlib.get_logger()
 _CACHE_PREFIX = 'eventum-repositories-'
 _REPO_DIRNAME = 'repo'
 
+_UNKNOWN = RepositoryStatus(state='unknown')
+
 
 @dataclass(frozen=True)
 class _Fetched:
@@ -42,6 +57,7 @@ class _Fetched:
 
     path: Path
     catalog: Catalog
+    repository: Repository
 
 
 class Repositories:
@@ -89,6 +105,7 @@ class Repositories:
         self._fetch_timeout = fetch_timeout
 
         self._fetched: dict[str, _Fetched] = {}
+        self._statuses: dict[str, RepositoryStatus] = {}
         self._cache_dir: Path | None = None
         self._lock = threading.RLock()
 
@@ -108,6 +125,59 @@ class Repositories:
         """
         with self._lock:
             return self._read()
+
+    def get_all_with_status(self) -> list[ConnectedRepository]:
+        """Read all connected repositories with their last check.
+
+        Returns
+        -------
+        list[ConnectedRepository]
+            All connected repositories, each carrying the result of
+            the last check made in this process.
+
+        Raises
+        ------
+        RepositoryError
+            If the repositories file cannot be read or validated.
+
+        """
+        with self._lock:
+            return [
+                ConnectedRepository(
+                    **repository.model_dump(),
+                    status=self._statuses.get(repository.name, _UNKNOWN),
+                )
+                for repository in self._read().root
+            ]
+
+    def check(self, name: str) -> RepositoryStatus:
+        """Check that a repository answers, and record the result.
+
+        Parameters
+        ----------
+        name : str
+            Name of the repository.
+
+        Returns
+        -------
+        RepositoryStatus
+            Result of the check. A repository that did not answer is
+            reported rather than raised, since the state of a
+            repository is what the caller asked for.
+
+        Raises
+        ------
+        RepositoryError
+            If the repositories file cannot be read or validated.
+
+        RepositoryNotFoundError
+            If no repository with the provided name is connected.
+
+        """
+        with self._lock:
+            repository = self._find(self._read(), name)
+
+        return self._probe(repository)
 
     def get(self, name: str) -> Repository:
         """Read a single connected repository by name.
@@ -134,13 +204,17 @@ class Repositories:
         with self._lock:
             return self._find(self._read(), name)
 
-    def add(self, repository: Repository) -> None:
+    def add(self, repository: Repository, *, verify: bool = True) -> None:
         """Connect a new repository.
 
         Parameters
         ----------
         repository : Repository
             Repository to connect.
+
+        verify : bool, default=True
+            Whether to check that the repository answers before
+            connecting it.
 
         Raises
         ------
@@ -149,19 +223,23 @@ class Repositories:
             written.
 
         RepositoryConflictError
-            If a repository with the same name is already connected.
+            If a repository with the same name, or the same repository
+            at the same branch or tag, is already connected.
+
+        RepositoryFetchError
+            If the repository does not answer and `verify` is set.
 
         """
         with self._lock:
             repositories = self._read()
+            self._reject_duplicate(repositories, repository)
 
-            if any(item.name == repository.name for item in repositories.root):
-                msg = 'Repository with this name is already connected'
-                raise RepositoryConflictError(
-                    msg,
-                    context={'name': repository.name},
-                )
+        if verify:
+            self._raise_status(self._probe(repository))
 
+        with self._lock:
+            repositories = self._read()
+            self._reject_duplicate(repositories, repository)
             self._write((*repositories.root, repository))
 
     def remove(self, name: str) -> None:
@@ -190,6 +268,7 @@ class Repositories:
                 tuple(item for item in repositories.root if item.name != name),
             )
             self._drop_fetched(name)
+            self._statuses.pop(name, None)
 
     def get_catalog(self, name: str) -> Catalog:
         """Read the catalog of a repository, fetching it if needed.
@@ -222,7 +301,9 @@ class Repositories:
             If the fetched repository publishes no catalog.
 
         """
-        return self._ensure_fetched(name).catalog
+        fetched = self._ensure_fetched(name)
+
+        return self._with_installed(fetched.catalog, fetched.repository)
 
     def refresh(self, name: str) -> Catalog:
         """Fetch a repository and read its catalog anew.
@@ -255,7 +336,9 @@ class Repositories:
         with self._lock:
             repository = self._find(self._read(), name)
 
-        return self._fetch(repository).catalog
+        fetched = self._fetch(repository)
+
+        return self._with_installed(fetched.catalog, fetched.repository)
 
     def install(self, name: str, entry: str, project_name: str) -> int:
         """Install a published generator as a project.
@@ -307,6 +390,7 @@ class Repositories:
 
         """
         fetched = self._ensure_fetched(name)
+        published = self._find_entry(fetched.catalog, entry)
 
         with self._lock:
             installed = install_entry(
@@ -316,6 +400,20 @@ class Repositories:
                 generators_dir=self._generators_dir,
                 project_name=project_name,
                 config_filename=self._config_filename,
+            )
+
+            # The project keeps its own origin, so what it came from
+            # survives a rename, an export and this process.
+            write_source(
+                self._generators_dir / project_name,
+                build_source(
+                    repository=fetched.repository.name,
+                    url=fetched.repository.url,
+                    ref=fetched.repository.ref,
+                    entry=entry,
+                    revision=fetched.catalog.revision,
+                    tree=published.tree,
+                ),
             )
 
             logger.info(
@@ -365,6 +463,151 @@ class Repositories:
                 for repository in repositories
             ],
         )
+
+    def _find_entry(self, catalog: Catalog, entry: str) -> CatalogEntry:
+        """Return the catalog entry with the provided name.
+
+        Raises
+        ------
+        CatalogEntryNotFoundError
+            If the catalog holds no such entry.
+
+        """
+        for published in catalog.entries:
+            if published.name == entry:
+                return published
+
+        msg = 'Repository publishes no such generator'
+        raise CatalogEntryNotFoundError(msg, context={'name': entry})
+
+    def _with_installed(
+        self,
+        catalog: Catalog,
+        repository: Repository,
+    ) -> Catalog:
+        """Return a catalog naming what of it is already installed.
+
+        The workspace is read here rather than when the catalog is
+        fetched, so an installation made since is reflected without
+        reaching the remote again.
+        """
+        installed = collect_installed(self._generators_dir, repository.url)
+
+        return catalog.model_copy(
+            update={
+                'entries': [
+                    entry.model_copy(
+                        update={
+                            'installed_as': tuple(
+                                InstalledProject(
+                                    project=project,
+                                    revision=source.revision,
+                                    installed_at=source.installed_at,
+                                    outdated=source.tree != entry.tree,
+                                )
+                                for project, source in sorted(
+                                    installed.get(entry.name, []),
+                                )
+                            ),
+                        },
+                    )
+                    for entry in catalog.entries
+                ],
+            },
+        )
+
+    def _reject_duplicate(
+        self,
+        repositories: RepositoryList,
+        repository: Repository,
+    ) -> None:
+        """Refuse a repository already connected.
+
+        The same remote may be connected more than once to follow two
+        of its branches, so what may not repeat is a name, and a
+        remote at a branch or a tag already followed.
+
+        Raises
+        ------
+        RepositoryConflictError
+            If the name or the remote at that reference is taken.
+
+        """
+        for item in repositories.root:
+            if item.name == repository.name:
+                msg = 'Repository with this name is already connected'
+                raise RepositoryConflictError(
+                    msg,
+                    context={'name': repository.name},
+                )
+
+            same_remote = identify_repository(item.url) == (
+                identify_repository(repository.url)
+            )
+
+            if same_remote and item.ref == repository.ref:
+                msg = (
+                    'This repository is already connected at the same '
+                    'branch or tag'
+                )
+                raise RepositoryConflictError(
+                    msg,
+                    context={
+                        'name': item.name,
+                        'url': repository.url,
+                        'ref': repository.ref,
+                    },
+                )
+
+    def _probe(self, repository: Repository) -> RepositoryStatus:
+        """Check that a repository answers and record the result.
+
+        Runs outside the lock, since it reaches a remote.
+
+        Raises
+        ------
+        RepositoryError
+            If the secret of the repository cannot be read.
+
+        """
+        try:
+            password = self._resolve_password(repository)
+            probe_repository(
+                repository,
+                password=password,
+                timeout=self._fetch_timeout,
+            )
+        except RepositoryFetchError as e:
+            status = RepositoryStatus(
+                state='unavailable',
+                checked_at=datetime.now(tz=UTC),
+                reason=str(e.context.get('reason') or e),
+            )
+        else:
+            status = RepositoryStatus(
+                state='available',
+                checked_at=datetime.now(tz=UTC),
+            )
+
+        with self._lock:
+            self._statuses[repository.name] = status
+
+        return status
+
+    def _raise_status(self, status: RepositoryStatus) -> None:
+        """Turn an unavailable repository into a failure.
+
+        Raises
+        ------
+        RepositoryFetchError
+            If the repository did not answer the check.
+
+        """
+        if status.state != 'unavailable':
+            return
+
+        msg = 'Failed to reach repository'
+        raise RepositoryFetchError(msg, context={'reason': status.reason})
 
     def _find(self, repositories: RepositoryList, name: str) -> Repository:
         """Return the repository with the provided name.
@@ -469,7 +712,11 @@ class Repositories:
             count=len(catalog.entries),
         )
 
-        fetched = _Fetched(path=holder, catalog=catalog)
+        fetched = _Fetched(
+            path=holder,
+            catalog=catalog,
+            repository=repository,
+        )
 
         with self._lock:
             self._drop_fetched(repository.name)

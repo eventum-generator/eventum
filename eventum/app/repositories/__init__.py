@@ -15,8 +15,12 @@ from eventum.app.repositories.exceptions import (
 from eventum.app.repositories.models import (
     Catalog,
     CatalogEntry,
+    ConnectedRepository,
+    GeneratorSource,
+    InstalledProject,
     Repository,
     RepositoryList,
+    RepositoryStatus,
 )
 from eventum.app.repositories.service import Repositories
 
@@ -25,10 +29,13 @@ __all__ = [
     'CatalogEntry',
     'CatalogEntryNotFoundError',
     'CatalogError',
+    'ConnectedRepository',
+    'GeneratorSource',
     'InstallConflictError',
     'InstallContentError',
     'InstallError',
     'InstallNameError',
+    'InstalledProject',
     'Repositories',
     'Repository',
     'RepositoryConflictError',
@@ -36,4 +43,5 @@ __all__ = [
     'RepositoryFetchError',
     'RepositoryList',
     'RepositoryNotFoundError',
+    'RepositoryStatus',
 ]

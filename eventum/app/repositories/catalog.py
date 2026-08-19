@@ -2,7 +2,7 @@
 
 import re
 import stat
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta, timezone
 from pathlib import Path
 from typing import cast
 
@@ -70,7 +70,8 @@ def read_catalog(
     """
     with open_repository(repo_path) as repo:
         store = repo.object_store
-        generators = _resolve_generators_tree(store, revision)
+        commit = _resolve_commit(store, revision)
+        generators = _resolve_generators_tree(store, commit)
 
         entries = [
             _read_entry(store, name, tree)
@@ -81,6 +82,8 @@ def read_catalog(
     return Catalog(
         revision=revision,
         refreshed_at=datetime.now(tz=UTC),
+        committed_at=_commit_time(commit),
+        author=_commit_author(commit),
         entries=sorted(entries, key=lambda entry: entry.name),
     )
 
@@ -117,7 +120,10 @@ def resolve_entry_tree(
         If the generators directory holds no such generator.
 
     """
-    generators = _resolve_generators_tree(store, revision)
+    generators = _resolve_generators_tree(
+        store,
+        _resolve_commit(store, revision),
+    )
 
     for name, tree in _iter_directories(store, generators):
         if name == entry:
@@ -156,21 +162,55 @@ def open_repository(repo_path: Path) -> Repo:
         ) from None
 
 
-def _resolve_generators_tree(store: BaseObjectStore, revision: str) -> Tree:
+def _resolve_commit(store: BaseObjectStore, revision: str) -> Commit:
+    """Return the commit the catalog is read from.
+
+    Raises
+    ------
+    CatalogError
+        If the fetched repository does not hold the revision.
+
+    """
+    try:
+        return cast('Commit', store[ObjectID(revision.encode())])
+    except KeyError:
+        msg = 'Fetched repository does not hold the revision'
+        raise CatalogError(msg, context={'value': revision}) from None
+
+
+def _commit_time(commit: Commit) -> datetime:
+    """Return the moment a commit was authored at."""
+    return datetime.fromtimestamp(
+        commit.author_time,
+        tz=timezone(timedelta(seconds=commit.author_timezone)),
+    )
+
+
+def _commit_author(commit: Commit) -> str | None:
+    """Return the name of the author of a commit."""
+    author = commit.author.decode('utf-8', errors='replace')
+    name = author.split('<')[0].strip()
+
+    return name or None
+
+
+def _resolve_generators_tree(store: BaseObjectStore, commit: Commit) -> Tree:
     """Return the tree of the generators directory.
 
     Raises
     ------
     CatalogError
-        If the revision cannot be read or the directory is missing.
+        If the directory is missing.
 
     """
     try:
-        commit = cast('Commit', store[ObjectID(revision.encode())])
         root = cast('Tree', store[commit.tree])
     except KeyError:
         msg = 'Fetched repository does not hold the revision'
-        raise CatalogError(msg, context={'value': revision}) from None
+        raise CatalogError(
+            msg,
+            context={'value': commit.id.decode()},
+        ) from None
 
     try:
         mode, sha = root[GENERATORS_DIR.encode()]
@@ -210,6 +250,8 @@ def _read_entry(
 
     return CatalogEntry(
         name=name,
+        path=f'{GENERATORS_DIR}/{name}',
+        tree=tree.id.decode(),
         title=title,
         summary=summary,
         file_count=file_count,

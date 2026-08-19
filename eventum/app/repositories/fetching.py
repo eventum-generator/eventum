@@ -5,7 +5,11 @@ from pathlib import Path
 from typing import cast
 
 import urllib3
-from dulwich.client import default_urllib3_manager, get_transport_and_path
+from dulwich.client import (
+    GitClient,
+    default_urllib3_manager,
+    get_transport_and_path,
+)
 from dulwich.object_store import peel_sha
 from dulwich.objects import ObjectID
 from dulwich.refs import Ref
@@ -22,6 +26,18 @@ FETCH_DEPTH = 1
 DEFAULT_FETCH_TIMEOUT = 60.0
 
 _HEAD_REF = Ref(b'HEAD')
+
+# A host answers a request for a repository it does not serve the same
+# way it answers one it serves privately: by asking who is calling. A
+# caller that named no credentials reads that as being about
+# credentials it never meant to give, so the other reading is offered
+# alongside.
+_AUTH_MARKERS = ('credential', 'authoriz', 'authentic', '401')
+
+_AUTH_HINT = (
+    'The repository may not exist at this address, or may be private - '
+    'provide a user name and a secret to reach it'
+)
 
 
 def fetch_repository(
@@ -76,17 +92,7 @@ def fetch_repository(
         return wanted
 
     try:
-        pool_manager = default_urllib3_manager(
-            config=None,
-            base_url=repository.url,
-            timeout=timeout,
-        )
-        client, path = get_transport_and_path(
-            repository.url,
-            username=repository.username,
-            password=password,
-            pool_manager=cast('urllib3.PoolManager', pool_manager),
-        )
+        client, path = _build_client(repository, password, timeout)
 
         with Repo.init_bare(str(destination), mkdir=True) as repo:
             client.fetch(
@@ -103,11 +109,7 @@ def fetch_repository(
         msg = 'Failed to fetch repository'
         raise RepositoryFetchError(
             msg,
-            context={
-                'name': repository.name,
-                'url': repository.url,
-                'reason': _hide_password(str(e), password),
-            },
+            context=_failure_context(repository, password, e),
         ) from None
 
 
@@ -131,6 +133,74 @@ def _wanted_object(
         )
 
     return wanted[0]
+
+
+def probe_repository(
+    repository: Repository,
+    *,
+    password: str | None = None,
+    timeout: float = DEFAULT_FETCH_TIMEOUT,
+) -> None:
+    """Check that a repository answers and publishes the wanted ref.
+
+    Asks the remote for the references it publishes and nothing else,
+    so a repository is checked without transferring any of it.
+
+    Parameters
+    ----------
+    repository : Repository
+        Repository to check.
+
+    password : str | None, default=None
+        Password or access token to authenticate with.
+
+    timeout : float, default=DEFAULT_FETCH_TIMEOUT
+        Timeout of a single HTTP operation, in seconds.
+
+    Raises
+    ------
+    RepositoryFetchError
+        If the remote cannot be reached, refuses the credentials, or
+        publishes no wanted reference.
+
+    """
+    try:
+        client, path = _build_client(repository, password, timeout)
+        result = client.get_refs(
+            path.encode() if isinstance(path, str) else path,
+        )
+    except Exception as e:  # noqa: BLE001 - transports fail in many ways
+        msg = 'Failed to reach repository'
+        raise RepositoryFetchError(
+            msg,
+            context=_failure_context(repository, password, e),
+        ) from None
+
+    published = {
+        ref: sha for ref, sha in result.refs.items() if sha is not None
+    }
+
+    _resolve_ref(published, repository)
+
+
+def _build_client(
+    repository: Repository,
+    password: str | None,
+    timeout: float,
+) -> tuple[GitClient, str]:
+    """Build the client that talks to the remote of a repository."""
+    pool_manager = default_urllib3_manager(
+        config=None,
+        base_url=repository.url,
+        timeout=timeout,
+    )
+
+    return get_transport_and_path(
+        repository.url,
+        username=repository.username,
+        password=password,
+        pool_manager=cast('urllib3.PoolManager', pool_manager),
+    )
 
 
 def _resolve_ref(
@@ -201,6 +271,30 @@ def _peel_commit(repo: Repo, sha: ObjectID) -> str:
         )
 
     return peeled.id.decode()
+
+
+def _failure_context(
+    repository: Repository,
+    password: str | None,
+    error: Exception,
+) -> dict[str, str]:
+    """Build the context of a remote that could not be reached."""
+    reason = _hide_password(str(error), password)
+    context = {
+        'name': repository.name,
+        'url': repository.url,
+        'reason': reason,
+    }
+
+    named_credentials = repository.username is not None or password is not None
+    lowered = reason.lower()
+
+    if not named_credentials and any(
+        marker in lowered for marker in _AUTH_MARKERS
+    ):
+        context['hint'] = _AUTH_HINT
+
+    return context
 
 
 def _hide_password(reason: str, password: str | None) -> str:

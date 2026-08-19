@@ -1,6 +1,7 @@
 """Models of connected generator repositories."""
 
 from datetime import datetime
+from typing import Literal
 from urllib.parse import urlsplit
 
 from pydantic import BaseModel, Field, RootModel, field_validator
@@ -91,6 +92,109 @@ class RepositoryList(RootModel, frozen=True):
     root: tuple[Repository, ...] = Field()
 
 
+class RepositoryStatus(BaseModel, extra='forbid', frozen=True):
+    """Result of the last check of a repository.
+
+    Attributes
+    ----------
+    state : Literal['unknown', 'available', 'unavailable']
+        Whether the repository answered the last check. A repository
+        that has not been checked in this process is unknown.
+
+    checked_at : datetime | None, default=None
+        Moment of the last check.
+
+    reason : str | None, default=None
+        Why the repository did not answer.
+
+    """
+
+    state: Literal['unknown', 'available', 'unavailable']
+    checked_at: datetime | None = None
+    reason: str | None = None
+
+
+class ConnectedRepository(Repository):
+    """Connected repository with the result of its last check.
+
+    Attributes
+    ----------
+    status : RepositoryStatus
+        Result of the last check of the repository.
+
+    """
+
+    status: RepositoryStatus
+
+
+class GeneratorSource(BaseModel, extra='ignore', frozen=True):
+    """Origin an installed project carries with it.
+
+    Written into the project when a published generator is installed
+    and read back to tell what a project came from. Unknown fields are
+    kept out rather than rejected, so a project written by a later
+    version still reads here.
+
+    Attributes
+    ----------
+    repository : str
+        Name the repository was connected under.
+
+    url : str
+        URL the repository was fetched from.
+
+    ref : str | None, default=None
+        Branch or tag the generator was installed from.
+
+    entry : str
+        Name of the published generator.
+
+    revision : str
+        Commit the catalog was read from.
+
+    tree : str
+        Content hash of the generator directory at that commit.
+
+    installed_at : datetime
+        Moment of the installation.
+
+    """
+
+    repository: str
+    url: str
+    ref: str | None = None
+    entry: str
+    revision: str
+    tree: str
+    installed_at: datetime
+
+
+class InstalledProject(BaseModel, extra='forbid', frozen=True):
+    """Project a published generator is installed as.
+
+    Attributes
+    ----------
+    project : str
+        Name of the project directory.
+
+    revision : str
+        Commit the project was installed from.
+
+    installed_at : datetime
+        Moment of the installation.
+
+    outdated : bool
+        Whether the repository publishes the generator with content
+        different from what the project holds.
+
+    """
+
+    project: str
+    revision: str
+    installed_at: datetime
+    outdated: bool
+
+
 class CatalogEntry(BaseModel, extra='forbid', frozen=True):
     """Generator published by a connected repository.
 
@@ -98,6 +202,9 @@ class CatalogEntry(BaseModel, extra='forbid', frozen=True):
     ----------
     name : str
         Name of the generator directory in the repository.
+
+    path : str
+        Path of the generator directory inside the repository.
 
     title : str | None
         Title of the generator, taken from the heading of its readme.
@@ -112,13 +219,23 @@ class CatalogEntry(BaseModel, extra='forbid', frozen=True):
     size : int
         Total size of the generator files in bytes.
 
+    tree : str
+        Content hash of the generator directory, which changes exactly
+        when what the generator consists of changes.
+
+    installed_as : tuple[InstalledProject, ...], default=()
+        Projects of the workspace this generator is installed as.
+
     """
 
     name: str
+    path: str
     title: str | None
     summary: str | None
     file_count: int
     size: int
+    tree: str
+    installed_as: tuple[InstalledProject, ...] = ()
 
 
 class Catalog(BaseModel, extra='forbid', frozen=True):
@@ -132,6 +249,12 @@ class Catalog(BaseModel, extra='forbid', frozen=True):
     refreshed_at : datetime
         Moment the catalog was read at.
 
+    committed_at : datetime
+        Moment the commit the catalog was read from was authored at.
+
+    author : str | None
+        Author of that commit.
+
     entries : list[CatalogEntry]
         Published generators, ordered by name.
 
@@ -139,4 +262,33 @@ class Catalog(BaseModel, extra='forbid', frozen=True):
 
     revision: str
     refreshed_at: datetime
+    committed_at: datetime
+    author: str | None
     entries: list[CatalogEntry]
+
+
+def identify_repository(url: str) -> str:
+    """Return the identity of the repository an URL points at.
+
+    Two URLs naming the same repository - differing only in scheme, in
+    a trailing slash, in the ".git" suffix or in the case of the host -
+    share one identity, so that connecting the same repository twice
+    is recognized while connecting two of its branches is not.
+
+    Parameters
+    ----------
+    url : str
+        URL of the repository.
+
+    Returns
+    -------
+    str
+        Identity of the repository.
+
+    """
+    parts = urlsplit(url)
+    host = (parts.hostname or '').lower()
+    port = f':{parts.port}' if parts.port is not None else ''
+    path = parts.path.rstrip('/').removesuffix('.git').rstrip('/')
+
+    return f'{host}{port}{path}'.lower()
