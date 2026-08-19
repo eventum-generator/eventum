@@ -1,4 +1,4 @@
-"""Definition of replay event plugin."""
+"""Definition of script event plugin."""
 
 from collections.abc import Callable
 from importlib import util
@@ -14,7 +14,27 @@ from eventum.plugins.event.exceptions import (
     PluginProduceSignal,
 )
 from eventum.plugins.event.plugins.script.config import ScriptEventPluginConfig
+from eventum.plugins.event.state import MultiThreadState
 from eventum.plugins.exceptions import PluginConfigurationError
+
+
+class ScriptProduceParams(ProduceParams):
+    """Params for `produce` function of user script.
+
+    Attributes
+    ----------
+    timestamp : datetime
+        Timestamp of event.
+
+    tags : tuple[str, ...]
+        Tags from input plugin that generated timestamp.
+
+    globals : MultiThreadState
+        Global state shared with all generators in the process.
+
+    """
+
+    globals: MultiThreadState
 
 
 class ScriptEventPlugin(
@@ -27,10 +47,11 @@ class ScriptEventPlugin(
     -----
     User script must include function with the following signature:
     ```
-    def produce(params: ProduceParams) -> str | list[str]:
+    def produce(params: ScriptProduceParams) -> str | list[str]:
         ...
     ```
-    For more information see documentation string of `ProduceParams`.
+    For more information see documentation string of
+    `ScriptProduceParams`.
 
     """
 
@@ -47,12 +68,14 @@ class ScriptEventPlugin(
         self._logger.debug('Importing function from external module')
         self._function = self._import_function()
 
-    def _import_function(self) -> Callable[[ProduceParams], str | list[str]]:
+    def _import_function(
+        self,
+    ) -> Callable[[ScriptProduceParams], str | list[str]]:
         """Import the function from the user defined module.
 
         Returns
         -------
-        Callable[[ProduceParams], str | list[str]]
+        Callable[[ScriptProduceParams], str | list[str]]
             Function.
 
         Raises
@@ -119,8 +142,13 @@ class ScriptEventPlugin(
 
     @override
     def _produce(self, params: ProduceParams) -> list[str]:
+        script_params: ScriptProduceParams = {
+            **params,
+            'globals': self._global_state,
+        }
+
         try:
-            result = self._function(params)
+            result = self._function(script_params)
         except PluginProduceSignal:
             raise
         except Exception as e:

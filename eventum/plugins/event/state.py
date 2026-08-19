@@ -1,5 +1,5 @@
-"""States that provide preserving and sharing template variables across
-template renders, different templates and generators.
+"""States that preserve and share values across produced events, event
+plugins and generators.
 """
 
 from abc import ABC, abstractmethod
@@ -266,3 +266,7 @@ class MultiThreadState(State):
     def __getitem__(self, key: Any) -> Any:
         with self._lock:
             return self.get(key)
+
+
+GLOBAL_STATE = MultiThreadState(lock=RLock())
+"""Process wide state shared by every event plugin of every generator."""

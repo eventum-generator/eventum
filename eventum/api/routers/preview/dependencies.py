@@ -27,7 +27,7 @@ from eventum.api.utils.response_description import (
 from eventum.core.plugins_initializer import InitializationError, init_plugin
 from eventum.plugins.event.base.plugin import EventPlugin
 from eventum.plugins.event.plugins.template.plugin import TemplateEventPlugin
-from eventum.plugins.event.plugins.template.state import (
+from eventum.plugins.event.state import (
     MultiThreadState,
     SingleThreadState,
 )
@@ -500,24 +500,16 @@ TemplateEventPluginSharedStateDep = Annotated[
 ]
 
 
-@set_responses(
-    responses=merge_responses(
-        get_event_plugin_from_storage.responses,
-        check_event_plugin_is_template.responses,
-    ),
-)
-async def get_template_event_plugin_global_state(
-    plugin: Annotated[
-        EventPluginFromStorageDep,
-        CheckEventPluginIsTemplateDep,
-    ],
+@set_responses(responses=get_event_plugin_from_storage.responses)
+async def get_event_plugin_global_state(
+    plugin: EventPluginFromStorageDep,
 ) -> MultiThreadState:
-    """Get global state of template event plugin.
+    """Get global state of event plugin.
 
     Parameters
     ----------
     plugin : EventPluginFromStorageDep
-        Template event plugin from storage dependency.
+        Event plugin from storage dependency.
 
     Returns
     -------
@@ -530,11 +522,10 @@ async def get_template_event_plugin_global_state(
         If some of the dependency fails to load.
 
     """
-    plugin = cast('TemplateEventPlugin', plugin)
     return plugin.global_state
 
 
-TemplateEventPluginGlobalStateDep = Annotated[
-    SingleThreadState,
-    Depends(get_template_event_plugin_global_state),
+EventPluginGlobalStateDep = Annotated[
+    MultiThreadState,
+    Depends(get_event_plugin_global_state),
 ]

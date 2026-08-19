@@ -15,12 +15,12 @@ from dataclasses import dataclass
 from eventum.plugins.event.plugins.template.dispatch import Dispatcher
 from eventum.plugins.event.plugins.template.modules import rand
 from eventum.plugins.event.plugins.template.sample_reader import Sample
-from eventum.plugins.event.plugins.template.state import (
-    MultiThreadState,
-    State,
-)
 from eventum.plugins.event.plugins.template.subprocess_runner import (
     SubprocessRunner,
+)
+from eventum.plugins.event.state import (
+    MultiThreadState,
+    State,
 )
 
 

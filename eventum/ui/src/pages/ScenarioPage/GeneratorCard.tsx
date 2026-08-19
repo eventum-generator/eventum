@@ -25,8 +25,8 @@ import { dirname } from 'pathe';
 import { FC, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 
-import { TemplateUsage } from './TemplateUsage';
-import { buildTemplateUsage } from './template-usage';
+import { SourceUsage } from './SourceUsage';
+import { buildSourceUsage } from './source-usage';
 import {
   useStartGeneratorMutation,
   useStopGeneratorMutation,
@@ -98,7 +98,7 @@ export const GeneratorCard: FC<GeneratorCardProps> = ({
     (status?.is_initializing ?? false) || (status?.is_stopping ?? false);
 
   const templateEntries = useMemo(
-    () => buildTemplateUsage(globalsUsage),
+    () => buildSourceUsage(globalsUsage),
     [globalsUsage]
   );
   const hasGlobalsDetails = templateEntries.length > 0;
@@ -286,7 +286,7 @@ export const GeneratorCard: FC<GeneratorCardProps> = ({
       </UnstyledButton>
 
       <Collapse in={expanded}>
-        <TemplateUsage
+        <SourceUsage
           generatorId={generatorId}
           entries={templateEntries}
           onHighlightEdge={onHighlightEdge}
