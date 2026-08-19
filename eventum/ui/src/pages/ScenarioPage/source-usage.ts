@@ -2,14 +2,14 @@ import { GlobalsUsage } from '@/api/routes/scenarios/schemas';
 
 export type WarningType = 'dynamic_key' | 'update_call';
 
-export interface TemplateUsageEntry {
-  /** Template path relative to the generator root. */
-  template: string;
-  /** Unique global-state keys this template writes. */
+export interface SourceUsageEntry {
+  /** File path relative to the generator root. */
+  path: string;
+  /** Unique global-state keys this file writes. */
   writes: string[];
-  /** Unique global-state keys this template reads. */
+  /** Unique global-state keys this file reads. */
   reads: string[];
-  /** Analyzer caveats for this template (keys may be incomplete). */
+  /** Analyzer caveats for this file (keys may be incomplete). */
   warnings: WarningType[];
 }
 
@@ -21,36 +21,36 @@ export const WARNING_LABEL: Record<WarningType, string> = {
 };
 
 /**
- * Group a generator's globals usage by template, merging writes, reads and
- * analyzer warnings into one entry per template (deduped, sorted). A template
- * that only produced a warning still appears, so nothing the analyzer flagged
- * is hidden.
+ * Group a generator's globals usage by file, merging writes, reads and
+ * analyzer warnings into one entry per file (deduped, sorted). A file that
+ * only produced a warning still appears, so nothing the analyzer flagged is
+ * hidden.
  */
-export function buildTemplateUsage(usage?: GlobalsUsage): TemplateUsageEntry[] {
-  const map = new Map<string, TemplateUsageEntry>();
+export function buildSourceUsage(usage?: GlobalsUsage): SourceUsageEntry[] {
+  const map = new Map<string, SourceUsageEntry>();
 
-  const entryFor = (template: string): TemplateUsageEntry => {
-    let entry = map.get(template);
+  const entryFor = (path: string): SourceUsageEntry => {
+    let entry = map.get(path);
     if (!entry) {
-      entry = { template, writes: [], reads: [], warnings: [] };
-      map.set(template, entry);
+      entry = { path, writes: [], reads: [], warnings: [] };
+      map.set(path, entry);
     }
     return entry;
   };
 
   for (const write of usage?.writes ?? []) {
-    const entry = entryFor(write.template);
+    const entry = entryFor(write.path);
     if (!entry.writes.includes(write.key)) entry.writes.push(write.key);
   }
   for (const read of usage?.reads ?? []) {
-    const entry = entryFor(read.template);
+    const entry = entryFor(read.path);
     if (!entry.reads.includes(read.key)) entry.reads.push(read.key);
   }
   for (const warning of usage?.warnings ?? []) {
-    const entry = entryFor(warning.template);
+    const entry = entryFor(warning.path);
     if (!entry.warnings.includes(warning.type))
       entry.warnings.push(warning.type);
   }
 
-  return [...map.values()].sort((a, b) => a.template.localeCompare(b.template));
+  return [...map.values()].sort((a, b) => a.path.localeCompare(b.path));
 }

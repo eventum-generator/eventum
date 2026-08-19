@@ -13,6 +13,7 @@ const LOADED_LANGS = new Set([
   'json',
   'log',
   'markdown',
+  'python',
   'toml',
   'tsv',
   'xml',
@@ -35,9 +36,9 @@ function previewLanguage(path: string): string {
   return LOADED_LANGS.has(lang) ? lang : 'text';
 }
 
-interface TemplatePreviewProps {
+interface SourcePreviewProps {
   generatorId: string;
-  templatePath: string;
+  path: string;
 }
 
 /**
@@ -45,13 +46,13 @@ interface TemplatePreviewProps {
  * its entry instead of a modal, so the read/write context stays visible.
  * Fetches lazily; the caller mounts it only while the entry is expanded.
  */
-export const TemplatePreview: FC<TemplatePreviewProps> = ({
+export const SourcePreview: FC<SourcePreviewProps> = ({
   generatorId,
-  templatePath,
+  path,
 }) => {
   const { data, isLoading, isError, error } = useQuery({
-    queryKey: ['generator-file-preview', generatorId, templatePath],
-    queryFn: () => getGeneratorFile(generatorId, templatePath),
+    queryKey: ['generator-file-preview', generatorId, path],
+    queryFn: () => getGeneratorFile(generatorId, path),
     staleTime: 60_000,
   });
 
@@ -77,7 +78,7 @@ export const TemplatePreview: FC<TemplatePreviewProps> = ({
   return (
     <CodeHighlight
       code={data}
-      language={previewLanguage(templatePath)}
+      language={previewLanguage(path)}
       styles={{
         code: { fontSize: 12 },
         pre: { maxHeight: 320, overflowY: 'auto' },

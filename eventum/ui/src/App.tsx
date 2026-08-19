@@ -39,6 +39,7 @@ async function loadShiki() {
       'json',
       'log',
       'markdown',
+      'python',
       'toml',
       'tsv',
       'xml',

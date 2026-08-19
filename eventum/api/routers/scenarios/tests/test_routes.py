@@ -28,9 +28,9 @@ def test_collect_finds_templates_recursively(tmp_path):
 
     assert {w.key for w in usage.writes} == {'a'}
     assert {r.key for r in usage.reads} == {'b'}
-    templates = {w.template for w in usage.writes}
-    templates |= {r.template for r in usage.reads}
-    assert templates == {'root.jinja', str(Path('sub') / 'nested.j2')}
+    paths = {w.path for w in usage.writes}
+    paths |= {r.path for r in usage.reads}
+    assert paths == {'root.jinja', str(Path('sub') / 'nested.j2')}
 
 
 def test_collect_skips_non_template_files(tmp_path):
@@ -41,6 +41,30 @@ def test_collect_skips_non_template_files(tmp_path):
 
     assert usage.writes == []
     assert usage.reads == []
+
+
+def test_collect_finds_scripts(tmp_path):
+    scripts = tmp_path / 'scripts'
+    scripts.mkdir()
+    (scripts / 'produce.py').write_text(
+        'def produce(params):\n'
+        "    state = params['globals']\n"
+        "    state.set('pool', [1])\n"
+        "    return str(state.get('counter', 0))\n"
+    )
+    (tmp_path / 'event.jinja').write_text(
+        '{%- set x = globals.get("pool") -%}'
+    )
+
+    usage = _collect_globals_usage(tmp_path)
+
+    assert {(w.key, w.path) for w in usage.writes} == {
+        ('pool', str(Path('scripts') / 'produce.py'))
+    }
+    assert {(r.key, r.path) for r in usage.reads} == {
+        ('counter', str(Path('scripts') / 'produce.py')),
+        ('pool', 'event.jinja'),
+    }
 
 
 def test_collect_empty_dir(tmp_path):

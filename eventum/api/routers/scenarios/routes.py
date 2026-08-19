@@ -10,6 +10,7 @@ from fastapi import Path as FastApiPath
 
 from eventum.api.dependencies.app import SettingsDep, StartupDep
 from eventum.api.routers.generator_configs.globals_detector import (
+    SUPPORTED_SUFFIXES,
     GlobalsUsage,
     detect_globals_usage,
 )
@@ -39,8 +40,6 @@ logger = structlog.stdlib.get_logger()
 
 router = APIRouter()
 
-_TEMPLATE_SUFFIXES = ('.j2', '.jinja')
-
 _STARTUP_ERROR_RESPONSES: dict[int | str, dict[str, Any]] = {
     500: {
         'description': (
@@ -51,10 +50,10 @@ _STARTUP_ERROR_RESPONSES: dict[int | str, dict[str, Any]] = {
 
 
 def _collect_globals_usage(generator_dir: Path) -> GlobalsUsage:
-    """Scan a generator directory for Jinja2 templates and detect
+    """Scan a generator directory for templates and scripts and detect
     globals usage across all of them.
 
-    Walks the directory tree once, reads each template, and runs AST
+    Walks the directory tree once, reads each file, and runs AST
     detection. Performs blocking filesystem IO and CPU-bound parsing,
     so it must run in a worker thread to avoid blocking the event
     loop.
@@ -67,23 +66,23 @@ def _collect_globals_usage(generator_dir: Path) -> GlobalsUsage:
     Returns
     -------
     GlobalsUsage
-        Merged writes, reads, and warnings from all templates.
+        Merged writes, reads, and warnings from all files.
 
     """
     usage = GlobalsUsage()
 
     for filepath in generator_dir.rglob('*'):
-        if filepath.suffix not in _TEMPLATE_SUFFIXES or not filepath.is_file():
+        if filepath.suffix not in SUPPORTED_SUFFIXES or not filepath.is_file():
             continue
 
         rel_path = str(filepath.relative_to(generator_dir))
         try:
-            source = filepath.read_text(encoding='utf-8')
+            content = filepath.read_text(encoding='utf-8')
         except OSError:
-            logger.warning('Failed to read template file', path=str(filepath))
+            logger.warning('Failed to read file', path=str(filepath))
             continue
 
-        usage.merge(detect_globals_usage(source, rel_path))
+        usage.merge(detect_globals_usage(content, rel_path))
 
     return usage
 
@@ -281,7 +280,8 @@ async def remove_generator_from_scenario(
     '/{name}/generators/{generator_name}/globals-usage',
     summary='Get globals usage for a generator in a scenario',
     description=(
-        'Detect globals.set/get usage in Jinja2 templates via AST analysis.'
+        'Detect globals usage in Jinja2 templates and Python scripts'
+        ' via AST analysis.'
     ),
     responses=merge_responses(
         check_scenario_exists.responses,

@@ -17,8 +17,8 @@ import {
 } from '@tabler/icons-react';
 import { FC, useState } from 'react';
 
-import { TemplatePreview } from './TemplatePreview';
-import { TemplateUsageEntry, WARNING_LABEL } from './template-usage';
+import { SourcePreview } from './SourcePreview';
+import { SourceUsageEntry, WARNING_LABEL } from './source-usage';
 
 interface KeyChipProps {
   label: string;
@@ -111,9 +111,9 @@ const FlowRow: FC<FlowRowProps> = ({
   );
 };
 
-interface TemplateUsageProps {
+interface SourceUsageProps {
   generatorId: string;
-  entries: TemplateUsageEntry[];
+  entries: SourceUsageEntry[];
   /** Highlight a specific read/write edge on the diagram. */
   onHighlightEdge?: (
     generatorId: string,
@@ -125,37 +125,35 @@ interface TemplateUsageProps {
 }
 
 /**
- * The read/write flow of one instance, per template. Each template shows the
- * global-state keys it writes and reads as chips (hover -> the matching edge
- * lights up on the data-flow diagram) and expands inline to its source.
+ * The read/write flow of one instance, per file. Each template or script
+ * shows the global-state keys it writes and reads as chips (hover -> the
+ * matching edge lights up on the data-flow diagram) and expands inline to its
+ * source.
  */
-export const TemplateUsage: FC<TemplateUsageProps> = ({
+export const SourceUsage: FC<SourceUsageProps> = ({
   generatorId,
   entries,
   onHighlightEdge,
   onHoverNode,
 }) => {
-  const [openTemplate, setOpenTemplate] = useState<string | null>(null);
+  const [openPath, setOpenPath] = useState<string | null>(null);
   const nodeId = `instance-${generatorId}`;
 
   return (
     <Stack gap="sm" mt="sm" pl="lg">
       {entries.map((entry, index) => {
-        const slash = entry.template.lastIndexOf('/');
-        const dir = slash !== -1 ? entry.template.slice(0, slash + 1) : '';
-        const base =
-          slash !== -1 ? entry.template.slice(slash + 1) : entry.template;
-        const isOpen = openTemplate === entry.template;
+        const slash = entry.path.lastIndexOf('/');
+        const dir = slash !== -1 ? entry.path.slice(0, slash + 1) : '';
+        const base = slash !== -1 ? entry.path.slice(slash + 1) : entry.path;
+        const isOpen = openPath === entry.path;
 
         return (
-          <div key={entry.template}>
+          <div key={entry.path}>
             {index > 0 && <Divider mb="sm" />}
             <Stack gap={8}>
               <UnstyledButton
                 onClick={() =>
-                  setOpenTemplate((prev) =>
-                    prev === entry.template ? null : entry.template
-                  )
+                  setOpenPath((prev) => (prev === entry.path ? null : entry.path))
                 }
                 onMouseEnter={() => onHoverNode?.(nodeId)}
                 style={{ width: '100%' }}
@@ -238,9 +236,9 @@ export const TemplateUsage: FC<TemplateUsageProps> = ({
               )}
 
               <Collapse in={isOpen}>
-                <TemplatePreview
+                <SourcePreview
                   generatorId={generatorId}
-                  templatePath={entry.template}
+                  path={entry.path}
                 />
               </Collapse>
             </Stack>

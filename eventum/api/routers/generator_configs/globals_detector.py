@@ -1,19 +1,36 @@
-"""Detect globals.set/get usage in Jinja2 templates via AST analysis."""
+"""Detect globals usage in generator sources via AST analysis.
 
+A generator touches the global state from its Jinja2 templates and from
+the script of its `script` event plugin. Both are parsed here - with
+the Jinja2 parser and the Python one - and reported the same way: the
+keys a file writes, the keys it reads, and the calls whose keys cannot
+be resolved without running the file.
+"""
+
+import ast
 from dataclasses import dataclass, field
+from pathlib import PurePath
 from typing import Literal
 
 from jinja2 import Environment, nodes
 
 WarningType = Literal['dynamic_key', 'update_call']
 
+_TEMPLATE_SUFFIXES = ('.j2', '.jinja')
+_SCRIPT_SUFFIXES = ('.py',)
+
+SUPPORTED_SUFFIXES = (*_TEMPLATE_SUFFIXES, *_SCRIPT_SUFFIXES)
+"""Suffixes of the files that carry detectable globals usage."""
+
+_GLOBALS_NAME = 'globals'
+
 
 @dataclass(frozen=True)
 class GlobalsReference:
-    """A single reference to globals in a template."""
+    """A single reference to globals in a generator file."""
 
     key: str
-    template: str
+    path: str
 
 
 @dataclass(frozen=True)
@@ -21,12 +38,12 @@ class GlobalsWarning:
     """A warning about globals usage that cannot be fully detected."""
 
     type: WarningType
-    template: str
+    path: str
 
 
 @dataclass
 class GlobalsUsage:
-    """Detected globals usage in templates."""
+    """Detected globals usage in generator files."""
 
     writes: list[GlobalsReference] = field(default_factory=list)
     reads: list[GlobalsReference] = field(default_factory=list)
@@ -42,41 +59,58 @@ class GlobalsUsage:
 _ENV = Environment(extensions=['jinja2.ext.do', 'jinja2.ext.loopcontrols'])
 
 
-def detect_globals_usage(source: str, template_name: str) -> GlobalsUsage:
-    """Parse a Jinja2 template and detect globals.set/get usage.
+def detect_globals_usage(content: str, path: str) -> GlobalsUsage:
+    """Detect globals usage in a generator file.
 
     Parameters
     ----------
-    source : str
-        Jinja2 template source code.
-    template_name : str
-        Name of the template file (for reporting).
+    content : str
+        Content of the file.
+
+    path : str
+        Path of the file (for reporting), its suffix selects the
+        parser.
 
     Returns
     -------
     GlobalsUsage
-        Detected writes, reads, and warnings.
+        Detected writes, reads, and warnings. Empty for a file that is
+        neither a template nor a script, and for one that cannot be
+        parsed.
 
     """
+    suffix = PurePath(path).suffix
+
+    if suffix in _TEMPLATE_SUFFIXES:
+        return _detect_in_template(content, path)
+
+    if suffix in _SCRIPT_SUFFIXES:
+        return _detect_in_script(content, path)
+
+    return GlobalsUsage()
+
+
+def _detect_in_template(content: str, path: str) -> GlobalsUsage:
+    """Detect globals usage in a Jinja2 template."""
     usage = GlobalsUsage()
 
     try:
-        ast = _ENV.parse(source)
+        tree = _ENV.parse(content)
     except Exception:  # noqa: BLE001
         return usage
 
-    _walk_node(ast, template_name, usage)
+    _walk_template_node(tree, path, usage)
     return usage
 
 
 def _is_globals_name(node: nodes.Node) -> bool:
     """Check if a node refers to the `globals` variable."""
-    return isinstance(node, nodes.Name) and node.name == 'globals'
+    return isinstance(node, nodes.Name) and node.name == _GLOBALS_NAME
 
 
-def _walk_node(  # noqa: C901
+def _walk_template_node(  # noqa: C901
     node: nodes.Node,
-    template_name: str,
+    path: str,
     usage: GlobalsUsage,
 ) -> None:
     """Recursively walk AST nodes to find globals references."""
@@ -92,14 +126,14 @@ def _walk_node(  # noqa: C901
                     usage.writes.append(
                         GlobalsReference(
                             key=node.args[0].value,
-                            template=template_name,
+                            path=path,
                         )
                     )
                 elif node.args:
                     usage.warnings.append(
                         GlobalsWarning(
                             type='dynamic_key',
-                            template=template_name,
+                            path=path,
                         )
                     )
 
@@ -108,14 +142,14 @@ def _walk_node(  # noqa: C901
                     usage.reads.append(
                         GlobalsReference(
                             key=node.args[0].value,
-                            template=template_name,
+                            path=path,
                         )
                     )
                 elif node.args:
                     usage.warnings.append(
                         GlobalsWarning(
                             type='dynamic_key',
-                            template=template_name,
+                            path=path,
                         )
                     )
 
@@ -123,7 +157,7 @@ def _walk_node(  # noqa: C901
                 usage.warnings.append(
                     GlobalsWarning(
                         type='update_call',
-                        template=template_name,
+                        path=path,
                     )
                 )
 
@@ -135,10 +169,115 @@ def _walk_node(  # noqa: C901
         usage.reads.append(
             GlobalsReference(
                 key=node.arg.value,
-                template=template_name,
+                path=path,
             )
         )
 
     # Recurse into child nodes
     for child in node.iter_child_nodes():
-        _walk_node(child, template_name, usage)
+        _walk_template_node(child, path, usage)
+
+
+def _detect_in_script(content: str, path: str) -> GlobalsUsage:
+    """Detect globals usage in a script of the `script` event plugin.
+
+    The state reaches a script as the `globals` key of the params its
+    `produce` function receives, so both the subscription itself and
+    the names it is assigned to are followed.
+    """
+    usage = GlobalsUsage()
+
+    try:
+        tree = ast.parse(content)
+    except SyntaxError:
+        return usage
+
+    state_names = _collect_state_names(tree)
+
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Call):
+            _detect_script_call(node, state_names, path, usage)
+        elif (
+            isinstance(node, ast.Subscript)
+            and _is_state_expression(node.value, state_names)
+            and isinstance(node.slice, ast.Constant)
+            and isinstance(node.slice.value, str)
+        ):
+            usage.reads.append(
+                GlobalsReference(key=node.slice.value, path=path)
+            )
+
+    return usage
+
+
+def _is_globals_subscript(node: ast.expr) -> bool:
+    """Check if a node subscribes the `globals` key of the params."""
+    return (
+        isinstance(node, ast.Subscript)
+        and isinstance(node.slice, ast.Constant)
+        and node.slice.value == _GLOBALS_NAME
+    )
+
+
+def _collect_state_names(tree: ast.Module) -> set[str]:
+    """Collect names the global state is assigned to."""
+    names: set[str] = set()
+
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Assign) and _is_globals_subscript(node.value):
+            names.update(
+                target.id
+                for target in node.targets
+                if isinstance(target, ast.Name)
+            )
+        elif (
+            isinstance(node, ast.AnnAssign)
+            and node.value is not None
+            and _is_globals_subscript(node.value)
+            and isinstance(node.target, ast.Name)
+        ):
+            names.add(node.target.id)
+
+    return names
+
+
+def _is_state_expression(node: ast.expr, state_names: set[str]) -> bool:
+    """Check if a node evaluates to the global state."""
+    if isinstance(node, ast.Name):
+        return node.id in state_names
+
+    return _is_globals_subscript(node)
+
+
+def _detect_script_call(
+    node: ast.Call,
+    state_names: set[str],
+    path: str,
+    usage: GlobalsUsage,
+) -> None:
+    """Record a state method call of a script."""
+    if not isinstance(node.func, ast.Attribute) or not _is_state_expression(
+        node.func.value, state_names
+    ):
+        return
+
+    method = node.func.attr
+
+    if method == 'update':
+        usage.warnings.append(GlobalsWarning(type='update_call', path=path))
+        return
+
+    if method not in ('set', 'get') or not node.args:
+        return
+
+    key = node.args[0]
+
+    if isinstance(key, ast.Constant) and isinstance(key.value, str):
+        reference = GlobalsReference(key=key.value, path=path)
+
+        if method == 'set':
+            usage.writes.append(reference)
+        else:
+            usage.reads.append(reference)
+    else:
+        usage.warnings.append(GlobalsWarning(type='dynamic_key', path=path))
