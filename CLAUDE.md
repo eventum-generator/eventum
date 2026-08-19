@@ -98,4 +98,5 @@ Area-specific rules live in `.claude/rules/`, scoped by `backend`, `frontend`, `
 **Writing**
 - **Writing style**: No AI-tone, emoji filler, ASCII art, or marketing fluff.
 - **Minimalism**: Weigh every word - each must earn its place. Brief, dense, clear facts. No filler, redundancy, or commentary.
+- **Reader**: The user does not digest large amounts of text. Everything addressed to them - a report, a question, a proposal - is dense and concise.
 - **Consistent abstraction**: Stay at one abstraction level within a section. Don't jump from general principle to implementation detail and back - the reader loses the frame of reference.
