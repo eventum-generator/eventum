@@ -56,6 +56,9 @@ export const RepositoryCatalog: FC<RepositoryCatalogProps> = ({
   const navigate = useNavigate();
   const [query, setQuery] = useState('');
 
+  const openProject = (projectName: string) =>
+    void navigate(ROUTE_PATHS.PROJECT.replace(':projectName', projectName));
+
   const {
     data: catalog,
     isLoading,
@@ -109,11 +112,7 @@ export const RepositoryCatalog: FC<RepositoryCatalogProps> = ({
           repositoryName={repository.name}
           entry={entry}
           existingProjectNames={existingProjectNames}
-          onOpenProject={(projectName) =>
-            void navigate(
-              ROUTE_PATHS.PROJECT.replace(':projectName', projectName)
-            )
-          }
+          onOpenProject={openProject}
         />
       ),
       size: 'lg',
@@ -130,6 +129,10 @@ export const RepositoryCatalog: FC<RepositoryCatalogProps> = ({
           onInstall={() => {
             modals.closeAll();
             openInstallModal(entry);
+          }}
+          onOpenProject={(projectName) => {
+            modals.closeAll();
+            openProject(projectName);
           }}
         />
       ),
@@ -204,10 +207,28 @@ export const RepositoryCatalog: FC<RepositoryCatalogProps> = ({
                     <Text size="sm" fw={600}>
                       {entry.title ?? entry.name}
                     </Text>
-                    {entry.installed_as.some((item) => item.outdated) && (
-                      <Tooltip label="The repository publishes this generator with content the installed project does not hold">
-                        <Badge size="xs" variant="light" color="yellow">
-                          update available
+                    {entry.installed_as.length > 0 && (
+                      <Tooltip
+                        label={
+                          entry.installed_as.some((item) => item.outdated)
+                            ? 'The repository publishes this generator with content the installed project does not hold'
+                            : `Installed as ${entry.installed_as
+                                .map((item) => item.project)
+                                .join(', ')}`
+                        }
+                      >
+                        <Badge
+                          size="xs"
+                          variant="light"
+                          color={
+                            entry.installed_as.some((item) => item.outdated)
+                              ? 'yellow'
+                              : 'green'
+                          }
+                        >
+                          {entry.installed_as.some((item) => item.outdated)
+                            ? 'update available'
+                            : 'installed'}
                         </Badge>
                       </Tooltip>
                     )}
@@ -228,26 +249,35 @@ export const RepositoryCatalog: FC<RepositoryCatalogProps> = ({
                   </Text>
                 </Table.Td>
                 <Table.Td style={{ textAlign: 'right' }}>
-                  <Tooltip
-                    label={
-                      entry.installed_as.length > 0
-                        ? 'Writes another project beside the one you have'
-                        : 'Writes the generator into the workspace as a project'
-                    }
-                  >
-                    <Button
-                      variant="default"
-                      size="compact-sm"
-                      onClick={(event) => {
-                        event.stopPropagation();
-                        openInstallModal(entry);
-                      }}
+                  {entry.installed_as.length > 0 ? (
+                    <Tooltip
+                      label={`Opens the project "${entry.installed_as[0]!.project}"`}
                     >
-                      {entry.installed_as.length > 0
-                        ? 'Install again'
-                        : 'Install'}
-                    </Button>
-                  </Tooltip>
+                      <Button
+                        variant="default"
+                        size="compact-sm"
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          openProject(entry.installed_as[0]!.project);
+                        }}
+                      >
+                        Open
+                      </Button>
+                    </Tooltip>
+                  ) : (
+                    <Tooltip label="Writes the generator into the workspace as a project">
+                      <Button
+                        variant="default"
+                        size="compact-sm"
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          openInstallModal(entry);
+                        }}
+                      >
+                        Install
+                      </Button>
+                    </Tooltip>
+                  )}
                 </Table.Td>
               </Table.Tr>
             ))}

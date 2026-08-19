@@ -119,7 +119,7 @@ export const InstallGeneratorModal: FC<InstallGeneratorModalProps> = ({
             disabled={!form.isValid()}
             type="submit"
           >
-            {entry.installed_as.length > 0 ? 'Install again' : 'Install'}
+            {entry.installed_as.length > 0 ? 'Install a copy' : 'Install'}
           </Button>
         </Group>
       </Stack>

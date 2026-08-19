@@ -31,6 +31,13 @@ vi.mock('@/api/routes/generator-configs', () => ({
   listGeneratorDirs: vi.fn(),
 }));
 
+const navigateMock = vi.fn();
+
+vi.mock('react-router-dom', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('react-router-dom')>()),
+  useNavigate: () => navigateMock,
+}));
+
 const getRepositoriesMock = vi.mocked(getRepositories);
 const getCatalogMock = vi.mocked(getCatalog);
 const checkRepositoryMock = vi.mocked(checkRepository);
@@ -180,7 +187,7 @@ describe('RepositoriesPage', () => {
     expect(screen.getByText(/2 generators/)).toBeInTheDocument();
   });
 
-  it('names the action of a generator already installed', async () => {
+  it('offers to open a generator already installed', async () => {
     getRepositoriesMock.mockResolvedValue([REPOSITORY]);
     listGeneratorDirsMock.mockResolvedValue(['nginx']);
     getCatalogMock.mockResolvedValue({
@@ -203,11 +210,11 @@ describe('RepositoriesPage', () => {
     renderPage();
     await openRepository();
 
-    // What the workspace already holds is stated by the action, so
-    // nothing repeats it beside the name.
-    expect(await screen.findByText('Install again')).toBeInTheDocument();
-    expect(screen.queryByText('installed')).not.toBeInTheDocument();
-    expect(screen.queryByText('update available')).not.toBeInTheDocument();
+    // The badge is what carries at a glance, the action is what the
+    // row is for once the generator is in the workspace.
+    expect(await screen.findByText('installed')).toBeInTheDocument();
+    expect(screen.getByText('Open')).toBeInTheDocument();
+    expect(screen.queryByText('Install')).not.toBeInTheDocument();
   });
 
   it('marks a generator that changed since it was installed', async () => {
@@ -234,7 +241,7 @@ describe('RepositoriesPage', () => {
     await openRepository();
 
     expect(await screen.findByText('update available')).toBeInTheDocument();
-    expect(screen.getByText('Install again')).toBeInTheDocument();
+    expect(screen.getByText('Open')).toBeInTheDocument();
   });
 
   it('opens the details of a generator from its row', async () => {
@@ -315,10 +322,11 @@ describe('RepositoriesPage', () => {
 
     renderPage();
     await openRepository();
-    await screen.findByText('Nginx Access Logs');
 
-    const [installButton] = screen.getAllByText('Install again');
-    await userEvent.click(installButton!);
+    // Installing another copy is a step deeper, in the card of the
+    // generator, since the row is about the project already there.
+    await userEvent.click(await screen.findByText('Nginx Access Logs'));
+    await userEvent.click(await screen.findByText('Install another copy'));
 
     await waitFor(() =>
       expect(
@@ -328,6 +336,33 @@ describe('RepositoriesPage', () => {
     expect(document.body.textContent).toContain(
       'Already installed as web-nginx'
     );
+  });
+
+  it('opens the project a generator is installed as', async () => {
+    getRepositoriesMock.mockResolvedValue([REPOSITORY]);
+    listGeneratorDirsMock.mockResolvedValue(['nginx']);
+    getCatalogMock.mockResolvedValue({
+      ...CATALOG,
+      entries: [
+        {
+          ...ENTRY,
+          installed_as: [
+            {
+              project: 'nginx',
+              revision: 'a'.repeat(40),
+              installed_at: '2026-08-19T10:00:00Z',
+              outdated: false,
+            },
+          ],
+        },
+      ],
+    });
+
+    renderPage();
+    await openRepository();
+    await userEvent.click(await screen.findByText('Open'));
+
+    expect(navigateMock).toHaveBeenCalledWith('/projects/nginx');
   });
 
   it('reports a repository that cannot be fetched', async () => {

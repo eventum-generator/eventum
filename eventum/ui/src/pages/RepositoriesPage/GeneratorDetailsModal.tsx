@@ -25,6 +25,10 @@ interface GeneratorDetailsModalProps {
   catalog: Catalog;
   entry: CatalogEntry;
   onInstall: () => void;
+  /** Opens one of the projects the generator is installed as. Passed
+   *  in rather than navigated to here: modal content is rendered
+   *  outside the router. */
+  onOpenProject: (projectName: string) => void;
 }
 
 const Fact: FC<{ label: string; children: React.ReactNode }> = ({
@@ -51,6 +55,7 @@ export const GeneratorDetailsModal: FC<GeneratorDetailsModalProps> = ({
   catalog,
   entry,
   onInstall,
+  onOpenProject,
 }) => {
   const sourceUrl = buildEntryUrl(repository.url, repository.ref, entry.path);
 
@@ -97,7 +102,14 @@ export const GeneratorDetailsModal: FC<GeneratorDetailsModalProps> = ({
             <Stack gap={4}>
               {entry.installed_as.map((installed) => (
                 <Group key={installed.project} gap="xs">
-                  <Text size="sm">{installed.project}</Text>
+                  <Anchor
+                    component="button"
+                    type="button"
+                    size="sm"
+                    onClick={() => onOpenProject(installed.project)}
+                  >
+                    {installed.project}
+                  </Anchor>
                   <Badge
                     size="xs"
                     variant="light"
@@ -120,7 +132,7 @@ export const GeneratorDetailsModal: FC<GeneratorDetailsModalProps> = ({
           Close
         </Button>
         <Button onClick={onInstall}>
-          {entry.installed_as.length > 0 ? 'Install again' : 'Install'}
+          {entry.installed_as.length > 0 ? 'Install another copy' : 'Install'}
         </Button>
       </Group>
     </Stack>
