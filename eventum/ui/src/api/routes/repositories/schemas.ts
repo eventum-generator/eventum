@@ -16,9 +16,14 @@ export const RepositorySchema = z.object({
 });
 export type Repository = z.infer<typeof RepositorySchema>;
 
+// A moment the server stamps arrives in UTC, while the time a commit
+// was authored at carries the offset of whoever authored it, so every
+// moment here is read with an offset allowed.
+const moment = () => z.iso.datetime({ offset: true });
+
 export const RepositoryStatusSchema = z.object({
   state: z.enum(['unknown', 'available', 'unavailable']),
-  checked_at: z.iso.datetime().nullable(),
+  checked_at: moment().nullable(),
   reason: z.string().nullable(),
 });
 export type RepositoryStatus = z.infer<typeof RepositoryStatusSchema>;
@@ -34,7 +39,7 @@ export type ConnectedRepositories = z.infer<typeof ConnectedRepositoriesSchema>;
 export const InstalledProjectSchema = z.object({
   project: z.string(),
   revision: z.string(),
-  installed_at: z.iso.datetime(),
+  installed_at: moment(),
   outdated: z.boolean(),
 });
 export type InstalledProject = z.infer<typeof InstalledProjectSchema>;
@@ -52,9 +57,44 @@ export type CatalogEntry = z.infer<typeof CatalogEntrySchema>;
 
 export const CatalogSchema = z.object({
   revision: z.string(),
-  refreshed_at: z.iso.datetime(),
-  committed_at: z.iso.datetime(),
+  refreshed_at: moment(),
+  committed_at: moment(),
   author: z.string().nullable(),
   entries: z.array(CatalogEntrySchema),
 });
 export type Catalog = z.infer<typeof CatalogSchema>;
+
+// What a repository publishing generators in the open says about
+// itself, republished by the instance as it was read.
+export const DiscoveredRepositorySchema = z.object({
+  name: z.string(),
+  full_name: z.string(),
+  url: z.string(),
+  page_url: z.string(),
+  owner: z.string(),
+  description: z.string().nullable(),
+  topics: z.array(z.string()),
+  stars: z.number().int(),
+  updated_at: moment().nullable(),
+  license: z.string().nullable(),
+  archived: z.boolean(),
+  official: z.boolean(),
+  connected: z.boolean(),
+});
+export type DiscoveredRepository = z.infer<typeof DiscoveredRepositorySchema>;
+
+export const DiscoveryRateSchema = z.object({
+  remaining: z.number().int().nullable(),
+  reset_at: moment().nullable(),
+});
+export type DiscoveryRate = z.infer<typeof DiscoveryRateSchema>;
+
+export const DiscoverySchema = z.object({
+  topic: z.string(),
+  query: z.string(),
+  entries: z.array(DiscoveredRepositorySchema),
+  total_count: z.number().int(),
+  refreshed_at: moment(),
+  rate: DiscoveryRateSchema,
+});
+export type Discovery = z.infer<typeof DiscoverySchema>;
