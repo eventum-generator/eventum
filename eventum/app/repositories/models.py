@@ -268,6 +268,122 @@ class Catalog(BaseModel, extra='forbid', frozen=True):
     entries: list[CatalogEntry]
 
 
+class DiscoveryRate(BaseModel, extra='forbid', frozen=True):
+    """Quota left for searching the published repositories.
+
+    Attributes
+    ----------
+    remaining : int | None, default=None
+        Number of searches left before the quota is spent.
+
+    reset_at : datetime | None, default=None
+        Moment the quota is restored at.
+
+    """
+
+    remaining: int | None = None
+    reset_at: datetime | None = None
+
+
+class DiscoveredRepository(BaseModel, extra='forbid', frozen=True):
+    """Repository publishing generators in the open.
+
+    Everything but `connected` is what the repository states about
+    itself, republished as it was read - nothing here is reviewed.
+
+    Attributes
+    ----------
+    name : str
+        Name of the repository.
+
+    full_name : str
+        Name of the repository with the owner it belongs to.
+
+    url : str
+        URL the repository is fetched from.
+
+    page_url : str
+        URL of the page the repository is presented on.
+
+    owner : str
+        Owner the repository belongs to.
+
+    description : str | None, default=None
+        What the repository says it holds.
+
+    topics : tuple[str, ...], default=()
+        Topics the repository carries.
+
+    stars : int, default=0
+        Number of stars the repository has.
+
+    updated_at : datetime | None, default=None
+        Moment the repository was last pushed to.
+
+    license : str | None, default=None
+        License the repository is published under.
+
+    archived : bool, default=False
+        Whether the repository is archived by its owner.
+
+    official : bool, default=False
+        Whether the repository is published by Eventum itself.
+
+    connected : bool, default=False
+        Whether this instance is already connected to the repository.
+
+    """
+
+    name: str = Field(max_length=255)
+    full_name: str = Field(max_length=512)
+    url: str = Field(max_length=2048)
+    page_url: str = Field(max_length=2048)
+    owner: str = Field(max_length=255)
+    description: str | None = Field(default=None, max_length=1000)
+    topics: tuple[str, ...] = Field(default=(), max_length=32)
+    stars: int = 0
+    updated_at: datetime | None = None
+    license: str | None = Field(default=None, max_length=64)
+    archived: bool = False
+    official: bool = False
+    connected: bool = False
+
+
+class Discovery(BaseModel, extra='forbid', frozen=True):
+    """Repositories published in the open, as read at a moment.
+
+    Attributes
+    ----------
+    topic : str
+        Topic a repository carries to appear in the list.
+
+    query : str
+        Words the list was narrowed with, empty when it was not.
+
+    entries : tuple[DiscoveredRepository, ...]
+        Repositories that were found, the ones published by Eventum
+        first and the rest by the stars they carry.
+
+    total_count : int
+        Number of repositories matching in total, of which this is one
+        page.
+
+    refreshed_at : datetime
+        Moment the list was read at.
+
+    rate : DiscoveryRate
+        Quota left for searching again.
+
+    """
+
+    topic: str
+    query: str
+    entries: tuple[DiscoveredRepository, ...]
+    total_count: int
+    refreshed_at: datetime
+    rate: DiscoveryRate
+
+
 def identify_repository(url: str) -> str:
     """Return the identity of the repository an URL points at.
 

@@ -23,6 +23,14 @@ class RepositorySecretError(RepositoryError):
     """Secret a repository authenticates with cannot be read."""
 
 
+class RepositoryDiscoveryError(RepositoryError):
+    """Repositories published in the open cannot be searched."""
+
+
+class RepositoryDiscoveryLimitError(RepositoryDiscoveryError):
+    """Searching is refused until the quota of this address resets."""
+
+
 class CatalogError(RepositoryError):
     """Fetched repository does not hold a readable catalog."""
 

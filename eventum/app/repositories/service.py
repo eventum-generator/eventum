@@ -5,14 +5,20 @@ import tempfile
 import threading
 from collections.abc import Iterator
 from contextlib import contextmanager
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import UTC, datetime
 from pathlib import Path
+from typing import cast
 
 import structlog
 from pydantic import ValidationError
 
 from eventum.app.repositories.catalog import read_catalog
+from eventum.app.repositories.discovery import (
+    DISCOVERY_TOPIC,
+    normalize_query,
+    search_repositories,
+)
 from eventum.app.repositories.exceptions import (
     CatalogEntryNotFoundError,
     RepositoryConflictError,
@@ -31,6 +37,9 @@ from eventum.app.repositories.models import (
     Catalog,
     CatalogEntry,
     ConnectedRepository,
+    DiscoveredRepository,
+    Discovery,
+    DiscoveryRate,
     InstalledProject,
     Repository,
     RepositoryList,
@@ -50,7 +59,30 @@ logger = structlog.stdlib.get_logger()
 _CACHE_PREFIX = 'eventum-repositories-'
 _REPO_DIRNAME = 'repo'
 
+# How long a read list of published repositories stands before it is
+# read again. Long enough that browsing the list never spends the
+# small quota an anonymous search has, short enough that a repository
+# published today is found today.
+DEFAULT_DISCOVERY_TTL = 600.0
+
+# How many searches are held at once. Every word typed into the search
+# box is a search of its own, so what is held is capped and the oldest
+# of it gives way rather than growing for as long as the instance runs.
+DISCOVERY_CACHE_LIMIT = 32
+
 _UNKNOWN = RepositoryStatus(state='unknown')
+
+
+def _ordered(
+    entries: tuple[DiscoveredRepository, ...],
+) -> tuple[DiscoveredRepository, ...]:
+    """Order published repositories, the official ones first.
+
+    GitHub already returns them by stars, and the repositories Eventum
+    publishes itself are lifted above the rest, so the list opens on
+    what a first-time reader is looking for.
+    """
+    return tuple(sorted(entries, key=lambda entry: not entry.official))
 
 
 def _available() -> RepositoryStatus:
@@ -65,6 +97,21 @@ def _unavailable(error: RepositoryFetchError) -> RepositoryStatus:
         checked_at=datetime.now(tz=UTC),
         reason=str(error.context.get('reason') or error),
     )
+
+
+@dataclass(frozen=True)
+class _Discovered:
+    """Published repositories as one search returned them.
+
+    Held to answer the same search again without spending the quota,
+    and to revalidate it with the entity tag it came with.
+    """
+
+    entries: tuple[DiscoveredRepository, ...]
+    total_count: int
+    etag: str | None
+    refreshed_at: datetime
+    rate: DiscoveryRate
 
 
 @dataclass
@@ -106,6 +153,7 @@ class Repositories:
         generators_dir: Path,
         config_filename: str,
         fetch_timeout: float = DEFAULT_FETCH_TIMEOUT,
+        discovery_ttl: float = DEFAULT_DISCOVERY_TTL,
     ) -> None:
         """Initialize Repositories.
 
@@ -123,6 +171,10 @@ class Repositories:
         fetch_timeout : float, default=DEFAULT_FETCH_TIMEOUT
             Timeout of a single fetch operation, in seconds.
 
+        discovery_ttl : float, default=DEFAULT_DISCOVERY_TTL
+            How long a read list of published repositories stands
+            before it is read again, in seconds.
+
         """
         self._file = RepositoriesFile(file_path=file_path)
         self._generators_dir = generators_dir
@@ -132,6 +184,9 @@ class Repositories:
         self._fetched: dict[str, _Fetched] = {}
         self._statuses: dict[str, RepositoryStatus] = {}
         self._fetch_locks: dict[str, threading.Lock] = {}
+        self._discovery_ttl = discovery_ttl
+        self._discovered: dict[tuple[str, int], _Discovered] = {}
+        self._discovery_lock = threading.Lock()
         self._cache_dir: Path | None = None
         self._closed = False
         self._lock = threading.RLock()
@@ -369,6 +424,142 @@ class Repositories:
         finally:
             with self._lock:
                 self._release(fetched)
+
+    def discover(self, query: str | None = None, page: int = 1) -> Discovery:
+        """Search the repositories that publish generators in the open.
+
+        A repository appears in the list by carrying the topic that
+        defines it, so what is returned is published by its authors
+        and reviewed by nobody. What was read is held for a while and
+        answered from, since an anonymous search has a small quota.
+
+        Parameters
+        ----------
+        query : str | None, default=None
+            Words to narrow the list with.
+
+        page : int, default=1
+            Page of the results, counted from one.
+
+        Returns
+        -------
+        Discovery
+            Published repositories, the ones published by Eventum
+            first and the rest by the stars they carry, each marked
+            with whether this instance is already connected to it.
+
+        Raises
+        ------
+        RepositoryDiscoveryLimitError
+            If searching is refused until the quota resets.
+
+        RepositoryDiscoveryError
+            If the repositories cannot be searched.
+
+        RepositoryError
+            If the repositories file cannot be read or validated.
+
+        """
+        words = normalize_query(query)
+        discovered = self._search(words, page)
+
+        return Discovery(
+            topic=DISCOVERY_TOPIC,
+            query=words,
+            entries=self._mark_connected(discovered.entries),
+            total_count=discovered.total_count,
+            refreshed_at=discovered.refreshed_at,
+            rate=discovered.rate,
+        )
+
+    def _search(self, words: str, page: int) -> _Discovered:
+        """Return the answer of a search, reading it again when stale.
+
+        The lock is held across the request, so several callers asking
+        at once spend one search between them rather than one each.
+        """
+        key = (words, page)
+
+        with self._discovery_lock:
+            held = self._discovered.get(key)
+
+            if held is not None and not self._is_stale(held):
+                return held
+
+            search = search_repositories(
+                query=words,
+                page=page,
+                etag=held.etag if held is not None else None,
+            )
+            now = datetime.now(tz=UTC)
+
+            if search.modified:
+                held = _Discovered(
+                    entries=_ordered(search.entries),
+                    total_count=search.total_count,
+                    etag=search.etag,
+                    refreshed_at=now,
+                    rate=search.rate,
+                )
+            else:
+                # Nothing changed since the answer was read, so it
+                # stands as it is and only its age is reset.
+                held = replace(
+                    cast('_Discovered', held),
+                    refreshed_at=now,
+                    rate=search.rate,
+                )
+
+            self._discovered[key] = held
+            self._forget_oldest_searches()
+
+            return held
+
+    def _forget_oldest_searches(self) -> None:
+        """Drop the oldest searches once too many are held."""
+        excess = len(self._discovered) - DISCOVERY_CACHE_LIMIT
+
+        if excess <= 0:
+            return
+
+        oldest = sorted(
+            self._discovered,
+            key=lambda key: self._discovered[key].refreshed_at,
+        )
+
+        for key in oldest[:excess]:
+            del self._discovered[key]
+
+    def _is_stale(self, discovered: _Discovered) -> bool:
+        """Whether a read list is old enough to be read again."""
+        age = datetime.now(tz=UTC) - discovered.refreshed_at
+
+        return age.total_seconds() >= self._discovery_ttl
+
+    def _mark_connected(
+        self,
+        entries: tuple[DiscoveredRepository, ...],
+    ) -> tuple[DiscoveredRepository, ...]:
+        """Mark the repositories this instance is already connected to.
+
+        The connected list is read here rather than when the search
+        runs, so a repository connected since is marked without
+        searching again.
+        """
+        with self._lock:
+            connected = {
+                identify_repository(repository.url)
+                for repository in self._read().root
+            }
+
+        return tuple(
+            entry.model_copy(
+                update={
+                    'connected': identify_repository(entry.url) in connected,
+                },
+            )
+            for entry in entries
+        )
 
     def install(self, name: str, entry: str, project_name: str) -> int:
         """Install a published generator as a project.
