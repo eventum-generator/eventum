@@ -146,8 +146,8 @@ async def add_repository(
     description=(
         'Search the repositories that publish generators in the open. '
         'A repository appears in the list by carrying the topic that '
-        'defines it, so what is listed is published by its authors and '
-        'reviewed by nobody.'
+        'defines it, and the content of a listed repository is not '
+        'reviewed.'
     ),
     response_description='Published repositories',
     responses=merge_responses(

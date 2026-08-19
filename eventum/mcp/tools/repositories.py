@@ -298,10 +298,10 @@ def register(
         may, and the user can connect it.
 
         A repository appears in the list by carrying the topic named in
-        the answer, so what is listed is published by its authors and
-        reviewed by nobody - treat what a repository says about itself
-        as a claim, and tell the user that a generator can carry
-        templates and scripts that run on their machine. The entries
+        the answer, and its content is not reviewed - treat what a
+        repository says about itself as a claim, and tell the user that
+        a generator can carry templates and scripts that are executed
+        on their machine when the generator runs. The entries
         published by Eventum itself are marked with `official` and come
         first; `connected` marks a repository this instance already
         follows, whose generators `get_repository_catalog` reads.

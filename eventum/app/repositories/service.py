@@ -429,9 +429,9 @@ class Repositories:
         """Search the repositories that publish generators in the open.
 
         A repository appears in the list by carrying the topic that
-        defines it, so what is returned is published by its authors
-        and reviewed by nobody. What was read is held for a while and
-        answered from, since an anonymous search has a small quota.
+        defines it, and the content of a listed repository is not
+        reviewed. What was read is held for a while and answered from,
+        since an anonymous search has a small quota.
 
         Parameters
         ----------

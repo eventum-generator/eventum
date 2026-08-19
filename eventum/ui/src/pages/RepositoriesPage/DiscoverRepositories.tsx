@@ -114,8 +114,8 @@ const RepositoryCard: FC<{
  * Repositories that publish generators in the open.
  *
  * A repository appears here by carrying the topic the answer names, so
- * the list is what its authors published about themselves and is
- * reviewed by nobody - which the page states rather than implies.
+ * the list is what its authors published about themselves and is not
+ * reviewed - which the page states rather than implies.
  */
 export const DiscoverRepositories: FC<DiscoverRepositoriesProps> = ({
   onConnect,
@@ -135,11 +135,12 @@ export const DiscoverRepositories: FC<DiscoverRepositoriesProps> = ({
       <Alert
         variant="default"
         icon={<AlertIcon variant="warn" />}
-        title="Published by their authors, reviewed by nobody"
+        title="Community repositories are not reviewed"
       >
-        Anyone can publish a repository here. A generator can carry templates
-        and scripts that run on this machine when the generator runs, so read
-        what you install and connect only repositories you trust.
+        Any repository carrying the topic is listed here, and its content is not
+        reviewed by Eventum. A generator can carry templates and scripts that
+        are executed on this machine when the generator runs, so review what you
+        install and connect only repositories you trust.
       </Alert>
 
       <Group justify="space-between" align="center">

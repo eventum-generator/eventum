@@ -538,7 +538,7 @@ describe('RepositoriesPage', () => {
     ).toBeInTheDocument();
     // What the list is must be stated, not implied.
     expect(
-      screen.getByText('Published by their authors, reviewed by nobody')
+      screen.getByText('Community repositories are not reviewed')
     ).toBeInTheDocument();
   });
 
