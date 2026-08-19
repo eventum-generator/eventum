@@ -1,6 +1,10 @@
 """Tests for AST-based globals detector."""
 
-from eventum.api.routers.generator_configs.globals_detector import (
+from pathlib import Path
+from unittest.mock import patch
+
+from eventum.core.globals_usage import (
+    collect_globals_usage,
     detect_globals_usage,
 )
 
@@ -170,3 +174,89 @@ def test_detect_script_with_syntax_error():
     assert len(result.writes) == 0
     assert len(result.reads) == 0
     assert len(result.warnings) == 0
+
+
+# --- collect_globals_usage ---
+
+
+def test_collect_finds_templates_recursively(tmp_path):
+    (tmp_path / 'root.jinja').write_text('{%- do globals.set("a", 1) -%}')
+    sub = tmp_path / 'sub'
+    sub.mkdir()
+    (sub / 'nested.j2').write_text('{%- set x = globals.get("b", 0) -%}')
+
+    usage = collect_globals_usage(tmp_path)
+
+    assert {w.key for w in usage.writes} == {'a'}
+    assert {r.key for r in usage.reads} == {'b'}
+    paths = {w.path for w in usage.writes}
+    paths |= {r.path for r in usage.reads}
+    assert paths == {'root.jinja', str(Path('sub') / 'nested.j2')}
+
+
+def test_collect_skips_non_template_files(tmp_path):
+    (tmp_path / 'data.txt').write_text('{%- do globals.set("x", 1) -%}')
+    (tmp_path / 'config.yml').write_text('{%- do globals.set("y", 1) -%}')
+
+    usage = collect_globals_usage(tmp_path)
+
+    assert usage.writes == []
+    assert usage.reads == []
+
+
+def test_collect_finds_scripts(tmp_path):
+    scripts = tmp_path / 'scripts'
+    scripts.mkdir()
+    (scripts / 'produce.py').write_text(
+        'def produce(params):\n'
+        "    state = params['globals']\n"
+        "    state.set('pool', [1])\n"
+        "    return str(state.get('counter', 0))\n"
+    )
+    (tmp_path / 'event.jinja').write_text(
+        '{%- set x = globals.get("pool") -%}'
+    )
+
+    usage = collect_globals_usage(tmp_path)
+
+    assert {(w.key, w.path) for w in usage.writes} == {
+        ('pool', str(Path('scripts') / 'produce.py'))
+    }
+    assert {(r.key, r.path) for r in usage.reads} == {
+        ('counter', str(Path('scripts') / 'produce.py')),
+        ('pool', 'event.jinja'),
+    }
+
+
+def test_collect_empty_dir(tmp_path):
+    usage = collect_globals_usage(tmp_path)
+
+    assert usage.writes == []
+    assert usage.reads == []
+    assert usage.warnings == []
+
+
+def test_collect_merges_warnings(tmp_path):
+    (tmp_path / 'template.j2').write_text('{%- do globals.update(data) -%}')
+
+    usage = collect_globals_usage(tmp_path)
+
+    assert len(usage.warnings) == 1
+    assert usage.warnings[0].type == 'update_call'
+
+
+def test_collect_skips_unreadable_file(tmp_path):
+    (tmp_path / 'good.j2').write_text('{%- do globals.set("a", 1) -%}')
+    (tmp_path / 'bad.j2').write_text('{%- do globals.set("b", 1) -%}')
+
+    real_read_text = Path.read_text
+
+    def fake_read_text(self, *args, **kwargs):
+        if self.name == 'bad.j2':
+            raise OSError('boom')
+        return real_read_text(self, *args, **kwargs)
+
+    with patch.object(Path, 'read_text', fake_read_text):
+        usage = collect_globals_usage(tmp_path)
+
+    assert {w.key for w in usage.writes} == {'a'}

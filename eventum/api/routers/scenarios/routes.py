@@ -1,7 +1,6 @@
 """Routes."""
 
 import asyncio
-from pathlib import Path
 from typing import Annotated, Any
 
 import structlog
@@ -9,11 +8,6 @@ from fastapi import APIRouter, Body, HTTPException, status
 from fastapi import Path as FastApiPath
 
 from eventum.api.dependencies.app import SettingsDep, StartupDep
-from eventum.api.routers.generator_configs.globals_detector import (
-    SUPPORTED_SUFFIXES,
-    GlobalsUsage,
-    detect_globals_usage,
-)
 from eventum.api.routers.scenarios.dependencies import (
     CheckScenarioExistsDep,
     check_scenario_exists,
@@ -33,6 +27,7 @@ from eventum.app.startup import (
     StartupNotFoundError,
 )
 from eventum.app.workspace import WorkspaceError, resolve_generator_dir
+from eventum.core.globals_usage import collect_globals_usage
 from eventum.plugins.event.state import GLOBAL_STATE
 from eventum.utils.json_utils import normalize_types
 
@@ -47,44 +42,6 @@ _STARTUP_ERROR_RESPONSES: dict[int | str, dict[str, Any]] = {
         ),
     },
 }
-
-
-def _collect_globals_usage(generator_dir: Path) -> GlobalsUsage:
-    """Scan a generator directory for templates and scripts and detect
-    globals usage across all of them.
-
-    Walks the directory tree once, reads each file, and runs AST
-    detection. Performs blocking filesystem IO and CPU-bound parsing,
-    so it must run in a worker thread to avoid blocking the event
-    loop.
-
-    Parameters
-    ----------
-    generator_dir : Path
-        Resolved generator directory to scan.
-
-    Returns
-    -------
-    GlobalsUsage
-        Merged writes, reads, and warnings from all files.
-
-    """
-    usage = GlobalsUsage()
-
-    for filepath in generator_dir.rglob('*'):
-        if filepath.suffix not in SUPPORTED_SUFFIXES or not filepath.is_file():
-            continue
-
-        rel_path = str(filepath.relative_to(generator_dir))
-        try:
-            content = filepath.read_text(encoding='utf-8')
-        except OSError:
-            logger.warning('Failed to read file', path=str(filepath))
-            continue
-
-        usage.merge(detect_globals_usage(content, rel_path))
-
-    return usage
 
 
 @router.get(
@@ -322,7 +279,7 @@ async def get_generator_globals_usage(
             detail=f'Generator configuration not found: {generator_name}',
         )
 
-    usage = await asyncio.to_thread(_collect_globals_usage, generator_dir)
+    usage = await asyncio.to_thread(collect_globals_usage, generator_dir)
 
     return GlobalsUsageResponse(
         writes=[

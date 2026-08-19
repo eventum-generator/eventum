@@ -1,18 +1,25 @@
-"""Detect globals usage in generator sources via AST analysis.
+"""Detect the global state a generator project reads and writes.
 
 A generator touches the global state from its Jinja2 templates and from
 the script of its `script` event plugin. Both are parsed here - with
 the Jinja2 parser and the Python one - and reported the same way: the
 keys a file writes, the keys it reads, and the calls whose keys cannot
 be resolved without running the file.
+
+The analysis is static: nothing of the project is imported or rendered,
+so a key a file builds at runtime is reported as a warning instead of
+being guessed.
 """
 
 import ast
 from dataclasses import dataclass, field
-from pathlib import PurePath
+from pathlib import Path, PurePath
 from typing import Literal
 
+import structlog
 from jinja2 import Environment, nodes
+
+logger = structlog.stdlib.get_logger()
 
 WarningType = Literal['dynamic_key', 'update_call']
 
@@ -57,6 +64,45 @@ class GlobalsUsage:
 
 
 _ENV = Environment(extensions=['jinja2.ext.do', 'jinja2.ext.loopcontrols'])
+
+
+def collect_globals_usage(generator_dir: Path) -> GlobalsUsage:
+    """Detect globals usage across a whole generator project.
+
+    Walks the directory tree once, reads every template and script, and
+    runs AST detection over each of them. Performs blocking filesystem
+    IO and CPU-bound parsing, so it must run in a worker thread to
+    avoid blocking an event loop.
+
+    Parameters
+    ----------
+    generator_dir : Path
+        Resolved generator directory to scan.
+
+    Returns
+    -------
+    GlobalsUsage
+        Merged writes, reads, and warnings from all files of the
+        project. A file that cannot be read is skipped.
+
+    """
+    usage = GlobalsUsage()
+
+    for filepath in generator_dir.rglob('*'):
+        if filepath.suffix not in SUPPORTED_SUFFIXES or not filepath.is_file():
+            continue
+
+        rel_path = str(filepath.relative_to(generator_dir))
+
+        try:
+            content = filepath.read_text(encoding='utf-8')
+        except OSError:
+            logger.warning('Failed to read file', path=str(filepath))
+            continue
+
+        usage.merge(detect_globals_usage(content, rel_path))
+
+    return usage
 
 
 def detect_globals_usage(content: str, path: str) -> GlobalsUsage:
