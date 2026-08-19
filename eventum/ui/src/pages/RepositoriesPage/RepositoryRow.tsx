@@ -93,7 +93,10 @@ export const RepositoryRow: FC<RepositoryRowProps> = ({
           <Tooltip label="Refresh catalog">
             <ActionIcon
               variant="subtle"
-              color="gray"
+              // The icon carries the text colour rather than the dimmed
+              // grey a control defaults to: it sits beside the red of
+              // disconnecting, where a dimmed glyph reads as disabled.
+              c="var(--mantine-color-text)"
               aria-label="Refresh catalog"
               loading={refreshCatalog.isPending}
               onClick={handleRefresh}
