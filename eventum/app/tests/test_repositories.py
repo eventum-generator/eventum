@@ -7,6 +7,7 @@ from wsgiref.simple_server import WSGIRequestHandler, make_server
 
 import pytest
 from dulwich import porcelain
+from dulwich.objects import Blob, Commit, Tree
 from dulwich.repo import Repo
 from dulwich.server import DictBackend
 from dulwich.web import make_wsgi_chain
@@ -23,17 +24,33 @@ from eventum.app.repositories import (
     RepositoryError,
     RepositoryFetchError,
     RepositoryNotFoundError,
+    RepositorySecretError,
 )
-from eventum.app.repositories.catalog import read_catalog
+from eventum.app.repositories.catalog import MAX_TREE_DEPTH, read_catalog
 from eventum.app.repositories.fetching import (
+    _failure_context,
     fetch_repository,
     probe_repository,
 )
-from eventum.app.repositories.installed import SOURCE_FILENAME, read_source
+from eventum.app.repositories.source import (
+    SOURCE_FILENAME,
+    build_source,
+    read_source,
+)
 from eventum.app.repositories.installing import install_entry
 from eventum.app.repositories.storage import RepositoriesFile
+from eventum.security.manage import SECURITY_SETTINGS
 
 CONFIG_FILENAME = 'generator.yml'
+
+SOURCE = build_source(
+    repository='packs',
+    url='https://example.com/packs.git',
+    ref=None,
+    entry='web-nginx',
+    revision='0' * 40,
+    tree='b' * 40,
+)
 
 README = (
     '# Nginx Access Logs\n'
@@ -371,6 +388,154 @@ def test_probe_does_not_hint_when_credentials_are_named(unauthorized_url):
     assert 'hint' not in info.value.context
 
 
+def test_failure_hides_the_secret_it_was_given():
+    repository = Repository(name='packs', url='https://example.com/p.git')
+
+    context = _failure_context(
+        repository,
+        'ghp_secret_token',
+        RuntimeError('rejected ghp_secret_token for packs'),
+    )
+
+    assert 'ghp_secret_token' not in context['reason']
+    assert '***' in context['reason']
+
+
+def test_catalog_reads_a_tree_that_lists_one_subtree_twice(tmp_path):
+    # A tree that names the same subtree from many places is a graph,
+    # not a hierarchy: walking every path through it costs 2^n, so
+    # what has been walked is remembered. Without that, this never
+    # returns.
+    source = tmp_path / 'looping'
+    source.mkdir()
+    repo = Repo.init(str(source))
+    store = repo.object_store
+
+    blob = Blob.from_string(b'x')
+    store.add_object(blob)
+
+    level = Tree()
+    level.add(b'generator.yml', 0o100644, blob.id)
+    store.add_object(level)
+
+    for _ in range(40):
+        nested = Tree()
+        nested.add(b'a', 0o040000, level.id)
+        nested.add(b'b', 0o040000, level.id)
+        store.add_object(nested)
+        level = nested
+
+    entry = Tree()
+    entry.add(b'generator.yml', 0o100644, blob.id)
+    entry.add(b'templates', 0o040000, level.id)
+    store.add_object(entry)
+
+    generators = Tree()
+    generators.add(b'web-nginx', 0o040000, entry.id)
+    store.add_object(generators)
+
+    root = Tree()
+    root.add(b'generators', 0o040000, generators.id)
+    store.add_object(root)
+
+    commit = Commit()
+    commit.tree = root.id
+    commit.author = commit.committer = b'Tester <tester@example.com>'
+    commit.commit_time = commit.author_time = 0
+    commit.commit_timezone = commit.author_timezone = 0
+    commit.message = b'looping'
+    store.add_object(commit)
+    revision = commit.id.decode()
+    repo.close()
+
+    catalog = read_catalog(source, revision, config_filename=CONFIG_FILENAME)
+
+    assert [entry.name for entry in catalog.entries] == ['web-nginx']
+
+
+def test_catalog_refuses_a_tree_nested_too_deeply(tmp_path):
+    source = tmp_path / 'deep'
+    source.mkdir()
+    repo = Repo.init(str(source))
+    store = repo.object_store
+
+    blob = Blob.from_string(b'x')
+    store.add_object(blob)
+
+    level = Tree()
+    level.add(b'generator.yml', 0o100644, blob.id)
+    store.add_object(level)
+
+    for depth in range(MAX_TREE_DEPTH + 2):
+        nested = Tree()
+        nested.add(f'level-{depth}'.encode(), 0o040000, level.id)
+        store.add_object(nested)
+        level = nested
+
+    entry = Tree()
+    entry.add(b'generator.yml', 0o100644, blob.id)
+    entry.add(b'templates', 0o040000, level.id)
+    store.add_object(entry)
+
+    generators = Tree()
+    generators.add(b'web-nginx', 0o040000, entry.id)
+    store.add_object(generators)
+
+    root = Tree()
+    root.add(b'generators', 0o040000, generators.id)
+    store.add_object(root)
+
+    commit = Commit()
+    commit.tree = root.id
+    commit.author = commit.committer = b'Tester <tester@example.com>'
+    commit.commit_time = commit.author_time = 0
+    commit.commit_timezone = commit.author_timezone = 0
+    commit.message = b'deep'
+    store.add_object(commit)
+    revision = commit.id.decode()
+    repo.close()
+
+    with pytest.raises(CatalogError):
+        read_catalog(source, revision, config_filename=CONFIG_FILENAME)
+
+
+def test_catalog_refuses_a_directory_that_is_not_one(tmp_path):
+    source = tmp_path / 'confused'
+    source.mkdir()
+    repo = Repo.init(str(source))
+    store = repo.object_store
+
+    blob = Blob.from_string(b'not a tree')
+    store.add_object(blob)
+
+    entry = Tree()
+    entry.add(b'generator.yml', 0o100644, blob.id)
+    # A blob behind an entry that claims to be a directory.
+    entry.add(b'templates', 0o040000, blob.id)
+    store.add_object(entry)
+
+    generators = Tree()
+    generators.add(b'web-nginx', 0o040000, entry.id)
+    store.add_object(generators)
+
+    root = Tree()
+    root.add(b'generators', 0o040000, generators.id)
+    store.add_object(root)
+
+    commit = Commit()
+    commit.tree = root.id
+    commit.author = commit.committer = b'Tester <tester@example.com>'
+    commit.commit_time = commit.author_time = 0
+    commit.commit_timezone = commit.author_timezone = 0
+    commit.message = b'confused'
+    store.add_object(commit)
+    revision = commit.id.decode()
+    repo.close()
+
+    with pytest.raises(CatalogError):
+        read_catalog(source, revision, config_filename=CONFIG_FILENAME)
+
+
 def test_fetch_reports_empty_remote(tmp_path):
     source = tmp_path / 'empty'
     source.mkdir()
@@ -507,6 +672,7 @@ def test_install_writes_project(fetched, tmp_path):
         generators_dir=generators_dir,
         project_name='nginx',
         config_filename=CONFIG_FILENAME,
+        source=SOURCE,
     )
 
     project = generators_dir / 'nginx'
@@ -527,6 +693,7 @@ def test_install_leaves_no_staging_behind(fetched, tmp_path):
         generators_dir=generators_dir,
         project_name='nginx',
         config_filename=CONFIG_FILENAME,
+        source=SOURCE,
     )
 
     assert [item.name for item in generators_dir.iterdir()] == ['nginx']
@@ -545,6 +712,7 @@ def test_install_reports_existing_project(fetched, tmp_path):
             generators_dir=generators_dir,
             project_name='nginx',
             config_filename=CONFIG_FILENAME,
+            source=SOURCE,
         )
 
 
@@ -560,6 +728,7 @@ def test_install_rejects_project_name(fetched, tmp_path, name):
             generators_dir=tmp_path / 'generators',
             project_name=name,
             config_filename=CONFIG_FILENAME,
+            source=SOURCE,
         )
 
 
@@ -574,6 +743,7 @@ def test_install_reports_unknown_entry(fetched, tmp_path):
             generators_dir=tmp_path / 'generators',
             project_name='nginx',
             config_filename=CONFIG_FILENAME,
+            source=SOURCE,
         )
 
 
@@ -598,6 +768,61 @@ def test_service_serves_cached_catalog(service, repository):
     second = service.get_catalog('packs')
 
     assert first.refreshed_at == second.refreshed_at
+
+
+def test_catalog_follows_the_repository_it_reads(
+    service, repository, source_repo
+):
+    service.add(repository)
+    before = service.get_catalog('packs')
+
+    # A generator added to the repository after the catalog was read
+    # appears once the catalog is read again, and not before.
+    added = source_repo / 'generators' / 'windows-security'
+    added.mkdir()
+    (added / CONFIG_FILENAME).write_text('input: []\n')
+    repo = Repo(str(source_repo))
+    porcelain.add(repo, [str(added / CONFIG_FILENAME)])
+    porcelain.commit(
+        repo,
+        message=b'add a generator',
+        committer=b'Tester <tester@example.com>',
+        author=b'Tester <tester@example.com>',
+    )
+    repo.close()
+
+    assert 'windows-security' not in [e.name for e in before.entries]
+
+    after = service.refresh('packs')
+
+    assert 'windows-security' in [e.name for e in after.entries]
+    assert after.revision != before.revision
+
+
+def test_catalog_marks_a_generator_the_repository_changed(
+    service,
+    repository,
+    source_repo,
+):
+    service.add(repository)
+    service.install('packs', 'web-nginx', 'nginx')
+
+    changed = source_repo / 'generators' / 'web-nginx' / 'templates'
+    (changed / 'event.jinja').write_text('{{ timestamp }} changed')
+    repo = Repo(str(source_repo))
+    porcelain.add(repo, [str(changed / 'event.jinja')])
+    porcelain.commit(
+        repo,
+        message=b'change the generator',
+        committer=b'Tester <tester@example.com>',
+        author=b'Tester <tester@example.com>',
+    )
+    repo.close()
+
+    catalog = service.refresh('packs')
+    entry = next(e for e in catalog.entries if e.name == 'web-nginx')
+
+    assert [item.outdated for item in entry.installed_as] == [True]
 
 
 def test_service_refresh_rereads_catalog(service, repository):
@@ -632,10 +857,12 @@ def test_service_drops_fetched_repository_on_remove(service, repository):
 def test_service_close_drops_everything(service, repository):
     service.add(repository)
     service.get_catalog('packs')
+    cache_dir = service._cache_dir  # noqa: SLF001
 
     service.close()
 
-    assert service._cache_dir is None  # noqa: SLF001
+    assert cache_dir is not None
+    assert not cache_dir.exists()
 
 
 # --- checking and duplicates ---
@@ -805,11 +1032,17 @@ def test_catalog_ignores_an_origin_of_another_repository(
     assert entry.installed_as == ()
 
 
-def test_service_reports_missing_secret(service, git_url):
+def test_service_reports_missing_secret(service, git_url, tmp_path):
+    # The keyring of the machine running the tests is not the one
+    # under test: an empty file of its own is.
+    SECURITY_SETTINGS['cryptfile_location'] = tmp_path / 'keyring.cfg'
     service.add(
         Repository(name='packs', url=git_url, secret='absent-secret'),
         verify=False,
     )
 
-    with pytest.raises(RepositoryFetchError):
-        service.get_catalog('packs')
+    try:
+        with pytest.raises(RepositorySecretError):
+            service.get_catalog('packs')
+    finally:
+        SECURITY_SETTINGS['cryptfile_location'] = None
