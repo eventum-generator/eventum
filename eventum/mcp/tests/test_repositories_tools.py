@@ -12,10 +12,14 @@ from eventum.app.repositories import (
     Catalog,
     CatalogEntry,
     CatalogEntryNotFoundError,
+    DiscoveredRepository,
+    Discovery,
+    DiscoveryRate,
     InstallConflictError,
     InstalledProject,
     Repositories,
     Repository,
+    RepositoryDiscoveryLimitError,
     RepositoryError,
     RepositoryFetchError,
     RepositoryNotFoundError,
@@ -25,6 +29,7 @@ from eventum.mcp.context import AuthoringContext, FileAuthoringContext
 from eventum.mcp.errors import ToolFailure
 from eventum.mcp.server import build_server
 from eventum.mcp.tools.repositories import (
+    discover_repositories,
     get_repository_catalog,
     install_generator,
     list_repositories,
@@ -340,6 +345,73 @@ async def test_install_without_the_secret_fails(
     )
 
 
+# --- discovery ---
+
+DISCOVERY = Discovery(
+    topic='eventum-generators',
+    query='',
+    entries=(
+        DiscoveredRepository(
+            name='content-packs',
+            full_name='eventum-generator/content-packs',
+            url='https://github.com/eventum-generator/content-packs.git',
+            page_url='https://github.com/eventum-generator/content-packs',
+            owner='eventum-generator',
+            description='Ready-made generators',
+            topics=('eventum-generators',),
+            stars=42,
+            updated_at=datetime(2026, 1, 1, tzinfo=UTC),
+            license='Apache-2.0',
+            official=True,
+            connected=True,
+        ),
+    ),
+    total_count=1,
+    refreshed_at=datetime(2026, 1, 1, tzinfo=UTC),
+    rate=DiscoveryRate(remaining=9, reset_at=datetime(2026, 1, 1, tzinfo=UTC)),
+)
+
+
+async def test_discovery_lists_what_is_published(
+    ctx: _StubContext,
+    stub: Mock,
+) -> None:
+    """The list names the topic, the entries and the quota left."""
+    stub.discover.return_value = DISCOVERY
+
+    result = await discover_repositories(ctx, 'nginx', 2)
+
+    assert not isinstance(result, ToolFailure)
+    assert result['topic'] == 'eventum-generators'
+    assert result['entries'][0]['full_name'] == (
+        'eventum-generator/content-packs'
+    )
+    assert result['entries'][0]['connected'] is True
+    assert result['rate']['remaining'] == 9
+    stub.discover.assert_called_once_with('nginx', 2)
+
+
+async def test_discovery_reports_a_spent_quota(
+    ctx: _StubContext,
+    stub: Mock,
+) -> None:
+    """A refused search tells how long to wait before asking again."""
+    stub.discover.side_effect = RepositoryDiscoveryLimitError(
+        'Searching the published repositories is rate limited',
+        context={
+            'reason': 'API rate limit exceeded',
+            'hint': 'wait for the limit to reset',
+            'seconds': 31,
+        },
+    )
+
+    result = await discover_repositories(ctx)
+
+    assert isinstance(result, ToolFailure)
+    assert result.details['seconds'] == 31
+    assert result.details['hint'] == 'wait for the limit to reset'
+
+
 # --- context and registration ---
 
 
@@ -370,6 +442,7 @@ def test_registered_tools_hide_the_context(tmp_path: Path) -> None:
 
     for name in (
         'list_repositories',
+        'discover_repositories',
         'get_repository_catalog',
         'install_generator',
     ):
@@ -384,3 +457,6 @@ def test_registered_tools_hide_the_context(tmp_path: Path) -> None:
         'generator',
         'name',
     }
+    assert set(
+        tools['discover_repositories'].inputSchema['properties'],
+    ) == {'query', 'page'}

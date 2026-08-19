@@ -17,7 +17,7 @@ from eventum.exceptions import ContextualError
 # dropped. `file_path` is relativized to generators_dir (never
 # absolute).
 _ALLOWED_KEYS = frozenset(
-    {'file_path', 'reason', 'value', 'name', 'hint'},
+    {'file_path', 'reason', 'value', 'name', 'hint', 'seconds'},
 )
 
 # Free-text keys scrubbed of absolute paths and secret values before

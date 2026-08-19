@@ -27,6 +27,7 @@ _EXPECTED_TOOLS = {
     'export_generator',
     'import_generator',
     'list_repositories',
+    'discover_repositories',
     'get_repository_catalog',
     'install_generator',
     'validate_generator',

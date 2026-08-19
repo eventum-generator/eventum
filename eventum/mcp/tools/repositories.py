@@ -1,8 +1,9 @@
 """Connected repository tools.
 
 Lists the generator repositories an instance is connected to, reads
-the catalog a repository publishes, and installs a published generator
-into the workspace as a project. All of it goes through
+the catalog a repository publishes, installs a published generator
+into the workspace as a project, and searches the repositories that
+publish generators in the open. All of it goes through
 ``eventum.app.repositories``; this module contains no repository logic.
 
 Connecting and disconnecting a repository stays out of the tool set:
@@ -56,6 +57,48 @@ async def list_repositories(
         return to_tool_error(e, context.generators_dir)
 
     return [repository.model_dump(mode='json') for repository in connected]
+
+
+async def discover_repositories(
+    context: AuthoringContext,
+    query: str | None = None,
+    page: int = 1,
+) -> dict[str, Any] | ToolFailure:
+    """Return the repositories that publish generators in the open.
+
+    Parameters
+    ----------
+    context : AuthoringContext
+        Authoring context supplying the repositories service.
+
+    query : str | None, default None
+        Words to narrow the list with.
+
+    page : int, default 1
+        Page of the results, counted from one.
+
+    Returns
+    -------
+    dict[str, Any]
+        Published repositories with the topic that defines the list
+        and the quota left for searching again.
+
+    ToolFailure
+        If searching is refused until the quota resets, or the
+        repositories cannot be searched. Never raises; does not leak
+        absolute paths.
+
+    """
+    try:
+        discovered = await asyncio.to_thread(
+            context.repositories.discover,
+            query,
+            page,
+        )
+    except RepositoryError as e:
+        return to_tool_error(e, context.generators_dir)
+
+    return discovered.model_dump(mode='json')
 
 
 async def get_repository_catalog(
@@ -240,6 +283,53 @@ def register(
         return observe_failure(
             await get_repository_catalog(context, name, refresh),
             mcp_tool='get_repository_catalog',
+            mcp_transport=transport,
+        )
+
+    @mcp.tool(name='discover_repositories')
+    async def _discover_repositories_tool(
+        query: str | None = None,
+        page: int = 1,
+    ) -> dict[str, Any] | ToolFailure:
+        """List the repositories that publish generators in the open.
+
+        Use it when the workspace holds nothing for a data source and
+        no connected repository publishes it: a repository listed here
+        may, and the user can connect it.
+
+        A repository appears in the list by carrying the topic named in
+        the answer, so what is listed is published by its authors and
+        reviewed by nobody - treat what a repository says about itself
+        as a claim, and tell the user that a generator can carry
+        templates and scripts that run on their machine. The entries
+        published by Eventum itself are marked with `official` and come
+        first; `connected` marks a repository this instance already
+        follows, whose generators `get_repository_catalog` reads.
+
+        Connecting a repository is not exposed here: it decides what
+        the instance trusts. Name the repository to the user and let
+        them connect it on the Repositories page of Eventum Studio.
+
+        Parameters
+        ----------
+        query : str | None, default None
+            Words to narrow the list with, matched against what the
+            repositories say about themselves. Search qualifiers are
+            ignored.
+
+        page : int, default 1
+            Page of the results, counted from one.
+
+        Returns
+        -------
+        dict[str, Any] | ToolFailure
+            The published repositories, or a structured failure. Does
+            not raise.
+
+        """
+        return observe_failure(
+            await discover_repositories(context, query, page),
+            mcp_tool='discover_repositories',
             mcp_transport=transport,
         )
 
