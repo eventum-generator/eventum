@@ -42,9 +42,10 @@ Confirm the version bump with the user before continuing.
 
 ### 2. Changelog
 
-Two artifacts across two repos, each in its own voice:
+Three artifacts across two repos, each in its own voice:
 
 - `eventum` on `develop` - rename `## Unreleased` in `CHANGELOG.md` to `## <version> (<date>)` in YYYY-MM-DD form. When no `Unreleased` section exists, build the section from `git log <latest-tag>..HEAD`. Always re-check the resulting list against `git log <latest-tag>..HEAD` even when an `Unreleased` section was already present - small fixes often land without a CHANGELOG entry. Fill gaps, polish wording. Technical voice, for developers.
+- `eventum` on `develop` - the panels Studio shows after an upgrade, in `eventum/ui/src/releases/index.ts`. Set the newest entry to `<version>` (one is usually already staged from the cycle), point its `changelogHref` at the new page, and check its panels against the changelog. A guard test fails when the newest entry is older than the shipped version.
 - `../docs` - new page at `content/docs/changelog/<version>.mdx`, registered in `content/docs/changelog/meta.json`. User-facing voice: describe what changed for the end user (not developer) - not a one-to-one copy of the CHANGELOG entry. Commits land on a dedicated branch in step 6.
 
 ### 3. Version bump and API reference
@@ -75,7 +76,7 @@ All green is required to advance. On failure, fix in step 2 or 3 and re-run; if 
 Show the user:
 
 - Version bump diff.
-- Changelog entries (CHANGELOG.md + docs MDX).
+- Changelog entries (CHANGELOG.md + docs MDX) and the Studio release panels.
 - API reference diff summary - the exported schema and the regenerated pages.
 - Verification results.
 - What happens next: commits, push, two PRs, user merges both, tag, GitHub release, announcement.
