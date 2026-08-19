@@ -500,24 +500,16 @@ TemplateEventPluginSharedStateDep = Annotated[
 ]
 
 
-@set_responses(
-    responses=merge_responses(
-        get_event_plugin_from_storage.responses,
-        check_event_plugin_is_template.responses,
-    ),
-)
-async def get_template_event_plugin_global_state(
-    plugin: Annotated[
-        EventPluginFromStorageDep,
-        CheckEventPluginIsTemplateDep,
-    ],
+@set_responses(responses=get_event_plugin_from_storage.responses)
+async def get_event_plugin_global_state(
+    plugin: EventPluginFromStorageDep,
 ) -> MultiThreadState:
-    """Get global state of template event plugin.
+    """Get global state of event plugin.
 
     Parameters
     ----------
     plugin : EventPluginFromStorageDep
-        Template event plugin from storage dependency.
+        Event plugin from storage dependency.
 
     Returns
     -------
@@ -533,7 +525,7 @@ async def get_template_event_plugin_global_state(
     return plugin.global_state
 
 
-TemplateEventPluginGlobalStateDep = Annotated[
+EventPluginGlobalStateDep = Annotated[
     MultiThreadState,
-    Depends(get_template_event_plugin_global_state),
+    Depends(get_event_plugin_global_state),
 ]
