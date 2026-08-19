@@ -5,36 +5,7 @@ import { FC } from 'react';
 
 import { getGeneratorFile } from '@/api/routes/generator-configs';
 
-// Languages the app's shiki adapter loads (see App.tsx). Anything else falls
-// back to plaintext so CodeHighlight never throws on an unregistered grammar.
-const LOADED_LANGS = new Set([
-  'csv',
-  'jinja',
-  'json',
-  'log',
-  'markdown',
-  'python',
-  'toml',
-  'tsv',
-  'xml',
-  'yaml',
-]);
-const LANG_ALIAS: Record<string, string> = {
-  yml: 'yaml',
-  md: 'markdown',
-  txt: 'log',
-};
-
-/** Highlight `.jinja` templates with the jinja grammar (so the state logic
- *  reads as code); fall back to the file's base format otherwise, or
- *  plaintext for anything shiki does not load. */
-function previewLanguage(path: string): string {
-  if (/\.jinja$/i.test(path)) return 'jinja';
-  const dot = path.lastIndexOf('.');
-  const ext = dot !== -1 ? path.slice(dot + 1).toLowerCase() : '';
-  const lang = LANG_ALIAS[ext] ?? ext;
-  return LOADED_LANGS.has(lang) ? lang : 'text';
-}
+import { previewLanguage } from './preview-language';
 
 interface SourcePreviewProps {
   generatorId: string;
@@ -42,9 +13,10 @@ interface SourcePreviewProps {
 }
 
 /**
- * Inline, syntax-highlighted source of one template - shown in place under
- * its entry instead of a modal, so the read/write context stays visible.
- * Fetches lazily; the caller mounts it only while the entry is expanded.
+ * Inline, syntax-highlighted source of one template or script - shown in
+ * place under its entry instead of a modal, so the read/write context stays
+ * visible. Fetches lazily; the caller mounts it only while the entry is
+ * expanded.
  */
 export const SourcePreview: FC<SourcePreviewProps> = ({
   generatorId,
