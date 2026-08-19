@@ -22,7 +22,7 @@
   <img src="https://img.shields.io/badge/platform-🐧%20Linux%20%7C%20🐳%20Docker-lightgrey" alt="Platform: Linux | Docker" />
   <a href="https://hub.docker.com/r/rnv812/eventum-generator"><img src="https://img.shields.io/docker/v/rnv812/eventum-generator?label=docker&color=2986ff" alt="Docker" /></a>
   <a href="https://pepy.tech/projects/eventum-generator"><img src="https://static.pepy.tech/badge/eventum-generator?color=8282ef" alt="Downloads" /></a>
-  <a href="https://eventum.run/docs/studio/repositories"><img src="https://img.shields.io/badge/works%20with-GitHub-181717" alt="Works with GitHub" /></a>
+  <a href="https://eventum.run/docs/studio/repositories"><img src="https://img.shields.io/badge/works%20with-GitHub-181717?logo=github&logoColor=white" alt="Works with GitHub" /></a>
   <a href="https://deepwiki.com/eventum-generator/eventum"><img src="https://deepwiki.com/badge.svg" alt="Ask DeepWiki"></a>
   <a href="https://www.bestpractices.dev/projects/13171"><img src="https://www.bestpractices.dev/projects/13171/baseline"></a>
   <a href="https://github.com/eventum-generator/eventum/blob/master/LICENSE"><img src="https://img.shields.io/github/license/eventum-generator/eventum?color=8282ef" alt="License" /></a>
