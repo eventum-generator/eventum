@@ -49,6 +49,12 @@ const ProjectPage = lazy(
       default: React.ComponentType;
     }>
 );
+const RepositoriesPage = lazy(
+  () =>
+    import('@/pages/RepositoriesPage') as Promise<{
+      default: React.ComponentType;
+    }>
+);
 const ScenariosPage = lazy(
   () =>
     import('@/pages/ScenariosPage') as Promise<{
@@ -111,6 +117,7 @@ export const routes: RouteObject[] = [
       { path: ROUTE_PATHS.INSTANCE, element: <InstancePage /> },
       { path: ROUTE_PATHS.PROJECTS, element: <ProjectsPage /> },
       { path: ROUTE_PATHS.PROJECT, element: <ProjectPage /> },
+      { path: ROUTE_PATHS.REPOSITORIES, element: <RepositoriesPage /> },
       { path: ROUTE_PATHS.SCENARIOS, element: <ScenariosPage /> },
       { path: ROUTE_PATHS.SCENARIO, element: <ScenarioPage /> },
       { path: ROUTE_PATHS.SECRETS, element: <SecretsPage /> },
