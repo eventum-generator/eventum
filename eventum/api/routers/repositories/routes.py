@@ -3,7 +3,7 @@
 import asyncio
 from typing import Annotated, Any
 
-from fastapi import APIRouter, Body, HTTPException, Path, status
+from fastapi import APIRouter, Body, HTTPException, Path, Query, status
 
 from eventum.api.dependencies.app import RepositoriesDep
 from eventum.api.routers.repositories.models import InstallGeneratorRequest
@@ -12,6 +12,7 @@ from eventum.app.repositories import (
     Catalog,
     CatalogEntryNotFoundError,
     CatalogError,
+    ConnectedRepository,
     InstallConflictError,
     InstallContentError,
     InstallError,
@@ -21,6 +22,7 @@ from eventum.app.repositories import (
     RepositoryError,
     RepositoryFetchError,
     RepositoryNotFoundError,
+    RepositoryStatus,
 )
 
 router = APIRouter()
@@ -51,17 +53,18 @@ _FETCH_RESPONSES: dict[int | str, dict[str, Any]] = {
 
 @router.get(
     '/',
-    description='List connected generator repositories.',
+    description=(
+        'List connected generator repositories, each with the result '
+        'of the last check made in this process.'
+    ),
     response_description='Connected repositories',
     responses=_STORAGE_RESPONSES,
 )
 async def list_repositories(
     repositories: RepositoriesDep,
-) -> list[Repository]:
+) -> list[ConnectedRepository]:
     try:
-        return list(
-            (await asyncio.to_thread(repositories.get_all)).root,
-        )
+        return await asyncio.to_thread(repositories.get_all_with_status)
     except RepositoryError as e:
         raise _storage_error(e) from None
 
@@ -69,12 +72,21 @@ async def list_repositories(
 @router.post(
     '/',
     description=(
-        'Connect a generator repository. The catalog it publishes is '
-        'read on the first request for it.'
+        'Connect a generator repository. The repository is checked '
+        'before it is connected, and the catalog it publishes is read '
+        'on the first request for it.'
     ),
     responses=merge_responses(
         _STORAGE_RESPONSES,
-        {409: {'description': 'Repository with this name is connected'}},
+        _FETCH_RESPONSES,
+        {
+            409: {
+                'description': (
+                    'Repository with this name, or the same repository '
+                    'at the same branch or tag, is already connected'
+                ),
+            },
+        },
     ),
     status_code=status.HTTP_201_CREATED,
 )
@@ -84,14 +96,50 @@ async def add_repository(
         Body(description='Repository to connect'),
     ],
     repositories: RepositoriesDep,
+    *,
+    verify: Annotated[
+        bool,
+        Query(
+            description=(
+                'Whether to check that the repository answers before '
+                'connecting it'
+            ),
+        ),
+    ] = True,
 ) -> None:
     try:
-        await asyncio.to_thread(repositories.add, repository)
+        await asyncio.to_thread(repositories.add, repository, verify=verify)
     except RepositoryConflictError as e:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
             detail=str(e),
         ) from None
+    except RepositoryFetchError as e:
+        raise _fetch_error(e) from None
+    except RepositoryError as e:
+        raise _storage_error(e) from None
+
+
+@router.post(
+    '/{name}/check',
+    description=(
+        'Check that the repository with specified name answers and '
+        'publishes the branch or tag it names.'
+    ),
+    response_description='Result of the check',
+    responses=merge_responses(
+        _STORAGE_RESPONSES,
+        _NOT_CONNECTED_RESPONSES,
+    ),
+)
+async def check_repository(
+    name: NameParam,
+    repositories: RepositoriesDep,
+) -> RepositoryStatus:
+    try:
+        return await asyncio.to_thread(repositories.check, name)
+    except RepositoryNotFoundError as e:
+        raise _not_found_error(e) from None
     except RepositoryError as e:
         raise _storage_error(e) from None
 
@@ -256,15 +304,19 @@ def _not_found_error(error: RepositoryError) -> HTTPException:
 def _fetch_error(error: RepositoryError) -> HTTPException:
     """Build the response of a repository that cannot be fetched.
 
-    The reason the remote gave is what the user acts on, so it is
-    carried over; nothing else of the context is, since a fetch runs
-    with credentials.
+    The reason the remote gave and the hint that reads it are what the
+    user acts on, so they are carried over; nothing else of the
+    context is, since a fetch runs with credentials.
     """
-    reason = error.context.get('reason')
+    parts = [
+        str(error),
+        error.context.get('reason'),
+        error.context.get('hint'),
+    ]
 
     return HTTPException(
         status_code=status.HTTP_502_BAD_GATEWAY,
-        detail=str(error) if reason is None else f'{error}: {reason}',
+        detail='. '.join(str(part) for part in parts if part),
     )
 
 

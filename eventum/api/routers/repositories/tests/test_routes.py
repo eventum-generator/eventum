@@ -13,6 +13,7 @@ from eventum.app.repositories import (
     CatalogEntry,
     CatalogEntryNotFoundError,
     CatalogError,
+    ConnectedRepository,
     InstallConflictError,
     InstallContentError,
     InstallError,
@@ -21,14 +22,20 @@ from eventum.app.repositories import (
     Repository,
     RepositoryError,
     RepositoryFetchError,
+    RepositoryNotFoundError,
+    RepositoryStatus,
 )
 
 CATALOG = Catalog(
     revision='0' * 40,
     refreshed_at=datetime(2026, 1, 1, tzinfo=UTC),
+    committed_at=datetime(2025, 12, 31, tzinfo=UTC),
+    author='Tester',
     entries=[
         CatalogEntry(
             name='web-nginx',
+            path='generators/web-nginx',
+            tree='b' * 40,
             title='Nginx Access Logs',
             summary='Produces nginx access log entries.',
             file_count=3,
@@ -83,7 +90,7 @@ def test_list_is_empty_initially(client):
 
 def test_add_and_list(client):
     added = client.post(
-        '/repositories/',
+        '/repositories/?verify=false',
         json={'name': 'packs', 'url': 'https://example.com/packs.git'},
     )
 
@@ -96,7 +103,7 @@ def test_add_and_list(client):
 
 def test_add_rejects_unsupported_url(client):
     response = client.post(
-        '/repositories/',
+        '/repositories/?verify=false',
         json={'name': 'packs', 'url': 'ssh://git@example.com/packs.git'},
     )
 
@@ -105,16 +112,16 @@ def test_add_rejects_unsupported_url(client):
 
 def test_add_reports_duplicate(client):
     payload = {'name': 'packs', 'url': 'https://example.com/packs.git'}
-    client.post('/repositories/', json=payload)
+    client.post('/repositories/?verify=false', json=payload)
 
-    response = client.post('/repositories/', json=payload)
+    response = client.post('/repositories/?verify=false', json=payload)
 
     assert response.status_code == 409
 
 
 def test_remove(client):
     client.post(
-        '/repositories/',
+        '/repositories/?verify=false',
         json={'name': 'packs', 'url': 'https://example.com/packs.git'},
     )
 
@@ -136,6 +143,56 @@ def test_list_reports_broken_file(client, tmp_path):
     response = client.get('/repositories/')
 
     assert response.status_code == 500
+
+
+def test_add_reports_an_unreachable_repository(stub, stub_client):
+    stub.add.side_effect = RepositoryFetchError(
+        'Failed to reach repository',
+        context={'reason': 'Connection refused'},
+    )
+
+    response = stub_client.post(
+        '/repositories/',
+        json={'name': 'packs', 'url': 'https://example.com/packs.git'},
+    )
+
+    assert response.status_code == 502
+    assert response.json()['detail'].endswith('Connection refused')
+
+
+def test_check_reports_status(stub, stub_client):
+    stub.check.return_value = RepositoryStatus(
+        state='unavailable',
+        checked_at=datetime(2026, 1, 1, tzinfo=UTC),
+        reason='Connection refused',
+    )
+
+    response = stub_client.post('/repositories/packs/check')
+
+    assert response.status_code == 200
+    assert response.json()['state'] == 'unavailable'
+
+
+def test_check_reports_missing_repository(stub, stub_client):
+    stub.check.side_effect = RepositoryNotFoundError('absent', context={})
+
+    response = stub_client.post('/repositories/absent/check')
+
+    assert response.status_code == 404
+
+
+def test_list_carries_the_status(stub, stub_client):
+    stub.get_all_with_status.return_value = [
+        ConnectedRepository(
+            name='packs',
+            url='https://example.com/packs.git',
+            status=RepositoryStatus(state='unknown'),
+        ),
+    ]
+
+    response = stub_client.get('/repositories/')
+
+    assert response.json()[0]['status']['state'] == 'unknown'
 
 
 # --- catalog and refresh ---
