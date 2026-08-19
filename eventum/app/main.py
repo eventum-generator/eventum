@@ -10,6 +10,7 @@ import uvicorn
 from eventum.app.hooks import InstanceHooks
 from eventum.app.manager import GeneratorManager, ManagingError
 from eventum.app.models.settings import Settings
+from eventum.app.repositories import Repositories
 from eventum.app.startup import (
     Startup,
     StartupError,
@@ -67,6 +68,11 @@ class App:
             generators_dir=settings.path.generators_dir,
             generation_parameters=settings.generation,
         )
+        self._repositories = Repositories(
+            file_path=settings.path.repositories_file,
+            generators_dir=settings.path.generators_dir,
+            config_filename=settings.path.generator_config_filename.name,
+        )
 
         self._server: uvicorn.Server | None = None
         self._server_thread = Thread(target=self._run_server, name='server')
@@ -121,6 +127,8 @@ class App:
 
         logger.info('Stopping generators')
         self._stop_generators()
+
+        self._repositories.close()
 
     def _load_startup_generators_params(
         self,
@@ -294,6 +302,7 @@ class App:
             settings=self._settings,
             instance_hooks=self._instance_hooks,
             startup=self._startup,
+            repositories=self._repositories,
         )
 
         if self._settings.server.ssl.enabled:

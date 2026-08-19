@@ -10,6 +10,7 @@ from fastapi import FastAPI
 from eventum.app.hooks import InstanceHooks
 from eventum.app.manager import GeneratorManager
 from eventum.app.models.settings import Settings
+from eventum.app.repositories import Repositories
 from eventum.app.startup import Startup
 from eventum.logging.asgi import LogContextMiddleware
 
@@ -24,12 +25,13 @@ class EnabledServices(TypedDict):
     mcp: NotRequired[bool]
 
 
-def build_server_app(
+def build_server_app(  # noqa: PLR0913 - one argument per wired service
     enabled_services: EnabledServices,
     generator_manager: GeneratorManager,
     settings: Settings,
     instance_hooks: InstanceHooks,
     startup: Startup,
+    repositories: Repositories | None = None,
 ) -> FastAPI:
     """Build server FastAPI application.
 
@@ -50,6 +52,10 @@ def build_server_app(
     startup : Startup
         Shared startup-config service, passed to the API and MCP
         services so they operate on a single instance.
+
+    repositories : Repositories | None, default None
+        Shared connected-repositories service. When omitted, a new
+        instance is created from settings.
 
     Returns
     -------
@@ -86,7 +92,12 @@ def build_server_app(
         )
 
         inject_api_service(
-            app, generator_manager, settings, instance_hooks, startup
+            app,
+            generator_manager,
+            settings,
+            instance_hooks,
+            startup,
+            repositories,
         )
 
     if enabled_services.get('mcp', False):
