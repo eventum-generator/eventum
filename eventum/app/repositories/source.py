@@ -172,14 +172,17 @@ def iter_installed(
 def collect_installed(
     generators_dir: Path,
     url: str,
+    ref: str | None,
 ) -> dict[str, list[tuple[str, GeneratorSource]]]:
     """Return what a repository has installed in a workspace.
 
     A project counts as an installation when the origin it carries
-    names the same repository, so a project that merely shares a name
-    with a catalog entry is not mistaken for one, and a renamed
-    project is still recognized. The workspace is walked once,
-    whatever the size of the catalog.
+    names the same remote at the same branch or tag, so a project that
+    merely shares a name with a catalog entry is not mistaken for one,
+    a renamed project is still recognized, and two connections
+    following two branches of one remote do not report each other's
+    installations. The workspace is walked once, whatever the size of
+    the catalog.
 
     Parameters
     ----------
@@ -188,6 +191,9 @@ def collect_installed(
 
     url : str
         URL of the repository.
+
+    ref : str | None
+        Branch or tag the repository is followed at.
 
     Returns
     -------
@@ -200,7 +206,7 @@ def collect_installed(
     installed: dict[str, list[tuple[str, GeneratorSource]]] = {}
 
     for project, source in iter_installed(generators_dir):
-        if identify_repository(source.url) != identity:
+        if identify_repository(source.url) != identity or source.ref != ref:
             continue
 
         installed.setdefault(source.entry, []).append((project, source))

@@ -62,7 +62,9 @@ def build_api_app(
 
     repositories : Repositories | None, default None
         Shared connected-repositories service. When omitted, a new
-        instance is created from settings.
+        instance is created from settings; it owns the repositories
+        fetched through it, so an app built this way is meant for a
+        caller that closes it.
 
     Returns
     -------

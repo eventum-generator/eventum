@@ -7,6 +7,8 @@ from typing import cast
 import urllib3
 from dulwich.client import (
     GitClient,
+    HTTPProxyUnauthorized,
+    HTTPUnauthorized,
     default_urllib3_manager,
     get_transport_and_path,
 )
@@ -19,11 +21,19 @@ from eventum.app.repositories.exceptions import RepositoryFetchError
 from eventum.app.repositories.models import Repository
 
 # Every fetch is a request the server makes on behalf of a caller, so
-# it is bounded in both depth and time: only the tip commit of the
-# wanted reference is asked for, and a remote that stalls releases the
-# worker thread instead of holding it.
+# it is bounded: only the tip commit of the wanted reference is asked
+# for, no single operation may stall longer than the timeout, and the
+# whole exchange has a deadline, so that a remote answering one byte
+# at a time releases the worker thread rather than holding it for as
+# long as it likes.
+#
+# What is not bounded is where the request goes: the URL is the one an
+# operator connected, and an address inside the network of the host is
+# as reachable as any other. Connecting a repository is an
+# authenticated operation for that reason.
 FETCH_DEPTH = 1
 DEFAULT_FETCH_TIMEOUT = 60.0
+FETCH_DEADLINE_FACTOR = 10
 
 _HEAD_REF = Ref(b'HEAD')
 
@@ -32,8 +42,6 @@ _HEAD_REF = Ref(b'HEAD')
 # caller that named no credentials reads that as being about
 # credentials it never meant to give, so the other reading is offered
 # alongside.
-_AUTH_MARKERS = ('credential', 'authoriz', 'authentic', '401')
-
 _AUTH_HINT = (
     'The repository may not exist at this address, or may be private - '
     'provide a user name and a secret to reach it'
@@ -92,17 +100,24 @@ def fetch_repository(
         return wanted
 
     try:
-        client, path = _build_client(repository, password, timeout)
+        client, path, pool_manager = _build_client(
+            repository,
+            password,
+            timeout,
+        )
 
-        with Repo.init_bare(str(destination), mkdir=True) as repo:
-            client.fetch(
-                path,
-                repo,
-                determine_wants=determine_wants,
-                depth=FETCH_DEPTH,
-            )
+        try:
+            with Repo.init_bare(str(destination), mkdir=True) as repo:
+                client.fetch(
+                    path,
+                    repo,
+                    determine_wants=determine_wants,
+                    depth=FETCH_DEPTH,
+                )
 
-            return _peel_commit(repo, _wanted_object(wanted, repository))
+                return _peel_commit(repo, _wanted_object(wanted, repository))
+        finally:
+            pool_manager.clear()
     except RepositoryFetchError:
         raise
     except Exception as e:  # noqa: BLE001 - transports fail in many ways
@@ -165,10 +180,18 @@ def probe_repository(
 
     """
     try:
-        client, path = _build_client(repository, password, timeout)
-        result = client.get_refs(
-            path.encode() if isinstance(path, str) else path,
+        client, path, pool_manager = _build_client(
+            repository,
+            password,
+            timeout,
         )
+
+        try:
+            result = client.get_refs(
+                path.encode() if isinstance(path, str) else path,
+            )
+        finally:
+            pool_manager.clear()
     except Exception as e:  # noqa: BLE001 - transports fail in many ways
         msg = 'Failed to reach repository'
         raise RepositoryFetchError(
@@ -187,20 +210,39 @@ def _build_client(
     repository: Repository,
     password: str | None,
     timeout: float,
-) -> tuple[GitClient, str]:
-    """Build the client that talks to the remote of a repository."""
-    pool_manager = default_urllib3_manager(
-        config=None,
-        base_url=repository.url,
-        timeout=timeout,
+) -> tuple[GitClient, str, urllib3.PoolManager]:
+    """Build the client that talks to the remote of a repository.
+
+    The pool it holds belongs to one exchange: the caller closes it,
+    so a server that fetches all day does not accumulate one pool per
+    fetch.
+    """
+    pool_manager = cast(
+        'urllib3.PoolManager',
+        default_urllib3_manager(
+            config=None,
+            base_url=repository.url,
+            timeout=timeout,
+        ),
     )
 
-    return get_transport_and_path(
+    # The timeout dulwich sets bounds one read; the deadline bounds
+    # the exchange, which is what a remote answering slowly but never
+    # stopping would otherwise stretch without end.
+    pool_manager.connection_pool_kw['timeout'] = urllib3.Timeout(
+        connect=timeout,
+        read=timeout,
+        total=timeout * FETCH_DEADLINE_FACTOR,
+    )
+
+    client, path = get_transport_and_path(
         repository.url,
         username=repository.username,
         password=password,
-        pool_manager=cast('urllib3.PoolManager', pool_manager),
+        pool_manager=pool_manager,
     )
+
+    return client, path, pool_manager
 
 
 def _resolve_ref(
@@ -287,11 +329,12 @@ def _failure_context(
     }
 
     named_credentials = repository.username is not None or password is not None
-    lowered = reason.lower()
+    asked_who_is_calling = isinstance(
+        error,
+        (HTTPUnauthorized, HTTPProxyUnauthorized),
+    )
 
-    if not named_credentials and any(
-        marker in lowered for marker in _AUTH_MARKERS
-    ):
+    if not named_credentials and asked_who_is_calling:
         context['hint'] = _AUTH_HINT
 
     return context

@@ -11,6 +11,7 @@ from eventum.app.repositories.exceptions import (
     RepositoryError,
     RepositoryFetchError,
     RepositoryNotFoundError,
+    RepositorySecretError,
 )
 from eventum.app.repositories.models import (
     Catalog,
@@ -43,5 +44,6 @@ __all__ = [
     'RepositoryFetchError',
     'RepositoryList',
     'RepositoryNotFoundError',
+    'RepositorySecretError',
     'RepositoryStatus',
 ]

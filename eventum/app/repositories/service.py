@@ -3,6 +3,8 @@
 import shutil
 import tempfile
 import threading
+from collections.abc import Iterator
+from contextlib import contextmanager
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
@@ -17,16 +19,12 @@ from eventum.app.repositories.exceptions import (
     RepositoryError,
     RepositoryFetchError,
     RepositoryNotFoundError,
+    RepositorySecretError,
 )
 from eventum.app.repositories.fetching import (
     DEFAULT_FETCH_TIMEOUT,
     fetch_repository,
     probe_repository,
-)
-from eventum.app.repositories.installed import (
-    build_source,
-    collect_installed,
-    write_source,
 )
 from eventum.app.repositories.installing import install_entry
 from eventum.app.repositories.models import (
@@ -38,6 +36,10 @@ from eventum.app.repositories.models import (
     RepositoryList,
     RepositoryStatus,
     identify_repository,
+)
+from eventum.app.repositories.source import (
+    build_source,
+    collect_installed,
 )
 from eventum.app.repositories.storage import RepositoriesFile
 from eventum.security.manage import get_secret
@@ -51,13 +53,36 @@ _REPO_DIRNAME = 'repo'
 _UNKNOWN = RepositoryStatus(state='unknown')
 
 
-@dataclass(frozen=True)
+def _available() -> RepositoryStatus:
+    """Build the state of a repository that answered just now."""
+    return RepositoryStatus(state='available', checked_at=datetime.now(tz=UTC))
+
+
+def _unavailable(error: RepositoryFetchError) -> RepositoryStatus:
+    """Build the state of a repository that did not answer."""
+    return RepositoryStatus(
+        state='unavailable',
+        checked_at=datetime.now(tz=UTC),
+        reason=str(error.context.get('reason') or error),
+    )
+
+
+@dataclass
 class _Fetched:
-    """Bare repository a catalog was read from."""
+    """Bare repository a catalog was read from.
+
+    Handed out to callers that read or install from it while the lock
+    of the service is released, so it counts its users: what is
+    dropped while somebody still reads it is removed once the last of
+    them is done rather than under their feet.
+    """
 
     path: Path
+    repo_path: Path
     catalog: Catalog
     repository: Repository
+    users: int = 0
+    dropped: bool = False
 
 
 class Repositories:
@@ -106,7 +131,9 @@ class Repositories:
 
         self._fetched: dict[str, _Fetched] = {}
         self._statuses: dict[str, RepositoryStatus] = {}
+        self._fetch_locks: dict[str, threading.Lock] = {}
         self._cache_dir: Path | None = None
+        self._closed = False
         self._lock = threading.RLock()
 
     def get_all(self) -> RepositoryList:
@@ -301,9 +328,8 @@ class Repositories:
             If the fetched repository publishes no catalog.
 
         """
-        fetched = self._ensure_fetched(name)
-
-        return self._with_installed(fetched.catalog, fetched.repository)
+        with self._leased(name) as fetched:
+            return self._with_installed(fetched.catalog, fetched.repository)
 
     def refresh(self, name: str) -> Catalog:
         """Fetch a repository and read its catalog anew.
@@ -338,7 +364,11 @@ class Repositories:
 
         fetched = self._fetch(repository)
 
-        return self._with_installed(fetched.catalog, fetched.repository)
+        try:
+            return self._with_installed(fetched.catalog, fetched.repository)
+        finally:
+            with self._lock:
+                self._release(fetched)
 
     def install(self, name: str, entry: str, project_name: str) -> int:
         """Install a published generator as a project.
@@ -389,24 +419,22 @@ class Repositories:
             If the workspace cannot be written.
 
         """
-        fetched = self._ensure_fetched(name)
-        published = self._find_entry(fetched.catalog, entry)
+        with self._leased(name) as fetched:
+            published = self._find_entry(fetched.catalog, entry)
 
-        with self._lock:
+            # Writing a project is file work rather than a change of
+            # what the service holds, so it runs outside the lock; the
+            # lease is what keeps the fetched repository in place.
             installed = install_entry(
-                repo_path=fetched.path / _REPO_DIRNAME,
+                repo_path=fetched.repo_path,
                 revision=fetched.catalog.revision,
                 entry=entry,
                 generators_dir=self._generators_dir,
                 project_name=project_name,
                 config_filename=self._config_filename,
-            )
-
-            # The project keeps its own origin, so what it came from
-            # survives a rename, an export and this process.
-            write_source(
-                self._generators_dir / project_name,
-                build_source(
+                # The project keeps its own origin, so what it came
+                # from survives a rename, an export and this process.
+                source=build_source(
                     repository=fetched.repository.name,
                     url=fetched.repository.url,
                     ref=fetched.repository.ref,
@@ -426,8 +454,13 @@ class Repositories:
             return installed
 
     def close(self) -> None:
-        """Drop everything fetched by the service."""
+        """Drop everything fetched by the service.
+
+        A closed service fetches nothing more, so a fetch still
+        running when this is called keeps nothing of what it read.
+        """
         with self._lock:
+            self._closed = True
             self._fetched.clear()
 
             if self._cache_dir is not None:
@@ -491,7 +524,11 @@ class Repositories:
         fetched, so an installation made since is reflected without
         reaching the remote again.
         """
-        installed = collect_installed(self._generators_dir, repository.url)
+        installed = collect_installed(
+            self._generators_dir,
+            repository.url,
+            repository.ref,
+        )
 
         return catalog.model_copy(
             update={
@@ -566,33 +603,39 @@ class Repositories:
 
         Raises
         ------
-        RepositoryError
-            If the secret of the repository cannot be read.
+        RepositorySecretError
+            If the secret of the repository cannot be read. A local
+            misconfiguration is not the remote being unavailable, so
+            it is raised rather than recorded as its state.
 
         """
+        password = self._resolve_password(repository)
+
         try:
-            password = self._resolve_password(repository)
             probe_repository(
                 repository,
                 password=password,
                 timeout=self._fetch_timeout,
             )
         except RepositoryFetchError as e:
-            status = RepositoryStatus(
-                state='unavailable',
-                checked_at=datetime.now(tz=UTC),
-                reason=str(e.context.get('reason') or e),
-            )
+            status = _unavailable(e)
         else:
-            status = RepositoryStatus(
-                state='available',
-                checked_at=datetime.now(tz=UTC),
-            )
+            status = _available()
 
-        with self._lock:
-            self._statuses[repository.name] = status
+        self._record_status(repository.name, status)
 
         return status
+
+    def _record_status(self, name: str, status: RepositoryStatus) -> None:
+        """Record the state of a repository that is still connected.
+
+        A repository that failed to connect, or was disconnected while
+        it was being checked, keeps no state behind: the next one to
+        take that name would inherit it.
+        """
+        with self._lock:
+            if any(item.name == name for item in self._read().root):
+                self._statuses[name] = status
 
     def _raise_status(self, status: RepositoryStatus) -> None:
         """Turn an unavailable repository into a failure.
@@ -625,8 +668,13 @@ class Repositories:
         msg = 'Repository with this name is not connected'
         raise RepositoryNotFoundError(msg, context={'name': name})
 
-    def _ensure_fetched(self, name: str) -> _Fetched:
-        """Return what was fetched for a repository, fetching if none.
+    @contextmanager
+    def _leased(self, name: str) -> Iterator[_Fetched]:
+        """Hold what was fetched for a repository, fetching if none.
+
+        The fetched repository is kept alive for the body: a refresh
+        or a disconnect that lands meanwhile drops it from the service
+        but leaves the directory until the body is done with it.
 
         Raises
         ------
@@ -639,36 +687,83 @@ class Repositories:
         RepositoryFetchError
             If the repository cannot be fetched.
 
+        RepositorySecretError
+            If the secret of the repository cannot be read.
+
         CatalogError
             If the fetched repository publishes no catalog.
 
         """
+        fetched = self._ensure_fetched(name)
+
+        try:
+            yield fetched
+        finally:
+            with self._lock:
+                self._release(fetched)
+
+    def _ensure_fetched(self, name: str) -> _Fetched:
+        """Return a held handle of what was fetched, fetching if none.
+
+        A repository is fetched once however many callers ask for it
+        at the same time: the rest wait for that fetch and take what
+        it stored.
+        """
         with self._lock:
-            fetched = self._fetched.get(name)
+            fetched = self._acquire(name)
 
             if fetched is not None:
                 return fetched
 
             repository = self._find(self._read(), name)
+            fetch_lock = self._fetch_locks.setdefault(name, threading.Lock())
 
-        return self._fetch(repository)
+        with fetch_lock:
+            with self._lock:
+                fetched = self._acquire(name)
+
+                if fetched is not None:
+                    return fetched
+
+            return self._fetch(repository)
+
+    def _acquire(self, name: str) -> _Fetched | None:
+        """Take a hold of what was fetched for a repository."""
+        fetched = self._fetched.get(name)
+
+        if fetched is not None:
+            fetched.users += 1
+
+        return fetched
+
+    def _release(self, fetched: _Fetched) -> None:
+        """Give up a hold, removing what nothing holds any more."""
+        fetched.users -= 1
+
+        if fetched.dropped and fetched.users <= 0:
+            shutil.rmtree(fetched.path, ignore_errors=True)
 
     def _fetch(self, repository: Repository) -> _Fetched:
         """Fetch a repository and read its catalog.
 
         Runs outside the lock, since a fetch reaches a remote and takes
         as long as that remote does: holding the lock would stall every
-        other caller for the whole of it. Two fetches of one repository
-        therefore may overlap, and the one that finishes last is the
-        one that is kept.
+        other caller for the whole of it. What is returned is held for
+        the caller, which gives it up through `_release`.
 
         Raises
         ------
         RepositoryFetchError
             If the repository cannot be fetched.
 
+        RepositorySecretError
+            If the secret of the repository cannot be read.
+
         CatalogError
             If the fetched repository publishes no catalog.
+
+        RepositoryError
+            If the service is closed.
 
         """
         logger.info(
@@ -683,10 +778,18 @@ class Repositories:
         with self._lock:
             cache_dir = self._ensure_cache_dir()
 
-        # The bare repository is initialized one level below a
-        # directory of its own, since a fetch initializes the
-        # directory it is given and cannot take an existing one.
-        holder = Path(tempfile.mkdtemp(dir=cache_dir))
+            # The bare repository is initialized one level below a
+            # directory of its own, since a fetch initializes the
+            # directory it is given and cannot take an existing one.
+            try:
+                holder = Path(tempfile.mkdtemp(dir=cache_dir))
+            except OSError as e:
+                msg = 'Failed to create the directory for the repository'
+                raise RepositoryError(
+                    msg,
+                    context={'path': str(cache_dir), 'reason': str(e)},
+                ) from None
+
         destination = holder / _REPO_DIRNAME
 
         try:
@@ -701,9 +804,17 @@ class Repositories:
                 revision,
                 config_filename=self._config_filename,
             )
+        except RepositoryFetchError as e:
+            shutil.rmtree(holder, ignore_errors=True)
+            self._record_status(repository.name, _unavailable(e))
+            raise
         except Exception:
             shutil.rmtree(holder, ignore_errors=True)
             raise
+
+        # A fetch that came back is the strongest statement there is
+        # that the repository is there, so it stands as the check.
+        self._record_status(repository.name, _available())
 
         logger.info(
             'Repository catalog is read',
@@ -714,13 +825,23 @@ class Repositories:
 
         fetched = _Fetched(
             path=holder,
+            repo_path=destination,
             catalog=catalog,
             repository=repository,
         )
 
         with self._lock:
+            # A service closed while this fetch was running keeps
+            # nothing: the directory is removed here rather than left
+            # behind by a caller that is no longer there.
+            if self._closed:
+                shutil.rmtree(holder, ignore_errors=True)
+                msg = 'Repositories are closed'
+                raise RepositoryError(msg, context={'name': repository.name})
+
             self._drop_fetched(repository.name)
             self._fetched[repository.name] = fetched
+            fetched.users += 1
 
         return fetched
 
@@ -740,7 +861,7 @@ class Repositories:
             return get_secret(repository.secret)
         except (ValueError, OSError) as e:
             msg = 'Failed to read the secret of the repository'
-            raise RepositoryFetchError(
+            raise RepositorySecretError(
                 msg,
                 context={
                     'name': repository.name,
@@ -756,9 +877,14 @@ class Repositories:
         Raises
         ------
         RepositoryError
-            If the directory cannot be created.
+            If the service is closed, or the directory cannot be
+            created.
 
         """
+        if self._closed:
+            msg = 'Repositories are closed'
+            raise RepositoryError(msg, context={})
+
         if self._cache_dir is not None:
             return self._cache_dir
 
@@ -771,8 +897,17 @@ class Repositories:
         return self._cache_dir
 
     def _drop_fetched(self, name: str) -> None:
-        """Drop what was fetched for a repository."""
+        """Drop what was fetched for a repository.
+
+        What somebody still holds is marked instead of removed, and
+        goes when the last of them gives it up.
+        """
         fetched = self._fetched.pop(name, None)
 
-        if fetched is not None:
+        if fetched is None:
+            return
+
+        fetched.dropped = True
+
+        if fetched.users <= 0:
             shutil.rmtree(fetched.path, ignore_errors=True)

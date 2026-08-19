@@ -19,6 +19,10 @@ class RepositoryFetchError(RepositoryError):
     """Repository cannot be fetched from its remote."""
 
 
+class RepositorySecretError(RepositoryError):
+    """Secret a repository authenticates with cannot be read."""
+
+
 class CatalogError(RepositoryError):
     """Fetched repository does not hold a readable catalog."""
 
