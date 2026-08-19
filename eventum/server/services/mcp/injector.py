@@ -15,6 +15,7 @@ from starlette.responses import RedirectResponse
 from eventum.app.hooks import InstanceHooks
 from eventum.app.manager import GeneratorManager
 from eventum.app.models.settings import Settings
+from eventum.app.repositories import Repositories
 from eventum.app.startup import Startup
 from eventum.logging.asgi import LogContextMiddleware
 from eventum.mcp.context import ServerLiveContext
@@ -23,12 +24,13 @@ from eventum.server.exceptions import ServiceBuildingError
 from eventum.server.services.mcp.auth import BasicAuthMiddleware
 
 
-def inject_service(
+def inject_service(  # noqa: PLR0913 - one argument per wired dependency
     app: FastAPI,
     generator_manager: GeneratorManager,
     settings: Settings,
     startup: Startup,
     instance_hooks: InstanceHooks,
+    repositories: Repositories,
 ) -> None:
     """Mount the MCP Streamable-HTTP app onto the server app.
 
@@ -53,6 +55,10 @@ def inject_service(
         Hooks for the running instance, exposed to the settings and
         instance-control tools.
 
+    repositories : Repositories
+        Shared connected-repositories service, the same instance the
+        API serves, so a repository is fetched and cached once.
+
     Raises
     ------
     ServiceBuildingError
@@ -70,6 +76,7 @@ def inject_service(
             log_format=settings.log.format,
             settings=settings,
             hooks=instance_hooks,
+            repositories=repositories,
             config_filename=str(settings.path.generator_config_filename),
         )
         mcp = build_server(context, transport='http', live=True)

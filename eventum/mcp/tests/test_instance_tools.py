@@ -54,6 +54,7 @@ def _ctx(
         log_format='plain',
         settings=settings if settings is not None else _settings(tmp_path),
         hooks=hooks if hooks is not None else MagicMock(),
+        repositories=MagicMock(),
     )
 
 

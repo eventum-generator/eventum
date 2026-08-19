@@ -38,6 +38,7 @@ def _ctx(tmp_path: Path, *, read_only: bool = False) -> ServerLiveContext:
         log_format='plain',
         settings=MagicMock(),
         hooks=MagicMock(),
+        repositories=MagicMock(),
     )
 
 

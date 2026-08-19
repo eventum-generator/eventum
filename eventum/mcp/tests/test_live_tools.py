@@ -195,6 +195,7 @@ def _ctx(
         log_format='plain',
         settings=MagicMock(),
         hooks=MagicMock(),
+        repositories=MagicMock(),
     )
 
 
@@ -579,6 +580,7 @@ async def test_get_generator_logs_json_format(tmp_path: Path) -> None:
         log_format='json',
         settings=MagicMock(),
         hooks=MagicMock(),
+        repositories=MagicMock(),
     )
     (tmp_path / 'generator_g1.json').write_text('{"e":"hi"}\n')
     result = await get_generator_logs(ctx, 'g1')

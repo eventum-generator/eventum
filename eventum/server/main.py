@@ -54,8 +54,9 @@ def build_server_app(  # noqa: PLR0913 - one argument per wired service
         services so they operate on a single instance.
 
     repositories : Repositories | None, default None
-        Shared connected-repositories service. When omitted, a new
-        instance is created from settings.
+        Shared connected-repositories service, passed to the API and
+        MCP services so they operate on a single instance. When
+        omitted, a new instance is created from settings.
 
     Returns
     -------
@@ -67,6 +68,15 @@ def build_server_app(  # noqa: PLR0913 - one argument per wired service
         If some of the services fails to build.
 
     """
+    # Both the API and the MCP service serve the connected
+    # repositories, and a second instance would fetch and cache
+    # everything a second time.
+    shared_repositories = repositories or Repositories(
+        file_path=settings.path.repositories_file,
+        generators_dir=settings.path.generators_dir,
+        config_filename=settings.path.generator_config_filename.name,
+    )
+
     lifespan_cms: list[
         Callable[[], contextlib.AbstractAsyncContextManager[None]]
     ] = []
@@ -97,7 +107,7 @@ def build_server_app(  # noqa: PLR0913 - one argument per wired service
             settings,
             instance_hooks,
             startup,
-            repositories,
+            shared_repositories,
         )
 
     if enabled_services.get('mcp', False):
@@ -107,7 +117,12 @@ def build_server_app(  # noqa: PLR0913 - one argument per wired service
         )
 
         inject_mcp_service(
-            app, generator_manager, settings, startup, instance_hooks
+            app,
+            generator_manager,
+            settings,
+            startup,
+            instance_hooks,
+            shared_repositories,
         )
 
     # The UI service registers an SPA catch-all route, so it must be
