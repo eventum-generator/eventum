@@ -164,12 +164,10 @@ describe('ReleaseHighlightsModal', () => {
     expect(screen.getByText('First change')).toBeInTheDocument();
   });
 
-  // Reached by text: computing the accessible name of a link walks the
-  // pseudo-elements of the card, which jsdom cannot resolve.
   it('links a panel to its documentation', () => {
     renderReel();
 
-    expect(screen.getByText('Learn more').closest('a')).toHaveAttribute(
+    expect(screen.getByRole('link', { name: 'Learn more' })).toHaveAttribute(
       'href',
       'https://example.test/docs/first'
     );

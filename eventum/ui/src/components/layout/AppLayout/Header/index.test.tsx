@@ -23,11 +23,9 @@ function renderHeader(handlers: Handlers): void {
   );
 }
 
-/** Open the user menu, which holds the application entries. Targeted by
- *  text: jsdom cannot compute the accessible name of the target, whose
- *  label is assembled from several nodes. */
+/** Open the user menu, which holds the application entries. */
 async function openUserMenu(user: UserEvent): Promise<void> {
-  await user.click(screen.getByText('eventum').closest('button')!);
+  await user.click(screen.getByRole('button', { name: /eventum/ }));
 }
 
 /** Both burgers are always in the document - which one the user can reach is
@@ -89,7 +87,7 @@ describe('Header', () => {
     });
 
     await openUserMenu(user);
-    await user.click(await screen.findByText("What's new"));
+    await user.click(await screen.findByRole('menuitem', { name: /new/ }));
 
     expect(onOpenHighlights).toHaveBeenCalledTimes(1);
   });
@@ -100,7 +98,11 @@ describe('Header', () => {
 
     await openUserMenu(user);
 
-    expect(await screen.findByText('About')).toBeInTheDocument();
-    expect(screen.queryByText("What's new")).not.toBeInTheDocument();
+    expect(
+      await screen.findByRole('menuitem', { name: /About/ })
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole('menuitem', { name: /new/ })
+    ).not.toBeInTheDocument();
   });
 });
