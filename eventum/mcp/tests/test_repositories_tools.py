@@ -108,6 +108,26 @@ async def test_list_is_empty_without_a_file(tmp_path: Path) -> None:
     assert await list_repositories(_file_ctx(tmp_path)) == []
 
 
+async def test_list_hides_a_carried_password(tmp_path: Path) -> None:
+    """A password holding the credential never reaches the agent."""
+    context = _file_ctx(tmp_path)
+    context.repositories.add(
+        Repository(
+            name='packs',
+            url='https://example.com/packs.git',
+            username='eventum',
+            password='ghp_token',
+        ),
+        verify=False,
+    )
+
+    listed = await list_repositories(context)
+
+    assert isinstance(listed, list)
+    assert listed[0]['password'] == '***'
+    assert 'ghp_token' not in str(listed)
+
+
 async def test_list_reports_connected_repositories(tmp_path: Path) -> None:
     """A connected repository is listed with its unchecked status."""
     context = _file_ctx(tmp_path)
@@ -116,7 +136,7 @@ async def test_list_reports_connected_repositories(tmp_path: Path) -> None:
             name='packs',
             url='https://example.com/packs.git',
             username='eventum',
-            secret='packs_token',
+            password='${secrets.packs_token}',
         ),
         verify=False,
     )
@@ -129,7 +149,7 @@ async def test_list_reports_connected_repositories(tmp_path: Path) -> None:
             'url': 'https://example.com/packs.git',
             'ref': None,
             'username': 'eventum',
-            'secret': 'packs_token',
+            'password': '${secrets.packs_token}',
             'status': {
                 'state': 'unknown',
                 'checked_at': None,

@@ -15,9 +15,10 @@ from eventum.exceptions import ContextualError
 
 # Context keys safe to expose to an external agent. Anything else is
 # dropped. `file_path` is relativized to generators_dir (never
-# absolute).
+# absolute); `secret` is the name of a secret, which an agent may
+# already list, and never its value.
 _ALLOWED_KEYS = frozenset(
-    {'file_path', 'reason', 'value', 'name', 'hint', 'seconds'},
+    {'file_path', 'reason', 'value', 'name', 'hint', 'seconds', 'secret'},
 )
 
 # Free-text keys scrubbed of absolute paths and secret values before
