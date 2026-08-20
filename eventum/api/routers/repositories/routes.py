@@ -62,8 +62,8 @@ _FETCH_RESPONSES: dict[int | str, dict[str, Any]] = {
 _SECRET_RESPONSES: dict[int | str, dict[str, Any]] = {
     424: {
         'description': (
-            'Secret the repository authenticates with is missing in '
-            'the keyring'
+            'Secret the password of the repository refers to is '
+            'missing in the keyring'
         ),
     },
 }
@@ -73,7 +73,9 @@ _SECRET_RESPONSES: dict[int | str, dict[str, Any]] = {
     '/',
     description=(
         'List connected generator repositories, each with the result '
-        'of the last check made in this process.'
+        'of the last check made in this process. A password naming a '
+        'keyring secret is answered as written, while one holding the '
+        'credential itself is answered redacted.'
     ),
     response_description='Connected repositories',
     responses=_STORAGE_RESPONSES,

@@ -107,6 +107,52 @@ def test_add_and_list(client):
     assert [item['name'] for item in listed.json()] == ['packs']
 
 
+def test_add_accepts_a_password_and_lists_it_redacted(client):
+    added = client.post(
+        '/repositories/?verify=false',
+        json={
+            'name': 'packs',
+            'url': 'https://example.com/packs.git',
+            'password': 'ghp_token',
+        },
+    )
+
+    assert added.status_code == 201
+
+    listed = client.get('/repositories/')
+
+    assert listed.json()[0]['password'] == '***'
+    assert 'ghp_token' not in listed.text
+
+
+def test_list_shows_a_referenced_password(client):
+    client.post(
+        '/repositories/?verify=false',
+        json={
+            'name': 'packs',
+            'url': 'https://example.com/packs.git',
+            'password': '${secrets.git_token}',
+        },
+    )
+
+    listed = client.get('/repositories/')
+
+    assert listed.json()[0]['password'] == '${secrets.git_token}'
+
+
+def test_add_rejects_a_password_token_of_another_kind(client):
+    response = client.post(
+        '/repositories/?verify=false',
+        json={
+            'name': 'packs',
+            'url': 'https://example.com/packs.git',
+            'password': '${params.git_token}',
+        },
+    )
+
+    assert response.status_code == 422
+
+
 def test_add_rejects_unsupported_url(client):
     response = client.post(
         '/repositories/?verify=false',
@@ -316,7 +362,7 @@ def test_add_reports_a_missing_secret(stub, stub_client):
         json={
             'name': 'packs',
             'url': 'https://example.com/packs.git',
-            'secret': 'git_token',
+            'password': '${secrets.git_token}',
         },
     )
 
