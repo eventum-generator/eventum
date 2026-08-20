@@ -3,7 +3,6 @@ import {
   JsonInput,
   NumberInput,
   Paper,
-  PasswordInput,
   Select,
   Stack,
   Switch,
@@ -22,6 +21,8 @@ import {
   HTTP_METHODS,
 } from '@/api/routes/generator-configs/schemas/plugins/output/configs/http';
 import { LabelWithTooltip } from '@/components/ui/LabelWithTooltip';
+import { SecretPasswordInput } from '@/components/ui/SecretPasswordInput';
+import { useOpenSecretsPage } from '@/utils/useOpenSecretsPage';
 
 interface HTTPOutputPluginParamsProps {
   initialConfig: HTTPOutputPluginConfig;
@@ -32,6 +33,7 @@ export const HTTPOutputPluginParams: FC<HTTPOutputPluginParamsProps> = ({
   initialConfig,
   onChange,
 }) => {
+  const openSecretsPage = useOpenSecretsPage();
   const form = useForm<HTTPOutputPluginConfig>({
     initialValues: initialConfig,
     validate: zod4Resolver(HTTPOutputPluginConfigSchema),
@@ -140,7 +142,8 @@ export const HTTPOutputPluginParams: FC<HTTPOutputPluginParamsProps> = ({
             )
           }
         />
-        <PasswordInput
+        <SecretPasswordInput
+          onOpenSecrets={openSecretsPage}
           label={
             <LabelWithTooltip
               label="Password"
@@ -149,12 +152,7 @@ export const HTTPOutputPluginParams: FC<HTTPOutputPluginParamsProps> = ({
           }
           {...form.getInputProps('password')}
           onChange={(value) =>
-            form.setFieldValue(
-              'password',
-              value.currentTarget.value !== ''
-                ? value.currentTarget.value
-                : undefined
-            )
+            form.setFieldValue('password', value !== '' ? value : undefined)
           }
         />
       </Group>

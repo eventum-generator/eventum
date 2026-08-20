@@ -1,13 +1,4 @@
-import {
-  Alert,
-  Anchor,
-  Button,
-  Group,
-  Select,
-  Stack,
-  Text,
-  TextInput,
-} from '@mantine/core';
+import { Alert, Button, Group, Stack, Text, TextInput } from '@mantine/core';
 import { useForm } from '@mantine/form';
 import { modals } from '@mantine/modals';
 import { FC, useState } from 'react';
@@ -15,12 +6,13 @@ import { FC, useState } from 'react';
 import { describeAPIError } from '@/api/errorReport';
 import { APIError } from '@/api/errors';
 import { useAddRepositoryMutation } from '@/api/hooks/useRepositories';
-import { useSecretNames } from '@/api/hooks/useSecrets';
 import {
   REPOSITORY_NAME_PATTERN,
   REPOSITORY_REF_PATTERN,
+  RepositorySchema,
 } from '@/api/routes/repositories/schemas';
 import { AlertIcon } from '@/components/ui/AlertIcon';
+import { SecretPasswordInput } from '@/components/ui/SecretPasswordInput';
 import {
   showErrorNotification,
   showSuccessNotification,
@@ -47,7 +39,6 @@ export const AddRepositoryModal: FC<AddRepositoryModalProps> = ({
   prefilled,
 }) => {
   const addRepository = useAddRepositoryMutation();
-  const { data: secretNames } = useSecretNames();
   const [unreachable, setUnreachable] = useState<string | null>(null);
 
   const form = useForm({
@@ -56,7 +47,7 @@ export const AddRepositoryModal: FC<AddRepositoryModalProps> = ({
       url: prefilled?.url ?? '',
       ref: '',
       username: '',
-      secret: '',
+      password: '',
     },
     validate: {
       name: (value) => {
@@ -81,13 +72,18 @@ export const AddRepositoryModal: FC<AddRepositoryModalProps> = ({
         }
         return null;
       },
+      password: (value) => {
+        if (!value) return null;
+        const parsed = RepositorySchema.shape.password.safeParse(value);
+        return parsed.success ? null : parsed.error.issues[0]!.message;
+      },
       url: (value) => {
         if (!value) return 'URL is required';
         if (!/^https?:\/\/.+/.test(value)) {
           return 'URL must start with "http://" or "https://"';
         }
         if (/^https?:\/\/[^/]*@/.test(value)) {
-          return 'Provide credentials as user name and secret, not in the URL';
+          return 'Provide credentials as user name and password, not in the URL';
         }
         return null;
       },
@@ -106,7 +102,7 @@ export const AddRepositoryModal: FC<AddRepositoryModalProps> = ({
           url: form.values.url,
           ref: form.values.ref || undefined,
           username: form.values.username || undefined,
-          secret: form.values.secret || undefined,
+          password: form.values.password || undefined,
         },
         verify,
       },
@@ -158,32 +154,22 @@ export const AddRepositoryModal: FC<AddRepositoryModalProps> = ({
           description="Needed for a private repository"
           {...form.getInputProps('username')}
         />
-        <Select
-          label="Secret"
+        <SecretPasswordInput
+          label="Password"
           description={
             <>
-              For a private repository - the secret of the keyring holding its
-              password or access token. Its name, not the value and not a{' '}
-              <code>{'${secrets.*}'}</code> reference. Secrets are added on the{' '}
-              <Anchor
-                component="button"
-                type="button"
-                size="xs"
-                onClick={() => {
-                  modals.closeAll();
-                  onOpenSecrets();
-                }}
-              >
-                Secrets
-              </Anchor>{' '}
-              page.
+              For a private repository - its password or access token, either as
+              the value itself or as a <code>{'${secrets.<name>}'}</code>{' '}
+              reference read from the keyring at every fetch. The key on the
+              right writes the reference of a secret.
             </>
           }
-          data={secretNames ?? []}
-          nothingFoundMessage="The keyring holds no secrets yet"
-          searchable
-          clearable
-          {...form.getInputProps('secret')}
+          onOpenSecrets={() => {
+            modals.closeAll();
+            onOpenSecrets();
+          }}
+          {...form.getInputProps('password')}
+          onChange={(value) => form.setFieldValue('password', value)}
         />
 
         {unreachable !== null && (
