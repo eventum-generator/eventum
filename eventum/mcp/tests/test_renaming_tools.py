@@ -303,14 +303,43 @@ async def test_rename_secret_taken_name_is_failure(
     def _rename(
         *, repositories: object, name: str, new_name: str
     ) -> list[str]:
-        raise RenameConflictError('Already exists', context={})
+        raise RenameConflictError(
+            'Secret with this name already exists',
+            context={},
+        )
 
     monkeypatch.setattr(renaming, 'rename_secret', _rename)
 
     result = await renaming.rename_secret_name(_ctx(tmp_path), 'old', 'new')
 
     assert isinstance(result, ToolFailure)
+    assert result.error == 'Secret with this name already exists'
     assert result.details == {'name': 'new'}
+
+
+async def test_rename_secret_names_the_repositories_holding_the_name(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A name a repository holds is refused, and the holder is named."""
+
+    def _rename(
+        *, repositories: object, name: str, new_name: str
+    ) -> list[str]:
+        raise RenameConflictError(
+            'Repositories already authenticate with the new name',
+            context={'secret': 'new', 'reason': 'github, mirror'},
+        )
+
+    monkeypatch.setattr(renaming, 'rename_secret', _rename)
+
+    result = await renaming.rename_secret_name(_ctx(tmp_path), 'old', 'new')
+
+    assert isinstance(result, ToolFailure)
+    assert (
+        result.error == 'Repositories already authenticate with the new name'
+    )
+    assert result.details == {'name': 'new', 'reason': 'github, mirror'}
 
 
 async def test_rename_secret_keyring_error_carries_no_path(

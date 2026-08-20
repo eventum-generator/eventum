@@ -98,10 +98,15 @@ async def rename_secret_name(
         )
     except RenameNotFoundError:
         return ToolFailure(error='Secret not found', details={'name': secret})
-    except RenameConflictError:
+    except RenameConflictError as e:
+        # A name is taken either by another secret or by a repository
+        # authenticating with it, and the two need different answers:
+        # the message names which, and the repositories behind it are
+        # what the agent has to free before trying again.
+        failure = to_tool_error(e, context.generators_dir)
         return ToolFailure(
-            error='Secret with this name already exists',
-            details={'name': new_name},
+            error=failure.error,
+            details={**failure.details, 'name': new_name},
         )
     except RenameError as e:
         # The keyring reports its failures in text this package does
