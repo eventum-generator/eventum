@@ -40,6 +40,28 @@ function references(
 
 const mutate = vi.fn();
 
+type MutateHandlers = { onSuccess: (repointed: string[]) => void };
+
+/** The options the component passed to the mutation on the one call. */
+function handlersOfTheCall(): MutateHandlers {
+  const call = mutate.mock.calls[0];
+  if (call === undefined) {
+    throw new Error('the mutation was never called');
+  }
+
+  return call[1] as MutateHandlers;
+}
+
+/** The variables the component passed to the mutation. */
+function variablesOfTheCall(): unknown {
+  const call = mutate.mock.calls[0];
+  if (call === undefined) {
+    throw new Error('the mutation was never called');
+  }
+
+  return call[0];
+}
+
 function renderModal(): void {
   renderWithProviders(
     <RenameSecretModal secretName="git_token" existingSecretNames={[]} />
@@ -156,7 +178,7 @@ describe('RenameSecretModal renaming', () => {
     await user.click(screen.getByRole('button', { name: 'Rename' }));
 
     expect(mutate).toHaveBeenCalledTimes(1);
-    expect(mutate.mock.calls[0][0]).toEqual({
+    expect(variablesOfTheCall()).toEqual({
       name: 'git_token',
       newName: 'forge_token',
     });
@@ -171,10 +193,7 @@ describe('RenameSecretModal renaming', () => {
     await user.type(input, 'forge_token');
     await user.click(screen.getByRole('button', { name: 'Rename' }));
 
-    const handlers = mutate.mock.calls[0][1] as {
-      onSuccess: (repointed: string[]) => void;
-    };
-    handlers.onSuccess(['internal', 'mirror']);
+    handlersOfTheCall().onSuccess(['internal', 'mirror']);
 
     expect(showSuccessNotification).toHaveBeenCalledWith(
       'Renamed',
@@ -192,10 +211,7 @@ describe('RenameSecretModal renaming', () => {
     await user.type(input, 'forge_token');
     await user.click(screen.getByRole('button', { name: 'Rename' }));
 
-    const handlers = mutate.mock.calls[0][1] as {
-      onSuccess: (repointed: string[]) => void;
-    };
-    handlers.onSuccess([]);
+    handlersOfTheCall().onSuccess([]);
 
     expect(showSuccessNotification).toHaveBeenCalledWith(
       'Renamed',
