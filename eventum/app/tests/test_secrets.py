@@ -355,3 +355,78 @@ def test_rename_holds_its_turn_across_both_steps(repositories, keyring):
         )
 
     assert free_while_repointing == [False]
+
+
+def test_rename_onto_a_name_a_repository_holds_conflicts(
+    repositories,
+    keyring,
+):
+    """The value must not move under a name another repository holds."""
+    set_secret('gl_token', 'GITLAB-TOKEN')
+    _connect(repositories, 'gitlab', 'gl_token')
+    _connect(repositories, 'github', 'gh_token')
+
+    with pytest.raises(RenameConflictError, match='already authenticate'):
+        rename_secret(
+            repositories=repositories,
+            name='gl_token',
+            new_name='gh_token',
+        )
+
+    assert list_secrets() == ['gl_token']
+    assert get_secret('gl_token') == 'GITLAB-TOKEN'
+    assert repositories.get('gitlab').secret == 'gl_token'
+    assert repositories.get('github').secret == 'gh_token'
+
+
+def test_rename_conflict_names_the_repositories_holding_it(
+    repositories,
+    keyring,
+):
+    set_secret('gl_token', 'value')
+    _connect(repositories, 'gitlab', 'gl_token')
+    _connect(repositories, 'mirror', 'gh_token')
+    _connect(repositories, 'github', 'gh_token')
+
+    with pytest.raises(RenameConflictError) as info:
+        rename_secret(
+            repositories=repositories,
+            name='gl_token',
+            new_name='gh_token',
+        )
+
+    assert info.value.context['reason'] == 'github, mirror'
+
+
+def test_rename_to_the_same_name_reports_the_secret_not_the_repository(
+    repositories,
+    keyring,
+):
+    """The keyring answers this one, and names the right holder."""
+    set_secret('git_token', 'value')
+    _connect(repositories, 'internal', 'git_token')
+
+    with pytest.raises(RenameConflictError, match='already exists'):
+        rename_secret(
+            repositories=repositories,
+            name='git_token',
+            new_name='git_token',
+        )
+
+
+def test_rename_stops_when_the_repositories_cannot_be_read(
+    repositories,
+    keyring,
+    tmp_path,
+):
+    set_secret('git_token', 'value')
+    (tmp_path / 'repositories.yml').write_text('name: not-a-list\n')
+
+    with pytest.raises(RenameError, match='Cannot tell which repositories'):
+        rename_secret(
+            repositories=repositories,
+            name='git_token',
+            new_name='forge_token',
+        )
+
+    assert list_secrets() == ['git_token']

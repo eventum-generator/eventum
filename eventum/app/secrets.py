@@ -135,13 +135,17 @@ def rename_secret(
         If the secret is missing in the keyring.
 
     RenameConflictError
-        If a secret with the new name already exists.
+        If a secret with the new name already exists, or a repository
+        already authenticates with that name.
 
     RenameError
-        If the keyring cannot be reached, or the rename fails midway.
+        If the connected repositories cannot be read, the keyring
+        cannot be reached, or the rename fails midway.
 
     """
     with _RENAME_LOCK:
+        _reject_held_name(repositories, name, new_name)
+
         try:
             rename_keyring_secret(name, new_name)
         except SecretNotFoundError:
@@ -167,6 +171,47 @@ def rename_secret(
 
             msg = 'Repositories using the secret cannot be repointed'
             raise RenameError(msg, context=e.context) from None
+
+
+def _reject_held_name(
+    repositories: Repositories,
+    name: str,
+    new_name: str,
+) -> None:
+    """Refuse a new name a repository already authenticates with.
+
+    The keyring holds one value per name, so a repository left on the
+    new name would start authenticating with the value moved under it -
+    the credential of one host reaching another, on an operation that
+    reported success. The repositories on that name are named, since
+    freeing it is what the caller has to do next.
+
+    Raises
+    ------
+    RenameConflictError
+        If any repository already holds the new name.
+
+    RenameError
+        If the connected repositories cannot be read.
+
+    """
+    if new_name == name:
+        # The keyring refuses this one on its own, and with the right
+        # message: the name is taken by the secret being renamed.
+        return
+
+    try:
+        holders = repositories.find_secret_users(new_name)
+    except RepositoryError as e:
+        msg = 'Cannot tell which repositories hold the new name'
+        raise RenameError(msg, context=e.context) from None
+
+    if holders:
+        msg = 'Repositories already authenticate with the new name'
+        raise RenameConflictError(
+            msg,
+            context={'secret': new_name, 'reason': ', '.join(holders)},
+        )
 
 
 def _find_project_references(
