@@ -1,6 +1,10 @@
 import {
+  RepointedRepositories,
+  RepointedRepositoriesSchema,
   SecretNames,
   SecretNamesSchema,
+  SecretReferences,
+  SecretReferencesSchema,
   SecretValue,
   SecretValueSchema,
 } from './schemas';
@@ -26,15 +30,23 @@ export async function deleteSecretValue(name: string) {
   await apiClient.delete(`/secrets/${name}`);
 }
 
-export async function getSecretReferences(name: string): Promise<SecretNames> {
+export async function getSecretReferences(
+  name: string
+): Promise<SecretReferences> {
   return await validateResponse(
-    SecretNamesSchema,
+    SecretReferencesSchema,
     apiClient.get(`/secrets/${encodeURIComponent(name)}/references`)
   );
 }
 
-export async function renameSecret(name: string, newName: string) {
-  await apiClient.post(`/secrets/${encodeURIComponent(name)}/rename`, {
-    new_name: newName,
-  });
+export async function renameSecret(
+  name: string,
+  newName: string
+): Promise<RepointedRepositories> {
+  return await validateResponse(
+    RepointedRepositoriesSchema,
+    apiClient.post(`/secrets/${encodeURIComponent(name)}/rename`, {
+      new_name: newName,
+    })
+  );
 }
