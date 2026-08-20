@@ -5,20 +5,39 @@ from typing import Annotated
 
 from fastapi import APIRouter, Body, HTTPException, Path
 
-from eventum.api.dependencies.app import SettingsDep
-from eventum.api.routers.secrets.models import RenameSecretRequest
-from eventum.app.workspace import find_secret_references
+from eventum.api.dependencies.app import RepositoriesDep, SettingsDep
+from eventum.api.routers.secrets.models import (
+    RenameSecretRequest,
+    SecretReferencesResponse,
+)
+from eventum.app.renaming import (
+    RenameConflictError,
+    RenameError,
+    RenameNotFoundError,
+)
+from eventum.app.repositories import RepositoryError
+from eventum.app.secrets import find_secret_references, rename_secret
+from eventum.exceptions import ContextualError
 from eventum.security.manage import (
-    SecretConflictError,
-    SecretNotFoundError,
     get_secret,
     list_secrets,
     remove_secret,
-    rename_secret,
     set_secret,
 )
 
 router = APIRouter()
+
+
+def _detail(error: ContextualError) -> str:
+    """Build the detail of a failure, naming the reason behind it.
+
+    The reason names what the file system, the parser or the keyring
+    objected to, which is what a caller looking at a failing
+    instance acts on.
+    """
+    reason = error.context.get('reason')
+
+    return str(error) if reason is None else f'{error}: {reason}'
 
 
 @router.get(
@@ -103,33 +122,55 @@ async def delete_secret_value(
 @router.get(
     '/{name}/references',
     description=(
-        'List projects whose configuration references the secret as '
-        '`${secrets.<name>}`'
+        'List what refers to the secret - the projects whose '
+        'configuration reads it as `${secrets.<name>}`, and the '
+        'connected repositories authenticating with it'
     ),
-    response_description='Names of referencing generator directories',
+    response_description='Referrers of the secret, by kind',
+    responses={
+        500: {'description': 'Connected repositories cannot be read'},
+    },
 )
 async def list_secret_references(
     name: Annotated[str, Path(description='Secret name', min_length=1)],
     settings: SettingsDep,
-) -> list[str]:
-    return await asyncio.to_thread(
-        find_secret_references,
-        settings.path.generators_dir,
-        settings.path.generator_config_filename,
-        name,
+    repositories: RepositoriesDep,
+) -> SecretReferencesResponse:
+    try:
+        references = await asyncio.to_thread(
+            find_secret_references,
+            generators_dir=settings.path.generators_dir,
+            config_filename=settings.path.generator_config_filename,
+            repositories=repositories,
+            secret=name,
+        )
+    except RepositoryError as e:
+        raise HTTPException(status_code=500, detail=_detail(e)) from None
+
+    return SecretReferencesResponse(
+        projects=references.projects,
+        repositories=references.repositories,
     )
 
 
 @router.post(
     '/{name}/rename',
     description=(
-        'Rename secret in keyring. References to the secret in generator '
-        'configurations are not rewritten.'
+        'Rename secret in keyring. Connected repositories '
+        'authenticating with the secret are repointed at the new name; '
+        'references in generator configurations are not rewritten.'
     ),
+    response_description='Names of the repositories that were repointed',
     responses={
         404: {'description': 'Secret is missing in keyring'},
         409: {'description': 'Secret with the new name already exists'},
-        500: {'description': 'Failed to rename secret'},
+        500: {
+            'description': (
+                'Failed to rename secret, or the repositories using it '
+                'cannot be repointed. The detail names which of the two '
+                'happened, and whether the secret was left renamed'
+            ),
+        },
     },
 )
 async def rename_secret_value(
@@ -138,15 +179,18 @@ async def rename_secret_value(
         RenameSecretRequest,
         Body(description='New secret name'),
     ],
-) -> None:
+    repositories: RepositoriesDep,
+) -> list[str]:
     try:
-        await asyncio.to_thread(rename_secret, name, request.new_name)
-    except SecretNotFoundError as e:
+        return await asyncio.to_thread(
+            rename_secret,
+            repositories=repositories,
+            name=name,
+            new_name=request.new_name,
+        )
+    except RenameNotFoundError as e:
         raise HTTPException(status_code=404, detail=str(e)) from None
-    except SecretConflictError as e:
+    except RenameConflictError as e:
         raise HTTPException(status_code=409, detail=str(e)) from None
-    except OSError as e:
-        raise HTTPException(
-            status_code=500,
-            detail=f'Failed to rename secret: {e}',
-        ) from None
+    except RenameError as e:
+        raise HTTPException(status_code=500, detail=_detail(e)) from None
