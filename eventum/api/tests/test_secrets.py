@@ -227,6 +227,24 @@ def test_rename_secret_conflict(mock_rename, client):
 
 
 @patch('eventum.api.routers.secrets.routes.rename_secret', autospec=True)
+def test_rename_secret_conflict_names_the_repositories(mock_rename, client):
+    mock_rename.side_effect = RenameConflictError(
+        'Repositories already authenticate with the new name',
+        context={'reason': 'github, mirror'},
+    )
+
+    response = client.post(
+        '/secrets/gl_token/rename',
+        json={'new_name': 'gh_token'},
+    )
+
+    assert response.status_code == 409
+    assert response.json()['detail'] == (
+        'Repositories already authenticate with the new name: github, mirror'
+    )
+
+
+@patch('eventum.api.routers.secrets.routes.rename_secret', autospec=True)
 def test_rename_secret_failed_midway(mock_rename, client):
     mock_rename.side_effect = RenameError('keyring error', context={})
 

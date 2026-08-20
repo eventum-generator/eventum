@@ -163,7 +163,12 @@ async def list_secret_references(
     response_description='Names of the repositories that were repointed',
     responses={
         404: {'description': 'Secret is missing in keyring'},
-        409: {'description': 'Secret with the new name already exists'},
+        409: {
+            'description': (
+                'The new name is taken - by another secret, or by a '
+                'connected repository authenticating with it'
+            ),
+        },
         500: {
             'description': (
                 'Failed to rename secret, or the repositories using it '
@@ -189,8 +194,8 @@ async def rename_secret_value(
             new_name=request.new_name,
         )
     except RenameNotFoundError as e:
-        raise HTTPException(status_code=404, detail=str(e)) from None
+        raise HTTPException(status_code=404, detail=_detail(e)) from None
     except RenameConflictError as e:
-        raise HTTPException(status_code=409, detail=str(e)) from None
+        raise HTTPException(status_code=409, detail=_detail(e)) from None
     except RenameError as e:
         raise HTTPException(status_code=500, detail=_detail(e)) from None
