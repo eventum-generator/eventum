@@ -3,7 +3,8 @@
 Renaming a project or a generator touches the generator directory, the
 startup file, and the live manager together, so those tools delegate to
 the ``app.renaming`` service and only translate its outcome for the
-agent. A secret rename moves its keyring entry, never its value.
+agent. A secret rename moves its keyring entry and repoints the
+repositories authenticating with it, never exposing its value.
 """
 
 import asyncio
@@ -12,18 +13,21 @@ from typing import Any
 from mcp.server.fastmcp import FastMCP
 
 from eventum.app.renaming import (
+    RenameConflictError,
     RenameError,
+    RenameNotFoundError,
     rename_instance,
     rename_project,
 )
+from eventum.app.secrets import rename_secret
 from eventum.mcp.context import LiveContext
-from eventum.mcp.errors import ToolFailure, read_only_failure, to_tool_error
-from eventum.mcp.observability import observe_failure
-from eventum.security.manage import (
-    SecretConflictError,
-    SecretNotFoundError,
-    rename_secret,
+from eventum.mcp.errors import (
+    ToolFailure,
+    read_only_failure,
+    scrub_message,
+    to_tool_error,
 )
+from eventum.mcp.observability import observe_failure
 
 
 async def rename_generator_config(
@@ -81,21 +85,40 @@ async def rename_generator(
 async def rename_secret_name(
     context: LiveContext, secret: str, new_name: str
 ) -> dict[str, Any] | ToolFailure:
-    """Move a secret's value to a new name in the keyring."""
+    """Move a secret to a new name and repoint the repositories."""
     if context.read_only:
         return read_only_failure({'name': secret})
     try:
-        await asyncio.to_thread(rename_secret, secret, new_name)
-    except SecretNotFoundError:
+        repointed = await asyncio.to_thread(
+            lambda: rename_secret(
+                repositories=context.repositories,
+                name=secret,
+                new_name=new_name,
+            ),
+        )
+    except RenameNotFoundError:
         return ToolFailure(error='Secret not found', details={'name': secret})
-    except SecretConflictError:
+    except RenameConflictError:
         return ToolFailure(
             error='Secret with this name already exists',
             details={'name': new_name},
         )
+    except RenameError as e:
+        # The keyring reports its failures in text this package does
+        # not control, so only the message - a static string - crosses
+        # the boundary, and the reason behind it stays on the server.
+        return ToolFailure(
+            error=scrub_message(str(e), context.generators_dir),
+            details={'name': secret},
+        )
     except Exception:  # noqa: BLE001 - no raw error/path may escape
         return ToolFailure(error='Failed to rename secret')
-    return {'name': secret, 'new_name': new_name, 'renamed': True}
+    return {
+        'name': secret,
+        'new_name': new_name,
+        'renamed': True,
+        'repositories': repointed,
+    }
 
 
 def register(mcp: FastMCP, context: LiveContext, *, transport: str) -> None:
@@ -186,9 +209,11 @@ def register(mcp: FastMCP, context: LiveContext, *, transport: str) -> None:
     ) -> dict[str, Any] | ToolFailure:
         """Rename a secret, keeping its value under the new name.
 
-        The value is moved without being exposed. Configurations are
-        not rewritten: every ``${secrets.<secret>}`` token keeps the old
-        name and its generator fails to load until it is updated. Call
+        The value is moved without being exposed, and every connected
+        repository authenticating with the secret is pointed at the new
+        name. Configurations are not rewritten: every
+        ``${secrets.<secret>}`` token keeps the old name and its
+        generator fails to load until it is updated. Call
         ``list_secret_references`` first, and update the tokens in the
         projects it reports. Blocked when the server is read-only.
 
@@ -203,9 +228,11 @@ def register(mcp: FastMCP, context: LiveContext, *, transport: str) -> None:
         Returns
         -------
         dict[str, Any] | ToolFailure
-            ``{'name', 'new_name', 'renamed': True}``, or a structured
+            ``{'name', 'new_name', 'renamed': True, 'repositories'}``
+            with the repositories that were repointed, or a structured
             failure if the server is read-only, the secret does not
-            exist, or the new name is taken. Does not raise.
+            exist, the new name is taken, or the repositories cannot be
+            repointed. Does not raise.
 
         """
         return observe_failure(

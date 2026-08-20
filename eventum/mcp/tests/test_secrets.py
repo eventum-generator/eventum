@@ -4,13 +4,33 @@ from pathlib import Path
 
 import pytest
 
+from eventum.app.repositories import Repository
 from eventum.mcp.context import FileAuthoringContext
 from eventum.mcp.errors import ToolFailure
 from eventum.mcp.tools import secrets
 
 
 def _ctx(tmp_path: Path) -> FileAuthoringContext:
-    return FileAuthoringContext(generators_dir=tmp_path, read_only=False)
+    return FileAuthoringContext(
+        generators_dir=tmp_path,
+        read_only=False,
+        repositories_file=tmp_path / 'repositories.yml',
+    )
+
+
+def _connect(
+    context: FileAuthoringContext,
+    name: str,
+    secret: str,
+) -> None:
+    context.repositories.add(
+        Repository(
+            name=name,
+            url=f'https://git.example.com/{name}.git',
+            secret=secret,
+        ),
+        verify=False,
+    )
 
 
 def test_list_secret_names_sorted(
@@ -64,11 +84,41 @@ async def test_list_secret_references_reports_projects(
 
     result = await secrets.list_secret_references(_ctx(tmp_path), 'api_key')
 
-    assert result == ['gen-a', 'gen-b']
+    assert result == {'projects': ['gen-a', 'gen-b'], 'repositories': []}
+
+
+async def test_list_secret_references_reports_repositories(
+    tmp_path: Path,
+) -> None:
+    """Repositories authenticating with the secret are listed too."""
+    context = _ctx(tmp_path)
+    _connect(context, 'internal', 'api_key')
+    _connect(context, 'other', 'another_key')
+
+    result = await secrets.list_secret_references(context, 'api_key')
+
+    assert result == {'projects': [], 'repositories': ['internal']}
 
 
 async def test_list_secret_references_none(tmp_path: Path) -> None:
-    """No referencing project yields an empty list."""
-    assert (
-        await secrets.list_secret_references(_ctx(tmp_path), 'api_key') == []
-    )
+    """Nothing referring to the secret yields two empty lists."""
+    result = await secrets.list_secret_references(_ctx(tmp_path), 'api_key')
+
+    assert result == {'projects': [], 'repositories': []}
+
+
+async def test_list_secret_references_unreadable_repositories(
+    tmp_path: Path,
+) -> None:
+    """Repositories that cannot be read are reported, not answered as none."""
+    context = _ctx(tmp_path)
+    (tmp_path / 'repositories.yml').write_text('name: broken\n')
+
+    result = await secrets.list_secret_references(context, 'api_key')
+
+    assert isinstance(result, ToolFailure)
+    assert result.error == 'Repositories file root is not a YAML list'
+    # The list sits beside the generators directory, so what names it
+    # is its own name and never the path to it.
+    assert result.details['file_path'] == 'repositories.yml'
+    assert 'projects' not in result.details
