@@ -1,10 +1,16 @@
 """Models of connected generator repositories."""
 
 from datetime import datetime
-from typing import Literal
+from typing import Literal, Self
 from urllib.parse import urlsplit
 
 from pydantic import BaseModel, Field, RootModel, field_validator
+
+from eventum.core.config_loader import (
+    SECRET_TOKEN_PREFIX,
+    TOKEN_PATTERN,
+    extract_tokens,
+)
 
 # A repository is fetched by the server on request, so the transports
 # it may name are limited to the two that carry nothing but a fetch.
@@ -15,6 +21,75 @@ ALLOWED_URL_SCHEMES = frozenset({'http', 'https'})
 
 _NAME_PATTERN = r'^[a-zA-Z0-9](?:[a-zA-Z0-9._-]*[a-zA-Z0-9])?$'
 _REF_PATTERN = r'^[a-zA-Z0-9][a-zA-Z0-9._/-]*$'
+
+# What a password reads as once it leaves the process. A password
+# naming a keyring secret is shown as written - the name is not the
+# credential - while a password holding the credential itself is
+# replaced by this, the same way a failure reason hides it.
+REDACTED_PASSWORD = '***'  # noqa: S105
+
+
+def _is_secret_token(token: str) -> bool:
+    """Return whether the token names a keyring secret."""
+    return token.startswith(SECRET_TOKEN_PREFIX) and len(token) > len(
+        SECRET_TOKEN_PREFIX
+    )
+
+
+def secret_reference(password: str | None) -> str | None:
+    """Return the name of the secret a password refers to.
+
+    Parameters
+    ----------
+    password : str | None
+        Password to read the reference of.
+
+    Returns
+    -------
+    str | None
+        Name of the referenced secret, or `None` if the password is
+        not written as a single reference and therefore carries the
+        credential itself.
+
+    """
+    if password is None:
+        return None
+
+    # The token a substitution would take is the first one it finds,
+    # so the same one decides here - a value ending past it carries
+    # more than the reference.
+    match = TOKEN_PATTERN.search(password)
+
+    if (
+        match is None
+        or match.span() != (0, len(password))
+        or not _is_secret_token(match.group(1))
+    ):
+        return None
+
+    return match.group(1)[len(SECRET_TOKEN_PREFIX) :]
+
+
+def redact_password(password: str | None) -> str | None:
+    """Return what may leave the process in place of a password.
+
+    Parameters
+    ----------
+    password : str | None
+        Password as it is kept.
+
+    Returns
+    -------
+    str | None
+        The password itself when it only refers to a keyring secret,
+        `REDACTED_PASSWORD` when it carries the credential, and
+        `None` when there is no password.
+
+    """
+    if password is None or secret_reference(password) is not None:
+        return password
+
+    return REDACTED_PASSWORD
 
 
 class Repository(BaseModel, extra='forbid', frozen=True):
@@ -36,9 +111,10 @@ class Repository(BaseModel, extra='forbid', frozen=True):
     username : str | None, default=None
         User name to authenticate with.
 
-    secret : str | None, default=None
-        Name of the keyring secret holding the password or access
-        token to authenticate with.
+    password : str | None, default=None
+        Password or access token to authenticate with, either as the
+        value itself or as a `${secrets.<name>}` reference resolved
+        from the keyring when the repository is reached.
 
     """
 
@@ -51,7 +127,10 @@ class Repository(BaseModel, extra='forbid', frozen=True):
         pattern=_REF_PATTERN,
     )
     username: str | None = Field(default=None, min_length=1, max_length=255)
-    secret: str | None = Field(default=None, min_length=1, max_length=255)
+    # Unbounded above, like the password of an output plugin: the
+    # field holds a credential rather than the name of one, and an
+    # access token has no length to count on.
+    password: str | None = Field(default=None, min_length=1)
 
     @field_validator('url')
     @classmethod
@@ -70,7 +149,7 @@ class Repository(BaseModel, extra='forbid', frozen=True):
         if parts.username is not None or parts.password is not None:
             msg = (
                 'URL must not carry credentials, provide them as '
-                '"username" and "secret"'
+                '"username" and "password"'
             )
             raise ValueError(msg)
 
@@ -81,6 +160,24 @@ class Repository(BaseModel, extra='forbid', frozen=True):
     def validate_ref(cls, v: str | None) -> str | None:  # noqa: D102
         if v is not None and ('..' in v or v.endswith(('/', '.lock'))):
             msg = 'Reference is not a valid branch or tag name'
+            raise ValueError(msg)
+
+        return v
+
+    @field_validator('password')
+    @classmethod
+    def validate_password(cls, v: str | None) -> str | None:  # noqa: D102
+        # A password is taken as written apart from the secrets it
+        # refers to, and a token of any other kind would be sent to
+        # the remote as part of the credential. Refusing it names the
+        # mistake instead of failing the authentication later.
+        if v is not None and any(
+            not _is_secret_token(token) for token in extract_tokens(v)
+        ):
+            msg = (
+                'Password refers to a secret as "${secrets.<name>}"; '
+                'no other substitution is available here'
+            )
             raise ValueError(msg)
 
         return v
@@ -117,6 +214,11 @@ class RepositoryStatus(BaseModel, extra='forbid', frozen=True):
 class ConnectedRepository(Repository):
     """Connected repository with the result of its last check.
 
+    This is the repository as it is shown rather than as it is kept:
+    a password holding the credential itself reads as `***`, while one
+    naming a keyring secret reads as written. Nothing authenticates
+    with it.
+
     Attributes
     ----------
     status : RepositoryStatus
@@ -125,6 +227,32 @@ class ConnectedRepository(Repository):
     """
 
     status: RepositoryStatus
+
+    @classmethod
+    def of(cls, repository: Repository, status: RepositoryStatus) -> Self:
+        """Build the shown form of a connected repository.
+
+        Parameters
+        ----------
+        repository : Repository
+            Repository as it is kept.
+
+        status : RepositoryStatus
+            Result of its last check.
+
+        Returns
+        -------
+        Self
+            Repository with its password redacted.
+
+        """
+        return cls(
+            **(
+                repository.model_dump()
+                | {'password': redact_password(repository.password)}
+            ),
+            status=status,
+        )
 
 
 class GeneratorSource(BaseModel, extra='ignore', frozen=True):

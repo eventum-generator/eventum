@@ -44,7 +44,7 @@ _HEAD_REF = Ref(b'HEAD')
 # alongside.
 _AUTH_HINT = (
     'The repository may not exist at this address, or may be private - '
-    'provide a user name and a secret to reach it'
+    'provide a user name and a password to reach it'
 )
 
 
