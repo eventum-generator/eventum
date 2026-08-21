@@ -13,7 +13,11 @@ from eventum.app.models.parameters.path import PathParameters
 from eventum.app.models.parameters.server import ServerParameters
 from eventum.app.models.settings import Settings
 from eventum.core.parameters import GenerationParameters
-from eventum.security.manage import SecretConflictError, SecretNotFoundError
+from eventum.security.manage import (
+    SecretConflictError,
+    SecretNameError,
+    SecretNotFoundError,
+)
 
 
 @pytest.fixture
@@ -93,6 +97,23 @@ def test_set_secret(mock_set, client):
         headers={'Content-Type': 'application/json'},
     )
     assert response.status_code == 200
+
+
+@patch('eventum.api.routers.secrets.routes.set_secret')
+def test_set_secret_reports_a_name_that_cannot_be_referenced(
+    mock_set,
+    client,
+):
+    mock_set.side_effect = SecretNameError('Name of secret must be words')
+
+    response = client.put(
+        '/secrets/my-secret',
+        content='"new_value"',
+        headers={'Content-Type': 'application/json'},
+    )
+
+    assert response.status_code == 400
+    assert response.json()['detail'] == 'Name of secret must be words'
 
 
 # --- DELETE /{name} ---
@@ -178,6 +199,21 @@ def test_rename_secret_os_error(mock_rename, client):
     )
 
     assert response.status_code == 500
+
+
+@patch('eventum.api.routers.secrets.routes.rename_secret')
+def test_rename_secret_reports_a_name_that_cannot_be_referenced(
+    mock_rename,
+    client,
+):
+    mock_rename.side_effect = SecretNameError('Name of secret must be words')
+
+    response = client.post(
+        '/secrets/api_key/rename',
+        json={'new_name': 'my-secret'},
+    )
+
+    assert response.status_code == 400
 
 
 def test_rename_secret_blank_name(client):

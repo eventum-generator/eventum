@@ -4,6 +4,10 @@ import { notifications } from '@mantine/notifications';
 import { FC } from 'react';
 
 import { useSetSecretValueMutation } from '@/api/hooks/useSecrets';
+import {
+  SECRET_NAME_ERROR,
+  SECRET_NAME_PATTERN,
+} from '@/api/routes/secrets/schemas';
 import { ShowErrorDetailsAnchor } from '@/components/ui/ShowErrorDetailsAnchor';
 
 interface NewSecretFormProps {
@@ -24,7 +28,11 @@ export const NewSecretForm: FC<NewSecretFormProps> = ({ onCancel }) => {
       value: '',
     },
     validate: {
-      name: isNotEmpty('Name is required'),
+      name: (value) => {
+        if (!value) return 'Name is required';
+        if (!SECRET_NAME_PATTERN.test(value)) return SECRET_NAME_ERROR;
+        return null;
+      },
       value: isNotEmpty('Value is required'),
     },
     validateInputOnChange: true,

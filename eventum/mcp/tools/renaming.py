@@ -21,6 +21,7 @@ from eventum.mcp.errors import ToolFailure, read_only_failure, to_tool_error
 from eventum.mcp.observability import observe_failure
 from eventum.security.manage import (
     SecretConflictError,
+    SecretNameError,
     SecretNotFoundError,
     rename_secret,
 )
@@ -93,6 +94,8 @@ async def rename_secret_name(
             error='Secret with this name already exists',
             details={'name': new_name},
         )
+    except SecretNameError as e:
+        return ToolFailure(error=str(e), details={'name': new_name})
     except Exception:  # noqa: BLE001 - no raw error/path may escape
         return ToolFailure(error='Failed to rename secret')
     return {'name': secret, 'new_name': new_name, 'renamed': True}
@@ -198,14 +201,18 @@ def register(mcp: FastMCP, context: LiveContext, *, transport: str) -> None:
             Current name of the secret.
 
         new_name : str
-            Name to rename the secret to. Must not be taken.
+            Name to rename the secret to. Must not be taken, and must
+            be words of letters, digits and ``_`` separated by ``.``,
+            since a configuration references it as
+            ``${secrets.<name>}``.
 
         Returns
         -------
         dict[str, Any] | ToolFailure
             ``{'name', 'new_name', 'renamed': True}``, or a structured
             failure if the server is read-only, the secret does not
-            exist, or the new name is taken. Does not raise.
+            exist, the new name is taken, or it cannot be referenced.
+            Does not raise.
 
         """
         return observe_failure(
