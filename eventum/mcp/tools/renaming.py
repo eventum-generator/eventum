@@ -3,11 +3,12 @@
 Renaming a project or a generator touches the generator directory, the
 startup file, and the live manager together, so those tools delegate to
 the ``app.renaming`` service and only translate its outcome for the
-agent. A secret rename moves its keyring entry and repoints the
-repositories authenticating with it, never exposing its value.
+agent. A secret rename moves its keyring entry and carries over
+everything referring to it, never exposing its value.
 """
 
 import asyncio
+from pathlib import Path
 from typing import Any
 
 from mcp.server.fastmcp import FastMCP
@@ -85,12 +86,14 @@ async def rename_generator(
 async def rename_secret_name(
     context: LiveContext, secret: str, new_name: str
 ) -> dict[str, Any] | ToolFailure:
-    """Move a secret to a new name and repoint the repositories."""
+    """Move a secret to a new name, taking its referrers along."""
     if context.read_only:
         return read_only_failure({'name': secret})
     try:
-        repointed = await asyncio.to_thread(
+        updated = await asyncio.to_thread(
             lambda: rename_secret(
+                generators_dir=context.generators_dir,
+                config_filename=Path(context.config_filename),
                 repositories=context.repositories,
                 name=secret,
                 new_name=new_name,
@@ -122,7 +125,8 @@ async def rename_secret_name(
         'name': secret,
         'new_name': new_name,
         'renamed': True,
-        'repositories': repointed,
+        'projects': updated.projects,
+        'repositories': updated.repositories,
     }
 
 
@@ -214,13 +218,15 @@ def register(mcp: FastMCP, context: LiveContext, *, transport: str) -> None:
     ) -> dict[str, Any] | ToolFailure:
         """Rename a secret, keeping its value under the new name.
 
-        The value is moved without being exposed, and every connected
-        repository authenticating with the secret is pointed at the new
-        name. Configurations are not rewritten: every
-        ``${secrets.<secret>}`` token keeps the old name and its
-        generator fails to load until it is updated. Call
-        ``list_secret_references`` first, and update the tokens in the
-        projects it reports. Blocked when the server is read-only.
+        The value is moved without being exposed, and everything
+        referring to the secret follows: the ``${secrets.<secret>}``
+        token is rewritten in the configuration of every project
+        reading it, and every connected repository authenticating with
+        it is pointed at the new name. A generator already running
+        keeps the configuration it loaded and reads the new name the
+        next time it starts. Refused when a repository already
+        authenticates with the new name. Blocked when the server is
+        read-only.
 
         Parameters
         ----------
@@ -233,11 +239,11 @@ def register(mcp: FastMCP, context: LiveContext, *, transport: str) -> None:
         Returns
         -------
         dict[str, Any] | ToolFailure
-            ``{'name', 'new_name', 'renamed': True, 'repositories'}``
-            with the repositories that were repointed, or a structured
-            failure if the server is read-only, the secret does not
-            exist, the new name is taken, or the repositories cannot be
-            repointed. Does not raise.
+            ``{'name', 'new_name', 'renamed': True, 'projects',
+            'repositories'}`` with the referrers carried over, or a
+            structured failure if the server is read-only, the secret
+            does not exist, the new name is taken, or the referrers
+            cannot be carried over. Does not raise.
 
         """
         return observe_failure(

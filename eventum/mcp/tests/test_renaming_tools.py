@@ -12,6 +12,7 @@ from eventum.app.renaming import (
     RenameError,
     RenameNotFoundError,
 )
+from eventum.app.secrets import UpdatedReferences
 from eventum.app.startup import Startup
 from eventum.core.parameters import GenerationParameters, GeneratorParameters
 from eventum.mcp.context import ServerLiveContext
@@ -256,10 +257,17 @@ async def test_rename_secret_moves_value(
     calls: list[tuple[str, str]] = []
 
     def _rename(
-        *, repositories: object, name: str, new_name: str
-    ) -> list[str]:
+        *,
+        generators_dir: object,
+        config_filename: object,
+        repositories: object,
+        name: str,
+        new_name: str,
+    ) -> UpdatedReferences:
         calls.append((name, new_name))
-        return ['internal']
+        return UpdatedReferences(
+            projects=['web-nginx'], repositories=['internal']
+        )
 
     monkeypatch.setattr(renaming, 'rename_secret', _rename)
 
@@ -269,6 +277,7 @@ async def test_rename_secret_moves_value(
         'name': 'old',
         'new_name': 'new',
         'renamed': True,
+        'projects': ['web-nginx'],
         'repositories': ['internal'],
     }
     assert calls == [('old', 'new')]
@@ -281,8 +290,13 @@ async def test_rename_secret_missing_is_failure(
     """An absent secret returns a structured failure."""
 
     def _rename(
-        *, repositories: object, name: str, new_name: str
-    ) -> list[str]:
+        *,
+        generators_dir: object,
+        config_filename: object,
+        repositories: object,
+        name: str,
+        new_name: str,
+    ) -> UpdatedReferences:
         raise RenameNotFoundError('Secret is missing', context={})
 
     monkeypatch.setattr(renaming, 'rename_secret', _rename)
@@ -301,8 +315,13 @@ async def test_rename_secret_taken_name_is_failure(
     """A taken target name returns a structured failure."""
 
     def _rename(
-        *, repositories: object, name: str, new_name: str
-    ) -> list[str]:
+        *,
+        generators_dir: object,
+        config_filename: object,
+        repositories: object,
+        name: str,
+        new_name: str,
+    ) -> UpdatedReferences:
         raise RenameConflictError(
             'Secret with this name already exists',
             context={},
@@ -324,8 +343,13 @@ async def test_rename_secret_names_the_repositories_holding_the_name(
     """A name a repository holds is refused, and the holder is named."""
 
     def _rename(
-        *, repositories: object, name: str, new_name: str
-    ) -> list[str]:
+        *,
+        generators_dir: object,
+        config_filename: object,
+        repositories: object,
+        name: str,
+        new_name: str,
+    ) -> UpdatedReferences:
         raise RenameConflictError(
             'Repositories already authenticate with the new name',
             context={'secret': 'new', 'reason': 'github, mirror'},
@@ -349,8 +373,13 @@ async def test_rename_secret_keyring_error_carries_no_path(
     """A failure names what happened without the reason behind it."""
 
     def _rename(
-        *, repositories: object, name: str, new_name: str
-    ) -> list[str]:
+        *,
+        generators_dir: object,
+        config_filename: object,
+        repositories: object,
+        name: str,
+        new_name: str,
+    ) -> UpdatedReferences:
         raise RenameError(
             'Failed to rename secret',
             context={'reason': 'cannot write /abs/keyring/cryptfile.cfg'},
@@ -372,8 +401,13 @@ async def test_rename_secret_reports_repositories_left_behind(
     """A repointing that failed is named, so the agent can act on it."""
 
     def _rename(
-        *, repositories: object, name: str, new_name: str
-    ) -> list[str]:
+        *,
+        generators_dir: object,
+        config_filename: object,
+        repositories: object,
+        name: str,
+        new_name: str,
+    ) -> UpdatedReferences:
         raise RenameError(
             'Repositories using the secret cannot be repointed',
             context={'file_path': '/abs/instance/repositories.yml'},
