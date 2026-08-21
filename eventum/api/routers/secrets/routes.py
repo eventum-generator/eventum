@@ -10,6 +10,7 @@ from eventum.api.routers.secrets.models import RenameSecretRequest
 from eventum.app.workspace import find_secret_references
 from eventum.security.manage import (
     SecretConflictError,
+    SecretNameError,
     SecretNotFoundError,
     get_secret,
     list_secrets,
@@ -67,8 +68,15 @@ async def list_secret_names() -> list[str]:
 
 @router.put(
     '/{name}',
-    description='Put secret with specified name to keyring',
-    responses={500: {'description': 'Failed to set secret'}},
+    description=(
+        'Put secret with specified name to keyring. The name is what a '
+        'configuration references as `${secrets.<name>}`, so it must be '
+        'words of letters, digits and `_`, separated by `.`.'
+    ),
+    responses={
+        400: {'description': 'Name cannot be referenced in a configuration'},
+        500: {'description': 'Failed to set secret'},
+    },
 )
 async def set_secret_value(
     name: Annotated[str, Path(description='Secret name', min_length=1)],
@@ -76,6 +84,8 @@ async def set_secret_value(
 ) -> None:
     try:
         await asyncio.to_thread(lambda: set_secret(name=name, value=value))
+    except SecretNameError as e:
+        raise HTTPException(status_code=400, detail=str(e)) from None
     except OSError as e:
         raise HTTPException(
             status_code=500,
@@ -127,6 +137,7 @@ async def list_secret_references(
         'configurations are not rewritten.'
     ),
     responses={
+        400: {'description': 'Name cannot be referenced in a configuration'},
         404: {'description': 'Secret is missing in keyring'},
         409: {'description': 'Secret with the new name already exists'},
         500: {'description': 'Failed to rename secret'},
@@ -141,6 +152,8 @@ async def rename_secret_value(
 ) -> None:
     try:
         await asyncio.to_thread(rename_secret, name, request.new_name)
+    except SecretNameError as e:
+        raise HTTPException(status_code=400, detail=str(e)) from None
     except SecretNotFoundError as e:
         raise HTTPException(status_code=404, detail=str(e)) from None
     except SecretConflictError as e:
