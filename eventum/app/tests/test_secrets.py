@@ -76,7 +76,7 @@ def _connect(
             name=name,
             url=f'https://git.example.com/{name}.git',
             username='eventum',
-            secret=secret,
+            password=None if secret is None else f'${{secrets.{secret}}}',
         ),
         verify=False,
     )
@@ -198,9 +198,9 @@ def test_rename_repoints_the_repositories_using_the_secret(
     )
 
     assert updated.repositories == ['internal', 'mirror']
-    assert repositories.get('internal').secret == 'forge_token'
-    assert repositories.get('mirror').secret == 'forge_token'
-    assert repositories.get('other').secret == 'another_token'
+    assert repositories.get('internal').password == '${secrets.forge_token}'
+    assert repositories.get('mirror').password == '${secrets.forge_token}'
+    assert repositories.get('other').password == '${secrets.another_token}'
 
 
 def test_rename_keeps_the_value_under_the_new_name(
@@ -293,28 +293,7 @@ def test_rename_moves_the_value_back_when_repointing_fails(
 
     assert list_secrets() == ['git_token']
     assert get_secret('git_token') == 'value'
-    assert repositories.get('internal').secret == 'git_token'
-
-
-def test_rename_to_a_name_no_repository_can_hold_is_refused(
-    generators_dir,
-    repositories,
-    keyring,
-):
-    set_secret('git_token', 'value')
-    _connect(repositories, 'internal', 'git_token')
-
-    with pytest.raises(RenameError, match='cannot be repointed'):
-        rename_secret(
-            generators_dir=generators_dir,
-            config_filename=_CONFIG_FILENAME,
-            repositories=repositories,
-            name='git_token',
-            new_name='x' * 256,
-        )
-
-    assert list_secrets() == ['git_token']
-    assert repositories.get('internal').secret == 'git_token'
+    assert repositories.get('internal').password == '${secrets.git_token}'
 
 
 def test_rename_reports_a_revert_that_fails_too(
@@ -412,8 +391,8 @@ def test_rename_onto_a_name_a_repository_holds_conflicts(
 
     assert list_secrets() == ['gl_token']
     assert get_secret('gl_token') == 'GITLAB-TOKEN'
-    assert repositories.get('gitlab').secret == 'gl_token'
-    assert repositories.get('github').secret == 'gh_token'
+    assert repositories.get('gitlab').password == '${secrets.gl_token}'
+    assert repositories.get('github').password == '${secrets.gh_token}'
 
 
 def test_rename_conflict_names_the_repositories_holding_it(
@@ -593,7 +572,7 @@ def test_rename_puts_everything_back_when_a_config_cannot_be_written(
 
     assert list_secrets() == ['git_token']
     assert get_secret('git_token') == 'value'
-    assert repositories.get('internal').secret == 'git_token'
+    assert repositories.get('internal').password == '${secrets.git_token}'
     assert _config_of(generators_dir, 'web-nginx') == (
         'token: ${secrets.git_token}\n'
     )

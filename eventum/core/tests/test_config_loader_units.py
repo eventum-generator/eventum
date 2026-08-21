@@ -5,44 +5,46 @@ from unittest.mock import patch
 import pytest
 
 from eventum.core.config_loader import (
-    _extract_tokens,
     _prepare_params,
     _prepare_secrets,
     _strip_yaml_comments,
     _substitute_tokens,
     extract_params,
     extract_secrets,
+    extract_tokens,
+    repoint_secret_token,
+    resolve_secrets,
 )
 from eventum.security.manage import SECRET_NAME_PATTERN
 
-# --- _extract_tokens ---
+# --- extract_tokens ---
 
 
 def test_extract_tokens_no_tokens():
-    assert _extract_tokens('plain yaml content') == []
+    assert extract_tokens('plain yaml content') == []
 
 
 def test_extract_tokens_finds_all():
     content = '${foo} and ${bar}'
-    result = _extract_tokens(content)
+    result = extract_tokens(content)
     assert result == ['foo', 'bar']
 
 
 def test_extract_tokens_with_prefix_filter():
     content = '${params.x} ${secrets.y} ${params.z}'
-    result = _extract_tokens(content, prefix='params')
+    result = extract_tokens(content, prefix='params')
     assert result == ['params.x', 'params.z']
 
 
 def test_extract_tokens_with_prefix_filter_no_match():
     content = '${secrets.y}'
-    result = _extract_tokens(content, prefix='params')
+    result = extract_tokens(content, prefix='params')
     assert result == []
 
 
 def test_extract_tokens_whitespace_in_token():
     content = '${ params.x }'
-    result = _extract_tokens(content, prefix='params')
+    result = extract_tokens(content, prefix='params')
     assert result == ['params.x']
 
 
@@ -260,6 +262,72 @@ def test_extract_params_ignores_commented_tokens():
     assert result == ['host']
 
 
+# --- resolve_secrets ---
+
+
+@patch('eventum.core.config_loader.get_secret')
+def test_resolve_secrets_substitutes_a_reference(mock_get_secret):
+    mock_get_secret.return_value = 'ghp_token'
+
+    assert resolve_secrets('${secrets.git_token}') == 'ghp_token'
+    mock_get_secret.assert_called_once_with('git_token')
+
+
+@patch('eventum.core.config_loader.get_secret')
+def test_resolve_secrets_substitutes_a_dotted_name(mock_get_secret):
+    mock_get_secret.return_value = 'ghp_token'
+
+    assert resolve_secrets('${secrets.git.token}') == 'ghp_token'
+    mock_get_secret.assert_called_once_with('git.token')
+
+
+@patch('eventum.core.config_loader.get_secret')
+def test_resolve_secrets_tolerates_spacing(mock_get_secret):
+    mock_get_secret.return_value = 'ghp_token'
+
+    assert resolve_secrets('${ secrets.git_token }') == 'ghp_token'
+
+
+@patch('eventum.core.config_loader.get_secret')
+def test_resolve_secrets_substitutes_within_a_value(mock_get_secret):
+    mock_get_secret.side_effect = ['one', 'two']
+
+    result = resolve_secrets('a-${secrets.first}-b-${secrets.second}')
+
+    assert result == 'a-one-b-two'
+
+
+@patch('eventum.core.config_loader.get_secret')
+def test_resolve_secrets_keeps_a_token_of_another_kind(mock_get_secret):
+    assert resolve_secrets('${params.token}') == '${params.token}'
+    assert resolve_secrets('${token}') == '${token}'
+    mock_get_secret.assert_not_called()
+
+
+@patch('eventum.core.config_loader.get_secret')
+def test_resolve_secrets_keeps_a_value_holding_no_token(mock_get_secret):
+    # A password is resolved, not rendered: what a template engine
+    # would read as syntax is part of the value here.
+    assert resolve_secrets('{% raw %}p@ss') == '{% raw %}p@ss'
+    mock_get_secret.assert_not_called()
+
+
+@patch('eventum.core.config_loader.get_secret')
+def test_resolve_secrets_missing_raises(mock_get_secret):
+    mock_get_secret.side_effect = ValueError('not found')
+
+    with pytest.raises(ValueError, match='Cannot obtain secret `git_token`'):
+        resolve_secrets('${secrets.git_token}')
+
+
+@patch('eventum.core.config_loader.get_secret')
+def test_resolve_secrets_keyring_failure_raises(mock_get_secret):
+    mock_get_secret.side_effect = OSError('keyring error')
+
+    with pytest.raises(ValueError, match='Cannot obtain secret'):
+        resolve_secrets('${secrets.git_token}')
+
+
 # --- the grammar of a secret name, against what substitution reads ---
 
 
@@ -308,3 +376,38 @@ def test_a_name_holding_a_brace_reads_another_secret(mock_get_secret):
 
     assert SECRET_NAME_PATTERN.fullmatch('a}b') is None
     assert _substitute_tokens({}, secrets, content) == 'password: VALUE-OF-Ab}'
+
+
+# --- repoint_secret_token ---
+
+
+def test_repoint_secret_token_rewrites_the_named_secret():
+    content = 'password: ${secrets.git_token}\ntoken: ${secrets.other}\n'
+
+    result = repoint_secret_token(content, 'git_token', 'forge_token')
+
+    assert result == (
+        'password: ${secrets.forge_token}\ntoken: ${secrets.other}\n'
+    )
+
+
+def test_repoint_secret_token_keeps_the_spacing_of_a_token():
+    result = repoint_secret_token('${ secrets.a }', 'a', 'b')
+
+    assert result == '${ secrets.b }'
+
+
+def test_repoint_secret_token_keeps_the_text_around_a_token():
+    result = repoint_secret_token('Bearer ${secrets.a}!', 'a', 'b')
+
+    assert result == 'Bearer ${secrets.b}!'
+
+
+def test_repoint_secret_token_leaves_another_kind_of_token():
+    content = '${params.a} and ${secrets.ab}'
+
+    assert repoint_secret_token(content, 'a', 'b') == content
+
+
+def test_repoint_secret_token_leaves_content_holding_none():
+    assert repoint_secret_token('plain value', 'a', 'b') == 'plain value'

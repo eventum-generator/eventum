@@ -18,7 +18,10 @@ from eventum.app.renaming import (
 )
 from eventum.app.repositories import Repositories, RepositoryError
 from eventum.app.workspace import WorkspaceError, write_text
-from eventum.core.config_loader import TOKEN_PATTERN, extract_secrets
+from eventum.core.config_loader import (
+    extract_secrets,
+    repoint_secret_token,
+)
 from eventum.security.manage import (
     SecretConflictError,
     SecretNotFoundError,
@@ -268,8 +271,6 @@ def _plan_project_rewrites(
     that cannot be read is known before the keyring is touched.
     """
     rewrites: list[_Rewrite] = []
-    old_token = f'secrets.{name}'
-    new_token = f'secrets.{new_name}'
 
     for project in _find_project_references(
         generators_dir,
@@ -282,14 +283,7 @@ def _plan_project_rewrites(
         except OSError, UnicodeDecodeError:
             continue
 
-        after = TOKEN_PATTERN.sub(
-            lambda match: (
-                match.group(0).replace(old_token, new_token)
-                if match.group(1) == old_token
-                else match.group(0)
-            ),
-            before,
-        )
+        after = repoint_secret_token(before, name, new_name)
 
         if after != before:
             rewrites.append(_Rewrite(path, project, before, after))

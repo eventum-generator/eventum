@@ -1,5 +1,7 @@
 import z from 'zod';
 
+import { hasForeignToken } from '@/utils/secretReference';
+
 // Mirrors of the constraints the backend enforces, so a value it
 // would refuse is named as a field error rather than coming back as
 // an unplaced 422.
@@ -12,7 +14,13 @@ export const RepositorySchema = z.object({
   url: z.string().min(1).max(2048),
   ref: z.string().min(1).max(255).regex(REPOSITORY_REF_PATTERN).nullish(),
   username: z.string().min(1).max(255).nullish(),
-  secret: z.string().min(1).max(255).nullish(),
+  password: z
+    .string()
+    .min(1)
+    .refine((value) => !hasForeignToken(value), {
+      error: 'Only a "${secrets.<name>}" reference is substituted here',
+    })
+    .nullish(),
 });
 export type Repository = z.infer<typeof RepositorySchema>;
 

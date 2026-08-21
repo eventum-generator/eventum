@@ -3,7 +3,6 @@ import {
   JsonInput,
   NumberInput,
   Paper,
-  PasswordInput,
   Stack,
   Switch,
   Text,
@@ -20,6 +19,8 @@ import {
   OpensearchOutputPluginConfigSchema,
 } from '@/api/routes/generator-configs/schemas/plugins/output/configs/opensearch';
 import { LabelWithTooltip } from '@/components/ui/LabelWithTooltip';
+import { SecretPasswordInput } from '@/components/ui/SecretPasswordInput';
+import { useOpenSecretsPage } from '@/utils/useOpenSecretsPage';
 
 interface OpensearchOutputPluginParamsProps {
   initialConfig: OpensearchOutputPluginConfig;
@@ -29,6 +30,7 @@ interface OpensearchOutputPluginParamsProps {
 export const OpensearchOutputPluginParams: FC<
   OpensearchOutputPluginParamsProps
 > = ({ initialConfig, onChange }) => {
+  const openSecretsPage = useOpenSecretsPage();
   const form = useForm<OpensearchOutputPluginConfig>({
     initialValues: initialConfig,
     validate: zod4Resolver(OpensearchOutputPluginConfigSchema),
@@ -108,7 +110,8 @@ export const OpensearchOutputPluginParams: FC<
             )
           }
         />
-        <PasswordInput
+        <SecretPasswordInput
+          onOpenSecrets={openSecretsPage}
           label={
             <LabelWithTooltip
               label="Password"
@@ -118,12 +121,7 @@ export const OpensearchOutputPluginParams: FC<
           required
           {...form.getInputProps('password')}
           onChange={(value) =>
-            form.setFieldValue(
-              'password',
-              value.currentTarget.value !== ''
-                ? value.currentTarget.value
-                : undefined!
-            )
+            form.setFieldValue('password', value !== '' ? value : undefined!)
           }
         />
       </Group>

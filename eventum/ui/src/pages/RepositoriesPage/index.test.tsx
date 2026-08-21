@@ -368,9 +368,7 @@ describe('RepositoriesPage', () => {
     expect(document.body.textContent).toContain(
       'Name the repository is referred to by'
     );
-    expect(document.body.textContent).toContain(
-      'the secret of the keyring holding its'
-    );
+    expect(document.body.textContent).toContain('its password or access token');
   });
 
   it('opens the dialog that installs a generator', async () => {
@@ -488,6 +486,113 @@ describe('RepositoriesPage', () => {
     );
   });
 
+  it('connects with the reference of the secret that was picked', async () => {
+    getRepositoriesMock.mockResolvedValue([]);
+    listGeneratorDirsMock.mockResolvedValue([]);
+    addRepositoryMock.mockResolvedValue();
+
+    renderPage();
+    await userEvent.click(await screen.findByText('Connect repository'));
+
+    const url = 'https://github.com/eventum-generator/content-packs.git';
+    await waitFor(() =>
+      expect(
+        document.querySelector(`input[placeholder="${url}"]`)
+      ).not.toBeNull()
+    );
+
+    const inputs = document.querySelectorAll('.mantine-Modal-content input');
+    await userEvent.type(inputs[0] as HTMLElement, 'packs');
+    await userEvent.type(inputs[1] as HTMLElement, url);
+    await userEvent.click(screen.getByLabelText('Use a keyring secret'));
+    await userEvent.click(await screen.findByText('git_token'));
+
+    const reference = '${secrets.git_token}';
+    const submit = screen
+      .getAllByText('Connect')
+      .find((element) => element.closest('.mantine-Modal-content'));
+    await userEvent.click(submit!);
+
+    await waitFor(() =>
+      expect(addRepositoryMock).toHaveBeenCalledWith(
+        expect.objectContaining({ password: reference }),
+        true
+      )
+    );
+  });
+
+  it('connects with a password typed in place', async () => {
+    getRepositoriesMock.mockResolvedValue([]);
+    listGeneratorDirsMock.mockResolvedValue([]);
+    addRepositoryMock.mockResolvedValue();
+
+    renderPage();
+    await userEvent.click(await screen.findByText('Connect repository'));
+
+    const url = 'https://github.com/eventum-generator/content-packs.git';
+    await waitFor(() =>
+      expect(
+        document.querySelector(`input[placeholder="${url}"]`)
+      ).not.toBeNull()
+    );
+
+    const inputs = document.querySelectorAll('.mantine-Modal-content input');
+    await userEvent.type(inputs[0] as HTMLElement, 'packs');
+    await userEvent.type(inputs[1] as HTMLElement, url);
+    const typed = 'ghp_token';
+    await userEvent.type(screen.getByLabelText('Password'), typed);
+
+    const submit = screen
+      .getAllByText('Connect')
+      .find((element) => element.closest('.mantine-Modal-content'));
+    await userEvent.click(submit!);
+
+    await waitFor(() =>
+      expect(addRepositoryMock).toHaveBeenCalledWith(
+        expect.objectContaining({ password: typed }),
+        true
+      )
+    );
+  });
+
+  it('refuses a password naming a substitution of another kind', async () => {
+    getRepositoriesMock.mockResolvedValue([]);
+    listGeneratorDirsMock.mockResolvedValue([]);
+    addRepositoryMock.mockResolvedValue();
+
+    renderPage();
+    await userEvent.click(await screen.findByText('Connect repository'));
+
+    const url = 'https://github.com/eventum-generator/content-packs.git';
+    await waitFor(() =>
+      expect(
+        document.querySelector(`input[placeholder="${url}"]`)
+      ).not.toBeNull()
+    );
+
+    const inputs = document.querySelectorAll('.mantine-Modal-content input');
+    await userEvent.type(inputs[0] as HTMLElement, 'packs');
+    await userEvent.type(inputs[1] as HTMLElement, url);
+    // `{` opens a key descriptor for userEvent, so it is doubled to
+    // type the token itself.
+    await userEvent.type(
+      screen.getByLabelText('Password'),
+      '${{params.git_token}'
+    );
+
+    const submit = screen
+      .getAllByText('Connect')
+      .find((element) => element.closest('.mantine-Modal-content'));
+    await userEvent.click(submit!);
+
+    expect(
+      await screen.findByText(
+        'Only a "${secrets.<name>}" reference is substituted here'
+      )
+    ).toBeInTheDocument();
+    expect(addRepositoryMock).not.toHaveBeenCalled();
+  });
+
   it('connects the repository the form was filled with', async () => {
     getRepositoriesMock.mockResolvedValue([]);
     listGeneratorDirsMock.mockResolvedValue([]);
@@ -519,7 +624,7 @@ describe('RepositoriesPage', () => {
           url,
           ref: undefined,
           username: undefined,
-          secret: undefined,
+          password: undefined,
         },
         true
       )

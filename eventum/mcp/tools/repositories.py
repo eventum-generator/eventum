@@ -42,7 +42,8 @@ async def list_repositories(
     -------
     list[dict[str, Any]]
         Connected repositories, each with the result of the last check
-        made in this process. Empty if none are connected.
+        made in this process and with its password redacted. Empty if
+        none are connected.
 
     ToolFailure
         If the list of repositories cannot be read. Never raises; does
@@ -220,9 +221,11 @@ def register(
 
         Each repository carries the ``status`` of the last check made
         in this process - a repository nothing has been asked of yet
-        is ``unknown`` rather than unreachable. ``secret`` names the
-        keyring secret the repository authenticates with, never its
-        value.
+        is ``unknown`` rather than unreachable. ``password`` reads as
+        the ``${secrets.<name>}`` reference the repository
+        authenticates through, and as ``***`` when the credential is
+        written into the repositories file itself. The credential is
+        never returned.
 
         Connecting and disconnecting repositories is intentionally not
         exposed: it names credentials and decides what the instance

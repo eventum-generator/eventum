@@ -18,6 +18,7 @@ from eventum.utils.validation_prettier import prettify_validation_errors
 logger = structlog.stdlib.get_logger()
 
 TOKEN_PATTERN = re.compile(pattern=r'\${\s*?(\S*?)\s*?}')
+SECRET_TOKEN_PREFIX = 'secrets.'  # noqa: S105
 
 _MISSING = object()
 
@@ -51,7 +52,7 @@ def _strip_yaml_comments(content: str) -> str:
     return '\n'.join(lines)
 
 
-def _extract_tokens(content: str, prefix: str | None = None) -> list[str]:
+def extract_tokens(content: str, prefix: str | None = None) -> list[str]:
     """Extract tokens enclosed within `${}` from the given content.
 
     Parameters
@@ -101,7 +102,7 @@ def extract_params(content: str) -> list[str]:
         List of extracted param names.
 
     """
-    tokens = _extract_tokens(content, prefix='params')
+    tokens = extract_tokens(content, prefix='params')
 
     if not tokens:
         return []
@@ -128,7 +129,7 @@ def extract_secrets(content: str) -> list[str]:
         List of extracted secret names.
 
     """
-    tokens = _extract_tokens(content, prefix='secrets')
+    tokens = extract_tokens(content, prefix='secrets')
 
     if not tokens:
         return []
@@ -139,6 +140,84 @@ def extract_secrets(content: str) -> list[str]:
         secrets.append(name)
 
     return secrets
+
+
+def resolve_secrets(value: str) -> str:
+    """Substitute the secret tokens of a value with keyring values.
+
+    Only `${secrets.<name>}` tokens are substituted; a token of any
+    other kind is left as it is written. Unlike loading a whole
+    configuration, resolving a single value renders nothing else in
+    it, so a value holding characters of a template syntax survives
+    untouched.
+
+    Parameters
+    ----------
+    value : str
+        Value to resolve.
+
+    Returns
+    -------
+    str
+        Value with its secret tokens substituted.
+
+    Raises
+    ------
+    ValueError
+        If a secret used in the value cannot be read from keyring.
+
+    """
+
+    def substitute(match: re.Match[str]) -> str:
+        token = match.group(1)
+
+        if not token.startswith(SECRET_TOKEN_PREFIX):
+            return match.group(0)
+
+        name = token[len(SECRET_TOKEN_PREFIX) :]
+        try:
+            return get_secret(name)
+        except (OSError, ValueError) as e:
+            msg = f'Cannot obtain secret `{name}`: {e}'
+            raise ValueError(msg) from None
+
+    return TOKEN_PATTERN.sub(substitute, value)
+
+
+def repoint_secret_token(content: str, name: str, new_name: str) -> str:
+    """Return content with the tokens of one secret naming another.
+
+    Only the tokens naming `name` are rewritten, and each keeps the
+    spacing it was written with. Everything around them, and a token
+    naming a different secret, is left as it is.
+
+    Parameters
+    ----------
+    content : str
+        Content to rewrite.
+
+    name : str
+        Name the tokens hold.
+
+    new_name : str
+        Name to hold in its place.
+
+    Returns
+    -------
+    str
+        Content with the tokens of that secret repointed.
+
+    """
+    old_token = f'{SECRET_TOKEN_PREFIX}{name}'
+    new_token = f'{SECRET_TOKEN_PREFIX}{new_name}'
+
+    def rewrite(match: re.Match[str]) -> str:
+        if match.group(1) != old_token:
+            return match.group(0)
+
+        return match.group(0).replace(old_token, new_token)
+
+    return TOKEN_PATTERN.sub(rewrite, content)
 
 
 def _resolve_param(name: str, provided_params: dict[str, Any]) -> Any:

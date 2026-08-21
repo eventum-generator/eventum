@@ -3,15 +3,16 @@
 import shutil
 import tempfile
 import threading
-from collections.abc import Iterator
+from collections.abc import Iterable, Iterator
 from contextlib import contextmanager
 from dataclasses import dataclass, replace
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import cast
+from typing import Any, cast
 
 import structlog
 from pydantic import ValidationError
+from pydantic_core import ErrorDetails
 
 from eventum.app.repositories.catalog import read_catalog
 from eventum.app.repositories.discovery import (
@@ -34,6 +35,7 @@ from eventum.app.repositories.fetching import (
 )
 from eventum.app.repositories.installing import install_entry
 from eventum.app.repositories.models import (
+    REDACTED_PASSWORD,
     Catalog,
     CatalogEntry,
     ConnectedRepository,
@@ -45,13 +47,18 @@ from eventum.app.repositories.models import (
     RepositoryList,
     RepositoryStatus,
     identify_repository,
+    secret_reference,
 )
 from eventum.app.repositories.source import (
     build_source,
     collect_installed,
 )
 from eventum.app.repositories.storage import RepositoriesFile
-from eventum.security.manage import get_secret
+from eventum.core.config_loader import (
+    extract_secrets,
+    repoint_secret_token,
+    resolve_secrets,
+)
 from eventum.utils.validation_prettier import prettify_validation_errors
 
 logger = structlog.stdlib.get_logger()
@@ -83,6 +90,62 @@ def _ordered(
     what a first-time reader is looking for.
     """
     return tuple(sorted(entries, key=lambda entry: not entry.official))
+
+
+def _referenced_secrets(repository: Repository) -> list[str]:
+    """Return the keyring secrets the password of a repository names."""
+    if repository.password is None:
+        return []
+
+    return extract_secrets(repository.password)
+
+
+def _repointed(password: str | None, secret: str, new_name: str) -> str | None:
+    """Return a password naming another secret in place of one."""
+    if password is None:
+        return None
+
+    return repoint_secret_token(password, secret, new_name)
+
+
+def _without_passwords(
+    errors: Iterable[ErrorDetails],
+) -> list[ErrorDetails]:
+    """Return validation errors with rejected passwords taken out.
+
+    A rejected value is quoted back in the reason an error carries, and
+    the reason travels to whoever asked. The password of a repository
+    is the one field of the file that may hold a credential, so what
+    was rejected is named rather than shown.
+
+    Parameters
+    ----------
+    errors : Iterable[ErrorDetails]
+        Errors as pydantic reports them.
+
+    Returns
+    -------
+    list[ErrorDetails]
+        The same errors, with the input of a password replaced.
+
+    """
+    scrubbed: list[ErrorDetails] = []
+
+    for error in errors:
+        value = error['input']
+
+        if 'password' in error['loc']:
+            scrubbed.append({**error, 'input': REDACTED_PASSWORD})
+        elif isinstance(value, dict) and 'password' in value:
+            # A field reported as missing quotes the whole entry it is
+            # missing from, password included.
+            scrubbed.append(
+                {**error, 'input': {**value, 'password': REDACTED_PASSWORD}},
+            )
+        else:
+            scrubbed.append(error)
+
+    return scrubbed
 
 
 def _available() -> RepositoryStatus:
@@ -215,7 +278,9 @@ class Repositories:
         -------
         list[ConnectedRepository]
             All connected repositories, each carrying the result of
-            the last check made in this process.
+            the last check made in this process. A password holding a
+            credential is redacted, so what comes back is what may be
+            shown rather than what authenticates.
 
         Raises
         ------
@@ -225,9 +290,9 @@ class Repositories:
         """
         with self._lock:
             return [
-                ConnectedRepository(
-                    **repository.model_dump(),
-                    status=self._statuses.get(repository.name, _UNKNOWN),
+                ConnectedRepository.of(
+                    repository,
+                    self._statuses.get(repository.name, _UNKNOWN),
                 )
                 for repository in self._read().root
             ]
@@ -377,7 +442,7 @@ class Repositories:
         return sorted(
             repository.name
             for repository in repositories.root
-            if repository.secret == secret
+            if secret in _referenced_secrets(repository)
         )
 
     def repoint_secret(self, secret: str, new_name: str) -> list[str]:
@@ -411,7 +476,7 @@ class Repositories:
             users = [
                 repository
                 for repository in repositories.root
-                if repository.secret == secret
+                if secret in _referenced_secrets(repository)
             ]
 
             if not users:
@@ -419,8 +484,8 @@ class Repositories:
 
             self._write(
                 tuple(
-                    self._with_secret(repository, new_name)
-                    if repository.secret == secret
+                    self._with_secret(repository, secret, new_name)
+                    if secret in _referenced_secrets(repository)
                     else repository
                     for repository in repositories.root
                 ),
@@ -751,7 +816,9 @@ class Repositories:
                 msg,
                 context={
                     'file_path': str(self._file.path),
-                    'reason': prettify_validation_errors(e.errors()),
+                    'reason': prettify_validation_errors(
+                        _without_passwords(e.errors()),
+                    ),
                 },
             ) from None
 
@@ -764,8 +831,16 @@ class Repositories:
             ],
         )
 
-    def _with_secret(self, repository: Repository, secret: str) -> Repository:
-        """Rebuild a repository holding another secret name.
+    def _with_secret(
+        self,
+        repository: Repository,
+        secret: str,
+        new_name: str,
+    ) -> Repository:
+        """Rebuild a repository referring to another secret name.
+
+        Only the token is rewritten, so a password that names the
+        secret among other text keeps everything else it holds.
 
         Built through validation rather than copied: the new name comes
         from the keyring, which accepts names the repositories file
@@ -778,9 +853,11 @@ class Repositories:
             If the name is not valid for a repository.
 
         """
+        password = _repointed(repository.password, secret, new_name)
+
         try:
             return Repository.model_validate(
-                {**repository.model_dump(), 'secret': secret},
+                {**repository.model_dump(), 'password': password},
             )
         except ValidationError as e:
             msg = 'Secret name is not valid for a repository'
@@ -788,7 +865,7 @@ class Repositories:
                 msg,
                 context={
                     'name': repository.name,
-                    'value': secret,
+                    'secret': new_name,
                     'reason': prettify_validation_errors(e.errors()),
                 },
             ) from None
@@ -1142,30 +1219,38 @@ class Repositories:
         return fetched
 
     def _resolve_password(self, repository: Repository) -> str | None:
-        """Read the secret a repository authenticates with.
+        """Read the password a repository authenticates with.
+
+        A password is taken as it is kept, apart from the keyring
+        secrets it refers to, which are read here rather than when the
+        repository is connected - so a secret added afterwards is
+        picked up by the next fetch.
 
         Raises
         ------
-        RepositoryFetchError
-            If the secret is missing in the keyring or cannot be read.
+        RepositorySecretError
+            If a secret the password refers to is missing in the
+            keyring or cannot be read.
 
         """
-        if repository.secret is None:
+        if repository.password is None:
             return None
 
         try:
-            return get_secret(repository.secret)
-        except (ValueError, OSError) as e:
+            return resolve_secrets(repository.password)
+        except ValueError as e:
+            context: dict[str, Any] = {
+                'name': repository.name,
+                'reason': str(e),
+                'hint': 'Add the secret using the eventum-keyring CLI',
+            }
+
+            reference = secret_reference(repository.password)
+            if reference is not None:
+                context['secret'] = reference
+
             msg = 'Failed to read the secret of the repository'
-            raise RepositorySecretError(
-                msg,
-                context={
-                    'name': repository.name,
-                    'value': repository.secret,
-                    'reason': str(e),
-                    'hint': 'Add the secret using the eventum-keyring CLI',
-                },
-            ) from None
+            raise RepositorySecretError(msg, context=context) from None
 
     def _ensure_cache_dir(self) -> Path:
         """Return the directory the fetched repositories live in.

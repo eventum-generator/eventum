@@ -150,7 +150,7 @@ def _connect(app, name: str, secret: str) -> None:
         Repository(
             name=name,
             url=f'https://git.example.com/{name}.git',
-            secret=secret,
+            password=None if secret is None else f'${{secrets.{secret}}}',
         ),
         verify=False,
     )

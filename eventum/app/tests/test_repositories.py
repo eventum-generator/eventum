@@ -1,5 +1,6 @@
 """Tests of connected generator repositories."""
 
+import base64
 import os
 import threading
 from unittest.mock import patch
@@ -30,6 +31,11 @@ from eventum.app.repositories import (
     RepositorySecretError,
 )
 from eventum.app.repositories.catalog import MAX_TREE_DEPTH, read_catalog
+from eventum.app.repositories.models import (
+    REDACTED_PASSWORD,
+    redact_password,
+    secret_reference,
+)
 from eventum.app.repositories.fetching import (
     _failure_context,
     fetch_repository,
@@ -43,7 +49,7 @@ from eventum.app.repositories.source import (
 )
 from eventum.app.repositories.installing import install_entry
 from eventum.app.repositories.storage import RepositoriesFile
-from eventum.security.manage import SECURITY_SETTINGS
+from eventum.security.manage import SECURITY_SETTINGS, set_secret
 
 CONFIG_FILENAME = 'generator.yml'
 
@@ -182,6 +188,39 @@ def unauthorized_url():
 
 
 @pytest.fixture
+def credentials_url():
+    """Serve a host that records what every caller authenticates as."""
+    seen: list[str] = []
+
+    def application(environ, start_response):  # noqa: ANN001, ANN202
+        seen.append(environ.get('HTTP_AUTHORIZATION', ''))
+        start_response(
+            '401 Unauthorized',
+            [
+                ('WWW-Authenticate', 'Basic realm="git"'),
+                ('Content-Type', 'text/plain'),
+            ],
+        )
+        return [b'unauthorized']
+
+    server = make_server(
+        '127.0.0.1',
+        0,
+        application,
+        handler_class=_QuietHandler,
+    )
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+
+    try:
+        yield f'http://127.0.0.1:{server.server_address[1]}/packs.git', seen
+    finally:
+        server.shutdown()
+        thread.join(timeout=5)
+        server.server_close()
+
+
+@pytest.fixture
 def service(tmp_path):
     service = Repositories(
         file_path=tmp_path / 'repositories.yml',
@@ -240,7 +279,67 @@ def test_repository_accepts_https_url():
     )
 
     assert repository.ref == 'v1.0'
-    assert repository.secret is None
+    assert repository.password is None
+
+
+@pytest.mark.parametrize(
+    'password',
+    ['ghp_token', '${secrets.git_token}', 'prefix-${secrets.git_token}'],
+)
+def test_repository_accepts_password(password):
+    repository = Repository(
+        name='packs',
+        url='https://example.com/packs.git',
+        password=password,
+    )
+
+    assert repository.password == password
+
+
+@pytest.mark.parametrize(
+    'password',
+    ['${params.git_token}', '${git_token}', '${secrets.}', 'a${b}c'],
+)
+def test_repository_rejects_a_token_of_another_kind(password):
+    with pytest.raises(ValidationError):
+        Repository(
+            name='packs',
+            url='https://example.com/packs.git',
+            password=password,
+        )
+
+
+@pytest.mark.parametrize(
+    ('password', 'expected'),
+    [
+        (None, None),
+        ('ghp_token', None),
+        ('${secrets.git_token}', 'git_token'),
+        ('${ secrets.git_token }', 'git_token'),
+        ('${secrets.git.token}', 'git.token'),
+        ('prefix-${secrets.git_token}', None),
+        ('${secrets.git_token}-suffix', None),
+        ('${secrets.a}b}', None),
+        ('${params.git_token}', None),
+    ],
+)
+def test_secret_reference_reads_the_referenced_name(password, expected):
+    assert secret_reference(password) == expected
+
+
+@pytest.mark.parametrize(
+    ('password', 'expected'),
+    [
+        (None, None),
+        ('ghp_token', REDACTED_PASSWORD),
+        ('prefix-${secrets.git_token}', REDACTED_PASSWORD),
+        ('${secrets.a}b}', REDACTED_PASSWORD),
+        ('${params.git_token}', REDACTED_PASSWORD),
+        ('${secrets.git_token}', '${secrets.git_token}'),
+    ],
+)
+def test_redact_password_hides_only_a_carried_credential(password, expected):
+    assert redact_password(password) == expected
 
 
 # --- storage ---
@@ -324,7 +423,7 @@ def test_service_persists_without_unset_fields(service, tmp_path):
 
     content = (tmp_path / 'repositories.yml').read_text()
 
-    assert 'secret' not in content
+    assert 'password' not in content
     assert 'ref' not in content
 
 
@@ -339,12 +438,12 @@ def test_service_rejects_invalid_stored_entry(service, tmp_path):
 
 
 def _with_secret(service, name, secret):
-    """Connect a repository authenticating with the given secret."""
+    """Connect a repository referring to the given secret."""
     service.add(
         Repository(
             name=name,
             url=f'https://example.com/{name}.git',
-            secret=secret,
+            password=None if secret is None else f'${{secrets.{secret}}}',
         ),
         verify=False,
     )
@@ -368,9 +467,9 @@ def test_service_repoints_only_the_repositories_holding_a_secret(service):
     repointed = service.repoint_secret('git_token', 'forge_token')
 
     assert repointed == ['internal', 'mirror']
-    assert service.get('internal').secret == 'forge_token'
-    assert service.get('mirror').secret == 'forge_token'
-    assert service.get('other').secret == 'another_token'
+    assert service.get('internal').password == '${secrets.forge_token}'
+    assert service.get('mirror').password == '${secrets.forge_token}'
+    assert service.get('other').password == '${secrets.another_token}'
 
 
 def test_service_repoints_nothing_when_no_repository_holds_it(
@@ -382,17 +481,38 @@ def test_service_repoints_nothing_when_no_repository_holds_it(
     written = path.read_text()
 
     assert service.repoint_secret('git_token', 'forge_token') == []
-    assert service.get('other').secret == 'another_token'
+    assert service.get('other').password == '${secrets.another_token}'
     assert path.read_text() == written
 
 
-def test_service_refuses_a_secret_name_it_cannot_hold(service):
-    _with_secret(service, 'internal', 'git_token')
+def test_service_repoints_a_secret_named_among_other_text(service):
+    # A password may hold the reference among text of its own, and
+    # only the token moves.
+    service.add(
+        Repository(
+            name='internal',
+            url='https://example.com/internal.git',
+            password='Bearer ${secrets.git_token}!',
+        ),
+        verify=False,
+    )
 
-    with pytest.raises(RepositoryError):
-        service.repoint_secret('git_token', 'x' * 256)
+    assert service.repoint_secret('git_token', 'forge_token') == ['internal']
+    assert service.get('internal').password == 'Bearer ${secrets.forge_token}!'
 
-    assert service.get('internal').secret == 'git_token'
+
+def test_service_leaves_a_password_of_its_own_alone(service):
+    service.add(
+        Repository(
+            name='legacy',
+            url='https://example.com/legacy.git',
+            password='ghp_written_in_place',
+        ),
+        verify=False,
+    )
+
+    assert service.find_secret_users('ghp_written_in_place') == []
+    assert service.repoint_secret('ghp_written_in_place', 'forge') == []
 
 
 # --- fetching ---
@@ -1301,6 +1421,196 @@ def test_service_reports_unknown_status_until_checked(service):
     assert service.get_all_with_status()[0].status.state == 'unknown'
 
 
+def test_service_hides_a_carried_password_in_the_listing(service, tmp_path):
+    service.add(
+        Repository(
+            name='packs',
+            url='https://example.com/p.git',
+            password='ghp_token',
+        ),
+        verify=False,
+    )
+
+    listed = service.get_all_with_status()[0]
+
+    assert listed.password == REDACTED_PASSWORD
+    # The credential itself stays where the repository is kept, or the
+    # next fetch would authenticate with the redaction.
+    assert 'ghp_token' in (tmp_path / 'repositories.yml').read_text()
+    assert service.get_all().root[0].password == 'ghp_token'
+
+
+def test_service_shows_a_referenced_password_in_the_listing(service):
+    service.add(
+        Repository(
+            name='packs',
+            url='https://example.com/p.git',
+            password='${secrets.git_token}',
+        ),
+        verify=False,
+    )
+
+    assert service.get_all_with_status()[0].password == '${secrets.git_token}'
+
+
+def test_service_resolves_a_referenced_password(service, tmp_path):
+    SECURITY_SETTINGS['cryptfile_location'] = tmp_path / 'keyring.cfg'
+    repository = Repository(
+        name='packs',
+        url='https://example.com/p.git',
+        password='${secrets.git_token}',
+    )
+
+    try:
+        set_secret('git_token', 'ghp_token')
+
+        assert service._resolve_password(repository) == 'ghp_token'
+    finally:
+        SECURITY_SETTINGS['cryptfile_location'] = None
+
+
+def test_service_takes_a_carried_password_as_written(service, tmp_path):
+    # An empty keyring is enough: a password that refers to nothing is
+    # never looked up.
+    SECURITY_SETTINGS['cryptfile_location'] = tmp_path / 'keyring.cfg'
+    repository = Repository(
+        name='packs',
+        url='https://example.com/p.git',
+        password='ghp_token',
+    )
+
+    try:
+        assert service._resolve_password(repository) == 'ghp_token'
+    finally:
+        SECURITY_SETTINGS['cryptfile_location'] = None
+
+
+def test_service_authenticates_with_the_resolved_password(
+    service,
+    credentials_url,
+    tmp_path,
+):
+    # What the remote receives is the point of the resolution, and the
+    # only place it can be observed is the request itself.
+    url, seen = credentials_url
+    SECURITY_SETTINGS['cryptfile_location'] = tmp_path / 'keyring.cfg'
+
+    try:
+        set_secret('git_token', 'ghp_token')
+        service.add(
+            Repository(
+                name='packs',
+                url=url,
+                username='eventum',
+                password='${secrets.git_token}',
+            ),
+            verify=False,
+        )
+
+        with pytest.raises(RepositoryFetchError):
+            service.get_catalog('packs')
+    finally:
+        SECURITY_SETTINGS['cryptfile_location'] = None
+
+    assert seen
+    scheme, _, encoded = seen[0].partition(' ')
+    assert scheme == 'Basic'
+    assert base64.b64decode(encoded).decode() == 'eventum:ghp_token'
+
+
+def test_service_authenticates_with_a_password_written_in_place(
+    service,
+    credentials_url,
+):
+    url, seen = credentials_url
+    service.add(
+        Repository(
+            name='packs',
+            url=url,
+            username='eventum',
+            password='ghp_token',
+        ),
+        verify=False,
+    )
+
+    with pytest.raises(RepositoryFetchError):
+        service.get_catalog('packs')
+
+    assert seen
+    _, _, encoded = seen[0].partition(' ')
+    assert base64.b64decode(encoded).decode() == 'eventum:ghp_token'
+
+
+def test_service_hides_a_rejected_password_of_the_file(service, tmp_path):
+    # A rejected value is quoted back in the reason, and the reason
+    # travels to whoever asked.
+    (tmp_path / 'repositories.yml').write_text(
+        '- name: packs\n'
+        '  url: https://example.com/p.git\n'
+        '  password: "ghp_token${params.leak}"\n',
+    )
+
+    with pytest.raises(RepositoryError) as info:
+        service.get_all()
+
+    assert 'ghp_token' not in info.value.context['reason']
+    assert 'password' in info.value.context['reason']
+
+
+def test_service_hides_a_password_of_an_entry_rejected_as_a_whole(
+    service,
+    tmp_path,
+):
+    # A field reported as missing quotes the whole entry back, so the
+    # password of an entry rejected for another reason travels too.
+    (tmp_path / 'repositories.yml').write_text(
+        '- url: https://example.com/p.git\n  password: ghp_token\n',
+    )
+
+    with pytest.raises(RepositoryError) as info:
+        service.get_all()
+
+    assert 'ghp_token' not in info.value.context['reason']
+
+
+def test_service_names_no_secret_of_a_composed_password(service, tmp_path):
+    # A password that only holds a reference among other text refers
+    # to no single secret, so nothing of it is named in the failure.
+    SECURITY_SETTINGS['cryptfile_location'] = tmp_path / 'keyring.cfg'
+    repository = Repository(
+        name='packs',
+        url='https://example.com/p.git',
+        password='prefix-${secrets.git_token}',
+    )
+
+    try:
+        with pytest.raises(RepositorySecretError) as info:
+            service._resolve_password(repository)
+    finally:
+        SECURITY_SETTINGS['cryptfile_location'] = None
+
+    assert 'secret' not in info.value.context
+    assert 'prefix-' not in str(info.value.context)
+
+
+def test_service_names_the_missing_secret_of_a_password(service, tmp_path):
+    SECURITY_SETTINGS['cryptfile_location'] = tmp_path / 'keyring.cfg'
+    repository = Repository(
+        name='packs',
+        url='https://example.com/p.git',
+        password='${secrets.git_token}',
+    )
+
+    try:
+        with pytest.raises(RepositorySecretError) as info:
+            service._resolve_password(repository)
+    finally:
+        SECURITY_SETTINGS['cryptfile_location'] = None
+
+    assert info.value.context['secret'] == 'git_token'
+    assert 'ghp' not in str(info.value.context)
+
+
 # --- origin of an installed project ---
 
 
@@ -1398,7 +1708,11 @@ def test_service_reports_missing_secret(service, git_url, tmp_path):
     # under test: an empty file of its own is.
     SECURITY_SETTINGS['cryptfile_location'] = tmp_path / 'keyring.cfg'
     service.add(
-        Repository(name='packs', url=git_url, secret='absent-secret'),
+        Repository(
+            name='packs',
+            url=git_url,
+            password='${secrets.absent-secret}',
+        ),
         verify=False,
     )
 
