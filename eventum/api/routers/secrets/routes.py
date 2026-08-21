@@ -91,7 +91,7 @@ async def list_secret_names() -> list[str]:
     description=(
         'Put secret with specified name to keyring. The name is what a '
         'configuration references as `${secrets.<name>}`, so it must be '
-        'words of letters, digits and `_`, separated by `.`.'
+        'words of lowercase letters, digits and `_`, separated by `.`.'
     ),
     responses={
         400: {'description': 'Name cannot be referenced in a configuration'},
@@ -167,8 +167,10 @@ async def list_secret_references(
 @router.post(
     '/{name}/rename',
     description=(
-        'Rename secret in keyring. Everything referring to the secret '
-        'follows: the `${secrets.<name>}` token is rewritten in the '
+        'Rename secret in keyring. The new name must be words of '
+        'lowercase letters, digits and `_`, separated by `.`, since a '
+        'configuration references it as `${secrets.<name>}`. Everything '
+        'referring to the secret follows: the token is rewritten in the '
         'configuration of every project reading it, and every connected '
         'repository authenticating with it is repointed at the new '
         'name.'

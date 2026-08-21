@@ -297,6 +297,7 @@ def test_rename_secret_reports_a_name_that_cannot_be_referenced(
     )
 
     assert response.status_code == 400
+    assert response.json()['detail'] == 'Name of secret must be words'
 
 
 def test_rename_secret_blank_name(client):
