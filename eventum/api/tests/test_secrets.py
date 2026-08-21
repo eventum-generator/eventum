@@ -18,6 +18,7 @@ from eventum.app.renaming import (
     RenameNotFoundError,
 )
 from eventum.app.repositories import Repositories, Repository
+from eventum.app.secrets import UpdatedReferences
 from eventum.core.parameters import GenerationParameters
 
 
@@ -180,7 +181,10 @@ def test_list_secret_references_unreadable_repositories(client, app):
 
 @patch('eventum.api.routers.secrets.routes.rename_secret', autospec=True)
 def test_rename_secret(mock_rename, client, app):
-    mock_rename.return_value = ['internal']
+    mock_rename.return_value = UpdatedReferences(
+        projects=['gen-a'],
+        repositories=['internal'],
+    )
 
     response = client.post(
         '/secrets/api_key/rename',
@@ -188,8 +192,14 @@ def test_rename_secret(mock_rename, client, app):
     )
 
     assert response.status_code == 200
-    assert response.json() == ['internal']
+    assert response.json() == {
+        'projects': ['gen-a'],
+        'repositories': ['internal'],
+    }
+    settings = app.state.settings
     mock_rename.assert_called_once_with(
+        generators_dir=settings.path.generators_dir,
+        config_filename=settings.path.generator_config_filename,
         repositories=app.state.repositories,
         name='api_key',
         new_name='renamed',

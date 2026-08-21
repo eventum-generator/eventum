@@ -7,6 +7,7 @@ from fastapi import APIRouter, Body, HTTPException, Path
 
 from eventum.api.dependencies.app import RepositoriesDep, SettingsDep
 from eventum.api.routers.secrets.models import (
+    RenamedReferencesResponse,
     RenameSecretRequest,
     SecretReferencesResponse,
 )
@@ -156,11 +157,13 @@ async def list_secret_references(
 @router.post(
     '/{name}/rename',
     description=(
-        'Rename secret in keyring. Connected repositories '
-        'authenticating with the secret are repointed at the new name; '
-        'references in generator configurations are not rewritten.'
+        'Rename secret in keyring. Everything referring to the secret '
+        'follows: the `${secrets.<name>}` token is rewritten in the '
+        'configuration of every project reading it, and every connected '
+        'repository authenticating with it is repointed at the new '
+        'name.'
     ),
-    response_description='Names of the repositories that were repointed',
+    response_description='Referrers carried over to the new name, by kind',
     responses={
         404: {'description': 'Secret is missing in keyring'},
         409: {
@@ -171,8 +174,8 @@ async def list_secret_references(
         },
         500: {
             'description': (
-                'Failed to rename secret, or the repositories using it '
-                'cannot be repointed. The detail names which of the two '
+                'The keyring, the repositories or the configurations '
+                'could not be written. The detail names which of them '
                 'happened, and whether the secret was left renamed'
             ),
         },
@@ -184,11 +187,14 @@ async def rename_secret_value(
         RenameSecretRequest,
         Body(description='New secret name'),
     ],
+    settings: SettingsDep,
     repositories: RepositoriesDep,
-) -> list[str]:
+) -> RenamedReferencesResponse:
     try:
-        return await asyncio.to_thread(
+        updated = await asyncio.to_thread(
             rename_secret,
+            generators_dir=settings.path.generators_dir,
+            config_filename=settings.path.generator_config_filename,
             repositories=repositories,
             name=name,
             new_name=request.new_name,
@@ -199,3 +205,8 @@ async def rename_secret_value(
         raise HTTPException(status_code=409, detail=_detail(e)) from None
     except RenameError as e:
         raise HTTPException(status_code=500, detail=_detail(e)) from None
+
+    return RenamedReferencesResponse(
+        projects=updated.projects,
+        repositories=updated.repositories,
+    )

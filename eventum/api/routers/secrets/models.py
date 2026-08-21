@@ -34,3 +34,30 @@ class SecretReferencesResponse(BaseModel, frozen=True):
             'the secret'
         ),
     )
+
+
+class RenamedReferencesResponse(BaseModel, frozen=True):
+    """Referrers a rename carried over to the new name, by kind.
+
+    Attributes
+    ----------
+    projects : list[str]
+        Names of the projects whose configuration was rewritten.
+
+    repositories : list[str]
+        Names of the repositories that were repointed.
+
+    """
+
+    projects: list[str] = Field(
+        description=(
+            'Names of the projects whose configuration was rewritten '
+            'for the new name'
+        ),
+    )
+    repositories: list[str] = Field(
+        description=(
+            'Names of the connected repositories that were repointed '
+            'at the new name'
+        ),
+    )
