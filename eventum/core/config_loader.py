@@ -298,6 +298,33 @@ def _set_token_value(
     node[leaf] = value
 
 
+class _Namespace:
+    """Mapping addressed by name, and by nothing else.
+
+    Jinja reads `${secrets.a.b}` as attribute access and falls back to
+    a lookup only when the attribute is missing, so a name matching
+    anything a `dict` carries - `keys`, `items`, `get` - would
+    substitute a method of the mapping in place of the value. Here a
+    name addresses an entry or nothing at all.
+    """
+
+    def __init__(self, values: dict[str, Any]) -> None:
+        """Initialize namespace over the values."""
+        self._values = {
+            key: _Namespace(value) if isinstance(value, dict) else value
+            for key, value in values.items()
+        }
+
+    def __getattr__(self, name: str) -> Any:
+        try:
+            return self._values[name]
+        except KeyError:
+            raise AttributeError(name) from None
+
+    def __getitem__(self, name: str) -> Any:
+        return self._values[name]
+
+
 def _prepare_params(
     used_params: Iterable[str],
     provided_params: dict[str, Any],
@@ -408,8 +435,8 @@ def _substitute_tokens(
 
     """
     rendering_kwargs = {
-        'params': params,
-        'secrets': secrets,
+        'params': _Namespace(params),
+        'secrets': _Namespace(secrets),
     }
     env = Environment(
         loader=BaseLoader(),
