@@ -21,8 +21,15 @@ KEYRING_SERVICE_NAME = 'eventum'
 # else. A name outside that either fails the substitution or, when
 # it holds a closing brace, ends the token early and reads the
 # secret the shortened name happens to address.
+#
+# Lowercase on top of that, because the keyring stores a name as an
+# option of a config file and `configparser` folds the case of one,
+# while the value is encrypted against the name as it was given. A
+# name holding a capital is therefore listed in a spelling it cannot
+# be read by, and two names differing only in case overwrite each
+# other's entry while only one of them stays readable.
 SECRET_NAME_PATTERN = re.compile(
-    r'^[A-Za-z_][A-Za-z0-9_]*(\.[A-Za-z_][A-Za-z0-9_]*)*$',
+    r'^[a-z_][a-z0-9_]*(\.[a-z_][a-z0-9_]*)*$',
 )
 
 
@@ -58,8 +65,9 @@ def validate_secret_name(name: str) -> None:
     """
     if SECRET_NAME_PATTERN.fullmatch(name) is None:
         msg = (
-            'Name of secret must be words of letters, digits and "_", '
-            'separated by ".", and must not start with a digit'
+            'Name of secret must be words of lowercase letters, digits '
+            'and "_", separated by ".", each starting with a letter '
+            'or "_"'
         )
         raise SecretNameError(msg)
 
@@ -238,13 +246,13 @@ def set_secret(name: str, value: str, path: Path | None = None) -> None:
         If any error occurs during setting secret to keyring.
 
     """
-    logger.info('Secret is set', secret=name)
-
     if not name or not value:
         msg = 'Name and value of secret cannot be empty'
         raise ValueError(msg)
 
     validate_secret_name(name)
+
+    logger.info('Secret is set', secret=name)
 
     keyring = _get_keyring(path)
 
@@ -337,8 +345,6 @@ def rename_secret(
         If any error occurs during accessing keyring.
 
     """
-    logger.info('Secret is renamed', secret=name, value=new_name)
-
     if not name or not new_name:
         msg = 'Name of secret cannot be blank'
         raise ValueError(msg)
@@ -346,6 +352,8 @@ def rename_secret(
     # Named before the value is read, so a rename that cannot succeed
     # touches nothing.
     validate_secret_name(new_name)
+
+    logger.info('Secret is renamed', secret=name, value=new_name)
 
     existing_names = list_secrets(path)
 
