@@ -153,7 +153,9 @@ export const SourceUsage: FC<SourceUsageProps> = ({
             <Stack gap={8}>
               <UnstyledButton
                 onClick={() =>
-                  setOpenPath((prev) => (prev === entry.path ? null : entry.path))
+                  setOpenPath((prev) =>
+                    prev === entry.path ? null : entry.path
+                  )
                 }
                 onMouseEnter={() => onHoverNode?.(nodeId)}
                 style={{ width: '100%' }}
@@ -236,10 +238,7 @@ export const SourceUsage: FC<SourceUsageProps> = ({
               )}
 
               <Collapse in={isOpen}>
-                <SourcePreview
-                  generatorId={generatorId}
-                  path={entry.path}
-                />
+                <SourcePreview generatorId={generatorId} path={entry.path} />
               </Collapse>
             </Stack>
           </div>

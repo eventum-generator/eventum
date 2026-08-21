@@ -3,9 +3,8 @@ import { Center, Loader, Text } from '@mantine/core';
 import { useQuery } from '@tanstack/react-query';
 import { FC } from 'react';
 
-import { getGeneratorFile } from '@/api/routes/generator-configs';
-
 import { previewLanguage } from './preview-language';
+import { getGeneratorFile } from '@/api/routes/generator-configs';
 
 interface SourcePreviewProps {
   generatorId: string;

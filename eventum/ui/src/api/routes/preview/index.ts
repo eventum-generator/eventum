@@ -151,10 +151,7 @@ export async function updateTemplateEventPluginGlobalState(
   name: string,
   state: TemplateEventPluginState
 ) {
-  await apiClient.patch(
-    `/preview/${name}/event-plugin/state/global`,
-    state
-  );
+  await apiClient.patch(`/preview/${name}/event-plugin/state/global`, state);
 }
 
 export async function clearTemplateEventPluginGlobalState(name: string) {
