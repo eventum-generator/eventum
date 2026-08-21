@@ -3,8 +3,8 @@
 A secret is referred to from two places at once - the configuration of
 a project, as a `${secrets.<name>}` token, and the secret field of a
 connected repository. Both kinds are answered here, so what a rename or
-a removal would reach is known in one place, and renaming repoints the
-referrers that can be repointed.
+a removal would reach is known in one place, and renaming carries both
+of them over to the new name.
 """
 
 import threading
@@ -17,7 +17,8 @@ from eventum.app.renaming import (
     RenameNotFoundError,
 )
 from eventum.app.repositories import Repositories, RepositoryError
-from eventum.core.config_loader import extract_secrets
+from eventum.app.workspace import WorkspaceError, write_text
+from eventum.core.config_loader import TOKEN_PATTERN, extract_secrets
 from eventum.security.manage import SecretConflictError, SecretNotFoundError
 from eventum.security.manage import rename_secret as rename_keyring_secret
 
@@ -49,6 +50,33 @@ class SecretReferences(NamedTuple):
 
     projects: list[str]
     repositories: list[str]
+
+
+class UpdatedReferences(NamedTuple):
+    """Referrers a rename carried over to the new name, by kind.
+
+    Attributes
+    ----------
+    projects : list[str]
+        Names of the project directories whose configuration was
+        rewritten.
+
+    repositories : list[str]
+        Names of the connected repositories that were repointed.
+
+    """
+
+    projects: list[str]
+    repositories: list[str]
+
+
+class _Rewrite(NamedTuple):
+    """One configuration file, as it is and as it is to become."""
+
+    path: Path
+    project: str
+    before: str
+    after: str
 
 
 def find_secret_references(
@@ -99,22 +127,39 @@ def find_secret_references(
 
 def rename_secret(
     *,
+    generators_dir: Path,
+    config_filename: Path,
     repositories: Repositories,
     name: str,
     new_name: str,
-) -> list[str]:
-    """Rename a secret and repoint the repositories holding it.
+) -> UpdatedReferences:
+    """Rename a secret and carry its referrers over to the new name.
 
-    The value is moved to the new name in the keyring first, then every
-    connected repository authenticating with the secret is pointed at
-    it; a repointing that fails moves the value back. Renames of this
-    process take their turn, so neither step of one lands inside the
-    other. Project configurations are not rewritten - a `${secrets.*}`
-    token is part of the configuration text and belongs to whoever
-    edits it.
+    Every referrer follows: the `${secrets.<name>}` token of a project
+    is rewritten in its configuration, and a connected repository
+    authenticating with the secret is pointed at the new name. The
+    value is moved in the keyring first, and whatever is written after
+    it is put back when a later step fails, so the three either move
+    together or not at all. Renames of this process take their turn, so
+    no step of one lands inside another.
+
+    A configuration is rewritten as text, leaving its comments and its
+    formatting as they were, and the token keeps the spacing it was
+    written with. A configuration that cannot be read is skipped, as it
+    is skipped when the referrers are listed.
+
+    A generator already running is unaffected: it holds the
+    configuration it loaded, and the value behind the secret does not
+    change. It reads the new name the next time it starts.
 
     Parameters
     ----------
+    generators_dir : Path
+        Root directory that contains project directories.
+
+    config_filename : Path
+        Name of the configuration file inside a project directory.
+
     repositories : Repositories
         Connected repositories service.
 
@@ -126,8 +171,8 @@ def rename_secret(
 
     Returns
     -------
-    list[str]
-        Names of the repositories that were repointed.
+    UpdatedReferences
+        Referrers carried over to the new name, by kind.
 
     Raises
     ------
@@ -145,6 +190,13 @@ def rename_secret(
     """
     with _RENAME_LOCK:
         _reject_held_name(repositories, name, new_name)
+
+        rewrites = _plan_project_rewrites(
+            generators_dir,
+            config_filename,
+            name,
+            new_name,
+        )
 
         try:
             rename_keyring_secret(name, new_name)
@@ -165,11 +217,114 @@ def rename_secret(
             ) from None
 
         try:
-            return repositories.repoint_secret(name, new_name)
+            repointed = repositories.repoint_secret(name, new_name)
         except RepositoryError as e:
             _revert_keyring_rename(name, new_name)
 
             msg = 'Repositories using the secret cannot be repointed'
+            raise RenameError(msg, context=e.context) from None
+
+        # A failure that could not put the configurations back raises
+        # on its own, and nothing else is undone after it: the keyring
+        # and the repositories stay on the new name, which is the name
+        # the configurations that were rewritten now carry.
+        try:
+            _apply_rewrites(rewrites)
+        except WorkspaceError as e:
+            _revert_repoint(repositories, name, new_name)
+            _revert_keyring_rename(name, new_name)
+
+            msg = 'Configurations reading the secret cannot be rewritten'
+            raise RenameError(msg, context=e.context) from None
+
+        return UpdatedReferences(
+            projects=sorted(rewrite.project for rewrite in rewrites),
+            repositories=repointed,
+        )
+
+
+def _plan_project_rewrites(
+    generators_dir: Path,
+    config_filename: Path,
+    name: str,
+    new_name: str,
+) -> list[_Rewrite]:
+    """Read the configurations to rewrite and what to write in them.
+
+    Everything is read before anything is written, so a configuration
+    that cannot be read is known before the keyring is touched.
+    """
+    rewrites: list[_Rewrite] = []
+    old_token = f'secrets.{name}'
+    new_token = f'secrets.{new_name}'
+
+    for project in _find_project_references(
+        generators_dir,
+        config_filename,
+        name,
+    ):
+        path = generators_dir / project / config_filename
+        try:
+            before = path.read_text(encoding='utf-8')
+        except OSError, UnicodeDecodeError:
+            continue
+
+        after = TOKEN_PATTERN.sub(
+            lambda match: (
+                match.group(0).replace(old_token, new_token)
+                if match.group(1) == old_token
+                else match.group(0)
+            ),
+            before,
+        )
+
+        if after != before:
+            rewrites.append(_Rewrite(path, project, before, after))
+
+    return rewrites
+
+
+def _apply_rewrites(rewrites: list[_Rewrite]) -> None:
+    """Write the planned configurations, putting back what was written.
+
+    Raises
+    ------
+    WorkspaceError
+        If any of them cannot be written. What was written before the
+        failure is restored, and a restore that fails too is reported
+        in its place.
+
+    """
+    written: list[_Rewrite] = []
+
+    for rewrite in rewrites:
+        try:
+            write_text(rewrite.path, rewrite.after)
+        except WorkspaceError:
+            _restore_rewrites(written)
+            raise
+
+        written.append(rewrite)
+
+
+def _restore_rewrites(written: list[_Rewrite]) -> None:
+    """Put the configurations back as they were.
+
+    Raises
+    ------
+    RenameError
+        If any of them cannot be put back, which leaves the secret
+        renamed in some configurations and not in others.
+
+    """
+    for rewrite in written:
+        try:
+            write_text(rewrite.path, rewrite.before)
+        except WorkspaceError as e:
+            msg = (
+                'Some configurations are rewritten for the new name and '
+                'cannot be put back'
+            )
             raise RenameError(msg, context=e.context) from None
 
 
@@ -240,6 +395,27 @@ def _find_project_references(
             names.append(config_path.parent.name)
 
     return sorted(names)
+
+
+def _revert_repoint(
+    repositories: Repositories,
+    name: str,
+    new_name: str,
+) -> None:
+    """Point the repositories back at the old name.
+
+    Raises
+    ------
+    RenameError
+        If they cannot be pointed back, which leaves them on a name
+        the keyring is about to stop holding.
+
+    """
+    try:
+        repositories.repoint_secret(new_name, name)
+    except RepositoryError as e:
+        msg = 'Repositories are repointed and cannot be pointed back'
+        raise RenameError(msg, context=e.context) from None
 
 
 def _revert_keyring_rename(name: str, new_name: str) -> None:

@@ -17,6 +17,7 @@ from eventum.app.repositories import (
     RepositoryError,
 )
 from eventum.app.secrets import find_secret_references, rename_secret
+from eventum.app.workspace import WorkspaceError
 from eventum.security.manage import (
     SECURITY_SETTINGS,
     get_secret,
@@ -179,6 +180,7 @@ def test_unreadable_repositories_are_not_reported_as_none(
 
 
 def test_rename_repoints_the_repositories_using_the_secret(
+    generators_dir,
     repositories,
     keyring,
 ):
@@ -187,23 +189,29 @@ def test_rename_repoints_the_repositories_using_the_secret(
     _connect(repositories, 'mirror', 'git_token')
     _connect(repositories, 'other', 'another_token')
 
-    repointed = rename_secret(
+    updated = rename_secret(
+        generators_dir=generators_dir,
+        config_filename=_CONFIG_FILENAME,
         repositories=repositories,
         name='git_token',
         new_name='forge_token',
     )
 
-    assert repointed == ['internal', 'mirror']
+    assert updated.repositories == ['internal', 'mirror']
     assert repositories.get('internal').secret == 'forge_token'
     assert repositories.get('mirror').secret == 'forge_token'
     assert repositories.get('other').secret == 'another_token'
 
 
-def test_rename_keeps_the_value_under_the_new_name(repositories, keyring):
+def test_rename_keeps_the_value_under_the_new_name(
+    generators_dir, repositories, keyring
+):
     set_secret('git_token', 'value')
     _connect(repositories, 'internal', 'git_token')
 
     rename_secret(
+        generators_dir=generators_dir,
+        config_filename=_CONFIG_FILENAME,
         repositories=repositories,
         name='git_token',
         new_name='forge_token',
@@ -213,37 +221,46 @@ def test_rename_keeps_the_value_under_the_new_name(repositories, keyring):
     assert get_secret('forge_token') == 'value'
 
 
-def test_rename_reports_nothing_when_no_repository_uses_it(
+def test_rename_reports_nothing_when_nothing_refers_to_it(
+    generators_dir,
     repositories,
     keyring,
 ):
     set_secret('git_token', 'value')
 
-    assert (
-        rename_secret(
-            repositories=repositories,
-            name='git_token',
-            new_name='forge_token',
-        )
-        == []
+    updated = rename_secret(
+        generators_dir=generators_dir,
+        config_filename=_CONFIG_FILENAME,
+        repositories=repositories,
+        name='git_token',
+        new_name='forge_token',
     )
 
+    assert updated.projects == []
+    assert updated.repositories == []
 
-def test_rename_missing_secret_is_not_found(repositories, keyring):
+
+def test_rename_missing_secret_is_not_found(
+    generators_dir, repositories, keyring
+):
     with pytest.raises(RenameNotFoundError):
         rename_secret(
+            generators_dir=generators_dir,
+            config_filename=_CONFIG_FILENAME,
             repositories=repositories,
             name='absent',
             new_name='forge_token',
         )
 
 
-def test_rename_to_taken_name_conflicts(repositories, keyring):
+def test_rename_to_taken_name_conflicts(generators_dir, repositories, keyring):
     set_secret('git_token', 'value')
     set_secret('forge_token', 'other')
 
     with pytest.raises(RenameConflictError):
         rename_secret(
+            generators_dir=generators_dir,
+            config_filename=_CONFIG_FILENAME,
             repositories=repositories,
             name='git_token',
             new_name='forge_token',
@@ -251,6 +268,7 @@ def test_rename_to_taken_name_conflicts(repositories, keyring):
 
 
 def test_rename_moves_the_value_back_when_repointing_fails(
+    generators_dir,
     repositories,
     keyring,
 ):
@@ -266,6 +284,8 @@ def test_rename_moves_the_value_back_when_repointing_fails(
         pytest.raises(RenameError, match='cannot be repointed'),
     ):
         rename_secret(
+            generators_dir=generators_dir,
+            config_filename=_CONFIG_FILENAME,
             repositories=repositories,
             name='git_token',
             new_name='forge_token',
@@ -277,6 +297,7 @@ def test_rename_moves_the_value_back_when_repointing_fails(
 
 
 def test_rename_to_a_name_no_repository_can_hold_is_refused(
+    generators_dir,
     repositories,
     keyring,
 ):
@@ -285,6 +306,8 @@ def test_rename_to_a_name_no_repository_can_hold_is_refused(
 
     with pytest.raises(RenameError, match='cannot be repointed'):
         rename_secret(
+            generators_dir=generators_dir,
+            config_filename=_CONFIG_FILENAME,
             repositories=repositories,
             name='git_token',
             new_name='x' * 256,
@@ -294,7 +317,9 @@ def test_rename_to_a_name_no_repository_can_hold_is_refused(
     assert repositories.get('internal').secret == 'git_token'
 
 
-def test_rename_reports_a_revert_that_fails_too(repositories, keyring):
+def test_rename_reports_a_revert_that_fails_too(
+    generators_dir, repositories, keyring
+):
     _connect(repositories, 'internal', 'git_token')
 
     with (
@@ -310,6 +335,8 @@ def test_rename_reports_a_revert_that_fails_too(repositories, keyring):
         pytest.raises(RenameError, match='still hold the old name'),
     ):
         rename_secret(
+            generators_dir=generators_dir,
+            config_filename=_CONFIG_FILENAME,
             repositories=repositories,
             name='git_token',
             new_name='forge_token',
@@ -317,6 +344,7 @@ def test_rename_reports_a_revert_that_fails_too(repositories, keyring):
 
 
 def test_rename_reports_a_keyring_that_cannot_be_reached(
+    generators_dir,
     repositories,
     keyring,
 ):
@@ -328,13 +356,17 @@ def test_rename_reports_a_keyring_that_cannot_be_reached(
         pytest.raises(RenameError, match='Failed to rename secret'),
     ):
         rename_secret(
+            generators_dir=generators_dir,
+            config_filename=_CONFIG_FILENAME,
             repositories=repositories,
             name='git_token',
             new_name='forge_token',
         )
 
 
-def test_rename_holds_its_turn_across_both_steps(repositories, keyring):
+def test_rename_holds_its_turn_across_both_steps(
+    generators_dir, repositories, keyring
+):
     """No second rename can start while one is between its two steps."""
     set_secret('git_token', 'value')
     _connect(repositories, 'internal', 'git_token')
@@ -349,6 +381,8 @@ def test_rename_holds_its_turn_across_both_steps(repositories, keyring):
 
     with patch.object(Repositories, 'repoint_secret', _repoint):
         rename_secret(
+            generators_dir=generators_dir,
+            config_filename=_CONFIG_FILENAME,
             repositories=repositories,
             name='git_token',
             new_name='forge_token',
@@ -358,6 +392,7 @@ def test_rename_holds_its_turn_across_both_steps(repositories, keyring):
 
 
 def test_rename_onto_a_name_a_repository_holds_conflicts(
+    generators_dir,
     repositories,
     keyring,
 ):
@@ -368,6 +403,8 @@ def test_rename_onto_a_name_a_repository_holds_conflicts(
 
     with pytest.raises(RenameConflictError, match='already authenticate'):
         rename_secret(
+            generators_dir=generators_dir,
+            config_filename=_CONFIG_FILENAME,
             repositories=repositories,
             name='gl_token',
             new_name='gh_token',
@@ -380,6 +417,7 @@ def test_rename_onto_a_name_a_repository_holds_conflicts(
 
 
 def test_rename_conflict_names_the_repositories_holding_it(
+    generators_dir,
     repositories,
     keyring,
 ):
@@ -390,6 +428,8 @@ def test_rename_conflict_names_the_repositories_holding_it(
 
     with pytest.raises(RenameConflictError) as info:
         rename_secret(
+            generators_dir=generators_dir,
+            config_filename=_CONFIG_FILENAME,
             repositories=repositories,
             name='gl_token',
             new_name='gh_token',
@@ -399,6 +439,7 @@ def test_rename_conflict_names_the_repositories_holding_it(
 
 
 def test_rename_to_the_same_name_reports_the_secret_not_the_repository(
+    generators_dir,
     repositories,
     keyring,
 ):
@@ -408,6 +449,8 @@ def test_rename_to_the_same_name_reports_the_secret_not_the_repository(
 
     with pytest.raises(RenameConflictError, match='already exists'):
         rename_secret(
+            generators_dir=generators_dir,
+            config_filename=_CONFIG_FILENAME,
             repositories=repositories,
             name='git_token',
             new_name='git_token',
@@ -424,9 +467,164 @@ def test_rename_stops_when_the_repositories_cannot_be_read(
 
     with pytest.raises(RenameError, match='Cannot tell which repositories'):
         rename_secret(
+            generators_dir=generators_dir,
+            config_filename=_CONFIG_FILENAME,
             repositories=repositories,
             name='git_token',
             new_name='forge_token',
         )
 
     assert list_secrets() == ['git_token']
+
+
+# --- rewriting the configurations ---
+
+
+def _rename(generators_dir, repositories, name, new_name):
+    """Rename a secret over the workspace of the fixtures."""
+    return rename_secret(
+        generators_dir=generators_dir,
+        config_filename=_CONFIG_FILENAME,
+        repositories=repositories,
+        name=name,
+        new_name=new_name,
+    )
+
+
+def _config_of(generators_dir: Path, project: str) -> str:
+    return (generators_dir / project / _CONFIG_FILENAME).read_text()
+
+
+def test_rename_rewrites_the_token_in_every_project(
+    generators_dir,
+    repositories,
+    keyring,
+):
+    set_secret('git_token', 'value')
+    _write_config(generators_dir, 'web-nginx', 'token: ${secrets.git_token}\n')
+    _write_config(generators_dir, 'api-logs', 'key: ${secrets.git_token}\n')
+    _write_config(generators_dir, 'other', 'key: ${secrets.another}\n')
+
+    updated = _rename(generators_dir, repositories, 'git_token', 'forge_token')
+
+    assert updated.projects == ['api-logs', 'web-nginx']
+    assert _config_of(generators_dir, 'web-nginx') == (
+        'token: ${secrets.forge_token}\n'
+    )
+    assert _config_of(generators_dir, 'api-logs') == (
+        'key: ${secrets.forge_token}\n'
+    )
+    assert _config_of(generators_dir, 'other') == 'key: ${secrets.another}\n'
+
+
+def test_rename_leaves_the_configuration_as_it_was_written(
+    generators_dir,
+    repositories,
+    keyring,
+):
+    """Comments, order and the spacing of the token all survive."""
+    set_secret('git_token', 'value')
+    _write_config(
+        generators_dir,
+        'web-nginx',
+        '# the token of the forge\n'
+        'output:\n'
+        '  - http:\n'
+        '      headers:\n'
+        "        auth: 'Bearer ${ secrets.git_token }'  # padded\n"
+        '      token: ${secrets.git_token}\n'
+        '      other: ${params.host}\n',
+    )
+
+    _rename(generators_dir, repositories, 'git_token', 'forge_token')
+
+    assert _config_of(generators_dir, 'web-nginx') == (
+        '# the token of the forge\n'
+        'output:\n'
+        '  - http:\n'
+        '      headers:\n'
+        "        auth: 'Bearer ${ secrets.forge_token }'  # padded\n"
+        '      token: ${secrets.forge_token}\n'
+        '      other: ${params.host}\n'
+    )
+
+
+def test_rename_leaves_another_secret_alone(
+    generators_dir,
+    repositories,
+    keyring,
+):
+    set_secret('git_token', 'value')
+    _write_config(
+        generators_dir,
+        'web-nginx',
+        'a: ${secrets.git_token}\nb: ${secrets.git_token_2}\n',
+    )
+
+    _rename(generators_dir, repositories, 'git_token', 'forge_token')
+
+    assert _config_of(generators_dir, 'web-nginx') == (
+        'a: ${secrets.forge_token}\nb: ${secrets.git_token_2}\n'
+    )
+
+
+def test_rename_puts_everything_back_when_a_config_cannot_be_written(
+    generators_dir,
+    repositories,
+    keyring,
+):
+    set_secret('git_token', 'value')
+    _connect(repositories, 'internal', 'git_token')
+    _write_config(generators_dir, 'web-nginx', 'token: ${secrets.git_token}\n')
+    _write_config(generators_dir, 'api-logs', 'key: ${secrets.git_token}\n')
+
+    def _fail_on_the_second(path: Path, content: str) -> None:
+        if path.parent.name == 'web-nginx':
+            path.write_text(content, encoding='utf-8')
+            return
+        msg = 'Failed to write file'
+        raise WorkspaceError(msg, context={'file_path': str(path)})
+
+    with (
+        patch('eventum.app.secrets.write_text', _fail_on_the_second),
+        pytest.raises(RenameError, match='cannot be rewritten'),
+    ):
+        _rename(generators_dir, repositories, 'git_token', 'forge_token')
+
+    assert list_secrets() == ['git_token']
+    assert get_secret('git_token') == 'value'
+    assert repositories.get('internal').secret == 'git_token'
+    assert _config_of(generators_dir, 'web-nginx') == (
+        'token: ${secrets.git_token}\n'
+    )
+    assert _config_of(generators_dir, 'api-logs') == (
+        'key: ${secrets.git_token}\n'
+    )
+
+
+def test_rename_reports_configurations_it_cannot_put_back(
+    generators_dir,
+    repositories,
+    keyring,
+):
+    """A restore that fails leaves the referrers on the new name."""
+    set_secret('git_token', 'value')
+    _write_config(generators_dir, 'web-nginx', 'token: ${secrets.git_token}\n')
+    _write_config(generators_dir, 'api-logs', 'key: ${secrets.git_token}\n')
+    writes: list[Path] = []
+
+    def _fail_after_the_first(path: Path, content: str) -> None:
+        writes.append(path)
+        if len(writes) == 1:
+            path.write_text(content, encoding='utf-8')
+            return
+        msg = 'Failed to write file'
+        raise WorkspaceError(msg, context={'file_path': str(path)})
+
+    with (
+        patch('eventum.app.secrets.write_text', _fail_after_the_first),
+        pytest.raises(RenameError, match='cannot be put back'),
+    ):
+        _rename(generators_dir, repositories, 'git_token', 'forge_token')
+
+    assert list_secrets() == ['forge_token']
