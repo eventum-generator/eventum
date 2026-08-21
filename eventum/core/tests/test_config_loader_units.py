@@ -13,6 +13,7 @@ from eventum.core.config_loader import (
     extract_params,
     extract_secrets,
 )
+from eventum.security.manage import SECRET_NAME_PATTERN
 
 # --- _extract_tokens ---
 
@@ -257,3 +258,53 @@ def test_extract_params_ignores_commented_tokens():
     )
     result = extract_params(active_content)
     assert result == ['host']
+
+
+# --- the grammar of a secret name, against what substitution reads ---
+
+
+@pytest.mark.parametrize(
+    'name',
+    ['key', 'MY_SECRET', '_leading', 'a.b', 'a.b.c', 'with2digits'],
+)
+@patch('eventum.core.config_loader.get_secret')
+def test_a_name_the_keyring_accepts_resolves(mock_get_secret, name):
+    # The keyring guards the name against this: whatever it lets in
+    # has to come back out of a configuration.
+    mock_get_secret.return_value = 'VALUE'
+    content = 'password: ${secrets.' + name + '}'
+
+    secrets = _prepare_secrets(extract_secrets(content))
+
+    assert SECRET_NAME_PATTERN.fullmatch(name) is not None
+    assert _substitute_tokens({}, secrets, content) == 'password: VALUE'
+
+
+@pytest.mark.parametrize(
+    'name',
+    ['my-secret', 'my key', 'my@secret', '1secret', 'a/b', 'a.', 'a..b'],
+)
+@patch('eventum.core.config_loader.get_secret')
+def test_a_name_the_keyring_refuses_would_not_resolve(mock_get_secret, name):
+    mock_get_secret.return_value = 'VALUE'
+    content = 'password: ${secrets.' + name + '}'
+    secrets = _prepare_secrets(extract_secrets(content))
+
+    assert SECRET_NAME_PATTERN.fullmatch(name) is None
+
+    with pytest.raises(ValueError):
+        _substitute_tokens({}, secrets, content)
+
+
+@patch('eventum.core.config_loader.get_secret')
+def test_a_name_holding_a_brace_reads_another_secret(mock_get_secret):
+    # The one refused shape that does not fail: the token ends at the
+    # first brace, so the reference reads the secret the shortened
+    # name addresses and keeps the rest as text.
+    mock_get_secret.return_value = 'VALUE-OF-A'
+    content = 'password: ${secrets.a}b}'
+
+    secrets = _prepare_secrets(extract_secrets(content))
+
+    assert SECRET_NAME_PATTERN.fullmatch('a}b') is None
+    assert _substitute_tokens({}, secrets, content) == 'password: VALUE-OF-Ab}'
