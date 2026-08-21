@@ -438,12 +438,12 @@ def test_service_rejects_invalid_stored_entry(service, tmp_path):
 
 
 def _with_secret(service, name, secret):
-    """Connect a repository authenticating with the given secret."""
+    """Connect a repository referring to the given secret."""
     service.add(
         Repository(
             name=name,
             url=f'https://example.com/{name}.git',
-            secret=secret,
+            password=None if secret is None else f'${{secrets.{secret}}}',
         ),
         verify=False,
     )
@@ -467,9 +467,9 @@ def test_service_repoints_only_the_repositories_holding_a_secret(service):
     repointed = service.repoint_secret('git_token', 'forge_token')
 
     assert repointed == ['internal', 'mirror']
-    assert service.get('internal').secret == 'forge_token'
-    assert service.get('mirror').secret == 'forge_token'
-    assert service.get('other').secret == 'another_token'
+    assert service.get('internal').password == '${secrets.forge_token}'
+    assert service.get('mirror').password == '${secrets.forge_token}'
+    assert service.get('other').password == '${secrets.another_token}'
 
 
 def test_service_repoints_nothing_when_no_repository_holds_it(
@@ -481,17 +481,38 @@ def test_service_repoints_nothing_when_no_repository_holds_it(
     written = path.read_text()
 
     assert service.repoint_secret('git_token', 'forge_token') == []
-    assert service.get('other').secret == 'another_token'
+    assert service.get('other').password == '${secrets.another_token}'
     assert path.read_text() == written
 
 
-def test_service_refuses_a_secret_name_it_cannot_hold(service):
-    _with_secret(service, 'internal', 'git_token')
+def test_service_repoints_a_secret_named_among_other_text(service):
+    # A password may hold the reference among text of its own, and
+    # only the token moves.
+    service.add(
+        Repository(
+            name='internal',
+            url='https://example.com/internal.git',
+            password='Bearer ${secrets.git_token}!',
+        ),
+        verify=False,
+    )
 
-    with pytest.raises(RepositoryError):
-        service.repoint_secret('git_token', 'x' * 256)
+    assert service.repoint_secret('git_token', 'forge_token') == ['internal']
+    assert service.get('internal').password == 'Bearer ${secrets.forge_token}!'
 
-    assert service.get('internal').secret == 'git_token'
+
+def test_service_leaves_a_password_of_its_own_alone(service):
+    service.add(
+        Repository(
+            name='legacy',
+            url='https://example.com/legacy.git',
+            password='ghp_written_in_place',
+        ),
+        verify=False,
+    )
+
+    assert service.find_secret_users('ghp_written_in_place') == []
+    assert service.repoint_secret('ghp_written_in_place', 'forge') == []
 
 
 # --- fetching ---

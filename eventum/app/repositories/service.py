@@ -54,7 +54,11 @@ from eventum.app.repositories.source import (
     collect_installed,
 )
 from eventum.app.repositories.storage import RepositoriesFile
-from eventum.core.config_loader import resolve_secrets
+from eventum.core.config_loader import (
+    extract_secrets,
+    repoint_secret_token,
+    resolve_secrets,
+)
 from eventum.utils.validation_prettier import prettify_validation_errors
 
 logger = structlog.stdlib.get_logger()
@@ -86,6 +90,22 @@ def _ordered(
     what a first-time reader is looking for.
     """
     return tuple(sorted(entries, key=lambda entry: not entry.official))
+
+
+def _referenced_secrets(repository: Repository) -> list[str]:
+    """Return the keyring secrets the password of a repository names."""
+    if repository.password is None:
+        return []
+
+    return extract_secrets(repository.password)
+
+
+def _repointed(password: str | None, secret: str, new_name: str) -> str | None:
+    """Return a password naming another secret in place of one."""
+    if password is None:
+        return None
+
+    return repoint_secret_token(password, secret, new_name)
 
 
 def _without_passwords(
@@ -422,7 +442,7 @@ class Repositories:
         return sorted(
             repository.name
             for repository in repositories.root
-            if repository.secret == secret
+            if secret in _referenced_secrets(repository)
         )
 
     def repoint_secret(self, secret: str, new_name: str) -> list[str]:
@@ -456,7 +476,7 @@ class Repositories:
             users = [
                 repository
                 for repository in repositories.root
-                if repository.secret == secret
+                if secret in _referenced_secrets(repository)
             ]
 
             if not users:
@@ -464,8 +484,8 @@ class Repositories:
 
             self._write(
                 tuple(
-                    self._with_secret(repository, new_name)
-                    if repository.secret == secret
+                    self._with_secret(repository, secret, new_name)
+                    if secret in _referenced_secrets(repository)
                     else repository
                     for repository in repositories.root
                 ),
@@ -811,8 +831,16 @@ class Repositories:
             ],
         )
 
-    def _with_secret(self, repository: Repository, secret: str) -> Repository:
-        """Rebuild a repository holding another secret name.
+    def _with_secret(
+        self,
+        repository: Repository,
+        secret: str,
+        new_name: str,
+    ) -> Repository:
+        """Rebuild a repository referring to another secret name.
+
+        Only the token is rewritten, so a password that names the
+        secret among other text keeps everything else it holds.
 
         Built through validation rather than copied: the new name comes
         from the keyring, which accepts names the repositories file
@@ -825,9 +853,11 @@ class Repositories:
             If the name is not valid for a repository.
 
         """
+        password = _repointed(repository.password, secret, new_name)
+
         try:
             return Repository.model_validate(
-                {**repository.model_dump(), 'secret': secret},
+                {**repository.model_dump(), 'password': password},
             )
         except ValidationError as e:
             msg = 'Secret name is not valid for a repository'
@@ -835,7 +865,7 @@ class Repositories:
                 msg,
                 context={
                     'name': repository.name,
-                    'value': secret,
+                    'secret': new_name,
                     'reason': prettify_validation_errors(e.errors()),
                 },
             ) from None

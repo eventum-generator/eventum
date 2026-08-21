@@ -27,7 +27,7 @@ def _connect(
         Repository(
             name=name,
             url=f'https://git.example.com/{name}.git',
-            secret=secret,
+            password=None if secret is None else f'${{secrets.{secret}}}',
         ),
         verify=False,
     )
