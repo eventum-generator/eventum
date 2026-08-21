@@ -1,6 +1,6 @@
 import {
-  RepointedRepositories,
-  RepointedRepositoriesSchema,
+  RenamedReferences,
+  RenamedReferencesSchema,
   SecretNames,
   SecretNamesSchema,
   SecretReferences,
@@ -42,9 +42,9 @@ export async function getSecretReferences(
 export async function renameSecret(
   name: string,
   newName: string
-): Promise<RepointedRepositories> {
+): Promise<RenamedReferences> {
   return await validateResponse(
-    RepointedRepositoriesSchema,
+    RenamedReferencesSchema,
     apiClient.post(`/secrets/${encodeURIComponent(name)}/rename`, {
       new_name: newName,
     })

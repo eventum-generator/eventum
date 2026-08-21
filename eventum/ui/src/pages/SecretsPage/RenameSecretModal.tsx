@@ -25,12 +25,14 @@ export const RenameSecretModal: FC<RenameSecretModalProps> = ({
     renameSecret.mutate(
       { name: secretName, newName },
       {
-        onSuccess: (repointed) => {
+        onSuccess: (updated) => {
+          const carried = [...updated.projects, ...updated.repositories];
+
           showSuccessNotification(
             'Renamed',
-            repointed.length > 0
+            carried.length > 0
               ? `Secret "${secretName}" renamed to "${newName}", ` +
-                  `${repointed.join(', ')} repointed at it`
+                  `${carried.join(', ')} updated`
               : `Secret "${secretName}" renamed to "${newName}"`
           );
           modals.closeAll();
@@ -54,8 +56,9 @@ export const RenameSecretModal: FC<RenameSecretModalProps> = ({
         projectsNote={
           <>
             These projects read the secret as{' '}
-            <Code>{`\${secrets.${secretName}}`}</Code>. Update the placeholder
-            in each of them after renaming - it is not rewritten automatically.
+            <Code>{`\${secrets.${secretName}}`}</Code>. The placeholder is
+            rewritten in each of them; one already running keeps the
+            configuration it loaded and reads the new name when it starts again.
           </>
         }
         repositoriesNote={

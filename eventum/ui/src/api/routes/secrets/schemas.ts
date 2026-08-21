@@ -12,5 +12,8 @@ export const SecretReferencesSchema = z.object({
 });
 export type SecretReferences = z.infer<typeof SecretReferencesSchema>;
 
-export const RepointedRepositoriesSchema = z.array(z.string());
-export type RepointedRepositories = z.infer<typeof RepointedRepositoriesSchema>;
+export const RenamedReferencesSchema = z.object({
+  projects: z.array(z.string()),
+  repositories: z.array(z.string()),
+});
+export type RenamedReferences = z.infer<typeof RenamedReferencesSchema>;

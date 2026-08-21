@@ -40,8 +40,13 @@ function references(
 
 const mutate = vi.fn();
 
+interface Updated {
+  projects: string[];
+  repositories: string[];
+}
+
 interface MutateHandlers {
-  onSuccess: (repointed: string[]) => void;
+  onSuccess: (updated: Updated) => void;
 }
 
 /** The options the component passed to the mutation on the one call. */
@@ -98,7 +103,7 @@ describe('RenameSecretModal', () => {
     renderModal();
 
     expect(screen.getByText('web-nginx')).toBeInTheDocument();
-    expect(screen.getByText(/Update the placeholder/)).toBeInTheDocument();
+    expect(screen.getByText(/placeholder is rewritten/)).toBeInTheDocument();
   });
 
   it('names the repositories that are repointed', () => {
@@ -123,7 +128,7 @@ describe('RenameSecretModal', () => {
 
     renderModal();
 
-    expect(screen.getByText(/Update the placeholder/)).toBeInTheDocument();
+    expect(screen.getByText(/placeholder is rewritten/)).toBeInTheDocument();
     expect(screen.getByText(/repointed at the new name/)).toBeInTheDocument();
   });
 
@@ -186,7 +191,7 @@ describe('RenameSecretModal renaming', () => {
     });
   });
 
-  it('names the repointed repositories once the rename lands', async () => {
+  it('names what was carried over once the rename lands', async () => {
     const user = userEvent.setup();
     renderModal();
 
@@ -195,16 +200,19 @@ describe('RenameSecretModal renaming', () => {
     await user.type(input, 'forge_token');
     await user.click(screen.getByRole('button', { name: 'Rename' }));
 
-    handlersOfTheCall().onSuccess(['internal', 'mirror']);
+    handlersOfTheCall().onSuccess({
+      projects: ['web-nginx'],
+      repositories: ['internal'],
+    });
 
     expect(showSuccessNotification).toHaveBeenCalledWith(
       'Renamed',
       'Secret "git_token" renamed to "forge_token", ' +
-        'internal, mirror repointed at it'
+        'web-nginx, internal updated'
     );
   });
 
-  it('keeps the message plain when no repository held the secret', async () => {
+  it('keeps the message plain when nothing referred to the secret', async () => {
     const user = userEvent.setup();
     renderModal();
 
@@ -213,7 +221,7 @@ describe('RenameSecretModal renaming', () => {
     await user.type(input, 'forge_token');
     await user.click(screen.getByRole('button', { name: 'Rename' }));
 
-    handlersOfTheCall().onSuccess([]);
+    handlersOfTheCall().onSuccess({ projects: [], repositories: [] });
 
     expect(showSuccessNotification).toHaveBeenCalledWith(
       'Renamed',
