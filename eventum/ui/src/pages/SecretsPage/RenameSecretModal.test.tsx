@@ -40,7 +40,9 @@ function references(
 
 const mutate = vi.fn();
 
-type MutateHandlers = { onSuccess: (repointed: string[]) => void };
+interface MutateHandlers {
+  onSuccess: (repointed: string[]) => void;
+}
 
 /** The options the component passed to the mutation on the one call. */
 function handlersOfTheCall(): MutateHandlers {
