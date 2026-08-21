@@ -6,6 +6,7 @@ import pytest
 
 from eventum.security.manage import (
     SecretConflictError,
+    SecretNameError,
     SecretNotFoundError,
     get_secret,
     list_secrets,
@@ -92,3 +93,63 @@ def test_rename_secret_blank_name_raises(temp_keyring_file):
 
     with pytest.raises(ValueError, match='cannot be blank'):
         rename_secret('key', '', temp_keyring_file)
+
+
+# A name is read back as an expression of a rendered configuration, so
+# these are the shapes it may and may not take. The last one is the
+# reason the rule is not advisory: it reads another secret instead of
+# failing.
+@pytest.mark.parametrize(
+    'name',
+    ['key', 'MY_SECRET', '_leading', 'a.b', 'a.b.c', 'with2digits'],
+)
+def test_set_secret_accepts_a_referenceable_name(name, temp_keyring_file):
+    set_secret(name, 'value', temp_keyring_file)
+
+    assert get_secret(name, temp_keyring_file) == 'value'
+
+
+@pytest.mark.parametrize(
+    'name',
+    [
+        'my-secret',
+        'my key',
+        'my@secret',
+        '1secret',
+        'a/b',
+        'a.',
+        'a..b',
+        'a}b',
+        '${secrets.a}',
+    ],
+)
+def test_set_secret_rejects_a_name_that_cannot_be_referenced(
+    name,
+    temp_keyring_file,
+):
+    with pytest.raises(SecretNameError):
+        set_secret(name, 'value', temp_keyring_file)
+
+    assert list_secrets(temp_keyring_file) == []
+
+
+def test_rename_secret_rejects_a_name_that_cannot_be_referenced(
+    temp_keyring_file,
+):
+    set_secret('key', 'value', temp_keyring_file)
+
+    with pytest.raises(SecretNameError):
+        rename_secret('key', 'my-secret', temp_keyring_file)
+
+    assert list_secrets(temp_keyring_file) == ['key']
+    assert get_secret('key', temp_keyring_file) == 'value'
+
+
+def test_rename_secret_checks_the_name_before_the_secret_exists(
+    temp_keyring_file,
+):
+    # The new name is refused whether or not there is anything to
+    # rename, so nothing is read before the request is known to be
+    # answerable.
+    with pytest.raises(SecretNameError):
+        rename_secret('absent', 'my-secret', temp_keyring_file)
