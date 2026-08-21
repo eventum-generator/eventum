@@ -19,7 +19,11 @@ from eventum.app.renaming import (
 from eventum.app.repositories import Repositories, RepositoryError
 from eventum.app.workspace import WorkspaceError, write_text
 from eventum.core.config_loader import TOKEN_PATTERN, extract_secrets
-from eventum.security.manage import SecretConflictError, SecretNotFoundError
+from eventum.security.manage import (
+    SecretConflictError,
+    SecretNotFoundError,
+    validate_secret_name,
+)
 from eventum.security.manage import rename_secret as rename_keyring_secret
 
 # A rename moves a keyring entry and then rewrites the repositories
@@ -183,12 +187,21 @@ def rename_secret(
         If a secret with the new name already exists, or a repository
         already authenticates with that name.
 
+    SecretNameError
+        If a configuration cannot reference the new name.
+
     RenameError
         If the connected repositories cannot be read, the keyring
         cannot be reached, or the rename fails midway.
 
     """
     with _RENAME_LOCK:
+        # The rule of a secret name lives with the keyring, and every
+        # driver adapter already answers its type; asking it here keeps
+        # a name no configuration could reference from costing the reads
+        # below.
+        validate_secret_name(new_name)
+
         _reject_held_name(repositories, name, new_name)
 
         rewrites = _plan_project_rewrites(

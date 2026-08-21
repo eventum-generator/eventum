@@ -4,6 +4,10 @@ import { FC } from 'react';
 
 import { SecretReferenceList } from './SecretReferenceList';
 import { useRenameSecretMutation } from '@/api/hooks/useSecrets';
+import {
+  SECRET_NAME_ERROR,
+  SECRET_NAME_PATTERN,
+} from '@/api/routes/secrets/schemas';
 import { RenameModal } from '@/components/modals/RenameModal';
 import {
   showErrorNotification,
@@ -48,6 +52,8 @@ export const RenameSecretModal: FC<RenameSecretModalProps> = ({
       label="New secret name"
       currentName={secretName}
       takenNames={existingSecretNames}
+      pattern={SECRET_NAME_PATTERN}
+      patternError={SECRET_NAME_ERROR}
       isPending={renameSecret.isPending}
       onRename={handleRename}
     >

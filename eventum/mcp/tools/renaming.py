@@ -29,6 +29,7 @@ from eventum.mcp.errors import (
     to_tool_error,
 )
 from eventum.mcp.observability import observe_failure
+from eventum.security.manage import SecretNameError
 
 
 async def rename_generator_config(
@@ -83,10 +84,15 @@ async def rename_generator(
     return {'id': generator_id, 'new_id': new_id, 'renamed': True}
 
 
-async def rename_secret_name(
+async def rename_secret_name(  # noqa: PLR0911 - one per outcome
     context: LiveContext, secret: str, new_name: str
 ) -> dict[str, Any] | ToolFailure:
-    """Move a secret to a new name, taking its referrers along."""
+    """Move a secret to a new name, taking its referrers along.
+
+    Every failure the agent can act on differently gets its own answer:
+    a read-only server, a missing secret, a name that is taken, a name
+    no configuration can reference, and a rename that failed midway.
+    """
     if context.read_only:
         return read_only_failure({'name': secret})
     try:
@@ -119,6 +125,10 @@ async def rename_secret_name(
             error=scrub_message(str(e), context.generators_dir),
             details={'name': secret},
         )
+    except SecretNameError as e:
+        # The rule the name has to follow is the message, and it is
+        # what the agent needs to pick another one.
+        return ToolFailure(error=str(e), details={'name': new_name})
     except Exception:  # noqa: BLE001 - no raw error/path may escape
         return ToolFailure(error='Failed to rename secret')
     return {
@@ -234,7 +244,10 @@ def register(mcp: FastMCP, context: LiveContext, *, transport: str) -> None:
             Current name of the secret.
 
         new_name : str
-            Name to rename the secret to. Must not be taken.
+            Name to rename the secret to. Must not be taken, and must
+            be words of letters, digits and ``_`` separated by ``.``,
+            since a configuration references it as
+            ``${secrets.<name>}``.
 
         Returns
         -------
@@ -242,8 +255,9 @@ def register(mcp: FastMCP, context: LiveContext, *, transport: str) -> None:
             ``{'name', 'new_name', 'renamed': True, 'projects',
             'repositories'}`` with the referrers carried over, or a
             structured failure if the server is read-only, the secret
-            does not exist, the new name is taken, or the referrers
-            cannot be carried over. Does not raise.
+            does not exist, the new name is taken or cannot be
+            referenced, or the referrers cannot be carried over. Does
+            not raise.
 
         """
         return observe_failure(

@@ -7,7 +7,10 @@ import {
   useRenameSecretMutation,
   useSecretReferences,
 } from '@/api/hooks/useSecrets';
-import { SecretReferences } from '@/api/routes/secrets/schemas';
+import {
+  SECRET_NAME_ERROR,
+  SecretReferences,
+} from '@/api/routes/secrets/schemas';
 import { renderWithProviders } from '@/test/render';
 import { showSuccessNotification } from '@/utils/notifications';
 
@@ -227,5 +230,29 @@ describe('RenameSecretModal renaming', () => {
       'Renamed',
       'Secret "git_token" renamed to "forge_token"'
     );
+  });
+});
+
+describe('RenameSecretModal name rule', () => {
+  beforeEach(() => {
+    mutate.mockReset();
+    mockedRename.mockReturnValue({
+      mutate,
+      isPending: false,
+    } as unknown as ReturnType<typeof useRenameSecretMutation>);
+    const data: SecretReferences = { projects: [], repositories: [] };
+    mockedReferences.mockReturnValue(references({ data }));
+  });
+
+  it('refuses a name no configuration could reference', async () => {
+    const user = userEvent.setup();
+    renderModal();
+
+    const input = screen.getByLabelText(/New secret name/);
+    await user.clear(input);
+    await user.type(input, 'api-token');
+
+    expect(await screen.findByText(SECRET_NAME_ERROR)).toBeVisible();
+    expect(mutate).not.toHaveBeenCalled();
   });
 });

@@ -20,6 +20,7 @@ from eventum.app.repositories import RepositoryError
 from eventum.app.secrets import find_secret_references, rename_secret
 from eventum.exceptions import ContextualError
 from eventum.security.manage import (
+    SecretNameError,
     get_secret,
     list_secrets,
     remove_secret,
@@ -87,8 +88,15 @@ async def list_secret_names() -> list[str]:
 
 @router.put(
     '/{name}',
-    description='Put secret with specified name to keyring',
-    responses={500: {'description': 'Failed to set secret'}},
+    description=(
+        'Put secret with specified name to keyring. The name is what a '
+        'configuration references as `${secrets.<name>}`, so it must be '
+        'words of letters, digits and `_`, separated by `.`.'
+    ),
+    responses={
+        400: {'description': 'Name cannot be referenced in a configuration'},
+        500: {'description': 'Failed to set secret'},
+    },
 )
 async def set_secret_value(
     name: Annotated[str, Path(description='Secret name', min_length=1)],
@@ -96,6 +104,8 @@ async def set_secret_value(
 ) -> None:
     try:
         await asyncio.to_thread(lambda: set_secret(name=name, value=value))
+    except SecretNameError as e:
+        raise HTTPException(status_code=400, detail=str(e)) from None
     except OSError as e:
         raise HTTPException(
             status_code=500,
@@ -165,6 +175,7 @@ async def list_secret_references(
     ),
     response_description='Referrers carried over to the new name, by kind',
     responses={
+        400: {'description': 'Name cannot be referenced in a configuration'},
         404: {'description': 'Secret is missing in keyring'},
         409: {
             'description': (
@@ -199,6 +210,8 @@ async def rename_secret_value(
             name=name,
             new_name=request.new_name,
         )
+    except SecretNameError as e:
+        raise HTTPException(status_code=400, detail=str(e)) from None
     except RenameNotFoundError as e:
         raise HTTPException(status_code=404, detail=_detail(e)) from None
     except RenameConflictError as e:

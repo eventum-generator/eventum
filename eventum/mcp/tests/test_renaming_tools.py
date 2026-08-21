@@ -22,6 +22,7 @@ from eventum.mcp.tools.renaming import (
     rename_generator,
     rename_generator_config,
 )
+from eventum.security.manage import SecretNameError
 
 
 class _FakeGenerator:
@@ -364,6 +365,31 @@ async def test_rename_secret_names_the_repositories_holding_the_name(
         result.error == 'Repositories already authenticate with the new name'
     )
     assert result.details == {'name': 'new', 'reason': 'github, mirror'}
+
+
+async def test_rename_secret_unreferenceable_name_names_the_rule(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A name no configuration could reference tells the agent why."""
+
+    def _rename(
+        *,
+        generators_dir: object,
+        config_filename: object,
+        repositories: object,
+        name: str,
+        new_name: str,
+    ) -> UpdatedReferences:
+        raise SecretNameError('Name of secret must be words')
+
+    monkeypatch.setattr(renaming, 'rename_secret', _rename)
+
+    result = await renaming.rename_secret_name(_ctx(tmp_path), 'old', 'a-b')
+
+    assert isinstance(result, ToolFailure)
+    assert result.error == 'Name of secret must be words'
+    assert result.details == {'name': 'a-b'}
 
 
 async def test_rename_secret_keyring_error_carries_no_path(

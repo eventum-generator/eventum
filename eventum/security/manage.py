@@ -1,6 +1,7 @@
 """Module for securely storing and retrieving secrets using a keyring."""
 
 import os
+import re
 from configparser import ConfigParser
 from functools import lru_cache
 from pathlib import Path
@@ -14,6 +15,16 @@ DEFAULT_PASSWORD = 'eventum'  # noqa: S105
 KEYRING_PASS_ENV_VAR = 'EVENTUM_KEYRING_PASSWORD'  # noqa: S105
 KEYRING_SERVICE_NAME = 'eventum'
 
+# A secret is read back as `${secrets.<name>}`, and a configuration
+# is rendered to substitute it, so the name is read as an
+# expression: a chain of identifiers separated by dots and nothing
+# else. A name outside that either fails the substitution or, when
+# it holds a closing brace, ends the token early and reads the
+# secret the shortened name happens to address.
+SECRET_NAME_PATTERN = re.compile(
+    r'^[A-Za-z_][A-Za-z0-9_]*(\.[A-Za-z_][A-Za-z0-9_]*)*$',
+)
+
 
 logger = structlog.stdlib.get_logger()
 
@@ -24,6 +35,33 @@ class SecretNotFoundError(ValueError):
 
 class SecretConflictError(ValueError):
     """Secret with the requested name is already in keyring."""
+
+
+class SecretNameError(ValueError):
+    """Name of the secret cannot be referenced in a configuration."""
+
+
+def validate_secret_name(name: str) -> None:
+    """Check that the name can be referenced in a configuration.
+
+    Parameters
+    ----------
+    name : str
+        Name to check.
+
+    Raises
+    ------
+    SecretNameError
+        If a configuration referencing the name would fail to load, or
+        would read another secret.
+
+    """
+    if SECRET_NAME_PATTERN.fullmatch(name) is None:
+        msg = (
+            'Name of secret must be words of letters, digits and "_", '
+            'separated by ".", and must not start with a digit'
+        )
+        raise SecretNameError(msg)
 
 
 @lru_cache
@@ -193,6 +231,9 @@ def set_secret(name: str, value: str, path: Path | None = None) -> None:
     ValueError
         If name or value of secret are blank.
 
+    SecretNameError
+        If the name cannot be referenced in a configuration.
+
     EnvironmentError
         If any error occurs during setting secret to keyring.
 
@@ -202,6 +243,8 @@ def set_secret(name: str, value: str, path: Path | None = None) -> None:
     if not name or not value:
         msg = 'Name and value of secret cannot be empty'
         raise ValueError(msg)
+
+    validate_secret_name(name)
 
     keyring = _get_keyring(path)
 
@@ -280,6 +323,9 @@ def rename_secret(
     ValueError
         If name or new name of secret is blank.
 
+    SecretNameError
+        If the new name cannot be referenced in a configuration.
+
     SecretNotFoundError
         If no secret with the provided name is in keyring.
 
@@ -296,6 +342,10 @@ def rename_secret(
     if not name or not new_name:
         msg = 'Name of secret cannot be blank'
         raise ValueError(msg)
+
+    # Named before the value is read, so a rename that cannot succeed
+    # touches nothing.
+    validate_secret_name(new_name)
 
     existing_names = list_secrets(path)
 
