@@ -1,11 +1,9 @@
-import { Code, List, Loader, Text } from '@mantine/core';
+import { Code } from '@mantine/core';
 import { modals } from '@mantine/modals';
 import { FC } from 'react';
 
-import {
-  useRenameSecretMutation,
-  useSecretReferences,
-} from '@/api/hooks/useSecrets';
+import { SecretReferenceList } from './SecretReferenceList';
+import { useRenameSecretMutation } from '@/api/hooks/useSecrets';
 import {
   SECRET_NAME_ERROR,
   SECRET_NAME_PATTERN,
@@ -26,17 +24,20 @@ export const RenameSecretModal: FC<RenameSecretModalProps> = ({
   existingSecretNames,
 }) => {
   const renameSecret = useRenameSecretMutation();
-  const { data: references, isLoading: isReferencesLoading } =
-    useSecretReferences(secretName, true);
 
   function handleRename(newName: string) {
     renameSecret.mutate(
       { name: secretName, newName },
       {
-        onSuccess: () => {
+        onSuccess: (updated) => {
+          const carried = [...updated.projects, ...updated.repositories];
+
           showSuccessNotification(
             'Renamed',
-            `Secret "${secretName}" renamed to "${newName}"`
+            carried.length > 0
+              ? `Secret "${secretName}" renamed to "${newName}", ` +
+                  `${carried.join(', ')} updated`
+              : `Secret "${secretName}" renamed to "${newName}"`
           );
           modals.closeAll();
         },
@@ -56,24 +57,24 @@ export const RenameSecretModal: FC<RenameSecretModalProps> = ({
       isPending={renameSecret.isPending}
       onRename={handleRename}
     >
-      {isReferencesLoading ? (
-        <Loader size="xs" />
-      ) : references && references.length > 0 ? (
-        <Text size="sm">
-          These projects read the secret as{' '}
-          <Code>{`\${secrets.${secretName}}`}</Code>. Update the placeholder in
-          each of them after renaming - it is not rewritten automatically.
-          <List size="sm" mt="xs" fw={600}>
-            {references.map((name) => (
-              <List.Item key={name}>{name}</List.Item>
-            ))}
-          </List>
-        </Text>
-      ) : (
-        <Text size="sm" c="dimmed">
-          No project configuration reads this secret.
-        </Text>
-      )}
+      <SecretReferenceList
+        secretName={secretName}
+        projectsNote={
+          <>
+            These projects read the secret as{' '}
+            <Code>{`\${secrets.${secretName}}`}</Code>. The placeholder is
+            rewritten in each of them; one already running keeps the
+            configuration it loaded and reads the new name when it starts again.
+          </>
+        }
+        repositoriesNote={
+          <>
+            These connected repositories authenticate with the secret and are
+            repointed at the new name.
+          </>
+        }
+        noneNote="Nothing reads this secret."
+      />
     </RenameModal>
   );
 };

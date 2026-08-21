@@ -8,7 +8,6 @@ import shutil
 from pathlib import Path
 from typing import NamedTuple
 
-from eventum.core.config_loader import extract_secrets
 from eventum.exceptions import ContextualError
 
 _LINE_BREAK = b'\n'
@@ -375,46 +374,3 @@ def rename_generator_dir(
         ) from None
 
     return destination
-
-
-def find_secret_references(
-    generators_dir: Path,
-    config_filename: Path,
-    secret: str,
-) -> list[str]:
-    """List generator directories whose config references a secret.
-
-    Only generator configurations are scanned, since `${secrets.*}`
-    tokens are substituted in them alone. Configurations that cannot
-    be read are skipped - such a generator cannot run either.
-
-    Parameters
-    ----------
-    generators_dir : Path
-        Root directory that contains generator subdirectories.
-    config_filename : Path
-        Name of the configuration file inside a generator directory.
-    secret : str
-        Name of the secret to look for.
-
-    Returns
-    -------
-    list[str]
-        Sorted names of generator directories referencing the secret.
-
-    """
-    if not generators_dir.exists():
-        return []
-
-    names: list[str] = []
-
-    for config_path in generators_dir.glob(f'*/{config_filename}'):
-        try:
-            content = config_path.read_text(encoding='utf-8')
-        except OSError, UnicodeDecodeError:
-            continue
-
-        if secret in extract_secrets(content):
-            names.append(config_path.parent.name)
-
-    return sorted(names)

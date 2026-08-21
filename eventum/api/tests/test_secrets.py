@@ -12,12 +12,15 @@ from eventum.app.models.parameters.log import LogParameters
 from eventum.app.models.parameters.path import PathParameters
 from eventum.app.models.parameters.server import ServerParameters
 from eventum.app.models.settings import Settings
-from eventum.core.parameters import GenerationParameters
-from eventum.security.manage import (
-    SecretConflictError,
-    SecretNameError,
-    SecretNotFoundError,
+from eventum.app.renaming import (
+    RenameConflictError,
+    RenameError,
+    RenameNotFoundError,
 )
+from eventum.app.repositories import Repositories, Repository
+from eventum.app.secrets import UpdatedReferences
+from eventum.core.parameters import GenerationParameters
+from eventum.security.manage import SecretNameError
 
 
 @pytest.fixture
@@ -34,9 +37,17 @@ def app(tmp_path):
             keyring_cryptfile=tmp_path / 'keyring.cfg',
         ),
     )
-    fastapi_app.state.settings.path.generators_dir.mkdir()
+    settings = fastapi_app.state.settings
+    settings.path.generators_dir.mkdir()
+    repositories = Repositories(
+        file_path=settings.path.repositories_file,
+        generators_dir=settings.path.generators_dir,
+        config_filename=settings.path.generator_config_filename.name,
+    )
+    fastapi_app.state.repositories = repositories
     fastapi_app.include_router(router, prefix='/secrets')
-    return fastapi_app
+    yield fastapi_app
+    repositories.close()
 
 
 @pytest.fixture
@@ -134,6 +145,17 @@ def _write_config(generators_dir: Path, name: str, content: str) -> None:
     config_path.write_text(content)
 
 
+def _connect(app, name: str, secret: str) -> None:
+    app.state.repositories.add(
+        Repository(
+            name=name,
+            url=f'https://git.example.com/{name}.git',
+            secret=secret,
+        ),
+        verify=False,
+    )
+
+
 def test_list_secret_references(client, generators_dir):
     _write_config(generators_dir, 'gen-a', 'token: ${secrets.api_key}\n')
     _write_config(generators_dir, 'gen-b', 'token: ${secrets.other}\n')
@@ -141,33 +163,73 @@ def test_list_secret_references(client, generators_dir):
     response = client.get('/secrets/api_key/references')
 
     assert response.status_code == 200
-    assert response.json() == ['gen-a']
+    assert response.json() == {'projects': ['gen-a'], 'repositories': []}
+
+
+def test_list_secret_references_reports_repositories(client, app):
+    _connect(app, 'internal', 'api_key')
+    _connect(app, 'other', 'another_key')
+
+    response = client.get('/secrets/api_key/references')
+
+    assert response.status_code == 200
+    assert response.json() == {
+        'projects': [],
+        'repositories': ['internal'],
+    }
 
 
 def test_list_secret_references_none(client):
     response = client.get('/secrets/api_key/references')
 
     assert response.status_code == 200
-    assert response.json() == []
+    assert response.json() == {'projects': [], 'repositories': []}
+
+
+def test_list_secret_references_unreadable_repositories(client, app):
+    app.state.settings.path.repositories_file.write_text('name: broken\n')
+
+    response = client.get('/secrets/api_key/references')
+
+    assert response.status_code == 500
 
 
 # --- POST /{name}/rename ---
 
 
-@patch('eventum.api.routers.secrets.routes.rename_secret')
-def test_rename_secret(mock_rename, client):
+@patch('eventum.api.routers.secrets.routes.rename_secret', autospec=True)
+def test_rename_secret(mock_rename, client, app):
+    mock_rename.return_value = UpdatedReferences(
+        projects=['gen-a'],
+        repositories=['internal'],
+    )
+
     response = client.post(
         '/secrets/api_key/rename',
         json={'new_name': 'renamed'},
     )
 
     assert response.status_code == 200
-    mock_rename.assert_called_once_with('api_key', 'renamed')
+    assert response.json() == {
+        'projects': ['gen-a'],
+        'repositories': ['internal'],
+    }
+    settings = app.state.settings
+    mock_rename.assert_called_once_with(
+        generators_dir=settings.path.generators_dir,
+        config_filename=settings.path.generator_config_filename,
+        repositories=app.state.repositories,
+        name='api_key',
+        new_name='renamed',
+    )
 
 
-@patch('eventum.api.routers.secrets.routes.rename_secret')
+@patch('eventum.api.routers.secrets.routes.rename_secret', autospec=True)
 def test_rename_secret_not_found(mock_rename, client):
-    mock_rename.side_effect = SecretNotFoundError('Secret is missing')
+    mock_rename.side_effect = RenameNotFoundError(
+        'Secret is missing',
+        context={},
+    )
 
     response = client.post(
         '/secrets/absent/rename',
@@ -177,9 +239,12 @@ def test_rename_secret_not_found(mock_rename, client):
     assert response.status_code == 404
 
 
-@patch('eventum.api.routers.secrets.routes.rename_secret')
+@patch('eventum.api.routers.secrets.routes.rename_secret', autospec=True)
 def test_rename_secret_conflict(mock_rename, client):
-    mock_rename.side_effect = SecretConflictError('Already exists')
+    mock_rename.side_effect = RenameConflictError(
+        'Already exists',
+        context={},
+    )
 
     response = client.post(
         '/secrets/api_key/rename',
@@ -189,9 +254,27 @@ def test_rename_secret_conflict(mock_rename, client):
     assert response.status_code == 409
 
 
-@patch('eventum.api.routers.secrets.routes.rename_secret')
-def test_rename_secret_os_error(mock_rename, client):
-    mock_rename.side_effect = OSError('keyring error')
+@patch('eventum.api.routers.secrets.routes.rename_secret', autospec=True)
+def test_rename_secret_conflict_names_the_repositories(mock_rename, client):
+    mock_rename.side_effect = RenameConflictError(
+        'Repositories already authenticate with the new name',
+        context={'reason': 'github, mirror'},
+    )
+
+    response = client.post(
+        '/secrets/gl_token/rename',
+        json={'new_name': 'gh_token'},
+    )
+
+    assert response.status_code == 409
+    assert response.json()['detail'] == (
+        'Repositories already authenticate with the new name: github, mirror'
+    )
+
+
+@patch('eventum.api.routers.secrets.routes.rename_secret', autospec=True)
+def test_rename_secret_failed_midway(mock_rename, client):
+    mock_rename.side_effect = RenameError('keyring error', context={})
 
     response = client.post(
         '/secrets/api_key/rename',

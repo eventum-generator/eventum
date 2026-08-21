@@ -1,8 +1,8 @@
 """Secret name tools.
 
 Lists the names of secrets stored in the keyring so an agent can
-reference them as ``${secrets.<name>}`` in configs, and reports which
-projects read a given secret. Names only - no secret value ever crosses
+reference them as ``${secrets.<name>}`` in configs, and reports what
+refers to a given secret. Names only - no secret value ever crosses
 the boundary, and reading, adding and removing a value stay a human
 task through the ``eventum-keyring`` CLI. Renaming lives with the other
 rename tools, so it is available only on a writable live server.
@@ -13,9 +13,10 @@ from pathlib import Path
 
 from mcp.server.fastmcp import FastMCP
 
-from eventum.app.workspace import find_secret_references
+from eventum.app.repositories import RepositoryError
+from eventum.app.secrets import find_secret_references
 from eventum.mcp.context import AuthoringContext
-from eventum.mcp.errors import ToolFailure
+from eventum.mcp.errors import ToolFailure, to_tool_error
 from eventum.mcp.observability import observe_failure
 from eventum.security.manage import list_secrets
 
@@ -52,39 +53,50 @@ def list_secret_names(
 
 async def list_secret_references(
     context: AuthoringContext, secret: str
-) -> list[str] | ToolFailure:
-    """Return the projects whose configuration reads a secret.
+) -> dict[str, list[str]] | ToolFailure:
+    """Return what refers to a secret, by the kind of each referrer.
 
-    Only generator configurations are scanned, since ``${secrets.*}``
-    tokens are substituted in them alone.
+    A project refers to a secret through a ``${secrets.*}`` token in
+    its configuration; a connected repository refers to one by name,
+    to authenticate with the value behind it.
 
     Parameters
     ----------
     context : AuthoringContext
-        Authoring context supplying the generators directory.
+        Authoring context supplying the generators directory and the
+        connected repositories.
 
     secret : str
         Name of the secret to look for.
 
     Returns
     -------
-    list[str]
-        Sorted names of the projects referencing the secret.
+    dict[str, list[str]]
+        Sorted names of the referring projects under ``projects`` and
+        of the referring repositories under ``repositories``.
 
     ToolFailure
-        If the generators directory cannot be scanned. Never raises;
-        carries no path.
+        If the projects or the connected repositories cannot be read.
+        Never raises; carries no path.
 
     """
     try:
-        return await asyncio.to_thread(
+        references = await asyncio.to_thread(
             find_secret_references,
-            context.generators_dir,
-            Path(context.config_filename),
-            secret,
+            generators_dir=context.generators_dir,
+            config_filename=Path(context.config_filename),
+            repositories=context.repositories,
+            secret=secret,
         )
+    except RepositoryError as e:
+        return to_tool_error(e, context.generators_dir)
     except Exception:  # noqa: BLE001 - no raw error/path may escape
-        return ToolFailure(error='Failed to scan generator configurations')
+        return ToolFailure(error='Failed to read what refers to the secret')
+
+    return {
+        'projects': references.projects,
+        'repositories': references.repositories,
+    }
 
 
 def register(
@@ -128,12 +140,16 @@ def register(
     @mcp.tool(name='list_secret_references')
     async def _list_secret_references_tool(
         secret: str,
-    ) -> list[str] | ToolFailure:
-        """List the projects whose configuration reads a secret.
+    ) -> dict[str, list[str]] | ToolFailure:
+        """List what refers to a secret, projects and repositories.
 
         Use it before renaming or removing a secret to see what would
-        break: the projects listed carry a ``${secrets.<name>}`` token
-        for it.
+        break. The projects listed carry a ``${secrets.<name>}`` token
+        for it and keep the old name until their configuration is
+        edited; the repositories listed authenticate with it and are
+        repointed by ``rename_secret`` itself. The repositories are read
+        from the file this server was pointed at, so over stdio they are
+        the ones of that file alone.
 
         Parameters
         ----------
@@ -142,10 +158,12 @@ def register(
 
         Returns
         -------
-        list[str] | ToolFailure
-            Sorted project names (empty if none reference the secret),
-            or a structured failure if the generator configurations
-            cannot be scanned. Does not raise.
+        dict[str, list[str]] | ToolFailure
+            Sorted project names under ``projects`` and repository
+            names under ``repositories``, either of them empty if
+            nothing of that kind refers to the secret, or a structured
+            failure if the projects or the connected repositories
+            cannot be read. Does not raise.
 
         """
         return observe_failure(

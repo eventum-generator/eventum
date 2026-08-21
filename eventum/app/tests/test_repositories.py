@@ -335,6 +335,66 @@ def test_service_rejects_invalid_stored_entry(service, tmp_path):
         service.get_all()
 
 
+# --- secrets a repository holds ---
+
+
+def _with_secret(service, name, secret):
+    """Connect a repository authenticating with the given secret."""
+    service.add(
+        Repository(
+            name=name,
+            url=f'https://example.com/{name}.git',
+            secret=secret,
+        ),
+        verify=False,
+    )
+
+
+def test_service_finds_the_repositories_holding_a_secret(service):
+    _with_secret(service, 'mirror', 'git_token')
+    _with_secret(service, 'internal', 'git_token')
+    _with_secret(service, 'other', 'another_token')
+    _with_secret(service, 'public', None)
+
+    assert service.find_secret_users('git_token') == ['internal', 'mirror']
+    assert service.find_secret_users('absent') == []
+
+
+def test_service_repoints_only_the_repositories_holding_a_secret(service):
+    _with_secret(service, 'mirror', 'git_token')
+    _with_secret(service, 'internal', 'git_token')
+    _with_secret(service, 'other', 'another_token')
+
+    repointed = service.repoint_secret('git_token', 'forge_token')
+
+    assert repointed == ['internal', 'mirror']
+    assert service.get('internal').secret == 'forge_token'
+    assert service.get('mirror').secret == 'forge_token'
+    assert service.get('other').secret == 'another_token'
+
+
+def test_service_repoints_nothing_when_no_repository_holds_it(
+    service,
+    tmp_path,
+):
+    _with_secret(service, 'other', 'another_token')
+    path = tmp_path / 'repositories.yml'
+    written = path.read_text()
+
+    assert service.repoint_secret('git_token', 'forge_token') == []
+    assert service.get('other').secret == 'another_token'
+    assert path.read_text() == written
+
+
+def test_service_refuses_a_secret_name_it_cannot_hold(service):
+    _with_secret(service, 'internal', 'git_token')
+
+    with pytest.raises(RepositoryError):
+        service.repoint_secret('git_token', 'x' * 256)
+
+    assert service.get('internal').secret == 'git_token'
+
+
 # --- fetching ---
 
 

@@ -11,6 +11,10 @@ import {
 
 const SECRETS_QUERY_KEY = ['secrets'];
 
+// Renaming a secret repoints the repositories authenticating with
+// it, so the list holding their old name is no longer current.
+const REPOSITORIES_QUERY_KEY = ['repositories'];
+
 export function useSecretReferences(name: string, enabled: boolean) {
   return useQuery({
     queryKey: [...SECRETS_QUERY_KEY, name, 'references'],
@@ -25,11 +29,19 @@ export function useRenameSecretMutation() {
   return useMutation({
     mutationFn: ({ name, newName }: { name: string; newName: string }) =>
       renameSecret(name, newName),
-    onSuccess: async () => {
-      await queryClient.invalidateQueries({
-        queryKey: SECRETS_QUERY_KEY,
-        exact: true,
-      });
+    // On settled rather than on success: a rename that failed after
+    // moving the keyring entry left both lists changed as well.
+    onSettled: async () => {
+      await Promise.all([
+        queryClient.invalidateQueries({
+          queryKey: SECRETS_QUERY_KEY,
+          exact: true,
+        }),
+        queryClient.invalidateQueries({
+          queryKey: REPOSITORIES_QUERY_KEY,
+          exact: true,
+        }),
+      ]);
     },
   });
 }

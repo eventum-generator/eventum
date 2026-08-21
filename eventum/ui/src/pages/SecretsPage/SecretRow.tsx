@@ -25,6 +25,7 @@ import {
 } from '@tabler/icons-react';
 import React, { FC, useState } from 'react';
 
+import { DeleteSecretWarning } from './DeleteSecretWarning';
 import { RenameSecretModal } from './RenameSecretModal';
 import {
   useDeleteSecretValueMutation,
@@ -296,14 +297,13 @@ const SecretRow: FC<SecretRowProps> = ({ name, existingNames }) => {
             onClick={() => {
               modals.openConfirmModal({
                 title: CONFIRM.deleteSecret.title,
-                children: (
-                  <Text size="sm">{CONFIRM.deleteSecret.body(name)}</Text>
-                ),
+                children: <DeleteSecretWarning secretName={name} />,
                 onConfirm: handleDelete,
                 labels: {
                   cancel: CONFIRM.deleteSecret.cancel,
                   confirm: CONFIRM.deleteSecret.confirm,
                 },
+                confirmProps: { color: 'red' },
               });
             }}
           >

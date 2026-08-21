@@ -352,6 +352,82 @@ class Repositories:
             self._drop_fetched(name)
             self._statuses.pop(name, None)
 
+    def find_secret_users(self, secret: str) -> list[str]:
+        """Read the repositories authenticating with a secret.
+
+        Parameters
+        ----------
+        secret : str
+            Name of the keyring secret.
+
+        Returns
+        -------
+        list[str]
+            Sorted names of the repositories holding the secret.
+
+        Raises
+        ------
+        RepositoryError
+            If the repositories file cannot be read or validated.
+
+        """
+        with self._lock:
+            repositories = self._read()
+
+        return sorted(
+            repository.name
+            for repository in repositories.root
+            if repository.secret == secret
+        )
+
+    def repoint_secret(self, secret: str, new_name: str) -> list[str]:
+        """Point the repositories holding a secret at another name.
+
+        The value behind the secret is not read, so a repository keeps
+        authenticating with whatever it did before.
+
+        Parameters
+        ----------
+        secret : str
+            Name the repositories hold.
+
+        new_name : str
+            Name to hold in its place.
+
+        Returns
+        -------
+        list[str]
+            Sorted names of the repositories that were repointed.
+
+        Raises
+        ------
+        RepositoryError
+            If the new name is not a valid secret name, or the
+            repositories file cannot be read, validated or written.
+
+        """
+        with self._lock:
+            repositories = self._read()
+            users = [
+                repository
+                for repository in repositories.root
+                if repository.secret == secret
+            ]
+
+            if not users:
+                return []
+
+            self._write(
+                tuple(
+                    self._with_secret(repository, new_name)
+                    if repository.secret == secret
+                    else repository
+                    for repository in repositories.root
+                ),
+            )
+
+        return sorted(repository.name for repository in users)
+
     def get_catalog(self, name: str) -> Catalog:
         """Read the catalog of a repository, fetching it if needed.
 
@@ -687,6 +763,35 @@ class Repositories:
                 for repository in repositories
             ],
         )
+
+    def _with_secret(self, repository: Repository, secret: str) -> Repository:
+        """Rebuild a repository holding another secret name.
+
+        Built through validation rather than copied: the new name comes
+        from the keyring, which accepts names the repositories file
+        cannot carry, and a file written past its own schema fails
+        every later read of it.
+
+        Raises
+        ------
+        RepositoryError
+            If the name is not valid for a repository.
+
+        """
+        try:
+            return Repository.model_validate(
+                {**repository.model_dump(), 'secret': secret},
+            )
+        except ValidationError as e:
+            msg = 'Secret name is not valid for a repository'
+            raise RepositoryError(
+                msg,
+                context={
+                    'name': repository.name,
+                    'value': secret,
+                    'reason': prettify_validation_errors(e.errors()),
+                },
+            ) from None
 
     def _find_entry(self, catalog: Catalog, entry: str) -> CatalogEntry:
         """Return the catalog entry with the provided name.
