@@ -18,6 +18,7 @@ from eventum.mcp.tools.renaming import (
 )
 from eventum.security.manage import (
     SecretConflictError,
+    SecretNameError,
     SecretNotFoundError,
 )
 
@@ -298,6 +299,24 @@ async def test_rename_secret_taken_name_is_failure(
 
     assert isinstance(result, ToolFailure)
     assert result.details == {'name': 'new'}
+
+
+async def test_rename_secret_unreferenceable_name_names_the_rule(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A name no configuration could reference tells the agent why."""
+
+    def _rename(name: str, new_name: str) -> None:
+        raise SecretNameError('Name of secret must be words')
+
+    monkeypatch.setattr(renaming, 'rename_secret', _rename)
+
+    result = await renaming.rename_secret_name(_ctx(tmp_path), 'old', 'a-b')
+
+    assert isinstance(result, ToolFailure)
+    assert result.error == 'Name of secret must be words'
+    assert result.details == {'name': 'a-b'}
 
 
 async def test_rename_secret_keyring_error_carries_no_path(
