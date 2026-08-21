@@ -1,7 +1,3 @@
-import os
-import tempfile
-from pathlib import Path
-
 import pytest
 
 from eventum.security.manage import (
@@ -17,11 +13,11 @@ from eventum.security.manage import (
 
 
 @pytest.fixture
-def temp_keyring_file():
-    filename = Path(tempfile.gettempdir(), 'test.cfg')
-    yield filename
-    if filename.exists():
-        os.remove(filename)
+def temp_keyring_file(tmp_path):
+    # A path of this test alone. A fixed name under the temporary
+    # directory is shared with every other run on the machine, and the
+    # teardown of one removes the keyring another is still using.
+    return tmp_path / 'test.cfg'
 
 
 def test_get_secret(temp_keyring_file):
