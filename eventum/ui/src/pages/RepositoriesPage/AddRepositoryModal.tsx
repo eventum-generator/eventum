@@ -160,8 +160,7 @@ export const AddRepositoryModal: FC<AddRepositoryModalProps> = ({
             <>
               For a private repository - its password or access token, either as
               the value itself or as a <code>{'${secrets.<name>}'}</code>{' '}
-              reference read from the keyring at every fetch. The key on the
-              right writes the reference of a secret.
+              reference read from the keyring at every fetch.
             </>
           }
           onOpenSecrets={() => {
