@@ -12,6 +12,7 @@ from eventum.core.config_loader import (
     extract_params,
     extract_secrets,
     extract_tokens,
+    repoint_secret_token,
     resolve_secrets,
 )
 from eventum.security.manage import SECRET_NAME_PATTERN
@@ -375,3 +376,38 @@ def test_a_name_holding_a_brace_reads_another_secret(mock_get_secret):
     assert SECRET_NAME_PATTERN.fullmatch('a}b') is None
     assert _substitute_tokens({}, secrets, content) == 'password: VALUE-OF-Ab}'
 
+
+
+# --- repoint_secret_token ---
+
+
+def test_repoint_secret_token_rewrites_the_named_secret():
+    content = 'password: ${secrets.git_token}\ntoken: ${secrets.other}\n'
+
+    result = repoint_secret_token(content, 'git_token', 'forge_token')
+
+    assert result == (
+        'password: ${secrets.forge_token}\ntoken: ${secrets.other}\n'
+    )
+
+
+def test_repoint_secret_token_keeps_the_spacing_of_a_token():
+    result = repoint_secret_token('${ secrets.a }', 'a', 'b')
+
+    assert result == '${ secrets.b }'
+
+
+def test_repoint_secret_token_keeps_the_text_around_a_token():
+    result = repoint_secret_token('Bearer ${secrets.a}!', 'a', 'b')
+
+    assert result == 'Bearer ${secrets.b}!'
+
+
+def test_repoint_secret_token_leaves_another_kind_of_token():
+    content = '${params.a} and ${secrets.ab}'
+
+    assert repoint_secret_token(content, 'a', 'b') == content
+
+
+def test_repoint_secret_token_leaves_content_holding_none():
+    assert repoint_secret_token('plain value', 'a', 'b') == 'plain value'

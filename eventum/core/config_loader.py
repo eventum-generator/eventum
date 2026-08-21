@@ -184,6 +184,42 @@ def resolve_secrets(value: str) -> str:
     return TOKEN_PATTERN.sub(substitute, value)
 
 
+def repoint_secret_token(content: str, name: str, new_name: str) -> str:
+    """Return content with the tokens of one secret naming another.
+
+    Only the tokens naming `name` are rewritten, and each keeps the
+    spacing it was written with. Everything around them, and a token
+    naming a different secret, is left as it is.
+
+    Parameters
+    ----------
+    content : str
+        Content to rewrite.
+
+    name : str
+        Name the tokens hold.
+
+    new_name : str
+        Name to hold in its place.
+
+    Returns
+    -------
+    str
+        Content with the tokens of that secret repointed.
+
+    """
+    old_token = f'{SECRET_TOKEN_PREFIX}{name}'
+    new_token = f'{SECRET_TOKEN_PREFIX}{new_name}'
+
+    def rewrite(match: re.Match[str]) -> str:
+        if match.group(1) != old_token:
+            return match.group(0)
+
+        return match.group(0).replace(old_token, new_token)
+
+    return TOKEN_PATTERN.sub(rewrite, content)
+
+
 def _resolve_param(name: str, provided_params: dict[str, Any]) -> Any:
     """Get param value addressed by the name used in a token.
 
