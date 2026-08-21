@@ -364,7 +364,11 @@ async def test_rename_secret_names_the_repositories_holding_the_name(
     assert (
         result.error == 'Repositories already authenticate with the new name'
     )
-    assert result.details == {'name': 'new', 'reason': 'github, mirror'}
+    assert result.details == {
+        'name': 'new',
+        'secret': 'new',
+        'reason': 'github, mirror',
+    }
 
 
 async def test_rename_secret_unreferenceable_name_names_the_rule(

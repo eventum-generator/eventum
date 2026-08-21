@@ -327,6 +327,7 @@ def test_resolve_secrets_keyring_failure_raises(mock_get_secret):
     with pytest.raises(ValueError, match='Cannot obtain secret'):
         resolve_secrets('${secrets.git_token}')
 
+
 # --- the grammar of a secret name, against what substitution reads ---
 
 
@@ -375,7 +376,6 @@ def test_a_name_holding_a_brace_reads_another_secret(mock_get_secret):
 
     assert SECRET_NAME_PATTERN.fullmatch('a}b') is None
     assert _substitute_tokens({}, secrets, content) == 'password: VALUE-OF-Ab}'
-
 
 
 # --- repoint_secret_token ---
