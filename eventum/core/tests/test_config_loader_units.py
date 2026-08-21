@@ -1,5 +1,6 @@
 """Unit tests for config_loader helper functions."""
 
+import string
 from unittest.mock import patch
 
 import pytest
@@ -15,7 +16,11 @@ from eventum.core.config_loader import (
     repoint_secret_token,
     resolve_secrets,
 )
-from eventum.security.manage import SECRET_NAME_PATTERN
+from eventum.security.manage import (
+    SECRET_NAME_PATTERN,
+    SecretNameError,
+    validate_secret_name,
+)
 
 # --- extract_tokens ---
 
@@ -330,38 +335,84 @@ def test_resolve_secrets_keyring_failure_raises(mock_get_secret):
 
 # --- the grammar of a secret name, against what substitution reads ---
 
+# Every character a name could be built from. The rule is checked over
+# all of them rather than over a handful of examples, so widening it
+# into something the substitution mangles fails here instead of in a
+# configuration.
+_ALPHABET = string.printable
+
+
+def _accepted(name: str) -> bool:
+    """Whether the keyring would accept the name."""
+    try:
+        validate_secret_name(name)
+    except SecretNameError:
+        return False
+
+    return True
+
+
+def _resolves(name: str) -> bool:
+    """Whether a reference to the name reads the value back."""
+    content = 'password: ${secrets.' + name + '}'
+
+    with patch(
+        'eventum.core.config_loader.get_secret',
+        return_value='VALUE',
+    ):
+        try:
+            secrets = _prepare_secrets(extract_secrets(content))
+        except ValueError:
+            return False
+
+        try:
+            rendered = _substitute_tokens({}, secrets, content)
+        except ValueError:
+            return False
+
+    return rendered == 'password: VALUE'
+
+
+@pytest.mark.parametrize('char', _ALPHABET)
+def test_every_accepted_name_resolves(char):
+    # The keyring accepts a name on this rule alone, so whatever it
+    # lets in has to come back out of a configuration. The converse
+    # does not hold: a name may resolve and still be refused, since
+    # the keyring cannot store every name it could substitute.
+    for name in (f'a{char}b', f'{char}ab', f'ab{char}'):
+        if _accepted(name):
+            assert _resolves(name), name
+
 
 @pytest.mark.parametrize(
     'name',
-    ['key', 'MY_SECRET', '_leading', 'a.b', 'a.b.c', 'with2digits'],
+    ['key', 'my_secret', '_leading', 'a.b', 'a.b.c', 'with2digits'],
 )
-@patch('eventum.core.config_loader.get_secret')
-def test_a_name_the_keyring_accepts_resolves(mock_get_secret, name):
-    # The keyring guards the name against this: whatever it lets in
-    # has to come back out of a configuration.
-    mock_get_secret.return_value = 'VALUE'
-    content = 'password: ${secrets.' + name + '}'
+def test_a_name_the_keyring_accepts_resolves(name):
+    validate_secret_name(name)
 
-    secrets = _prepare_secrets(extract_secrets(content))
-
-    assert SECRET_NAME_PATTERN.fullmatch(name) is not None
-    assert _substitute_tokens({}, secrets, content) == 'password: VALUE'
+    assert _resolves(name)
 
 
 @pytest.mark.parametrize(
     'name',
     ['my-secret', 'my key', 'my@secret', '1secret', 'a/b', 'a.', 'a..b'],
 )
-@patch('eventum.core.config_loader.get_secret')
-def test_a_name_the_keyring_refuses_would_not_resolve(mock_get_secret, name):
-    mock_get_secret.return_value = 'VALUE'
-    content = 'password: ${secrets.' + name + '}'
-    secrets = _prepare_secrets(extract_secrets(content))
+def test_a_name_the_keyring_refuses_would_not_resolve(name):
+    with pytest.raises(SecretNameError):
+        validate_secret_name(name)
 
-    assert SECRET_NAME_PATTERN.fullmatch(name) is None
+    assert not _resolves(name)
 
-    with pytest.raises(ValueError):
-        _substitute_tokens({}, secrets, content)
+
+@pytest.mark.parametrize('name', ['keys', 'items', 'aws.get', 'a.values'])
+def test_a_name_matching_a_mapping_method_reads_the_value(name):
+    # Substitution reads a reference as attribute access, so these
+    # would answer with a method of the mapping holding the secrets
+    # unless names address entries and nothing else.
+    validate_secret_name(name)
+
+    assert _resolves(name)
 
 
 @patch('eventum.core.config_loader.get_secret')
