@@ -4,11 +4,11 @@ import z from 'zod';
 // reads a secret as `${secrets.<name>}` and is rendered to
 // substitute it, so the name is read as an expression: words of
 // letters, digits and `_`, separated by `.`, not starting with a
-// digit. `\w` is ASCII here, so it is the same set the backend
-// spells out.
-export const SECRET_NAME_PATTERN = /^[A-Za-z_]\w*(\.[A-Za-z_]\w*)*$/;
+// digit. Lowercase, because the keyring folds the case of a name
+// while the value is encrypted against the name as given.
+export const SECRET_NAME_PATTERN = /^[a-z_][a-z0-9_]*(\.[a-z_][a-z0-9_]*)*$/;
 export const SECRET_NAME_ERROR =
-  'Only letters, digits and "_" are allowed, separated by "."';
+  'Only lowercase letters, digits and "_", separated by ".", each word starting with a letter or "_"';
 
 export const SecretValueSchema = z.string();
 export type SecretValue = z.infer<typeof SecretValueSchema>;

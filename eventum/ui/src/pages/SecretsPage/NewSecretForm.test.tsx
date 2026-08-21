@@ -3,6 +3,7 @@ import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
 
 import { NewSecretForm } from './NewSecretForm';
+import { SECRET_NAME_ERROR } from '@/api/routes/secrets/schemas';
 import { renderWithProviders } from '@/test/render';
 
 const setSecretMock = vi.hoisted(() => vi.fn());
@@ -34,18 +35,14 @@ describe('NewSecretForm', () => {
     );
   });
 
-  it.each(['my-secret', '1secret', 'my key', 'a}b'])(
+  it.each(['my-secret', '1secret', 'my key', 'a}b', 'API_TOKEN'])(
     'refuses %s, which no configuration could reference',
     async (name) => {
       setSecretMock.mockClear();
 
       await fill(name);
 
-      expect(
-        await screen.findByText(
-          'Only letters, digits and "_" are allowed, separated by "."'
-        )
-      ).toBeVisible();
+      expect(await screen.findByText(SECRET_NAME_ERROR)).toBeVisible();
       expect(setSecretMock).not.toHaveBeenCalled();
     }
   );
