@@ -22,10 +22,19 @@ beforeEach(() => {
   vi.clearAllMocks();
   vi.mocked(routes.getSecretNames).mockResolvedValue(['git_token']);
   vi.mocked(routes.getSecretValue).mockResolvedValue('token');
-  vi.mocked(routes.getSecretReferences).mockResolvedValue(['web']);
+  // A secret is referenced from two places, and each is answered
+  // separately: the projects that read it and the repositories that
+  // authenticate with it.
+  vi.mocked(routes.getSecretReferences).mockResolvedValue({
+    projects: ['web'],
+    repositories: [],
+  });
   vi.mocked(routes.setSecretValue).mockResolvedValue();
   vi.mocked(routes.deleteSecretValue).mockResolvedValue();
-  vi.mocked(routes.renameSecret).mockResolvedValue();
+  vi.mocked(routes.renameSecret).mockResolvedValue({
+    projects: ['web'],
+    repositories: [],
+  });
 });
 
 describe('useSecretNames', () => {

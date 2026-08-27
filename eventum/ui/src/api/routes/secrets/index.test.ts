@@ -56,10 +56,17 @@ describe('reading secrets', () => {
     await expect(getSecretValue('git_token')).rejects.toBeInstanceOf(APIError);
   });
 
-  it('lists the projects a secret is referenced from', async () => {
-    get.mockResolvedValue({ data: ['web'] });
+  it('lists where a secret is referenced from, by kind', async () => {
+    // A project reads a secret in its configuration and a repository
+    // authenticates with it, so the two are answered apart.
+    get.mockResolvedValue({
+      data: { projects: ['web'], repositories: ['content-packs'] },
+    });
 
-    await expect(getSecretReferences('git token')).resolves.toEqual(['web']);
+    await expect(getSecretReferences('git token')).resolves.toEqual({
+      projects: ['web'],
+      repositories: ['content-packs'],
+    });
     expect(get).toHaveBeenCalledWith('/secrets/git%20token/references');
   });
 });
@@ -100,6 +107,8 @@ describe('writing secrets', () => {
   });
 
   it('escapes a name that would change the path it renames', async () => {
+    post.mockResolvedValue({ data: { projects: [], repositories: [] } });
+
     await renameSecret('git token', 'git_token');
 
     expect(post).toHaveBeenCalledWith('/secrets/git%20token/rename', {

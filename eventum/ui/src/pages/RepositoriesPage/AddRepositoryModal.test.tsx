@@ -205,12 +205,14 @@ describe('AddRepositoryModal', () => {
   it('offers the secrets the keyring holds for a private repository', async () => {
     const { user } = setup();
 
-    await user.click(screen.getByRole('textbox', { name: /Secret/ }));
+    // The credential of a private repository is a password field that
+    // can take a keyring secret instead of a typed value.
+    await user.click(
+      screen.getByRole('button', { name: 'Use a keyring secret' })
+    );
 
     expect(
-      [...document.querySelectorAll('[role="option"]')].map(
-        (option) => option.textContent
-      )
-    ).toContain('github-token');
+      await screen.findByRole('menuitem', { name: /github-token/ })
+    ).toBeInTheDocument();
   });
 });

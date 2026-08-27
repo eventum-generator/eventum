@@ -1,6 +1,7 @@
 import userEvent from '@testing-library/user-event';
 import isEqual from 'lodash/isEqual';
 import { ReactElement } from 'react';
+import { MemoryRouter } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { EventPluginParams } from './EventPluginTab/EventPluginParams';
@@ -208,10 +209,14 @@ async function edit(
 }
 
 function renderForm(ui: ReactElement) {
+  // A password field offers the secrets of the keyring and a way to the
+  // page they are managed on, so the forms navigate.
   return renderWithProviders(
-    <ProjectNameProvider initialProjectName="web">
-      <FileTreeProvider>{ui}</FileTreeProvider>
-    </ProjectNameProvider>
+    <MemoryRouter>
+      <ProjectNameProvider initialProjectName="web">
+        <FileTreeProvider>{ui}</FileTreeProvider>
+      </ProjectNameProvider>
+    </MemoryRouter>
   );
 }
 
