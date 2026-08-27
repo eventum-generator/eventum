@@ -72,3 +72,9 @@ class IntersectionObserverStub implements IntersectionObserver {
 
 globalThis.ResizeObserver = ResizeObserverStub;
 globalThis.IntersectionObserver = IntersectionObserverStub;
+
+// jsdom lays nothing out and so implements no scrolling. A dropdown
+// scrolls the option it selects into view a tick after it opens, which
+// lands after the test that opened it - an unhandled failure rather
+// than a failed assertion.
+Element.prototype.scrollIntoView = noop;
