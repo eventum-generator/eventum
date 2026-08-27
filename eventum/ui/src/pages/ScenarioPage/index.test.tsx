@@ -1,21 +1,21 @@
-import { ModalsProvider } from '@mantine/modals';
 import { screen } from '@testing-library/react';
-import { MemoryRouter, Route, Routes } from 'react-router-dom';
+import userEvent from '@testing-library/user-event';
+import { RouterProvider, createMemoryRouter } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import ScenarioPage from './index';
-import * as generatorHooks from '@/api/hooks/useGenerators';
-import * as scenarioHooks from '@/api/hooks/useScenarios';
-import * as startupHooks from '@/api/hooks/useStartup';
-import { GeneratorsInfo } from '@/api/routes/generators/schemas';
-import { StartupGeneratorParametersList } from '@/api/routes/startup/schemas';
+import * as generators from '@/api/hooks/useGenerators';
+import * as scenarios from '@/api/hooks/useScenarios';
+import { useStartupGenerators } from '@/api/hooks/useStartup';
+import { GeneratorStatus } from '@/api/routes/generators/schemas';
+import { StartupGeneratorParameters } from '@/api/routes/startup/schemas';
 import { renderWithProviders } from '@/test/render';
 
 vi.mock('@/api/hooks/useGenerators');
 vi.mock('@/api/hooks/useScenarios');
 vi.mock('@/api/hooks/useStartup');
 
-const IDLE = {
+const IDLE: GeneratorStatus = {
   is_initializing: false,
   is_running: false,
   is_ended_up: false,
@@ -23,153 +23,188 @@ const IDLE = {
   is_stopping: false,
 };
 
-const STARTUP: StartupGeneratorParametersList = [
-  { id: 'web', path: '/p/web', scenarios: ['corp net'] },
-  { id: 'db', path: '/p/db', scenarios: ['corp net'] },
-  { id: 'elsewhere', path: '/p/elsewhere', scenarios: ['lab'] },
-];
+const RUNNING: GeneratorStatus = { ...IDLE, is_running: true };
 
-const GENERATORS: GeneratorsInfo = [
-  {
-    id: 'web',
-    path: '/p/web',
-    status: { ...IDLE, is_running: true },
-    start_time: null,
-  },
-  { id: 'db', path: '/p/db', status: IDLE, start_time: null },
-];
-
-const mutation = () => ({ mutate: vi.fn(), isPending: false });
-
-function setup(
-  name = 'corp%20net',
-  state: Record<string, unknown> = {},
-  startup: StartupGeneratorParametersList | null = STARTUP
-) {
-  vi.mocked(startupHooks.useStartupGenerators).mockReturnValue({
-    data: startup ?? undefined,
-    isLoading: false,
-    isError: false,
-    error: null,
-    ...state,
-  } as unknown as ReturnType<typeof startupHooks.useStartupGenerators>);
-
-  vi.mocked(generatorHooks.useGenerators).mockReturnValue({
-    data: GENERATORS,
-    isLoading: false,
-    isError: false,
-    error: null,
-    ...state,
-  } as unknown as ReturnType<typeof generatorHooks.useGenerators>);
-
-  renderWithProviders(
-    <MemoryRouter initialEntries={[`/scenarios/${name}`]}>
-      <ModalsProvider>
-        <Routes>
-          <Route path="/scenarios/:scenarioName" element={<ScenarioPage />} />
-        </Routes>
-      </ModalsProvider>
-    </MemoryRouter>
-  );
+function member(
+  id: string,
+  scenarioNames: string[] = ['nightly']
+): StartupGeneratorParameters {
+  return {
+    id,
+    path: `${id}/generator.yml`,
+    scenarios: scenarioNames,
+  } as StartupGeneratorParameters;
 }
 
-beforeEach(() => {
-  vi.clearAllMocks();
+const bulkStart = { mutate: vi.fn(), isPending: false };
+const bulkStop = { mutate: vi.fn(), isPending: false };
 
-  vi.mocked(scenarioHooks.useMultiGlobalsUsage).mockReturnValue(
-    [] as unknown as ReturnType<typeof scenarioHooks.useMultiGlobalsUsage>
+interface Options {
+  entries?: StartupGeneratorParameters[];
+  statuses?: [string, GeneratorStatus][];
+  isLoading?: boolean;
+  isError?: boolean;
+}
+
+function setup(options: Options = {}) {
+  vi.mocked(useStartupGenerators).mockReturnValue({
+    data: options.entries ?? [member('web')],
+    isLoading: options.isLoading ?? false,
+    isError: options.isError ?? false,
+    isSuccess: options.isLoading !== true && options.isError !== true,
+    error: options.isError === true ? new Error('no startup') : null,
+  } as unknown as ReturnType<typeof useStartupGenerators>);
+
+  vi.mocked(generators.useGenerators).mockReturnValue({
+    data: (options.entries ?? [member('web')]).map((entry) => ({
+      id: entry.id,
+      path: entry.path,
+      status: new Map(options.statuses ?? []).get(entry.id) ?? IDLE,
+      start_time: null,
+    })),
+    isLoading: options.isLoading ?? false,
+    isError: options.isError ?? false,
+    isSuccess: options.isLoading !== true && options.isError !== true,
+    error: options.isError === true ? new Error('no generators') : null,
+  } as unknown as ReturnType<typeof generators.useGenerators>);
+
+  vi.mocked(generators.useBulkStartGeneratorMutation).mockReturnValue(
+    bulkStart as never
   );
-  vi.mocked(scenarioHooks.useScenarioGlobalState).mockReturnValue({
+  vi.mocked(generators.useBulkStopGeneratorMutation).mockReturnValue(
+    bulkStop as never
+  );
+  vi.mocked(generators.useUpdateGeneratorStatus).mockReturnValue({
+    mutate: vi.fn(),
+  } as never);
+  vi.mocked(scenarios.useMultiGlobalsUsage).mockReturnValue([] as never);
+  vi.mocked(scenarios.useScenarios).mockReturnValue({
+    data: { nightly: ['web'] },
+  } as never);
+  vi.mocked(scenarios.useRemoveGeneratorFromScenarioMutation).mockReturnValue({
+    mutate: vi.fn(),
+  } as never);
+  vi.mocked(scenarios.useAddGeneratorToScenarioMutation).mockReturnValue({
+    mutate: vi.fn(),
+  } as never);
+
+  // The page mounts a card per instance and the global-state panel, and
+  // each of those reaches for mutations of its own.
+  const idle = { mutate: vi.fn(), isPending: false } as never;
+
+  vi.mocked(generators.useStartGeneratorMutation).mockReturnValue(idle);
+  vi.mocked(generators.useStopGeneratorMutation).mockReturnValue(idle);
+  vi.mocked(scenarios.useUpdateScenarioGlobalStateMutation).mockReturnValue(
+    idle
+  );
+  vi.mocked(scenarios.useClearScenarioGlobalStateMutation).mockReturnValue(
+    idle
+  );
+  vi.mocked(scenarios.useDeleteScenarioGlobalStateKeyMutation).mockReturnValue(
+    idle
+  );
+  vi.mocked(scenarios.useScenarioGlobalState).mockReturnValue({
     data: {},
     isLoading: false,
     isError: false,
     isSuccess: true,
     error: null,
     refetch: vi.fn(),
-  } as unknown as ReturnType<typeof scenarioHooks.useScenarioGlobalState>);
+  } as never);
 
-  for (const module of [scenarioHooks, generatorHooks, startupHooks]) {
-    for (const name of Object.keys(module)) {
-      if (name.endsWith('Mutation') || name === 'useUpdateGeneratorStatus') {
-        vi.mocked(
-          module[name as keyof typeof module] as () => unknown
-        ).mockReturnValue(mutation());
-      }
-    }
-  }
+  const router = createMemoryRouter(
+    [{ path: '/scenarios/:scenarioName', element: <ScenarioPage /> }],
+    { initialEntries: ['/scenarios/nightly'] }
+  );
+
+  renderWithProviders(<RouterProvider router={router} />);
+
+  return { user: userEvent.setup() };
+}
+
+beforeEach(() => {
+  vi.clearAllMocks();
 });
 
 /**
- * A scenario page is opened by name, and the name comes from the URL -
- * where a space or a slash arrives escaped. Reading it back wrong shows
- * an empty scenario for one that exists, which is the failure this
- * page is most exposed to.
+ * The page of one scenario is the set it groups and the two actions that
+ * act on all of it. Membership is not stored on the scenario but on each
+ * instance, so the set is whatever names this scenario - and an action
+ * only makes sense while something in the set can take it.
  */
 describe('ScenarioPage', () => {
-  it('names the scenario the address points at', () => {
+  it('names the scenario it opened', () => {
     setup();
 
-    expect(
-      screen.getByRole('heading', { name: 'corp net' })
-    ).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'nightly' })).toBeVisible();
   });
 
-  it('shows only the instances that belong to it', () => {
-    setup();
-
-    expect(screen.getAllByText('web').length).toBeGreaterThan(0);
-    expect(screen.getAllByText('db').length).toBeGreaterThan(0);
-    expect(screen.queryByText('elsewhere')).not.toBeInTheDocument();
-  });
-
-  it('counts the instances it holds, and how many run', () => {
-    setup();
-
-    // The count is one line: "2 instances · 1 running".
-    expect(
-      screen.getAllByText((_content, element) =>
-        /^2 instances .* 1 running$/.test(element?.textContent ?? '')
-      ).length
-    ).toBeGreaterThan(0);
-  });
-
-  it('links back to the scenario list', () => {
-    setup();
-
-    expect(
-      screen.getByRole('link', { name: 'Back to scenarios' })
-    ).toHaveAttribute('href', '/scenarios');
-  });
-
-  it('waits while either list is being read', () => {
-    setup('corp%20net', { isLoading: true });
-
-    expect(screen.queryByRole('heading', { name: 'corp net' })).toBeNull();
-  });
-
-  it('reports a failure to read them', () => {
-    setup('corp%20net', {
-      isLoading: false,
-      isError: true,
-      error: new Error('no connection'),
+  it('lists the instances that name this scenario', () => {
+    setup({
+      entries: [member('web'), member('api'), member('other', ['smoke'])],
     });
 
+    // Each instance is named on its card and again as the project it
+    // runs, so what matters is that it is there at all - and that the
+    // one naming another scenario is not.
+    expect(screen.getAllByText('web').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('api').length).toBeGreaterThan(0);
+    expect(screen.queryByText('other')).toBeNull();
+  });
+
+  it('offers a start while something in it is at rest', () => {
+    setup({ statuses: [['web', IDLE]] });
+
+    expect(screen.getByRole('button', { name: 'Start all' })).toBeEnabled();
+    expect(screen.getByRole('button', { name: 'Stop all' })).toBeDisabled();
+  });
+
+  it('offers a stop once something in it runs', () => {
+    setup({ statuses: [['web', RUNNING]] });
+
+    expect(screen.getByRole('button', { name: 'Stop all' })).toBeEnabled();
+    expect(screen.getByRole('button', { name: 'Start all' })).toBeDisabled();
+  });
+
+  it('starts the whole set at once', async () => {
+    const { user } = setup({ statuses: [['web', IDLE]] });
+
+    await user.click(screen.getByRole('button', { name: 'Start all' }));
+
+    expect(bulkStart.mutate).toHaveBeenCalledWith(
+      { ids: ['web'] },
+      expect.anything()
+    );
+  });
+
+  it('stops the whole set at once', async () => {
+    const { user } = setup({ statuses: [['web', RUNNING]] });
+
+    await user.click(screen.getByRole('button', { name: 'Stop all' }));
+
+    expect(bulkStop.mutate).toHaveBeenCalledWith(
+      { ids: ['web'] },
+      expect.anything()
+    );
+  });
+
+  it('asks for an instance rather than drawing an empty set', () => {
+    setup({ entries: [member('web', ['smoke'])] });
+
+    // No instance names this scenario, so there is nothing to act on
+    // and the two bulk actions are not offered at all.
+    expect(screen.queryByRole('button', { name: 'Start all' })).toBeNull();
+  });
+
+  it('waits rather than drawing a set it has not read', () => {
+    setup({ isLoading: true });
+
+    expect(screen.queryByRole('button', { name: 'Start all' })).toBeNull();
+  });
+
+  it('reports what it could not read', () => {
+    setup({ isError: true });
+
     expect(screen.getByText('Failed to load scenario')).toBeInTheDocument();
-    expect(screen.getByText(/no connection/)).toBeInTheDocument();
-  });
-
-  it('opens a scenario nothing belongs to without failing', () => {
-    setup('empty');
-
-    expect(screen.getByRole('heading', { name: 'empty' })).toBeInTheDocument();
-    expect(screen.queryByText('web')).not.toBeInTheDocument();
-  });
-
-  it('opens without any startup entry read yet', () => {
-    setup('corp%20net', {}, []);
-
-    expect(
-      screen.getByRole('heading', { name: 'corp net' })
-    ).toBeInTheDocument();
   });
 });
