@@ -10,3 +10,9 @@
 **/.pytest_cache/
 **/build/
 **/dist/
+
+# Test artefacts of a local run
+eventum/ui/coverage/
+eventum/ui/e2e-report/
+eventum/ui/test-results/
+eventum/ui/e2e/.tmp/

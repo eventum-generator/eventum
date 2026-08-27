@@ -63,7 +63,7 @@ uv run ruff check .
 uv run ruff format --check .
 uv run mypy eventum/
 uv run pytest --ignore=tests/integration
-(cd eventum/ui && pnpm test --run)
+(cd eventum/ui && pnpm test:coverage)
 (cd ../docs && pnpm build)
 ```
 
