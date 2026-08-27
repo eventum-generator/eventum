@@ -88,7 +88,7 @@ describe('InstanceStatusSummary', () => {
     // Only a bucket with instances in it is lit, so an empty fleet does
     // not read as a live one.
     const lit = [...document.querySelectorAll('.ev-status-dot')].filter(
-      (dot) => dot.getAttribute('data-glow') === 'true'
+      (dot) => (dot as HTMLElement).dataset.glow === 'true'
     );
 
     expect(lit).toHaveLength(1);
@@ -99,7 +99,7 @@ describe('InstanceStatusSummary', () => {
 
     expect(
       [...document.querySelectorAll('.ev-status-dot')].filter(
-        (dot) => dot.getAttribute('data-glow') === 'true'
+        (dot) => (dot as HTMLElement).dataset.glow === 'true'
       )
     ).toHaveLength(0);
   });

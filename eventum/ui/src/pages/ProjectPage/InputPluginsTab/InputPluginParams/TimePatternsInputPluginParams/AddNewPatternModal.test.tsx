@@ -23,10 +23,10 @@ const FILE_TREE: FileNode[] = [
   },
 ];
 
-type Handlers = {
+interface Handlers {
   onSuccess?: (data: unknown, variables: { filepath: string }) => void;
   onError?: (error: unknown) => void;
-};
+}
 
 function setup(options: { isError?: boolean; failUpload?: boolean } = {}) {
   const mutate = vi.fn(

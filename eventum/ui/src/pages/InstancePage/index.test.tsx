@@ -196,7 +196,7 @@ describe('InstancePage', () => {
     await user.click(screen.getByRole('tab', { name: 'Settings' }));
 
     const autostart = screen.getByRole('switch', { name: 'Autostart' });
-    await autostart.focus();
+    autostart.focus();
     await user.keyboard(' ');
 
     expect(screen.getByRole('button', { name: 'Save' })).toBeVisible();

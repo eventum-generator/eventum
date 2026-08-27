@@ -23,7 +23,10 @@ function entry(
   } as StartupGeneratorParameters;
 }
 
-type Handlers = { onSuccess?: () => void; onError?: (e: unknown) => void };
+interface Handlers {
+  onSuccess?: () => void;
+  onError?: (e: unknown) => void;
+}
 
 interface Options {
   entries?: StartupGeneratorParameters[];

@@ -18,7 +18,10 @@ const PATTERN = YAML.stringify({
   spreader: { distribution: 'beta', parameters: { a: 15, b: 15 } },
 });
 
-type Handlers = { onSuccess?: () => void; onError?: (e: unknown) => void };
+interface Handlers {
+  onSuccess?: () => void;
+  onError?: (e: unknown) => void;
+}
 
 interface Options {
   content?: string;
@@ -125,10 +128,10 @@ describe('TimePatternParams', () => {
       expect.anything()
     );
 
-    const written = (
-      mutate.mock.calls[0]?.[0] as unknown as { content: string }
-    ).content;
-    expect(YAML.parse(written).label).toContain('extended');
+    const written = mutate.mock.calls[0]?.[0] as { content: string };
+    const pattern = YAML.parse(written.content) as { label: string };
+
+    expect(pattern.label).toContain('extended');
   });
 
   it('keeps the save on offer when writing failed', async () => {
