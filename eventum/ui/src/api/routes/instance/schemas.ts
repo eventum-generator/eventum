@@ -30,8 +30,31 @@ export const InstanceInfoSchema = z.object({
 });
 export type InstanceInfo = z.infer<typeof InstanceInfoSchema>;
 
+/**
+ * Read a cleared input as "not set".
+ *
+ * A cleared text input hands over an empty string and a cleared select
+ * hands over null, and neither is a value the backend takes - dropping
+ * the field instead leaves it at its own default.
+ */
 const emptyToUndefined = (v: unknown) => {
   if (v === '' || v === null) {
+    return;
+  }
+
+  return v;
+};
+
+/**
+ * Same, for a field where null is a value of its own - an unlimited
+ * events queue, a batch formed by delay alone.
+ *
+ * Only an empty input reads as unset here, so an explicit null survives
+ * the round trip: it reaches the backend as the limit being lifted, and
+ * reads back as the switch that lifted it being off.
+ */
+const blankToUndefined = (v: unknown) => {
+  if (v === '') {
     return;
   }
 
@@ -98,11 +121,11 @@ export type ServerParameters = z.infer<typeof ServerParametersSchema>;
 
 export const BatchParametersSchema = z.object({
   size: z.preprocess(
-    emptyToUndefined,
+    blankToUndefined,
     z.number().gte(1).int().nullable().optional()
   ),
   delay: z.preprocess(
-    emptyToUndefined,
+    blankToUndefined,
     z.number().gte(0.1).nullable().optional()
   ),
 });
@@ -117,7 +140,7 @@ const QueueParametersSchema = z.object({
     z.number().int().gte(1).optional()
   ),
   max_event_bytes: z.preprocess(
-    emptyToUndefined,
+    blankToUndefined,
     z.number().int().gte(1).nullable().optional()
   ),
 });
