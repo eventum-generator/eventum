@@ -129,6 +129,26 @@ function fieldsOf(): Field[] {
 }
 
 /**
+ * The editable controls of a form that name no path.
+ *
+ * A field wired with a value and an onChange of its own carries no path,
+ * and several forms hold their own view state that way too - which of
+ * two ways a template is given, say. So these are exercised rather than
+ * asserted on: what they must do is survive being used.
+ */
+function unpathedControls(): HTMLElement[] {
+  return [
+    ...document.querySelectorAll<HTMLElement>(
+      'input:not([data-path]), textarea:not([data-path])'
+    ),
+  ].filter((element) => {
+    const input = element as HTMLInputElement;
+
+    return !input.readOnly && !input.disabled && input.type !== 'file';
+  });
+}
+
+/**
  * Make an edit the field will take, and report whether one was made.
  *
  * The kind of control decides the gesture: a switch is toggled, a field
@@ -182,7 +202,14 @@ async function edit(
     }
   }
 
-  if (input.tagName !== 'INPUT' && input.tagName !== 'TEXTAREA') {
+  // Only a control text can be typed into is typed into; the rest carry
+  // the value of something drawn elsewhere.
+  const TYPED = new Set(['text', 'search', 'email', 'url', 'tel', 'password']);
+
+  if (
+    (input.tagName !== 'INPUT' || !TYPED.has(input.type)) &&
+    input.tagName !== 'TEXTAREA'
+  ) {
     return false;
   }
 
@@ -279,6 +306,13 @@ async function unwiredFields(
     } else {
       last = structuredClone(reported[name]);
     }
+  }
+
+  // Everything else the form draws is used too, so a handler wired by
+  // hand runs at least once and a form that throws on one of its own
+  // controls fails here rather than in front of a user.
+  for (const control of unpathedControls()) {
+    await edit(user, control);
   }
 
   return unwired;
