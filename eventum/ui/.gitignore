@@ -141,3 +141,9 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Playwright: the throwaway backend directory, the saved session and
+# the generated report
+e2e/.tmp
+test-results
+e2e-report
