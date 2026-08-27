@@ -62,7 +62,7 @@ Adding or modifying a plugin touches four places.
 
 `pnpm test` runs vitest over `src/**/*.test.{ts,tsx}` in jsdom. Tests sit next to the code they cover.
 
-- `src/test/setup.ts` - jest-dom matchers, unmount after each test, and the jsdom stubs the app mounts against (`matchMedia`, `ResizeObserver`, `IntersectionObserver`, `scrollIntoView`).
+- `src/test/setup.ts` - jest-dom matchers, unmount after each test, and the jsdom stubs the app mounts against (`matchMedia`, `ResizeObserver`, `IntersectionObserver`, `scrollIntoView`, and the `Range` geometry a code editor measures). A stub belongs here when jsdom answers without something the app asks for on mount or a tick later - what such a call throws lands outside the test that caused it.
 - `src/test/render.tsx` - `renderWithProviders` mounts a component under the app theme and a query client of its own; page-specific providers are wrapped at the call site. `renderHookWithClient` mounts a hook and hands the query client back, which is what assertions about invalidation read.
 - Data comes from mocking the `api/hooks/` module the component reads - tests never reach the network.
 - Drive interaction through `@testing-library/user-event`. Nothing in jsdom is laid out, so anything resting on real geometry belongs in a browser instead - a diagram is read through the model it is built from, not the shapes it draws.
@@ -81,4 +81,5 @@ Adding or modifying a plugin touches four places.
 - Mantine hides the input of a switch under the track it draws and the radios of a segmented control under their labels, so a switch is toggled with the keyboard and a segment is clicked by its label - clicking the input itself hits the overlay.
 - A spec that leaves the workspace in a state later specs would meet - an unparseable configuration, say - takes it away through the API when it is done.
 - A spec that only passes on a retry is reporting a race; retries are off so it stays visible.
+- What only a browser can answer belongs in a spec: the code editor and its search measure the text they draw, and the console panels are laid out against the window, so those flows are driven here rather than approximated in jsdom.
 - What a spec drives has to be reachable without the network: the repository pages talk to hosts outside the machine, so those specs answer the repository requests from the browser (`page.route`) rather than reporting someone's rate limit as a defect.

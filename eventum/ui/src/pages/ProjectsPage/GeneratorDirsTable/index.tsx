@@ -32,6 +32,11 @@ import { GeneratorDirsExtendedInfo } from '@/api/routes/generator-configs/schema
 
 export type UsageMode = 'all' | 'used' | 'unused';
 
+// Held apart from the props so an omitted filter is the same array on
+// every render: the effect below depends on its identity and writes
+// state, so a fresh literal would re-run it forever.
+const NO_INSTANCES: string[] = [];
+
 interface GeneratorDirsTableProps {
   data: GeneratorDirsExtendedInfo;
   projectNameFilter?: string;
@@ -55,7 +60,7 @@ function sortLabel(column: { id: string; columnDef: { header?: unknown } }) {
 export const GeneratorDirsTable: FC<GeneratorDirsTableProps> = ({
   data,
   projectNameFilter = '',
-  instancesFilter = [],
+  instancesFilter = NO_INSTANCES,
   usageMode = 'all',
 }) => {
   const [sorting, setSorting] = useState<SortingState>([

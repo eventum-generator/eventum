@@ -29,10 +29,10 @@ export default mergeConfig(
         // covers today, so a change that drops coverage fails. Raise it
         // as coverage grows; never lower it to make a red run green.
         thresholds: {
-          statements: 65,
-          branches: 54,
-          functions: 58,
-          lines: 74,
+          statements: 72,
+          branches: 60,
+          functions: 67,
+          lines: 82,
         },
       },
     },
