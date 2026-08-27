@@ -53,6 +53,11 @@ All notable changes to this project will be documented in this file.
 - **Made Studio hold together on narrow screens** — a window under about 1250px pushed the page sideways and put the rightmost table columns, the row menus among them, out of reach behind the page scrollbar; under 768px the navigation panel took over the whole viewport and opened on top of the page on every load. Wide tables now scroll inside their own panel, the navigation panel keeps separate desktop and mobile state and closes itself once a destination is chosen, and the header, the instance title, the Settings section list and the sign-in card give way in place of overflowing
 - **Kept the Studio editor from being squeezed out by its neighbours** — the file explorer and the inspector held their full width while the editor absorbed every bit of narrowing, down to 134px of code at a 1024px window and 10px at 900px. The editor now keeps 360px and the two side panels give way first; below 1200px the three panels stop sharing the row and take turns instead, chosen from a switcher, with the pipeline strip scrolling in place of overflowing
 - **Bound the plugin parameters form to the plugin instead of its position in the list** — deleting an input or output plugin left the form filled with the deleted plugin's values, and the next edit wrote them over the plugin that took its place. Deleting a plugin listed above the selected one also moved the selection to a neighbour
+- **Kept a lifted limit lifted** — an events queue whose byte limit was switched off, and a batching mode formed by size or by delay alone, were read back from the instance as if the setting had never been made: the switch came back on, the mode came back combined, and saving the page then wrote the default limit over the choice. Such a setting is now carried both ways, so switching the byte limit off holds and an instance batching by one condition keeps doing so
+- **Reread the instance settings after saving them** — the page wrote the settings and then kept showing what it had read before the write, since the answer it stored in their place carries no body. Reopening Settings without reloading the tab showed the previous values until something else refreshed them
+- **Named the project of an instance registered from outside the workspace** — an instance whose configuration lies elsewhere on the host showed the whole directory of that configuration as its project name and offered it as a link to a project page that cannot exist. It now names the directory it sits in and shows the path in place of the link
+- **Completed the state helpers the template editor offers** — `pop` is part of the state every template scope carries, and the editor never offered it, so it was the one call a template had to be written from memory
+- **Named the controls a reader is only told are buttons** — the sort control of every table column, the close of the instance details panel, the autostart and past-skip switches of an instance, and the shortcuts that set a tabulation or a line feed as a delimiter carried no name at all, so a screen reader announced each of them as an unlabelled button
 
 #### Core
 
@@ -72,6 +77,17 @@ All notable changes to this project will be documented in this file.
 #### API/CLI
 
 - **Blocked access to files a project only points at** — a path made of plain directory names, with no `..` anywhere in it, still left the project directory whenever a symlink stood along it, and the file it landed on was read, written, moved, copied or deleted like a file of the project. Such a path is now refused; a symlink that stays inside the project keeps working as before
+
+### 🧪 Testing
+
+#### Eventum Studio
+
+- **Covered the Studio flows with browser tests** — Playwright drives the packaged interface against a real backend started over a throwaway directory of its own, across every screen it has: signing in and out, the navigation, projects created of each type and renamed, exported, imported and deleted, the file explorer and the editor beside it, the pipeline and its plugins, the timestamp preview and the event debugger, instances registered, started, watched, cloned, renamed and deleted, their settings and their log, scenarios grouping instances and acting on them together, monitoring, secrets, connected repositories, the management console, and a configuration the backend cannot parse opening the project in recovery mode and leaving it once repaired. They run on pull requests and once a night rather than on every push, since they drive a real pipeline
+- **Grew the unit suite from 280 tests to over thirteen hundred** — the API boundary and the schemas mirroring the backend models, the caches every screen reads its data from, the configuration forms of every plugin down to each field of them, the studio panels and the draft they edit, the tables and the actions on their rows, and the pages and dialogs that act on an instance, a project or a repository are covered now. `pnpm test:coverage` reports the figure against a threshold, so a change that lowers coverage fails instead of passing unnoticed
+
+#### Other
+
+- **Checked the Studio stylesheets, formatting and coverage in CI** — the frontend checks run Stylelint and Prettier beside the ESLint, unit tests and build they already ran, and report coverage against a threshold. They also moved to a workflow of their own, scoped to the UI package, so a change to the backend alone no longer installs a node toolchain. Stylelint and Prettier had been left to whoever remembered to run them, and formatting had already drifted in three files
 
 ### 📝 Other Changes
 

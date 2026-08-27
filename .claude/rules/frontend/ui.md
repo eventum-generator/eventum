@@ -62,7 +62,23 @@ Adding or modifying a plugin touches four places.
 
 `pnpm test` runs vitest over `src/**/*.test.{ts,tsx}` in jsdom. Tests sit next to the code they cover.
 
-- `src/test/setup.ts` - jest-dom matchers, unmount after each test, and the jsdom stubs the app mounts against (`matchMedia`, `ResizeObserver`, `IntersectionObserver`).
-- `src/test/render.tsx` - `renderWithProviders` mounts a component under the app theme and a query client of its own; page-specific providers are wrapped at the call site.
+- `src/test/setup.ts` - jest-dom matchers, unmount after each test, and the jsdom stubs the app mounts against (`matchMedia`, `ResizeObserver`, `IntersectionObserver`, `scrollIntoView`).
+- `src/test/render.tsx` - `renderWithProviders` mounts a component under the app theme and a query client of its own; page-specific providers are wrapped at the call site. `renderHookWithClient` mounts a hook and hands the query client back, which is what assertions about invalidation read.
 - Data comes from mocking the `api/hooks/` module the component reads - tests never reach the network.
-- Drive interaction through `@testing-library/user-event`. Nothing in jsdom is laid out, so anything resting on real geometry belongs in a browser instead.
+- Drive interaction through `@testing-library/user-event`. Nothing in jsdom is laid out, so anything resting on real geometry belongs in a browser instead - a diagram is read through the model it is built from, not the shapes it draws.
+- A controlled component shows what its parent hands back, so a test that only spies on `onChange` reads the same value after every edit. Mount it under a parent that keeps what it reports.
+- `pnpm test:coverage` reports coverage against a threshold that sits just under what the suite covers. It is a ratchet: raise it as coverage grows, never lower it to make a red run green.
+- A few rules written for production code read fixtures and mocks as defects, so `eslint.config.js` turns them off for the tests and their harness (`src/**/*.test.*` and `src/test/**`). Add one there only when it fires on the fixture rather than on the code under test - a rule reporting dead code or an unsafe read is reporting a defect in the test.
+
+## Browser tests
+
+`pnpm test:e2e` runs Playwright over `e2e/` against the packaged Studio. A `webServer` command starts the real backend over a throwaway directory of its own and serves the built bundle and the API on one port, so what the specs drive is what the package ships - `pnpm build` first, or they meet the previous bundle.
+
+- One backend serves every spec and keeps what they create, so the suite runs single-worker and each spec names its resources through `uniqueName`. It refuses to reuse a backend that already answers on its port - the specs write projects and delete instances, so meeting a real instance there would change its data. The port is `19474`, overridable with `E2E_PORT`.
+- Locators go through roles and text. When a control has no accessible name, give it one in the component rather than reaching for a CSS selector - an icon-only button needs the name anyway, and a figure that is not a control carries a `data-*` name instead (`data-metric`, `data-reading`).
+- A table pages at fifteen rows and the workspace grows as the suite runs, so a row is reached through the search field of its table (`projectRow`, `instanceRow` in `e2e/helpers.ts`), never by scanning the page.
+- Scoping is the other exception: the studio labels the same field in the inspector and in the console, so a panel is addressed by its own class (`inspector`, `consolePanel`, `activePane` in `e2e/helpers.ts`) and the role locator runs inside it.
+- Mantine hides the input of a switch under the track it draws and the radios of a segmented control under their labels, so a switch is toggled with the keyboard and a segment is clicked by its label - clicking the input itself hits the overlay.
+- A spec that leaves the workspace in a state later specs would meet - an unparseable configuration, say - takes it away through the API when it is done.
+- A spec that only passes on a retry is reporting a race; retries are off so it stays visible.
+- What a spec drives has to be reachable without the network: the repository pages talk to hosts outside the machine, so those specs answer the repository requests from the browser (`page.route`) rather than reporting someone's rate limit as a defect.
