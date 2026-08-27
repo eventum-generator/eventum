@@ -6,7 +6,6 @@ import {
   Text,
   UnstyledButton,
 } from '@mantine/core';
-import { dirname } from 'pathe';
 import { FC } from 'react';
 import { Link } from 'react-router-dom';
 
@@ -17,6 +16,7 @@ import {
 import { InstanceStatusSummary } from '@/components/ui/InstanceStatusSummary';
 import { StatusPill } from '@/components/ui/StatusPill';
 import { ROUTE_PATHS } from '@/routing/paths';
+import { projectOfConfig } from '@/utils/projectPath';
 
 function formatUptime(seconds: number): string {
   const s = Math.max(0, Math.floor(seconds));
@@ -99,7 +99,7 @@ export const StatusRail: FC<StatusRailProps> = ({
             <Stack gap={2}>
               {recent.map((g) => {
                 const uptime = uptimeById.get(g.id);
-                const project = dirname(g.path);
+                const project = projectOfConfig(g.path).name;
                 const subline =
                   g.status.is_running && uptime !== undefined
                     ? `${project} · up ${formatUptime(uptime)}`
