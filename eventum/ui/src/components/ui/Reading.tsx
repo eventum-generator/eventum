@@ -28,11 +28,15 @@ export const Reading: FC<ReadingProps> = ({
       stroke={1.6}
       color={color ?? 'var(--mantine-color-dimmed)'}
     />
+    {/* Names the figure for whoever reads it back: the icon beside it
+        is an SVG path of digits, which a search over the markup of the
+        strip would match instead. */}
     <Text
       size="md"
       fw={700}
       ff="monospace"
       c={color}
+      data-reading={label}
       style={{ fontVariantNumeric: 'tabular-nums', lineHeight: 1 }}
     >
       {value}

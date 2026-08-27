@@ -263,7 +263,7 @@ export const columns = [
       return (
         <RowActions
           target={
-            <ActionIcon variant="transparent">
+            <ActionIcon variant="transparent" aria-label="Instance actions">
               <IconDotsVertical size={20} />
             </ActionIcon>
           }

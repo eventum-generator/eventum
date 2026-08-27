@@ -70,6 +70,19 @@ interface InstancesTableProps {
   onRowSelectionChange: React.Dispatch<React.SetStateAction<RowSelectionState>>;
 }
 
+/**
+ * The name of the control that sorts a column.
+ *
+ * The control is an icon alone, so it carries the name of the column it
+ * sorts - the header of that column when it is a word rather than a
+ * component of its own.
+ */
+function sortLabel(column: { id: string; columnDef: { header?: unknown } }) {
+  const header = column.columnDef.header;
+
+  return `Sort by ${typeof header === 'string' ? header.toLowerCase() : column.id}`;
+}
+
 export const InstancesTable: FC<InstancesTableProps> = ({
   data,
   projectNameFilter = '',
@@ -182,6 +195,7 @@ export const InstancesTable: FC<InstancesTableProps> = ({
                                   <ActionIcon
                                     variant="transparent"
                                     size="sm"
+                                    aria-label={sortLabel(header.column)}
                                     onClick={header.column.getToggleSortingHandler()}
                                   >
                                     <IconSortDescending size={16} />
@@ -191,6 +205,7 @@ export const InstancesTable: FC<InstancesTableProps> = ({
                                   <ActionIcon
                                     variant="transparent"
                                     size="sm"
+                                    aria-label={sortLabel(header.column)}
                                     onClick={header.column.getToggleSortingHandler()}
                                   >
                                     <IconSortAscending size={16} />
@@ -200,6 +215,7 @@ export const InstancesTable: FC<InstancesTableProps> = ({
                                   <ActionIcon
                                     variant="transparent"
                                     size="sm"
+                                    aria-label={sortLabel(header.column)}
                                     onClick={header.column.getToggleSortingHandler()}
                                   >
                                     <IconArrowsSort size={16} />
