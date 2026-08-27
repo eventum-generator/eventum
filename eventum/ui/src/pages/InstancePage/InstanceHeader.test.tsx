@@ -55,6 +55,7 @@ function setup(options: Options = {}) {
   } as never);
 
   const onSave = vi.fn();
+  const onBack = vi.fn();
 
   renderWithProviders(
     <MemoryRouter>
@@ -65,12 +66,13 @@ function setup(options: Options = {}) {
           isDirty={options.isDirty ?? false}
           isSaving={false}
           onSave={onSave}
+          onBack={onBack}
         />
       </ModalsProvider>
     </MemoryRouter>
   );
 
-  return { onSave, user: userEvent.setup() };
+  return { onSave, onBack, user: userEvent.setup() };
 }
 
 beforeEach(() => {
@@ -172,11 +174,11 @@ describe('InstanceHeader', () => {
     expect(screen.queryByText(/^up/)).toBeNull();
   });
 
-  it('leads back to the instances', () => {
-    setup();
+  it('leads back to the instances', async () => {
+    const { user, onBack } = setup();
 
-    expect(
-      screen.getByRole('button', { name: 'Back to instances' })
-    ).toBeVisible();
+    await user.click(screen.getByRole('button', { name: 'Back to instances' }));
+
+    expect(onBack).toHaveBeenCalledTimes(1);
   });
 });

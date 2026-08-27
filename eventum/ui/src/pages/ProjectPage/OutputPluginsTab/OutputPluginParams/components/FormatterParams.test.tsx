@@ -6,7 +6,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { FormatterParams } from './FormatterParams';
 import { useGeneratorFileTree } from '@/api/hooks/useGeneratorConfigs';
 import { FileNode } from '@/api/routes/generator-configs/schemas';
-import { FormatterConfig } from '@/api/routes/generator-configs/schemas/formatters';
+import { FormatterConfig } from '@/api/routes/generator-configs/schemas/plugins/output/formatters';
 import { FileTreeProvider } from '@/pages/ProjectPage/context/FileTreeContext';
 import { ProjectNameProvider } from '@/pages/ProjectPage/context/ProjectNameContext';
 import { renderWithProviders } from '@/test/render';

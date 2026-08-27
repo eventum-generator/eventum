@@ -1,6 +1,6 @@
 import { render, screen } from '@testing-library/react';
 import { AnimationSequence } from 'motion/react';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { Mock, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import {
   InstanceResourcesScene,
@@ -10,7 +10,7 @@ import {
   QueueBytesScene,
 } from './scenes';
 
-const animate = vi.fn(() => ({ stop: vi.fn() }));
+const animate: Mock = vi.fn(() => ({ stop: vi.fn() }));
 const reducedMotion = { current: false };
 
 // Only the two hooks are stood in for; the helpers a take is written
@@ -64,7 +64,7 @@ describe('the scenes of a release', () => {
   it.each(SCENES)('%s addresses only parts it draws', (_name, Scene) => {
     const { container } = render(<Scene />);
 
-    const sequence = animate.mock.calls[0]?.[0] as AnimationSequence;
+    const sequence = animate.mock.calls[0]?.[0] as unknown as AnimationSequence;
     const addressed = new Set<string>();
 
     for (const step of sequence) {

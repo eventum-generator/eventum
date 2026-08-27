@@ -148,15 +148,15 @@ describe('Tree', () => {
     expect(MUTATIONS.remove.mutate).not.toHaveBeenCalled();
   });
 
-  it('offers no deletion of the file the project is opened by', async () => {
-    const { user } = setup();
+  it('offers no deletion of the file the project is opened by', () => {
+    setup();
 
     fireEvent.contextMenu(screen.getByText('generator.yml'));
 
     // Losing it would take the project with it, so the menu of that one
     // file offers a download and nothing that changes it.
     expect(
-      await screen.findByRole('button', { name: /Download/ })
+      screen.getByRole('button', { name: /Download/ })
     ).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /Delete/ })).toBeNull();
     expect(screen.queryByRole('button', { name: /Rename/ })).toBeNull();
