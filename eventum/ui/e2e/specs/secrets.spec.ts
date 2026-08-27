@@ -1,6 +1,6 @@
 import { expect, test } from '@playwright/test';
 
-import { confirmDialog, uniqueName } from '../helpers';
+import { confirmDialog, uniqueSecretName } from '../helpers';
 
 /**
  * A secret is held in the keyring and never served back with the rest of
@@ -10,7 +10,7 @@ import { confirmDialog, uniqueName } from '../helpers';
  * keyring rather than only out of the table.
  */
 test('a secret is added, revealed and deleted', async ({ page }) => {
-  const name = uniqueName('secret');
+  const name = uniqueSecretName('secret');
 
   await page.goto('/secrets');
   await page.getByRole('button', { name: 'Add secret' }).click();
@@ -38,7 +38,7 @@ test('a secret is added, revealed and deleted', async ({ page }) => {
 });
 
 test('a secret value is replaced by editing it', async ({ page }) => {
-  const name = uniqueName('secret-edit');
+  const name = uniqueSecretName('secret_edit');
 
   await page.goto('/secrets');
   await page.getByRole('button', { name: 'Add secret' }).click();
@@ -66,8 +66,8 @@ test('a secret value is replaced by editing it', async ({ page }) => {
 });
 
 test('a secret is renamed and keeps its value', async ({ page }) => {
-  const name = uniqueName('secret-rename');
-  const renamed = `${name}-renamed`;
+  const name = uniqueSecretName('secret_rename');
+  const renamed = `${name}_renamed`;
 
   await page.goto('/secrets');
   await page.getByRole('button', { name: 'Add secret' }).click();

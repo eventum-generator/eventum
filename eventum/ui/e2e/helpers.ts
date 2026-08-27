@@ -11,6 +11,15 @@ export function uniqueName(label: string): string {
   return `e2e-${label}-${Date.now().toString(36)}`;
 }
 
+/**
+ * A name for a secret, which is referenced from a template as
+ * `${secrets.<name>}` - so it is lowercase with underscores alone: the
+ * grammar the keyring accepts is the one that expression can resolve.
+ */
+export function uniqueSecretName(label: string): string {
+  return uniqueName(label).split('-').join('_').toLowerCase();
+}
+
 /** Create a project of the given event plugin type and return its name. */
 export async function createProject(
   page: Page,
