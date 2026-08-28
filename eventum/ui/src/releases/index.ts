@@ -6,6 +6,7 @@ import {
   MonitoringScene,
   ProjectArchiveScene,
   QueueBytesScene,
+  RepositoriesScene,
 } from './illustrations/scenes';
 import { compareVersions } from '@/utils/version';
 
@@ -44,6 +45,13 @@ export const RELEASES: Release[] = [
     version: '2.8.0',
     changelogHref: `${DOCS}/changelog/2.8.0`,
     highlights: [
+      {
+        id: 'repositories',
+        title: 'Generators arrive from a repository',
+        body: 'Connect one and install what its catalog publishes.',
+        scene: RepositoriesScene,
+        docsHref: `${DOCS}/studio/repositories`,
+      },
       {
         id: 'monitoring',
         title: 'Monitoring points at the instance',

@@ -2,7 +2,7 @@
 
 All notable changes to this project will be documented in this file.
 
-## Unreleased
+## 2.8.0 (2026-08-29)
 
 ### 🚀 New Features
 
@@ -41,10 +41,6 @@ All notable changes to this project will be documented in this file.
 - **Added `get_instance_logs`** — an agent can read any log channel of the instance, not just the log of a generator, to diagnose the server itself. Paths and the server password are stripped from the lines, while the request line of an access record is kept readable
 - **Added the resources of an instance to the MCP stats tool** — `get_generator_stats` reported throughput and failures, so an agent asked why a generator is slow could not tell a busy instance from a starved one. It now carries the same resource figures the API does: threads, processor time, waiting, disk and network bytes, and the fill level of both pipeline queues
 
-### ⚡ Performance
-
-- **Formed batches by size wherever the delay bounds nothing** — `batch.delay` caps the time span of the timestamps one batch covers, which bounds the lag batching adds to delivery. Timestamps that have already passed carry no such lag, and sample mode emits on no schedule at all, so in both cases the cap only cut the stream into batches the size of the event rate. Both are now grouped by `batch.size` alone: half an hour of live backlog at 10 events per second drains in 2 batches instead of 1798. `batch.delay` still forms the batches of timestamps ahead of real time in live mode, and still applies everywhere `batch.size` is unset, where it is the only limit a batch has. A sample-mode run through a per-batch formatter such as `json-batch` writes larger arrays than before as a result
-
 ### 🐛 Bug Fixes
 
 #### Eventum Studio
@@ -79,6 +75,10 @@ All notable changes to this project will be documented in this file.
 #### API/CLI
 
 - **Blocked access to files a project only points at** — a path made of plain directory names, with no `..` anywhere in it, still left the project directory whenever a symlink stood along it, and the file it landed on was read, written, moved, copied or deleted like a file of the project. Such a path is now refused; a symlink that stays inside the project keeps working as before
+
+### ⚡ Performance
+
+- **Formed batches by size wherever the delay bounds nothing** — `batch.delay` caps the time span of the timestamps one batch covers, which bounds the lag batching adds to delivery. Timestamps that have already passed carry no such lag, and sample mode emits on no schedule at all, so in both cases the cap only cut the stream into batches the size of the event rate. Both are now grouped by `batch.size` alone: half an hour of live backlog at 10 events per second drains in 2 batches instead of 1798. `batch.delay` still forms the batches of timestamps ahead of real time in live mode, and still applies everywhere `batch.size` is unset, where it is the only limit a batch has. A sample-mode run through a per-batch formatter such as `json-batch` writes larger arrays than before as a result
 
 ### 🧪 Testing
 

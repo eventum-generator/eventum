@@ -8,6 +8,7 @@ import {
   MonitoringScene,
   ProjectArchiveScene,
   QueueBytesScene,
+  RepositoriesScene,
 } from './scenes';
 
 const animate: Mock = vi.fn(() => ({ stop: vi.fn() }));
@@ -23,6 +24,7 @@ vi.mock('motion/react', async (importOriginal) => ({
 }));
 
 const SCENES = [
+  ['Repositories', RepositoriesScene],
   ['Monitoring', MonitoringScene],
   ['ProjectArchive', ProjectArchiveScene],
   ['LogChannels', LogChannelsScene],

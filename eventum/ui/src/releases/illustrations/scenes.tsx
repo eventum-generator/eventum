@@ -33,6 +33,79 @@ const ANSWER = { duration: 0.42, ease: [0.22, 0.9, 0.24, 1] } as const;
 /** The pause on the result before the scene resets. */
 const HOLD = '+1.7';
 
+/** Repositories: a generator of a connected catalog becomes a project. */
+const repositoriesTake = (): AnimationSequence => [
+  [part('cursor'), { left: '16%', top: '58%', opacity: [0, 1] }, REACH],
+  [
+    part('cursor-tap'),
+    { scale: [0.4, 1.7], opacity: [0.85, 0] },
+    { ...TAP, at: '-0.1' },
+  ],
+  [part('row'), { opacity: 1 }, { duration: 0.28, at: '<' }],
+  [part('cursor'), { left: '50%', top: '58%' }, { ...REACH, at: '+0.45' }],
+  [
+    part('cursor-tap'),
+    { scale: [0.4, 1.7], opacity: [0.85, 0] },
+    { ...TAP, at: '-0.1' },
+  ],
+  [part('install'), { opacity: 1 }, { duration: 0.25, at: '<' }],
+  [part('project'), { opacity: 1, x: [16, 0] }, { ...ANSWER, at: '<+0.12' }],
+  [
+    part('project-line'),
+    { scaleX: [0.1, 1] },
+    { duration: 0.55, at: '<+0.08', delay: stagger(0.12) },
+  ],
+  [part('project'), { opacity: 0, x: 16 }, { duration: 0.35, at: HOLD }],
+  [part('install'), { opacity: 0 }, { duration: 0.3, at: '<' }],
+  [part('row'), { opacity: 0 }, { duration: 0.3, at: '<' }],
+  [part('cursor'), { opacity: 0 }, { duration: 0.3, at: '<' }],
+];
+
+export const RepositoriesScene: FC = () => (
+  <Scene
+    title="Installing a generator of a connected repository as a project"
+    take={repositoriesTake}
+  >
+    <Pane x={3} y={8} w={62} h={84}>
+      <Label x={5} y={16} tone="accent">
+        content-packs
+      </Label>
+
+      <Label x={5} y={42}>
+        web-nginx
+      </Label>
+
+      <Row x={2} y={60} w={96} h={18} name="row" />
+      <Label x={5} y={60} tone="accent">
+        linux-auditd
+      </Label>
+      <Chip x={58} y={60} w={36} h={15} name="install">
+        Install
+      </Chip>
+
+      <Label x={5} y={80}>
+        cloud-s3
+      </Label>
+    </Pane>
+
+    <Layer x={68} y={8} w={29} h={84} name="project">
+      <Pane x={0} y={0} w={100} h={100}>
+        <Label x={10} y={16} tone="accent">
+          linux-auditd
+        </Label>
+        <Label x={10} y={36}>
+          installed
+        </Label>
+        <Fill x={10} y={52} w={72} h={6} tone="accent" name="project-line" />
+        <Fill x={10} y={68} w={56} h={6} name="project-line" />
+        <Fill x={10} y={84} w={64} h={6} name="project-line" />
+      </Pane>
+    </Layer>
+
+    <Cursor at={[20, 108]} name="cursor" />
+  </Scene>
+);
+
 /** Monitoring: a row opens the details of the instance behind the load. */
 const monitoringTake = (): AnimationSequence => [
   [part('cursor'), { left: '34%', top: '58%', opacity: [0, 1] }, REACH],

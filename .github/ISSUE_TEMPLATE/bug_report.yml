@@ -24,10 +24,10 @@ body:
     attributes:
       label: Version
       options:
+        - 2.8.x
         - 2.7.x
         - 2.6.x
-        - 2.5.x
-        - 2.4.x or older
+        - 2.5.x or older
         - Built from source
     validations:
       required: true
