@@ -8,13 +8,13 @@ import {
   IconWorld,
 } from '@tabler/icons-react';
 import { formatDistanceToNow } from 'date-fns';
-import { dirname } from 'pathe';
 import { FC, ReactNode } from 'react';
 
 import { useGenerators } from '@/api/hooks/useGenerators';
 import { GeneratorParameters } from '@/api/routes/generators/schemas';
 import { RecordNameLink } from '@/components/ui/RecordNameLink';
 import { ROUTE_PATHS } from '@/routing/paths';
+import { projectOfConfig } from '@/utils/projectPath';
 
 /** A definition row: icon + label on the left, value on the right. */
 const Attr: FC<{ icon: ReactNode; label: string; children: ReactNode }> = ({
@@ -48,18 +48,27 @@ export const AboutPanel: FC<AboutPanelProps> = ({
   liveMode,
   autostart,
 }) => {
-  const projectName = dirname(generatorParams.path);
+  const project = projectOfConfig(generatorParams.path);
   const { data: generators } = useGenerators();
   const startTime = generators?.find((g) => g.id === instanceId)?.start_time;
 
   return (
     <Stack gap="md">
       <Attr icon={<IconFolder size={16} />} label="Project">
-        <RecordNameLink to={`${ROUTE_PATHS.PROJECTS}/${projectName}`}>
-          <Text size="sm" fw={500} truncate>
-            {projectName}
+        {project.inWorkspace ? (
+          <RecordNameLink to={`${ROUTE_PATHS.PROJECTS}/${project.name}`}>
+            <Text size="sm" fw={500} truncate>
+              {project.name}
+            </Text>
+          </RecordNameLink>
+        ) : (
+          // A configuration outside the workspace has no project page
+          // to open, so the path it was registered with is shown as it
+          // is - that is the only place it can be found.
+          <Text size="sm" fw={500} truncate title={generatorParams.path}>
+            {generatorParams.path}
           </Text>
-        </RecordNameLink>
+        )}
       </Attr>
       <Attr
         icon={

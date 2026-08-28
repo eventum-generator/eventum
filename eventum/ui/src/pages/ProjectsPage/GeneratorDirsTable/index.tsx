@@ -32,6 +32,11 @@ import { GeneratorDirsExtendedInfo } from '@/api/routes/generator-configs/schema
 
 export type UsageMode = 'all' | 'used' | 'unused';
 
+// Held apart from the props so an omitted filter is the same array on
+// every render: the effect below depends on its identity and writes
+// state, so a fresh literal would re-run it forever.
+const NO_INSTANCES: string[] = [];
+
 interface GeneratorDirsTableProps {
   data: GeneratorDirsExtendedInfo;
   projectNameFilter?: string;
@@ -39,10 +44,23 @@ interface GeneratorDirsTableProps {
   usageMode?: UsageMode;
 }
 
+/**
+ * The name of the control that sorts a column.
+ *
+ * The control is an icon alone, so it carries the name of the column it
+ * sorts - the header of that column when it is a word rather than a
+ * component of its own.
+ */
+function sortLabel(column: { id: string; columnDef: { header?: unknown } }) {
+  const header = column.columnDef.header;
+
+  return `Sort by ${typeof header === 'string' ? header.toLowerCase() : column.id}`;
+}
+
 export const GeneratorDirsTable: FC<GeneratorDirsTableProps> = ({
   data,
   projectNameFilter = '',
-  instancesFilter = [],
+  instancesFilter = NO_INSTANCES,
   usageMode = 'all',
 }) => {
   const [sorting, setSorting] = useState<SortingState>([
@@ -107,6 +125,7 @@ export const GeneratorDirsTable: FC<GeneratorDirsTableProps> = ({
                                   <ActionIcon
                                     variant="transparent"
                                     size="sm"
+                                    aria-label={sortLabel(header.column)}
                                     onClick={header.column.getToggleSortingHandler()}
                                   >
                                     <IconSortAscending size={16} />
@@ -116,6 +135,7 @@ export const GeneratorDirsTable: FC<GeneratorDirsTableProps> = ({
                                   <ActionIcon
                                     variant="transparent"
                                     size="sm"
+                                    aria-label={sortLabel(header.column)}
                                     onClick={header.column.getToggleSortingHandler()}
                                   >
                                     <IconSortDescending size={16} />
@@ -125,6 +145,7 @@ export const GeneratorDirsTable: FC<GeneratorDirsTableProps> = ({
                                   <ActionIcon
                                     variant="transparent"
                                     size="sm"
+                                    aria-label={sortLabel(header.column)}
                                     onClick={header.column.getToggleSortingHandler()}
                                   >
                                     <IconArrowsSort size={16} />

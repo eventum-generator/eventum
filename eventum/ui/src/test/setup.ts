@@ -72,3 +72,30 @@ class IntersectionObserverStub implements IntersectionObserver {
 
 globalThis.ResizeObserver = ResizeObserverStub;
 globalThis.IntersectionObserver = IntersectionObserverStub;
+
+// jsdom lays nothing out and so implements no scrolling. A dropdown
+// scrolls the option it selects into view a tick after it opens, which
+// lands after the test that opened it - an unhandled failure rather
+// than a failed assertion.
+Element.prototype.scrollIntoView = noop;
+
+// The code editor measures the text it draws to place its cursor, and
+// jsdom implements a Range without the geometry to answer with. The
+// measurement runs a tick after a keystroke, so what it throws lands
+// outside the test that typed - an unhandled failure rather than a
+// failed assertion.
+Range.prototype.getClientRects = function getClientRects() {
+  return Object.assign([], { item: () => null }) as unknown as DOMRectList;
+};
+Range.prototype.getBoundingClientRect = () =>
+  ({
+    x: 0,
+    y: 0,
+    width: 0,
+    height: 0,
+    top: 0,
+    right: 0,
+    bottom: 0,
+    left: 0,
+    toJSON: () => ({}),
+  }) as DOMRect;

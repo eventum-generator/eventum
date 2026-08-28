@@ -96,6 +96,7 @@ export const StdoutOutputPluginParams: FC<StdoutOutputPluginParamsProps> = ({
           <Group wrap="nowrap" gap="2px">
             <ActionIcon
               variant="transparent"
+              aria-label="Set tabulation as delimiter"
               title="Set tabulation as delimiter"
               onClick={() => {
                 form.setFieldValue('separator', '\t');
@@ -105,6 +106,7 @@ export const StdoutOutputPluginParams: FC<StdoutOutputPluginParamsProps> = ({
             </ActionIcon>
             <ActionIcon
               variant="transparent"
+              aria-label="Set LF as delimiter"
               title="Set LF as delimiter"
               onClick={() => {
                 form.setFieldValue('separator', '\n');

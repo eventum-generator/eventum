@@ -57,34 +57,6 @@ jobs:
       - name: Check types
         run: uv run mypy eventum/
 
-  ui:
-    name: Studio UI
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: pnpm/action-setup@v4
-        with:
-          package_json_file: eventum/ui/package.json
-      - uses: actions/setup-node@v4
-        with:
-          node-version: "24"
-          cache: pnpm
-          cache-dependency-path: eventum/ui/pnpm-lock.yaml
-      - name: Install dependencies
-        working-directory: eventum/ui
-        run: pnpm install --frozen-lockfile
-      - name: Check linting
-        working-directory: eventum/ui
-        run: pnpm lint
-      - name: Run tests
-        working-directory: eventum/ui
-        run: pnpm test
-      - name: Build
-        working-directory: eventum/ui
-        run: pnpm build
-      - name: Verify build output
-        run: test -f eventum/www/index.html || { echo "::error::UI build failed - index.html not found"; exit 1; }
-
   docker:
     name: Docker image
     runs-on: ubuntu-latest
@@ -130,3 +102,6 @@ jobs:
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
           files: coverage.xml
+          # Flagged, so the total stays readable now that the Studio
+          # uploads its own coverage under a flag of its own.
+          flags: backend

@@ -175,6 +175,9 @@ export const InstanceDetails: FC<InstanceDetailsProps> = ({
       position="right"
       size={400}
       padding="lg"
+      // The drawer draws the close for itself, and unnamed it is a
+      // control a reader is only told is a button.
+      closeButtonProps={{ 'aria-label': 'Close instance details' }}
       title={
         <Stack gap={0}>
           <Text fw={650} style={{ wordBreak: 'break-all' }}>

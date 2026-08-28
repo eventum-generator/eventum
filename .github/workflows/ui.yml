@@ -1,0 +1,79 @@
+name: Studio UI
+
+# Scoped to the UI package, so a change to the backend alone does not
+# install a node toolchain to check code it cannot have touched. The
+# filter lives at the workflow level because that is the only level
+# GitHub applies one at - the same reason the integration suite has a
+# workflow of its own.
+#
+# Note for whoever protects a branch: a job that is skipped by a path
+# filter never reports, so requiring this check would leave a
+# backend-only pull request pending. Require the Docker image job
+# instead - it builds the bundle on every change.
+on:
+  push:
+    branches: [master, develop]
+    paths:
+      - "eventum/ui/**"
+      - ".github/workflows/ui.yml"
+  pull_request:
+    branches: [master, develop]
+    paths:
+      - "eventum/ui/**"
+      - ".github/workflows/ui.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  checks:
+    name: Checks
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          package_json_file: eventum/ui/package.json
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          cache: pnpm
+          cache-dependency-path: eventum/ui/pnpm-lock.yaml
+      - name: Install dependencies
+        working-directory: eventum/ui
+        run: pnpm install --frozen-lockfile
+      - name: Check linting
+        working-directory: eventum/ui
+        run: pnpm lint
+      - name: Check stylesheet linting
+        working-directory: eventum/ui
+        run: pnpm lint:css
+      - name: Check formatting
+        working-directory: eventum/ui
+        run: pnpm format:check
+      - name: Run tests
+        working-directory: eventum/ui
+        run: pnpm test:coverage
+      - name: Upload coverage report
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: ui-coverage-report
+          path: eventum/ui/coverage/
+          retention-days: 30
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v5
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          files: eventum/ui/coverage/lcov.info
+          flags: ui
+      - name: Build
+        working-directory: eventum/ui
+        run: pnpm build
+      - name: Verify build output
+        run: test -f eventum/www/index.html || { echo "::error::UI build failed - index.html not found"; exit 1; }

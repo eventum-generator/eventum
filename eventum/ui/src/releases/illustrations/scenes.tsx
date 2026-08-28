@@ -37,7 +37,7 @@ const HOLD = '+1.7';
 const monitoringTake = (): AnimationSequence => [
   [part('cursor'), { left: '34%', top: '58%', opacity: [0, 1] }, REACH],
   [
-    part('tap'),
+    part('cursor-tap'),
     { scale: [0.4, 1.7], opacity: [0.85, 0] },
     { ...TAP, at: '-0.1' },
   ],
@@ -110,14 +110,14 @@ export const MonitoringScene: FC = () => (
 const archiveTake = (): AnimationSequence => [
   [part('cursor'), { left: '15%', top: '50%', opacity: [0, 1] }, REACH],
   [
-    part('tap'),
+    part('cursor-tap'),
     { scale: [0.4, 1.7], opacity: [0.85, 0] },
     { ...TAP, at: '-0.1' },
   ],
   [part('row'), { opacity: 1 }, { duration: 0.28, at: '<' }],
   [part('cursor'), { left: '46%', top: '50%' }, { ...REACH, at: '+0.45' }],
   [
-    part('tap'),
+    part('cursor-tap'),
     { scale: [0.4, 1.7], opacity: [0.85, 0] },
     { ...TAP, at: '-0.1' },
   ],
@@ -178,7 +178,7 @@ export const ProjectArchiveScene: FC = () => (
 const logChannelsTake = (): AnimationSequence => [
   [part('cursor'), { left: '38%', top: '20%', opacity: [0, 1] }, REACH],
   [
-    part('tap'),
+    part('cursor-tap'),
     { scale: [0.4, 1.7], opacity: [0.85, 0] },
     { ...TAP, at: '-0.1' },
   ],
@@ -283,7 +283,7 @@ export const QueueBytesScene: FC = () => (
 const resourcesTake = (): AnimationSequence => [
   [part('cursor'), { left: '43%', top: '19%', opacity: [0, 1] }, REACH],
   [
-    part('tap'),
+    part('cursor-tap'),
     { scale: [0.4, 1.7], opacity: [0.85, 0] },
     { ...TAP, at: '-0.1' },
   ],

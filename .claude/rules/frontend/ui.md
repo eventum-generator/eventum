@@ -62,7 +62,18 @@ Adding or modifying a plugin touches four places.
 
 `pnpm test` runs vitest over `src/**/*.test.{ts,tsx}` in jsdom. Tests sit next to the code they cover.
 
-- `src/test/setup.ts` - jest-dom matchers, unmount after each test, and the jsdom stubs the app mounts against (`matchMedia`, `ResizeObserver`, `IntersectionObserver`).
-- `src/test/render.tsx` - `renderWithProviders` mounts a component under the app theme and a query client of its own; page-specific providers are wrapped at the call site.
+- `src/test/setup.ts` - jest-dom matchers, unmount after each test, and the jsdom stubs the app mounts against.
+- `src/test/render.tsx` - `renderWithProviders` for a component, `renderHookWithClient` for a hook that acts on the query cache; page-specific providers are wrapped at the call site.
 - Data comes from mocking the `api/hooks/` module the component reads - tests never reach the network.
 - Drive interaction through `@testing-library/user-event`. Nothing in jsdom is laid out, so anything resting on real geometry belongs in a browser instead.
+- `pnpm test:coverage` gates on a threshold that sits just under what the suite covers. It is a ratchet: raise it as coverage grows, never lower it to make a red run green.
+- `eslint.config.js` turns a few rules off for `src/**/*.test.*` and `src/test/**`. Add one there only when it fires on the fixture rather than on the code under test.
+
+## Browser tests
+
+`pnpm test:e2e` builds the bundle and runs Playwright over `e2e/` against it, with a real backend started over a throwaway directory on a port of its own.
+
+- One backend serves every spec and keeps what they create: the suite is single-worker, resources are named through `uniqueName`, and a spec takes away anything later specs would trip over.
+- Locators go through roles and text. A control with no accessible name gets one in the component rather than a CSS selector; a figure that is not a control carries a `data-*` name.
+- Retries are off, so a spec that only passes on a retry stays visible as the race it is.
+- A flow that reaches outside the machine is answered from the browser (`page.route`) rather than left to someone else's rate limit.
