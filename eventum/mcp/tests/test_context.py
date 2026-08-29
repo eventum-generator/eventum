@@ -57,6 +57,7 @@ def test_server_live_context_is_both_protocols(tmp_path: Path) -> None:
         log_format='plain',
         settings=MagicMock(),
         hooks=MagicMock(),
+        repositories=MagicMock(),
     )
     assert isinstance(ctx, AuthoringContext)
     assert isinstance(ctx, LiveContext)
@@ -84,6 +85,7 @@ def test_server_live_context_reports_managed_ids(tmp_path: Path) -> None:
         log_format='plain',
         settings=MagicMock(),
         hooks=MagicMock(),
+        repositories=MagicMock(),
     )
     assert ctx.is_live_managed('live-one') is True
     assert ctx.is_live_managed('other') is False

@@ -1,0 +1,106 @@
+name: Browser Tests
+
+# The suite drives the packaged Studio against a real backend, so it is
+# slower and more sensitive to timing than the checks in CI. It runs on
+# pull requests and once a night rather than on every push.
+#
+# It is not scoped to the UI package: the flows go through the API and
+# the pipeline, so a backend change can break them without touching a
+# line of the frontend.
+#
+# A scheduled run only ever runs on the default branch, so the nightly
+# exercises what is released rather than what is merged - a regression
+# on a development branch is caught by the pull request run.
+on:
+  pull_request:
+    branches: [master, develop]
+    paths-ignore:
+      - "LICENSE"
+      - "**.md"
+      - "config/**"
+  schedule:
+    # 03:00 UTC daily.
+    - cron: '0 3 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  PYTHON_VERSION: '3.14'
+
+jobs:
+  e2e:
+    name: Studio flows
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          freethreaded: true
+      - name: Install backend dependencies
+        run: uv sync --group dev
+
+      - uses: pnpm/action-setup@v4
+        with:
+          package_json_file: eventum/ui/package.json
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          cache: pnpm
+          cache-dependency-path: eventum/ui/pnpm-lock.yaml
+      - name: Install UI dependencies
+        working-directory: eventum/ui
+        run: pnpm install --frozen-lockfile
+
+      # The browser is a ~150 MB download, keyed by the Playwright
+      # version so a bump fetches the build that version expects. Its
+      # system libraries are installed either way - they live outside
+      # the cached directory.
+      - name: Read the Playwright version
+        id: playwright
+        working-directory: eventum/ui
+        run: |
+          version=$(pnpm exec playwright --version | tr -d 'A-Za-z ')
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+      - name: Restore the browser
+        id: browser-cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ steps.playwright.outputs.version }}
+      - name: Install the browser
+        if: steps.browser-cache.outputs.cache-hit != 'true'
+        working-directory: eventum/ui
+        run: pnpm exec playwright install --with-deps chromium
+      - name: Install the browser system libraries
+        if: steps.browser-cache.outputs.cache-hit == 'true'
+        working-directory: eventum/ui
+        run: pnpm exec playwright install-deps chromium
+
+      # `test:e2e` builds the bundle first: the backend serves it from
+      # eventum/www, so a suite run without a build meets the previous
+      # one and passes on code that is no longer there.
+      - name: Run browser tests
+        working-directory: eventum/ui
+        run: pnpm test:e2e
+
+      - name: Upload the report
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: e2e-report
+          path: |
+            eventum/ui/e2e-report/
+            eventum/ui/e2e/.tmp/results/
+          retention-days: 30

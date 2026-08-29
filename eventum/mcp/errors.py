@@ -15,8 +15,15 @@ from eventum.exceptions import ContextualError
 
 # Context keys safe to expose to an external agent. Anything else is
 # dropped. `file_path` is relativized to generators_dir (never
-# absolute).
-_ALLOWED_KEYS = frozenset({'file_path', 'reason', 'value', 'name'})
+# absolute); `secret` is the name of a secret, which an agent may
+# already list, and never its value.
+_ALLOWED_KEYS = frozenset(
+    {'file_path', 'reason', 'value', 'name', 'hint', 'seconds', 'secret'},
+)
+
+# Free-text keys scrubbed of absolute paths and secret values before
+# they are forwarded.
+_SCRUBBED_KEYS = ('reason', 'hint')
 
 # Quoted absolute POSIX path token as produced by OSError str()
 # (e.g. "No such file or directory: '/abs/path/x.yml'"). Captures the
@@ -28,6 +35,14 @@ _QUOTED_ABS_PATH = re.compile(r"'/[^']*/([^/']+)'")
 # (which targets quoted OSError paths in structured tool errors): log
 # lines carry unquoted paths too, e.g. traceback frames.
 _ABS_PATH = re.compile(r"(^|[\s'\"=(,:])/(?:[\w.\-]+/)+([\w.\-]+)")
+
+# Quoted HTTP request line as produced by an access log
+# (e.g. "GET /api/instance/info HTTP/1.1"). Its target is the path the
+# client asked for, not a path on the host, and reducing it would leave
+# the access records unreadable - so it is kept out of path reduction.
+_REQUEST_LINE = re.compile(
+    r'"(?:GET|HEAD|POST|PUT|PATCH|DELETE|OPTIONS|TRACE) [^"]*"',
+)
 
 # Marker replacing redacted secret values inside reason text.
 _REDACTED = '[redacted]'
@@ -149,10 +164,11 @@ def scrub_context(
 
     Keys not in ``_ALLOWED_KEYS`` are dropped. ``file_path`` values
     are relativized to ``generators_dir``; if the path falls outside
-    that directory, only the final component is kept. A ``reason``
-    value is run through ``_scrub_reason`` so absolute paths embedded
-    in OS error / validation strings are stripped and any value in
-    ``redact_values`` is replaced with ``[redacted]``.
+    that directory, only the final component is kept. The free-text
+    ``reason`` and ``hint`` values are run through ``_scrub_reason``
+    so absolute paths embedded in OS error / validation strings are
+    stripped and any value in ``redact_values`` is replaced with
+    ``[redacted]``.
 
     This is the single scrub point for the context dict on both
     routes that expose it: direct per-event use (``preview_events``)
@@ -168,9 +184,9 @@ def scrub_context(
         Base directory used to relativize paths.
 
     redact_values : list[str] | None, default None
-        Secret values to replace with ``[redacted]`` in ``reason``.
-        Secret redaction applies only to values listed here; callers
-        running real configs must pass the config's resolved
+        Secret values to replace with ``[redacted]`` in the free-text
+        values. Secret redaction applies only to values listed here;
+        callers running real configs must pass the config's resolved
         ``${secrets.*}`` values.
 
     Returns
@@ -191,12 +207,13 @@ def scrub_context(
         else:
             out[key] = value
 
-    if 'reason' in out:
-        out['reason'] = _scrub_reason(
-            str(out['reason']),
-            base,
-            redact_values or [],
-        )
+    for key in _SCRUBBED_KEYS:
+        if key in out:
+            out[key] = _scrub_reason(
+                str(out[key]),
+                base,
+                redact_values or [],
+            )
 
     return out
 
@@ -284,9 +301,10 @@ def scrub_log_line(
     Redacts the listed secret values first (so a path-shaped secret is
     redacted whole), then relativizes the generators and logs
     directories and reduces any other absolute path to its final
-    component. Used by the log-reading tool; a log line is free-form
-    text, so this is a best-effort scrub over the listed secret values,
-    not a guarantee that every conceivable secret encoding is caught.
+    component, leaving the target of a quoted HTTP request line intact.
+    Used by the log-reading tools; a log line is free-form text, so this
+    is a best-effort scrub over the listed secret values, not a
+    guarantee that every conceivable secret encoding is caught.
 
     Parameters
     ----------
@@ -313,4 +331,19 @@ def scrub_log_line(
     for base in (generators_dir, logs_dir):
         line = _relativize_base(line, str(base.resolve()))
 
-    return _ABS_PATH.sub(r'\1\2', line)
+    return _reduce_paths(line)
+
+
+def _reduce_paths(line: str) -> str:
+    """Reduce absolute paths outside request lines to their basename."""
+    parts: list[str] = []
+    end = 0
+
+    for match in _REQUEST_LINE.finditer(line):
+        parts.append(_ABS_PATH.sub(r'\1\2', line[end : match.start()]))
+        parts.append(match.group())
+        end = match.end()
+
+    parts.append(_ABS_PATH.sub(r'\1\2', line[end:]))
+
+    return ''.join(parts)

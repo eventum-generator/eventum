@@ -1,15 +1,20 @@
 """Tests for InputStage."""
 
 import threading
+import time
+from collections.abc import Mapping, Sequence
 from pathlib import Path
 from unittest.mock import MagicMock
 
 import numpy as np
+import structlog.testing
 
-from eventum.core.parameters import GeneratorParameters
+from eventum.core.parameters import BatchParameters, GeneratorParameters
 from eventum.core.queue import PipelineQueue
 from eventum.core.stages.input_stage import InputStage
+from eventum.plugins.input.batcher import TimestampsBatcher
 from eventum.plugins.input.protocols import IdentifiedTimestamps
+from eventum.plugins.input.scheduler import BatchScheduler
 
 
 def _make_timestamps(
@@ -61,10 +66,11 @@ def _collect_output(output_q: PipelineQueue) -> list:
     """Drain all items from output queue until sentinel."""
     results = []
     while True:
-        item = output_q.get()
-        if item is None:
+        held = output_q.get()
+        held.release()
+        if held.item is None:
             break
-        results.append(item)
+        results.append(held.item)
     return results
 
 
@@ -80,7 +86,7 @@ def test_input_tags_map():
 
 
 def test_plugins_property():
-    """plugins property returns the plugin list."""
+    """Plugins property returns the plugin list."""
     p1 = _make_mock_input_plugin()
     stage = InputStage(plugins=[p1], params=_make_params())
     assert stage.plugins == [p1]
@@ -98,6 +104,108 @@ def test_configure_single_non_interactive():
 
     assert stage._configured_non_interactive is not None
     assert stage._configured_interactive is None
+
+
+def test_configure_live_mode_gives_batch_size_to_scheduler():
+    """Scheduler merges due batches up to the configured batch size."""
+    p1 = _make_mock_input_plugin(plugin_id=1, is_interactive=False)
+    stage = InputStage(
+        plugins=[p1],
+        params=_make_params(
+            live_mode=True,
+            batch=BatchParameters(size=500, delay=1.0),
+        ),
+    )
+    stage.configure(stop_event=threading.Event())
+
+    scheduler = stage._configured_non_interactive
+
+    assert isinstance(scheduler, BatchScheduler)
+    assert scheduler._max_batch_size == 500
+
+
+def test_configure_live_mode_keeps_interactive_batches_unmerged():
+    """Interactive plugins publish timestamps as they come."""
+    p1 = _make_mock_input_plugin(plugin_id=1, is_interactive=True)
+    stage = InputStage(
+        plugins=[p1],
+        params=_make_params(
+            live_mode=True,
+            batch=BatchParameters(size=500, delay=1.0),
+        ),
+    )
+    stage.configure(stop_event=threading.Event())
+
+    scheduler = stage._configured_interactive
+
+    assert isinstance(scheduler, BatchScheduler)
+    assert scheduler._max_batch_size is None
+
+
+def test_configure_sample_mode_leaves_batcher_unwrapped():
+    """Without live mode there is no scheduler to merge due batches."""
+    p1 = _make_mock_input_plugin(plugin_id=1, is_interactive=False)
+    stage = InputStage(plugins=[p1], params=_make_params(live_mode=False))
+    stage.configure(stop_event=threading.Event())
+
+    assert not isinstance(stage._configured_non_interactive, BatchScheduler)
+
+
+def test_configure_sample_mode_drops_delay():
+    """Sample mode delivers on no schedule, so size forms the batch."""
+    p1 = _make_mock_input_plugin(plugin_id=1, is_interactive=False)
+    stage = InputStage(
+        plugins=[p1],
+        params=_make_params(
+            live_mode=False,
+            batch=BatchParameters(size=500, delay=1.0),
+        ),
+    )
+    stage.configure(stop_event=threading.Event())
+
+    batcher = stage._configured_non_interactive
+
+    assert isinstance(batcher, TimestampsBatcher)
+    assert batcher._batch_size == 500
+    assert batcher._batch_delay is None
+
+
+def test_configure_sample_mode_keeps_delay_without_size():
+    """Delay is the only limit of the batch when size is not set."""
+    p1 = _make_mock_input_plugin(plugin_id=1, is_interactive=False)
+    stage = InputStage(
+        plugins=[p1],
+        params=_make_params(
+            live_mode=False,
+            batch=BatchParameters(delay=1.0),
+        ),
+    )
+    stage.configure(stop_event=threading.Event())
+
+    batcher = stage._configured_non_interactive
+
+    assert isinstance(batcher, TimestampsBatcher)
+    assert batcher._batch_size is None
+    assert batcher._batch_delay == 1.0
+
+
+def test_configure_live_mode_keeps_delay():
+    """Live mode delivers on a schedule, so delay bounds the lag."""
+    p1 = _make_mock_input_plugin(plugin_id=1, is_interactive=False)
+    stage = InputStage(
+        plugins=[p1],
+        params=_make_params(
+            live_mode=True,
+            batch=BatchParameters(size=500, delay=1.0),
+        ),
+    )
+    stage.configure(stop_event=threading.Event())
+
+    scheduler = stage._configured_non_interactive
+
+    assert isinstance(scheduler, BatchScheduler)
+    assert isinstance(scheduler._source, TimestampsBatcher)
+    assert scheduler._source._batch_delay == 1.0
 
 
 def test_configure_zero_plugins():
@@ -128,7 +236,7 @@ def test_execute_no_sources_closes_output():
     )
     stage_thread.start()
 
-    result = output_q.get()
+    result = output_q.get().item
     stage_thread.join(timeout=5)
 
     assert not stage_thread.is_alive()
@@ -264,7 +372,7 @@ def test_execute_plugin_generation_error():
     )
     stage_thread.start()
 
-    result = output_q.get()
+    result = output_q.get().item
     stage_thread.join(timeout=5)
 
     assert not stage_thread.is_alive()
@@ -320,3 +428,89 @@ def test_stop_interactive_plugins():
     p1.stop_interacting.assert_not_called()
     p2.stop_interacting.assert_called_once()
     p3.stop_interacting.assert_called_once()
+
+
+# - Backpressure ------------------------------------------------------
+
+
+def _run_stage_against_full_queue(
+    output_q: PipelineQueue,
+    *,
+    live_mode: bool,
+) -> threading.Thread:
+    """Run a stage against an output queue that is already full.
+
+    The queue is never drained, so the stage stays blocked on put right
+    after it has checked the queue for fullness. The queue has to be
+    shut down by the caller to release the stage.
+    """
+    source = _make_mock_source([_make_timestamps(count=1)])
+
+    stage = InputStage(
+        plugins=[_make_mock_input_plugin()],
+        params=_make_params(live_mode=live_mode),
+    )
+    stage._configured_non_interactive = source
+    stage._configured_interactive = None
+    stage._stop_event = threading.Event()
+
+    output_q.put(_make_timestamps(count=1))
+
+    thread = threading.Thread(
+        target=stage.execute,
+        kwargs={'output': output_q, 'skip_past': False},
+    )
+    thread.start()
+
+    return thread
+
+
+def _wait_for_warnings(
+    logs: Sequence[Mapping],
+    timeout: float = 5.0,
+) -> list[Mapping]:
+    """Wait until at least one warning is captured and return warnings."""
+    deadline = time.monotonic() + timeout
+
+    while time.monotonic() < deadline:
+        warnings = [e for e in logs if e['log_level'] == 'warning']
+        if warnings:
+            return warnings
+        time.sleep(0.01)
+
+    return []
+
+
+def test_full_output_queue_warns_in_live_mode():
+    """A full timestamps queue is reported as a lag with a hint."""
+    output_q: PipelineQueue[IdentifiedTimestamps] = PipelineQueue(maxsize=1)
+
+    with structlog.testing.capture_logs() as logs:
+        thread = _run_stage_against_full_queue(output_q, live_mode=True)
+        warnings = _wait_for_warnings(logs)
+        output_q.shutdown()
+        thread.join(timeout=5)
+
+    assert not thread.is_alive()
+    assert len(warnings) == 1
+    assert warnings[0]['hint']
+
+    # the stage cannot know the rate is the cause, so it must not claim it
+    assert 'EPS' not in warnings[0]['event']
+
+
+def test_full_output_queue_stays_silent_in_sample_mode():
+    """Sample mode has no schedule to lag behind, so a full queue is ok."""
+    output_q: PipelineQueue[IdentifiedTimestamps] = PipelineQueue(maxsize=1)
+
+    with structlog.testing.capture_logs() as logs:
+        thread = _run_stage_against_full_queue(output_q, live_mode=False)
+
+        # the check precedes the put, so by the time the stage blocks
+        # on it the stage has already decided to stay silent
+        time.sleep(0.1)
+        output_q.shutdown()
+        thread.join(timeout=5)
+
+    assert not thread.is_alive()
+    assert not [entry for entry in logs if entry['log_level'] == 'warning']

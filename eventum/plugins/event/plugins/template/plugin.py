@@ -2,7 +2,6 @@
 
 from collections.abc import MutableMapping
 from copy import copy
-from threading import RLock
 from typing import Any, NotRequired, override
 
 from jinja2 import (
@@ -45,10 +44,6 @@ from eventum.plugins.event.plugins.template.sample_reader import (
     SampleLoadError,
     SamplesReader,
 )
-from eventum.plugins.event.plugins.template.state import (
-    MultiThreadState,
-    SingleThreadState,
-)
 from eventum.plugins.event.plugins.template.subprocess_runner import (
     SubprocessRunner,
 )
@@ -56,6 +51,7 @@ from eventum.plugins.event.plugins.template.template_pickers import (
     TemplatePicker,
     get_picker_class,
 )
+from eventum.plugins.event.state import SingleThreadState
 from eventum.plugins.exceptions import PluginConfigurationError
 from eventum.utils.traceback_utils import shorten_traceback
 
@@ -80,8 +76,6 @@ class TemplateEventPlugin(
     """Event plugin for producing events using templates."""
 
     _JINJA_EXTENSIONS = ('jinja2.ext.do', 'jinja2.ext.loopcontrols')
-
-    GLOBAL_STATE = MultiThreadState(lock=RLock())
 
     @override
     def __init__(
@@ -110,9 +104,6 @@ class TemplateEventPlugin(
 
         self._logger.debug('Initializing shared state')
         self._shared_state = SingleThreadState()
-
-        self._logger.debug('Connecting to global state')
-        self._global_state = TemplateEventPlugin.GLOBAL_STATE
 
         loader = params.get('templates_loader', None)
         if loader is None:
@@ -404,6 +395,28 @@ class TemplateEventPlugin(
 
     @override
     def _produce(self, params: ProduceParams) -> list[str]:
+        return self._pick_and_render(params)
+
+    def _pick_and_render(self, params: ProduceParams) -> list[str]:
+        """Pick templates and render them, repicking on request.
+
+        Returns
+        -------
+        list[str]
+            Rendered events.
+
+        Raises
+        ------
+        PluginEventDroppedError
+            If a template dropped the event.
+
+        PluginEventsExhaustedError
+            If a template signalled the end of generation.
+
+        PluginProduceError
+            If rendering failed or the repick limit is exceeded.
+
+        """
         self._event_context['timestamp'] = params['timestamp']
         self._event_context['tags'] = params['tags']
 
@@ -455,11 +468,6 @@ class TemplateEventPlugin(
     def shared_state(self) -> SingleThreadState:
         """Shared state of templates."""
         return self._shared_state
-
-    @property
-    def global_state(self) -> MultiThreadState:
-        """Global state of templates."""
-        return self._global_state
 
     @property
     def subprocess_runner(self) -> SubprocessRunner:

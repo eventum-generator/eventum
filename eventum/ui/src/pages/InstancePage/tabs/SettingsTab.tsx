@@ -133,6 +133,10 @@ export const SettingsTab: FC<SettingsTabProps> = ({ form }) => {
             disabled={!liveMode}
           >
             <Switch
+              // The title of the setting sits across the row from the
+              // switch rather than beside it, so the switch names
+              // itself - otherwise it is a control with no name.
+              aria-label="Skip past timestamps"
               {...form.getInputProps('skip_past', { type: 'checkbox' })}
               key={form.key('skip_past')}
               disabled={!liveMode}
@@ -147,6 +151,7 @@ export const SettingsTab: FC<SettingsTabProps> = ({ form }) => {
             description="Start this instance automatically when the application launches."
           >
             <Switch
+              aria-label="Autostart"
               {...form.getInputProps('autostart', { type: 'checkbox' })}
               key={form.key('autostart')}
             />
@@ -167,8 +172,11 @@ export const SettingsTab: FC<SettingsTabProps> = ({ form }) => {
               validationError="Invalid JSON"
               minRows={4}
               autosize
+              // No parameters is an empty object rather than an empty
+              // string: the field holds an object, and a string in it
+              // parses but is never a value the form can take.
               defaultValue={JSON.stringify(
-                form.getValues().params ?? '',
+                form.getValues().params ?? {},
                 undefined,
                 2
               )}
@@ -202,6 +210,7 @@ export const SettingsTab: FC<SettingsTabProps> = ({ form }) => {
       <Section label="Generation">
         <GenerationParametersSection
           form={form as unknown as UseFormReturnType<GenerationParameters>}
+          liveMode={liveMode}
         />
       </Section>
     </Stack>

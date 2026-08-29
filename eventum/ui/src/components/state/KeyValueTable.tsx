@@ -223,6 +223,7 @@ export function KeyValueTable({
               <ActionIcon
                 variant="default"
                 size={actionIconSize}
+                aria-label="Refresh"
                 onClick={onRefetch}
                 loading={isLoading}
               >
@@ -233,6 +234,7 @@ export function KeyValueTable({
               <ActionIcon
                 variant="default"
                 size={actionIconSize}
+                aria-label="Add key"
                 onClick={addHandlers.open}
                 disabled={!isSuccess}
               >
@@ -243,6 +245,7 @@ export function KeyValueTable({
               <ActionIcon
                 variant="default"
                 size={actionIconSize}
+                aria-label="Clear all"
                 onClick={handleClear}
                 disabled={!isSuccess || entries.length === 0}
                 loading={isClearPending}

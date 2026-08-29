@@ -50,18 +50,21 @@ export const Attr: FC<{ label: string; children: ReactNode }> = ({
   </Group>
 );
 
-/** The mono, tabular value style used for every identity value. */
-export const AttrValue: FC<{ title?: string; children: ReactNode }> = ({
-  title,
-  children,
-}) => (
+/** The mono, tabular value style used for every identity value. `color`
+ *  is for the values that carry a state rather than a fact; left unset,
+ *  the value reads in the default text color like every other one. */
+export const AttrValue: FC<{
+  title?: string;
+  color?: string;
+  children: ReactNode;
+}> = ({ title, color, children }) => (
   <Text
     size="sm"
     fw={500}
     ff="monospace"
     title={title}
     truncate
-    style={{ fontVariantNumeric: 'tabular-nums' }}
+    style={{ fontVariantNumeric: 'tabular-nums', color }}
   >
     {children}
   </Text>

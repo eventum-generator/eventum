@@ -35,9 +35,13 @@ export function useUpdateInstanceSettingsMutation() {
   return useMutation({
     mutationFn: ({ settings }: { settings: Settings }) =>
       updateInstanceSettings(settings),
-    onSuccess: (data) => {
-      queryClient.setQueryData(INSTANCE_SETTINGS_QUERY_KEY, data);
-    },
+    // The endpoint answers without a body, so what was written is only
+    // known by reading it back - the instance normalises the settings
+    // it stores and restarts on them.
+    onSuccess: () =>
+      queryClient.invalidateQueries({
+        queryKey: INSTANCE_SETTINGS_QUERY_KEY,
+      }),
   });
 }
 

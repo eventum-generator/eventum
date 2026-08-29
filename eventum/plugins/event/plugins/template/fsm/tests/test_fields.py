@@ -34,7 +34,7 @@ from eventum.plugins.event.plugins.template.fsm.fields import (
     Or,
     TimestampComponents,
 )
-from eventum.plugins.event.plugins.template.state import (
+from eventum.plugins.event.state import (
     SingleThreadState as State,
 )
 

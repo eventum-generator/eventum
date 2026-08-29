@@ -423,7 +423,7 @@ def _load_csv_sample(config: CSVSampleConfig, base_path: Path) -> Sample:
     else:
         resolved_path = base_path / config.source
 
-    with resolved_path.open() as f:
+    with resolved_path.open(encoding='utf-8') as f:
         try:
             data.load(
                 in_stream=f,
@@ -476,7 +476,7 @@ def _load_json_sample(config: JSONSampleConfig, base_path: Path) -> Sample:
     else:
         resolved_path = base_path / config.source
 
-    with resolved_path.open() as f:
+    with resolved_path.open(encoding='utf-8') as f:
         content = f.read()
 
     data = tablib.Dataset()

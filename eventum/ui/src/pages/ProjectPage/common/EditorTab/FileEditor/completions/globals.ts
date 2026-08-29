@@ -22,6 +22,14 @@ const templateStateCompletionMembers: Record<string, NamespaceMember> = {
       info: '(key: str, value: Any) -> None',
     },
   },
+  pop: {
+    completion: {
+      label: 'pop',
+      type: 'function',
+      detail: 'Get value from state and remove it',
+      info: '(key: str, default: Any = None) -> Any',
+    },
+  },
   update: {
     completion: {
       label: 'update',
@@ -64,6 +72,14 @@ const templateGlobalStateCompletionMembers: Record<string, NamespaceMember> = {
       type: 'function',
       detail: 'Release state lock',
       info: '() -> None',
+    },
+  },
+  release_if_held: {
+    completion: {
+      label: 'release_if_held',
+      type: 'function',
+      detail: 'Release every hold on the state lock',
+      info: '() -> int',
     },
   },
 };
@@ -597,7 +613,7 @@ const namespaceCompletions: NamespaceMember = {
       completion: {
         label: 'globals',
         type: 'namespace',
-        detail: 'Global state of templates withing all generators',
+        detail: 'Global state shared across all generators',
       },
       members: templateGlobalStateCompletionMembers,
     },

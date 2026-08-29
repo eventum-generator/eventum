@@ -42,14 +42,31 @@ Confirm the version bump with the user before continuing.
 
 ### 2. Changelog
 
-Two artifacts across two repos, each in its own voice:
+Three artifacts across two repos, each in its own voice:
 
 - `eventum` on `develop` - rename `## Unreleased` in `CHANGELOG.md` to `## <version> (<date>)` in YYYY-MM-DD form. When no `Unreleased` section exists, build the section from `git log <latest-tag>..HEAD`. Always re-check the resulting list against `git log <latest-tag>..HEAD` even when an `Unreleased` section was already present - small fixes often land without a CHANGELOG entry. Fill gaps, polish wording. Technical voice, for developers.
+- `eventum` on `develop` - the panels Studio shows after an upgrade, in `eventum/ui/src/releases/index.ts`. Set the newest entry to `<version>` (one is usually already staged from the cycle), point its `changelogHref` at the new page, and check its panels against the changelog. A guard test fails when the newest entry is older than the shipped version.
 - `../docs` - new page at `content/docs/changelog/<version>.mdx`, registered in `content/docs/changelog/meta.json`. User-facing voice: describe what changed for the end user (not developer) - not a one-to-one copy of the CHANGELOG entry. Commits land on a dedicated branch in step 6.
+
+#### The release panels
+
+Scenes live in `eventum/ui/src/releases/illustrations/`, drawn from the primitives in `scene.tsx`. One panel per user-visible change, an opening title card first, ordered by weight.
+
+- **Show the screen, not a metaphor.** Base a panel on the Studio screen the feature lives on - the real controls, the real gesture, the pointer moving and clicking. Abstract only where it clarifies, and only where no single screen exists. Real screenshots to work from: `../docs/public/images/studio_ui/`.
+- **A take is three to five beats**, paced so each is readable before the next. One beat reads as a wireframe twitching.
+- **Everything sits on a surface.** A row on the bare grid looks unfinished.
+- **Titles and bodies** follow the changelog rules: plain verb, no slogans, no internal constants.
+- **Declare the still.** No take plays under `prefers-reduced-motion`, so mark with `rest` the switched-on states that belong in the resting frame. A long take otherwise leaves two states drawn over each other - an empty search box reading `3 running`, a mask under a filled field.
+- **Motion writes the whole `transform`.** Animating `x`/`y` on a part that CSS centres destroys its placement; separate placement from paint instead.
+- **Size a part against its own container.** A knob measured in `cqw` fits one track and spills out of the next.
+- Every scene joins the `SCENES` list in `scenes.test.tsx`; the guard tests check that a take addresses only parts its scene draws.
+
+Verify by looking, not by reading code. Rebuild (`pnpm build` writes `eventum/www/`), then drive the running Studio with Playwright: sign in, set `localStorage['release-highlights-seen']` to the previous version, load `/`. Sample each panel at several points across its loop, in both colour schemes and once with `reducedMotion: 'reduce'`, and measure two things - every part's bounding box inside its parent's, and no two rows sharing a line **while the take runs** (a check that clears transforms first only sees the resting layout and misses collisions in flight).
 
 ### 3. Version bump and API reference
 
 - `eventum/__init__.py`: `__version__ = '<version>'`.
+- On a minor or major release, `.github/ISSUE_TEMPLATE/bug_report.yml`: add `<major>.<minor>.x` at the top of the **Version** dropdown, drop the oldest of the three explicit entries and roll it into the catch-all below them (`2.4.x or older` becomes `2.5.x or older`). Reporters pick the version from that list, so a missing entry sends them to the wrong one.
 - Export the OpenAPI schema and regenerate the reference pages, in that order and only after the bump - the schema carries `info.version`, so exporting first publishes the previous version. Commands are in `.claude/rules/backend/api.md`. Both outputs land in `../docs` and are committed in step 6.
 
 The export is mandatory: nothing else keeps the published reference in sync, so skipping it leaves the site describing an older API for the whole release cycle.
@@ -61,7 +78,7 @@ uv run ruff check .
 uv run ruff format --check .
 uv run mypy eventum/
 uv run pytest --ignore=tests/integration
-(cd eventum/ui && pnpm test --run)
+(cd eventum/ui && pnpm test:coverage)
 (cd ../docs && pnpm build)
 ```
 
@@ -74,7 +91,7 @@ All green is required to advance. On failure, fix in step 2 or 3 and re-run; if 
 Show the user:
 
 - Version bump diff.
-- Changelog entries (CHANGELOG.md + docs MDX).
+- Changelog entries (CHANGELOG.md + docs MDX) and the Studio release panels.
 - API reference diff summary - the exported schema and the regenerated pages.
 - Verification results.
 - What happens next: commits, push, two PRs, user merges both, tag, GitHub release, announcement.

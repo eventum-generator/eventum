@@ -7,6 +7,7 @@ import click
 import structlog
 
 import eventum.logging.config as logconf
+from eventum.logging.channels import bind_component
 
 logger = structlog.stdlib.get_logger()
 
@@ -27,6 +28,16 @@ LOG_LEVELS = get_args(logconf.LogLevel.__value__)
     help='Generator config filename inside each generator directory.',
 )
 @click.option(
+    '--repositories',
+    type=click.Path(dir_okay=False, resolve_path=True),
+    default=None,
+    help=(
+        'Path to the file listing connected generator repositories. '
+        'Defaults to "repositories.yml" next to the generators '
+        'directory, where an instance keeps it.'
+    ),
+)
+@click.option(
     '--read-only',
     is_flag=True,
     default=False,
@@ -45,9 +56,10 @@ LOG_LEVELS = get_args(logconf.LogLevel.__value__)
     default=None,
     help='Path to the keyring cryptfile that list_secret_names reads.',
 )
-def cli(
+def cli(  # noqa: PLR0913 - one argument per exposed option
     generators_dir: str,
     config_filename: str,
+    repositories: str | None,
     read_only: bool,  # noqa: FBT001
     log_level: logconf.LogLevel,
     keyring_cryptfile: str | None,
@@ -59,6 +71,8 @@ def cli(
     """
     # Stdout is the MCP JSON-RPC channel - route logs to stderr only.
     logconf.use_stderr(level=log_level)
+
+    bind_component('mcp')
 
     if keyring_cryptfile is not None:
         from eventum.security.manage import SECURITY_SETTINGS
@@ -72,6 +86,9 @@ def cli(
         generators_dir=Path(generators_dir),
         read_only=read_only,
         config_filename=config_filename,
+        repositories_file=(
+            Path(repositories) if repositories is not None else None
+        ),
     )
     server = build_server(context)
     logger.info(
@@ -79,4 +96,10 @@ def cli(
         mcp_transport='stdio',
         read_only=read_only,
     )
-    server.run(transport='stdio')
+
+    try:
+        server.run(transport='stdio')
+    finally:
+        # Reading a catalog leaves a clone of the repository behind,
+        # which the service keeps for as long as it serves.
+        context.repositories.close()

@@ -3,7 +3,7 @@
 from datetime import datetime
 from typing import TypedDict
 
-from eventum.plugins.event.plugins.template.state import State
+from eventum.plugins.event.state import State
 
 
 class BaseEventContext(TypedDict):
@@ -48,7 +48,7 @@ class EventStateContext(BaseEventContext):
         Shared state of templates.
 
     globals : State
-        Global inter process state of templates.
+        Global state shared with all generators in the process.
 
     """
 

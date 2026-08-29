@@ -8,13 +8,13 @@ import {
   IconWorld,
 } from '@tabler/icons-react';
 import { formatDistanceToNow } from 'date-fns';
-import { dirname } from 'pathe';
 import { FC, ReactNode } from 'react';
 
 import { useGenerators } from '@/api/hooks/useGenerators';
 import { GeneratorParameters } from '@/api/routes/generators/schemas';
 import { RecordNameLink } from '@/components/ui/RecordNameLink';
 import { ROUTE_PATHS } from '@/routing/paths';
+import { projectOfConfig } from '@/utils/projectPath';
 
 /** A definition row: icon + label on the left, value on the right. */
 const Attr: FC<{ icon: ReactNode; label: string; children: ReactNode }> = ({
@@ -35,38 +35,6 @@ const Attr: FC<{ icon: ReactNode; label: string; children: ReactNode }> = ({
   </Group>
 );
 
-/** A small on/off state chip: a coloured dot and label in a bordered pill. */
-const StateChip: FC<{ on: boolean }> = ({ on }) => (
-  <span
-    style={{
-      display: 'inline-flex',
-      alignItems: 'center',
-      gap: 6,
-      height: 20,
-      padding: '0 8px',
-      borderRadius: 999,
-      border: '1px solid var(--mantine-color-default-border)',
-      fontSize: 11,
-      fontWeight: 600,
-      color: on
-        ? 'var(--mantine-color-green-text)'
-        : 'var(--mantine-color-dimmed)',
-    }}
-  >
-    <span
-      style={{
-        width: 6,
-        height: 6,
-        borderRadius: '50%',
-        background: on
-          ? 'var(--mantine-color-green-text)'
-          : 'var(--mantine-color-dimmed)',
-      }}
-    />
-    {on ? 'On' : 'Off'}
-  </span>
-);
-
 interface AboutPanelProps {
   instanceId: string;
   generatorParams: GeneratorParameters;
@@ -80,18 +48,27 @@ export const AboutPanel: FC<AboutPanelProps> = ({
   liveMode,
   autostart,
 }) => {
-  const projectName = dirname(generatorParams.path);
+  const project = projectOfConfig(generatorParams.path);
   const { data: generators } = useGenerators();
   const startTime = generators?.find((g) => g.id === instanceId)?.start_time;
 
   return (
     <Stack gap="md">
       <Attr icon={<IconFolder size={16} />} label="Project">
-        <RecordNameLink to={`${ROUTE_PATHS.PROJECTS}/${projectName}`}>
-          <Text size="sm" fw={500} truncate>
-            {projectName}
+        {project.inWorkspace ? (
+          <RecordNameLink to={`${ROUTE_PATHS.PROJECTS}/${project.name}`}>
+            <Text size="sm" fw={500} truncate>
+              {project.name}
+            </Text>
+          </RecordNameLink>
+        ) : (
+          // A configuration outside the workspace has no project page
+          // to open, so the path it was registered with is shown as it
+          // is - that is the only place it can be found.
+          <Text size="sm" fw={500} truncate title={generatorParams.path}>
+            {generatorParams.path}
           </Text>
-        </RecordNameLink>
+        )}
       </Attr>
       <Attr
         icon={
@@ -108,7 +85,9 @@ export const AboutPanel: FC<AboutPanelProps> = ({
         </Text>
       </Attr>
       <Attr icon={<IconRocket size={16} />} label="Autostart">
-        <StateChip on={autostart} />
+        <Text size="sm" fw={500} c={autostart ? undefined : 'dimmed'}>
+          {autostart ? 'On' : 'Off'}
+        </Text>
       </Attr>
       <Attr icon={<IconWorld size={16} />} label="Timezone">
         <Text size="sm" fw={500}>

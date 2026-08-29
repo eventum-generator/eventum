@@ -100,12 +100,12 @@ def test_execute_happy_path():
         executor._timestamps_queue.close()
 
     def mock_event_stage():
-        while executor._timestamps_queue.get() is not None:
+        while executor._timestamps_queue.get().item is not None:
             pass
         executor._events_queue.close()
 
     def mock_output_stage():
-        while executor._events_queue.get() is not None:
+        while executor._events_queue.get().item is not None:
             pass
 
     executor._run_input_stage = mock_input_stage
@@ -128,12 +128,12 @@ def test_execute_output_error_reraised():
         executor._timestamps_queue.close()
 
     def mock_event_stage():
-        while executor._timestamps_queue.get() is not None:
+        while executor._timestamps_queue.get().item is not None:
             pass
         executor._events_queue.close()
 
     def mock_output_stage():
-        while executor._events_queue.get() is not None:
+        while executor._events_queue.get().item is not None:
             pass
         executor._execution_error = ExecutionError(
             'output failed',
@@ -166,7 +166,7 @@ def test_execute_unexpected_output_error_aborts_upstream():
 
     def mock_event_stage():
         try:
-            while executor._timestamps_queue.get() is not None:
+            while executor._timestamps_queue.get().item is not None:
                 pass
             executor._events_queue.close()
         except queue_mod.ShutDown:
@@ -272,6 +272,29 @@ def test_queue_sizes_from_params():
     )
     assert executor._timestamps_queue._queue.maxsize == 5
     assert executor._events_queue._queue.maxsize == 3
+
+
+def test_queue_usage_reports_fill_levels():
+    """Queue usage reports waiting batches against the capacities."""
+    executor = Executor(
+        input=[_make_mock_input_plugin()],
+        event=_make_mock_event_plugin(),
+        output=[_make_mock_output_plugin()],
+        params=_make_params(
+            queue={'max_timestamp_batches': 5, 'max_event_batches': 3},
+        ),
+    )
+
+    usage = executor.queue_usage()
+
+    assert usage.timestamps.size == 0
+    assert usage.timestamps.maxsize == 5
+    assert usage.events.size == 0
+    assert usage.events.maxsize == 3
+
+    executor._events_queue.put(['event'])
+
+    assert executor.queue_usage().events.size == 1
 
 
 def test_skip_past_computed():

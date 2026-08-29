@@ -190,13 +190,14 @@ class ServiceManager:
 
         config = self._build_config_dict(paths)
 
-        with paths.config_file.open('w') as f:
+        with paths.config_file.open('w', encoding='utf-8') as f:
             f.write(CONFIG_HEADER)
             yaml.dump(
                 config,
                 f,
                 default_flow_style=False,
                 sort_keys=False,
+                allow_unicode=True,
             )
 
         return True
@@ -213,7 +214,7 @@ class ServiceManager:
         if paths.startup_file.exists():
             return False
 
-        paths.startup_file.write_text(STARTUP_CONTENT)
+        paths.startup_file.write_text(STARTUP_CONTENT, encoding='utf-8')
         return True
 
     def create_cryptfile(self, paths: ServicePaths) -> bool:
@@ -261,7 +262,7 @@ class ServiceManager:
             raise ServiceAlreadyInstalledError(msg)
 
         paths.unit_file.parent.mkdir(parents=True, exist_ok=True)
-        paths.unit_file.write_text(content)
+        paths.unit_file.write_text(content, encoding='utf-8')
 
         self._daemon_reload()
 
@@ -378,7 +379,7 @@ class ServiceManager:
     @staticmethod
     def _extract_config_path(unit_file: Path) -> Path | None:
         """Extract config path from ExecStart in unit file."""
-        content = unit_file.read_text()
+        content = unit_file.read_text(encoding='utf-8')
         for raw_line in content.splitlines():
             stripped = raw_line.strip()
             if stripped.startswith('ExecStart='):

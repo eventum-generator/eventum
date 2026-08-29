@@ -51,6 +51,23 @@ class AggregatedTimestamps(BaseModel, frozen=True, extra='forbid'):
     timestamps: list[datetime] | None
 
 
+class ProduceParamsRequest(BaseModel, frozen=True, extra='forbid'):
+    """Request model with parameters of producing a single event.
+
+    Attributes
+    ----------
+    timestamp : datetime
+        Timestamp of event.
+
+    tags : tuple[str, ...]
+        Tags of the input plugin that generated the timestamp.
+
+    """
+
+    timestamp: datetime
+    tags: tuple[str, ...]
+
+
 class ProduceEventErrorInfo(BaseModel, frozen=True, extra='forbid'):
     """Information about errors related to events producing.
 

@@ -1,0 +1,67 @@
+"""Connected generator repositories."""
+
+from eventum.app.repositories.discovery import (
+    DISCOVERY_TOPIC,
+    MAX_DISCOVERY_PAGE,
+    MAX_DISCOVERY_QUERY_LENGTH,
+)
+from eventum.app.repositories.exceptions import (
+    CatalogEntryNotFoundError,
+    CatalogError,
+    InstallConflictError,
+    InstallContentError,
+    InstallError,
+    InstallNameError,
+    RepositoryConflictError,
+    RepositoryDiscoveryError,
+    RepositoryDiscoveryLimitError,
+    RepositoryError,
+    RepositoryFetchError,
+    RepositoryNotFoundError,
+    RepositorySecretError,
+)
+from eventum.app.repositories.models import (
+    Catalog,
+    CatalogEntry,
+    ConnectedRepository,
+    DiscoveredRepository,
+    Discovery,
+    DiscoveryRate,
+    GeneratorSource,
+    InstalledProject,
+    Repository,
+    RepositoryList,
+    RepositoryStatus,
+)
+from eventum.app.repositories.service import Repositories
+
+__all__ = [
+    'DISCOVERY_TOPIC',
+    'MAX_DISCOVERY_PAGE',
+    'MAX_DISCOVERY_QUERY_LENGTH',
+    'Catalog',
+    'CatalogEntry',
+    'CatalogEntryNotFoundError',
+    'CatalogError',
+    'ConnectedRepository',
+    'DiscoveredRepository',
+    'Discovery',
+    'DiscoveryRate',
+    'GeneratorSource',
+    'InstallConflictError',
+    'InstallContentError',
+    'InstallError',
+    'InstallNameError',
+    'InstalledProject',
+    'Repositories',
+    'Repository',
+    'RepositoryConflictError',
+    'RepositoryDiscoveryError',
+    'RepositoryDiscoveryLimitError',
+    'RepositoryError',
+    'RepositoryFetchError',
+    'RepositoryList',
+    'RepositoryNotFoundError',
+    'RepositorySecretError',
+    'RepositoryStatus',
+]

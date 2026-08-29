@@ -3,7 +3,6 @@ import {
   JsonInput,
   NumberInput,
   Paper,
-  PasswordInput,
   Select,
   Stack,
   Switch,
@@ -25,6 +24,8 @@ import {
   SECURITY_PROTOCOLS,
 } from '@/api/routes/generator-configs/schemas/plugins/output/configs/kafka';
 import { LabelWithTooltip } from '@/components/ui/LabelWithTooltip';
+import { SecretPasswordInput } from '@/components/ui/SecretPasswordInput';
+import { useOpenSecretsPage } from '@/utils/useOpenSecretsPage';
 
 interface KafkaOutputPluginParamsProps {
   initialConfig: KafkaOutputPluginConfig;
@@ -35,6 +36,7 @@ export const KafkaOutputPluginParams: FC<KafkaOutputPluginParamsProps> = ({
   initialConfig,
   onChange,
 }) => {
+  const openSecretsPage = useOpenSecretsPage();
   const form = useForm<KafkaOutputPluginConfig>({
     initialValues: initialConfig,
     validate: zod4Resolver(KafkaOutputPluginConfigSchema),
@@ -489,7 +491,8 @@ export const KafkaOutputPluginParams: FC<KafkaOutputPluginParamsProps> = ({
                 )
               }
             />
-            <PasswordInput
+            <SecretPasswordInput
+              onOpenSecrets={openSecretsPage}
               label={
                 <LabelWithTooltip
                   label="SASL password"
@@ -500,9 +503,7 @@ export const KafkaOutputPluginParams: FC<KafkaOutputPluginParamsProps> = ({
               onChange={(value) =>
                 form.setFieldValue(
                   'sasl_plain_password',
-                  value.currentTarget.value !== ''
-                    ? value.currentTarget.value
-                    : undefined
+                  value !== '' ? value : undefined
                 )
               }
             />

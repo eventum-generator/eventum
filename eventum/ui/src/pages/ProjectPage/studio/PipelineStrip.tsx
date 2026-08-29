@@ -38,6 +38,9 @@ export const PipelineStrip: FC = () => {
           <button
             type="button"
             className="studio-stage"
+            // Spelled out, so the step number and the plugin summary a
+            // sighted user reads are not lost to whoever is read to.
+            aria-label={`${index + 1} ${stage.label} stage, ${stage.summary}`}
             data-active={stage.key === activeStage}
             onClick={() => setActiveStage(stage.key)}
           >

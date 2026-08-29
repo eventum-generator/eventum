@@ -7,6 +7,7 @@ from fastapi import Depends, FastAPI, Request, WebSocket
 from eventum.app.hooks import InstanceHooks
 from eventum.app.manager import GeneratorManager
 from eventum.app.models.settings import Settings
+from eventum.app.repositories import Repositories
 from eventum.app.startup import Startup
 
 
@@ -120,6 +121,29 @@ async def get_startup(app: AppDep) -> Startup:
 StartupDep = Annotated[
     Startup,
     Depends(get_startup),
+]
+
+
+async def get_repositories(app: AppDep) -> Repositories:
+    """Get Repositories entry point.
+
+    Parameters
+    ----------
+    app : AppDep
+        App dependency.
+
+    Returns
+    -------
+    Repositories
+        Repositories entry point held on app state.
+
+    """
+    return app.state.repositories
+
+
+RepositoriesDep = Annotated[
+    Repositories,
+    Depends(get_repositories),
 ]
 
 

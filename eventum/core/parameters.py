@@ -59,10 +59,25 @@ class QueueParameters(BaseModel, extra='forbid', frozen=True):
     max_event_batches : int, default=10
         Maximum number of batches in events queue.
 
+    max_event_bytes : int | None, default=268435456
+        Maximum number of bytes the batches waiting in events queue
+        occupy together, `None` to leave their size unlimited.
+
+    Notes
+    -----
+    Both limits of the events queue apply, whichever is reached first.
+    The number of batches alone does not bound the memory the queue
+    holds, since the size of an event is up to the templates; a batch
+    larger than the whole byte limit still passes, since holding it back
+    would stall the pipeline for good. The byte limit covers the queue
+    alone - what a generator occupies while producing and writing a
+    batch follows the batch size.
+
     """
 
     max_timestamp_batches: int = Field(default=10, ge=1)
     max_event_batches: int = Field(default=10, ge=1)
+    max_event_bytes: int | None = Field(default=268_435_456, ge=1)
 
 
 class GenerationParameters(BaseModel, extra='forbid', frozen=True):

@@ -3,7 +3,6 @@
 import os
 import signal
 import sys
-import warnings
 from pathlib import Path
 from typing import Literal, NoReturn
 
@@ -24,6 +23,7 @@ from eventum.cli.pydantic_converter import from_model
 from eventum.cli.splash_screen import SPLASH_SCREEN
 from eventum.core.generator import Generator
 from eventum.core.parameters import GeneratorParameters
+from eventum.logging.channels import bind_component
 from eventum.security.manage import SECURITY_SETTINGS
 from eventum.utils.dotted_keys import DottedKeyError, expand_dotted_keys
 from eventum.utils.validation_prettier import prettify_validation_errors
@@ -50,7 +50,7 @@ def _start_app_instance(config: str) -> App:
     """Start application instance."""
     config_path = Path(config)
     try:
-        with config_path.open() as f:
+        with config_path.open(encoding='utf-8') as f:
             try:
                 data = yaml.load(f, Loader=yaml.SafeLoader)
                 data = expand_dotted_keys(data)
@@ -60,31 +60,25 @@ def _start_app_instance(config: str) -> App:
                     err=True,
                 )
                 sys.exit(1)
-    except OSError as e:
+    except (OSError, UnicodeDecodeError) as e:
         click.echo(
-            f'Error: Failed to open config file: {e}',
+            f'Error: Failed to read config file: {e}',
             err=True,
         )
         sys.exit(1)
 
-    with warnings.catch_warnings(record=True) as caught:
-        warnings.simplefilter('always', DeprecationWarning)
-        try:
-            settings = Settings.model_validate(data)
-        except ValidationError as e:
-            click.echo(
-                (
-                    'Error: Failed to validate settings:'
-                    + os.linesep
-                    + prettify_validation_errors(e.errors(), sep=os.linesep)
-                ),
-                err=True,
-            )
-            sys.exit(1)
-
-    for warning in caught:
-        if issubclass(warning.category, DeprecationWarning):
-            click.echo(f'Warning: {warning.message}', err=True)
+    try:
+        settings = Settings.model_validate(data)
+    except ValidationError as e:
+        click.echo(
+            (
+                'Error: Failed to validate settings:'
+                + os.linesep
+                + prettify_validation_errors(e.errors(), sep=os.linesep)
+            ),
+            err=True,
+        )
+        sys.exit(1)
 
     # Since current function can be called many times, we should clear logconf
     logconf.clear()
@@ -95,7 +89,10 @@ def _start_app_instance(config: str) -> App:
         logs_dir=settings.path.logs,
         backup_count=settings.log.backups,
         max_bytes=settings.log.max_bytes,
+        third_party_level=settings.log.third_party_level.upper(),  # type: ignore[arg-type]
     )
+
+    bind_component('main')
 
     click.echo(SPLASH_SCREEN)
 

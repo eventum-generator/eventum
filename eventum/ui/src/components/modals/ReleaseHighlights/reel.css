@@ -1,0 +1,289 @@
+/* The reel: the scene fills the top of the card edge to edge, the words
+   sit under it, and the controls stay on one line at the foot. Nothing
+   here paints a colour of its own - the theme does. */
+
+/* The card arrives: it rises and settles while the blurred page falls
+   away behind it. Longer than the paging move, since this happens once
+   an upgrade and the panel behind it is what the reader was reading.
+
+   `backwards`, not `both`: an animation outranks an inline style, so a
+   held final frame would pin the card opaque and leave the dismissal to
+   the overlay alone - the card would sit there and then vanish. */
+.ev-reel {
+  overflow: hidden;
+  animation: ev-reel-in 0.66s cubic-bezier(0.16, 1, 0.3, 1) backwards;
+}
+
+/* ========== The stage ========== */
+
+.ev-reel-stage {
+  position: relative;
+  background-color: var(--ev-canvas);
+  border-bottom: 1px solid var(--mantine-color-default-border);
+  touch-action: pan-y;
+}
+
+/* A wash of the brand colours blooming behind the first scene and gone
+   by the time it is read - the opening flourish, not a permanent tint. */
+.ev-reel-glow {
+  position: absolute;
+  inset: -60% -20% auto;
+  height: 220%;
+  background:
+    radial-gradient(
+      42% 58% at 24% 62%,
+      var(--mantine-color-primary-light),
+      transparent 70%
+    ),
+    radial-gradient(
+      38% 52% at 78% 54%,
+      var(--mantine-color-cyan-light),
+      transparent 72%
+    );
+  opacity: 0;
+  animation: ev-reel-glow 1.9s cubic-bezier(0.16, 1, 0.3, 1) both;
+  pointer-events: none;
+}
+
+/* A pass of light across the card, once, as it lands. */
+.ev-reel-sweep {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    100deg,
+    transparent 34%,
+    var(--mantine-color-primary-light) 50%,
+    transparent 66%
+  );
+  opacity: 0;
+  animation: ev-reel-sweep 1.15s cubic-bezier(0.33, 1, 0.68, 1) both;
+  animation-delay: 0.12s;
+  pointer-events: none;
+}
+
+.ev-reel-scene {
+  animation: ev-scene-in 0.42s cubic-bezier(0.22, 0.9, 0.24, 1) both;
+}
+
+.ev-reel-scene[data-way='back'] {
+  animation-name: ev-scene-in-back;
+}
+
+/* The label of the card, laid over the scene rather than costing a row
+   of its own. */
+.ev-reel-badge {
+  position: absolute;
+  top: 12px;
+  left: 14px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background-color: var(--mantine-color-body);
+  box-shadow: var(--mantine-shadow-sm);
+  color: var(--mantine-color-text);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.ev-reel-version {
+  color: var(--mantine-color-dimmed);
+  font-family: var(--mantine-font-family-monospace);
+  font-weight: 500;
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+.ev-reel-close {
+  position: absolute;
+  top: 8px;
+  right: 10px;
+}
+
+/* The chrome of the card follows the card in, so the reader lands on the
+   scene first and finds the controls a moment later. */
+.ev-reel-badge,
+.ev-reel-close,
+.ev-reel-controls {
+  animation: ev-reel-settle 0.5s ease-out backwards;
+  animation-delay: 0.26s;
+}
+
+/* ========== The words ========== */
+
+/* One line of prose per panel, and the tallest panel sets the height, so
+   the controls under it do not move as the reel is paged. */
+.ev-reel-copy {
+  min-height: 120px;
+  padding: 20px var(--mantine-spacing-lg) 0;
+  touch-action: pan-y;
+}
+
+.ev-reel-words {
+  animation: ev-words-in 0.42s cubic-bezier(0.22, 0.9, 0.24, 1) both;
+  animation-delay: 0.06s;
+}
+
+.ev-reel-words[data-way='back'] {
+  animation-name: ev-words-in-back;
+}
+
+/* ========== The dots ========== */
+
+.ev-reel-dots {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.ev-reel-dot {
+  width: 6px;
+  height: 6px;
+  padding: 0;
+  border: none;
+  border-radius: 999px;
+  background-color: var(--mantine-color-default-border);
+  cursor: pointer;
+  transition:
+    width 0.28s ease,
+    background-color 0.28s ease;
+}
+
+.ev-reel-dot[data-current='true'] {
+  width: 18px;
+  background-color: var(--mantine-color-primary-filled);
+}
+
+.ev-reel-dot:hover:not([data-current='true']) {
+  background-color: var(--mantine-color-dimmed);
+}
+
+.ev-reel-dot:focus-visible {
+  outline: 2px solid var(--mantine-color-primary-filled);
+  outline-offset: 3px;
+}
+
+/* ========== Motion ========== */
+
+@keyframes ev-reel-in {
+  from {
+    opacity: 0;
+    transform: translateY(22px) scale(0.94);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes ev-reel-glow {
+  0% {
+    opacity: 0;
+    transform: scale(0.7);
+  }
+  34% {
+    opacity: 0.85;
+  }
+  100% {
+    opacity: 0;
+    transform: scale(1.18);
+  }
+}
+
+@keyframes ev-reel-sweep {
+  0% {
+    opacity: 0;
+    transform: translateX(-70%);
+  }
+  30% {
+    opacity: 0.85;
+  }
+  100% {
+    opacity: 0;
+    transform: translateX(70%);
+  }
+}
+
+@keyframes ev-reel-settle {
+  from {
+    opacity: 0;
+    transform: translateY(-6px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes ev-scene-in {
+  from {
+    opacity: 0;
+    transform: translateX(16px) scale(0.99);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes ev-scene-in-back {
+  from {
+    opacity: 0;
+    transform: translateX(-16px) scale(0.99);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes ev-words-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes ev-words-in-back {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@media (max-width: 36em) {
+  .ev-reel-copy {
+    min-height: 150px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ev-reel,
+  .ev-reel-scene,
+  .ev-reel-words,
+  .ev-reel-badge,
+  .ev-reel-close,
+  .ev-reel-controls {
+    animation: none;
+  }
+
+  .ev-reel-glow,
+  .ev-reel-sweep {
+    display: none;
+  }
+
+  .ev-reel-dot {
+    transition: none;
+  }
+}

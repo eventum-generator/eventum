@@ -104,6 +104,7 @@ export default function InstancePage() {
     flow,
     inputEps,
     outputEps,
+    cpuPercent,
   } = useInstanceHistory(instanceId, status?.is_running ?? false);
 
   const form = useForm<StartupGeneratorParameters>({
@@ -347,6 +348,7 @@ export default function InstancePage() {
               flow={flow}
               inputEps={inputEps}
               outputEps={outputEps}
+              cpuPercent={cpuPercent}
             />
           </Tabs.Panel>
           <Tabs.Panel value="settings" pt="lg">

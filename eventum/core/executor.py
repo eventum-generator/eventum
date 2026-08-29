@@ -2,12 +2,14 @@
 
 import asyncio
 from collections.abc import Sequence
+from concurrent.futures import ThreadPoolExecutor
 from threading import Event, Thread
 
 import structlog
 
 from eventum.core.parameters import GeneratorParameters
-from eventum.core.queue import PipelineQueue
+from eventum.core.queue import PipelineQueue, estimate_events_bytes
+from eventum.core.resources import QueuesUsage, QueueUsage
 from eventum.core.stages import EventStage, InputStage, OutputStage
 from eventum.exceptions import ContextualError
 from eventum.plugins.event.base.plugin import EventPlugin
@@ -80,10 +82,15 @@ class Executor:
 
         logger.debug('Initializing queues')
         self._timestamps_queue: PipelineQueue[IdentifiedTimestamps] = (
-            PipelineQueue(maxsize=params.queue.max_timestamp_batches)
+            PipelineQueue(
+                maxsize=params.queue.max_timestamp_batches,
+                sizer=lambda timestamps: timestamps.nbytes,
+            )
         )
         self._events_queue: PipelineQueue[list[str]] = PipelineQueue(
             maxsize=params.queue.max_event_batches,
+            sizer=estimate_events_bytes,
+            max_bytes=params.queue.max_event_bytes,
         )
 
         logger.debug('Configuring stages')
@@ -179,6 +186,30 @@ class Executor:
             output=self._events_queue,
         )
 
+    def queue_usage(self) -> QueuesUsage:
+        """Get fill levels of the queues between the stages.
+
+        Returns
+        -------
+        QueuesUsage
+            Fill level of the timestamps and the events queue.
+
+        """
+        return QueuesUsage(
+            timestamps=QueueUsage(
+                size=self._timestamps_queue.size,
+                maxsize=self._timestamps_queue.maxsize,
+                size_bytes=self._timestamps_queue.size_bytes,
+                max_bytes=self._timestamps_queue.max_bytes,
+            ),
+            events=QueueUsage(
+                size=self._events_queue.size,
+                maxsize=self._events_queue.maxsize,
+                size_bytes=self._events_queue.size_bytes,
+                max_bytes=self._events_queue.max_bytes,
+            ),
+        )
+
     def _run_output_stage(self) -> None:
         try:
             asyncio.run(self._execute_output_stage())
@@ -200,7 +231,20 @@ class Executor:
         self._stop_event.set()
 
     async def _execute_output_stage(self) -> None:
-        """Open output plugins, run the write loop, close plugins."""
+        """Open output plugins, run the write loop, close plugins.
+
+        Replaces the default executor of the loop with a pool named
+        after the generator, so the CPU time of the work the stage
+        offloads - event formatting above all - is accounted for the
+        generator that caused it. The pool is shut down along with the
+        loop.
+        """
+        asyncio.get_running_loop().set_default_executor(
+            ThreadPoolExecutor(
+                thread_name_prefix=f'output-worker:{self._params.id}:',
+            ),
+        )
+
         try:
             await self._output_stage.open()
             await self._output_stage.execute(input=self._events_queue)

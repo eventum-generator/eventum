@@ -14,10 +14,12 @@ from eventum.mcp.resources import examples as examples_resource
 from eventum.mcp.resources import schema as schema_resource
 from eventum.mcp.resources import templating as templating_resource
 from eventum.mcp.resources import workspace as workspace_resource
+from eventum.mcp.tools import archives as archive_tools
 from eventum.mcp.tools import discovery
 from eventum.mcp.tools import formatters as fmt_tools
 from eventum.mcp.tools import preview as preview_tools
 from eventum.mcp.tools import renaming as renaming_tools
+from eventum.mcp.tools import repositories as repository_tools
 from eventum.mcp.tools import run as run_tools
 from eventum.mcp.tools import samples as sample_tools
 from eventum.mcp.tools import secrets as secrets_tools
@@ -27,10 +29,12 @@ _INSTRUCTIONS = (
     'Eventum MCP server. Author, inspect, and operate synthetic data '
     'generators: discover plugins and their config schemas, read the '
     'template-context reference, the generator schema, and worked '
-    'examples, then write, validate, preview, and run generators. Over '
-    'HTTP it also manages running generators - register, start, stop, '
-    'unregister, rename, and read their logs - groups them into '
-    'scenarios, renames a project or a scenario, '
+    'examples, then write, validate, preview, and run generators, '
+    'move a whole generator project in or out as a ZIP archive, and '
+    'install a ready-made generator published by a connected '
+    'repository. Over HTTP it also manages running generators - '
+    'register, start, stop, unregister, rename, and read their logs - '
+    'groups them into scenarios, renames a project or a scenario, '
     'reads and edits the shared global state, and reads or updates the '
     'instance settings and lifecycle. Write tools are gated on a '
     'writable server: the HTTP mount is read-only unless '
@@ -46,7 +50,8 @@ _REST_API_NOTE = (
     'This server also exposes a REST API at `/api` (OpenAPI schema at '
     '`/api/openapi.json`, Swagger UI at `/api/swagger`) behind the same '
     'credentials as this MCP endpoint. When an operation has no MCP '
-    'tool - for example uploading a large sample file - read that '
+    'tool - for example uploading a large sample file, or moving a '
+    'project archive above the inline transfer limit - read that '
     'schema and call the REST API directly.'
 )
 
@@ -76,8 +81,9 @@ def build_server(
     -------
     FastMCP
         Server with discovery, formatter, sample, secret-listing,
-        workspace, validate/preview, and run tools; the
-        templating-reference, generator-schema, examples, and
+        workspace, archive, connected-repository, validate/preview,
+        and run tools; the templating-reference, generator-schema,
+        examples, and
         workspace-configs resources; the authoring prompts; and,
         when ``live`` is set, the live generator-management, scenario,
         global-state, instance-control, and rename tools; the instance
@@ -96,6 +102,8 @@ def build_server(
     sample_tools.register(mcp, context, transport=transport)
     secrets_tools.register(mcp, context, transport=transport)
     ws_tools.register(mcp, context, transport=transport)
+    archive_tools.register(mcp, context, transport=transport)
+    repository_tools.register(mcp, context, transport=transport)
     preview_tools.register(mcp, context, transport=transport)
     run_tools.register(mcp, context, transport=transport)
 

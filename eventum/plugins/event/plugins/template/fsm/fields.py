@@ -38,7 +38,7 @@ from eventum.plugins.event.plugins.template.fsm.operators import (
     len_le,
     len_lt,
 )
-from eventum.plugins.event.plugins.template.state import State
+from eventum.plugins.event.state import State
 
 logger = structlog.stdlib.get_logger()
 

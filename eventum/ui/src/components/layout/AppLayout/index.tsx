@@ -1,11 +1,13 @@
 import { AppShell, Center, Loader } from '@mantine/core';
-import { useLocalStorage } from '@mantine/hooks';
+import { useDisclosure, useLocalStorage } from '@mantine/hooks';
 import { notifications } from '@mantine/notifications';
 import { Outlet, useNavigate } from 'react-router-dom';
 
 import { Header } from './Header';
 import { Navbar } from './Navbar';
 import { useCurrentUser, useLogoutMutation } from '@/api/hooks/useAuth';
+import { ReleaseHighlightsModal } from '@/components/modals/ReleaseHighlights';
+import { useReleaseHighlights } from '@/components/modals/ReleaseHighlights/useReleaseHighlights';
 import { ROUTE_PATHS } from '@/routing/paths';
 
 export default function AppLayout() {
@@ -16,10 +18,21 @@ export default function AppLayout() {
     isSuccess: isUserSuccess,
   } = useCurrentUser();
   const logout = useLogoutMutation();
-  const [isNavbarOpened, setLocalStorage] = useLocalStorage({
+
+  // Below the navbar breakpoint Mantine gives the navbar the full viewport
+  // width, so "opened" there means an overlay over the page rather than a
+  // column beside it. The two modes therefore need their own state: the
+  // desktop column is a persisted preference, the mobile overlay starts
+  // closed on every load and shuts itself on navigation.
+  const [isNavbarOpened, setNavbarOpened] = useLocalStorage({
     key: 'navbar-opened',
     defaultValue: true,
   });
+  const [isMobileNavbarOpened, mobileNavbar] = useDisclosure(false);
+
+  // What the running version brought, shown once after an upgrade and
+  // from the user menu afterwards.
+  const highlights = useReleaseHighlights();
 
   if (isUserLoading) {
     return (
@@ -41,7 +54,10 @@ export default function AppLayout() {
       navbar={{
         width: 220,
         breakpoint: 'sm',
-        collapsed: { desktop: !isNavbarOpened, mobile: !isNavbarOpened },
+        collapsed: {
+          desktop: !isNavbarOpened,
+          mobile: !isMobileNavbarOpened,
+        },
       }}
     >
       <AppShell.Header>
@@ -58,17 +74,27 @@ export default function AppLayout() {
                 }),
             })
           }
-          onMenuClick={() => setLocalStorage((prev) => !prev)}
+          onMenuClick={() => setNavbarOpened((prev) => !prev)}
+          onMobileMenuClick={mobileNavbar.toggle}
+          onOpenHighlights={
+            highlights.release === undefined ? undefined : highlights.open
+          }
         />
       </AppShell.Header>
 
       <AppShell.Navbar>
-        <Navbar />
+        <Navbar onNavigate={mobileNavbar.close} />
       </AppShell.Navbar>
 
       <AppShell.Main>
         <Outlet />
       </AppShell.Main>
+
+      <ReleaseHighlightsModal
+        release={highlights.release}
+        opened={highlights.opened}
+        onClose={highlights.close}
+      />
     </AppShell>
   );
 }

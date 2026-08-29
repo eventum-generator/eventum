@@ -21,12 +21,11 @@ import {
   IconPlayerStop,
   IconTrash,
 } from '@tabler/icons-react';
-import { dirname } from 'pathe';
 import { FC, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 
-import { TemplateUsage } from './TemplateUsage';
-import { buildTemplateUsage } from './template-usage';
+import { SourceUsage } from './SourceUsage';
+import { buildSourceUsage } from './source-usage';
 import {
   useStartGeneratorMutation,
   useStopGeneratorMutation,
@@ -43,6 +42,7 @@ import {
   showErrorNotification,
   showSuccessNotification,
 } from '@/utils/notifications';
+import { projectOfConfig } from '@/utils/projectPath';
 
 // Fallback for a member whose live status is not loaded yet, so the status
 // pill always renders (reads as inactive until the real status arrives).
@@ -92,13 +92,13 @@ export const GeneratorCard: FC<GeneratorCardProps> = ({
   const stopMutation = useStopGeneratorMutation();
   const updateStatus = useUpdateGeneratorStatus();
 
-  const projectName = dirname(generatorPath);
+  const project = projectOfConfig(generatorPath);
   const isActive = status?.is_running ?? false;
   const isTransitioning =
     (status?.is_initializing ?? false) || (status?.is_stopping ?? false);
 
   const templateEntries = useMemo(
-    () => buildTemplateUsage(globalsUsage),
+    () => buildSourceUsage(globalsUsage),
     [globalsUsage]
   );
   const hasGlobalsDetails = templateEntries.length > 0;
@@ -201,8 +201,8 @@ export const GeneratorCard: FC<GeneratorCardProps> = ({
               <Text size="sm" fw={500} truncate>
                 {generatorId}
               </Text>
-              <Text size="xs" c="dimmed" truncate>
-                {projectName}
+              <Text size="xs" c="dimmed" truncate title={generatorPath}>
+                {project.inWorkspace ? project.name : generatorPath}
               </Text>
             </Stack>
           </Group>
@@ -264,13 +264,17 @@ export const GeneratorCard: FC<GeneratorCardProps> = ({
                 >
                   Edit instance
                 </Menu.Item>
-                <Menu.Item
-                  component={Link}
-                  to={`${ROUTE_PATHS.PROJECTS}/${projectName}`}
-                  leftSection={<IconExternalLink size={14} />}
-                >
-                  Go to project
-                </Menu.Item>
+                {/* A configuration registered from outside the
+                    workspace has no project page to open. */}
+                {project.inWorkspace && (
+                  <Menu.Item
+                    component={Link}
+                    to={`${ROUTE_PATHS.PROJECTS}/${project.name}`}
+                    leftSection={<IconExternalLink size={14} />}
+                  >
+                    Go to project
+                  </Menu.Item>
+                )}
                 <Menu.Divider />
                 <Menu.Item
                   color="var(--mantine-color-red-text)"
@@ -286,7 +290,7 @@ export const GeneratorCard: FC<GeneratorCardProps> = ({
       </UnstyledButton>
 
       <Collapse in={expanded}>
-        <TemplateUsage
+        <SourceUsage
           generatorId={generatorId}
           entries={templateEntries}
           onHighlightEdge={onHighlightEdge}

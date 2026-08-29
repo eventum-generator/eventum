@@ -6,7 +6,6 @@ import {
   Kbd,
   NumberInput,
   Paper,
-  PasswordInput,
   SegmentedControl,
   Select,
   Stack,
@@ -30,6 +29,8 @@ import {
 } from '@/api/routes/generator-configs/schemas/plugins/output/configs/clickhouse';
 import { CLICKHOUSE_INPUT_FORMAT } from '@/api/routes/generator-configs/schemas/plugins/output/configs/clickhouse/clickhouse-input-formats';
 import { LabelWithTooltip } from '@/components/ui/LabelWithTooltip';
+import { SecretPasswordInput } from '@/components/ui/SecretPasswordInput';
+import { useOpenSecretsPage } from '@/utils/useOpenSecretsPage';
 
 interface ClickhouseOutputPluginParamsProps {
   initialConfig: ClickhouseOutputPluginConfig;
@@ -39,6 +40,7 @@ interface ClickhouseOutputPluginParamsProps {
 export const ClickhouseOutputPluginParams: FC<
   ClickhouseOutputPluginParamsProps
 > = ({ initialConfig, onChange }) => {
+  const openSecretsPage = useOpenSecretsPage();
   const form = useForm<ClickhouseOutputPluginConfig>({
     initialValues: initialConfig,
     validate: zod4Resolver(ClickhouseOutputPluginConfigSchema),
@@ -163,7 +165,8 @@ export const ClickhouseOutputPluginParams: FC<
             )
           }
         />
-        <PasswordInput
+        <SecretPasswordInput
+          onOpenSecrets={openSecretsPage}
           label={
             <LabelWithTooltip
               label="Password"
@@ -172,12 +175,7 @@ export const ClickhouseOutputPluginParams: FC<
           }
           {...form.getInputProps('password')}
           onChange={(value) =>
-            form.setFieldValue(
-              'password',
-              value.currentTarget.value !== ''
-                ? value.currentTarget.value
-                : undefined
-            )
+            form.setFieldValue('password', value !== '' ? value : undefined)
           }
         />
       </Group>
@@ -498,6 +496,7 @@ export const ClickhouseOutputPluginParams: FC<
               <Group wrap="nowrap" gap="2px">
                 <ActionIcon
                   variant="transparent"
+                  aria-label="Set tabulation as delimiter"
                   title="Set tabulation as delimiter"
                   onClick={() => {
                     form.setFieldValue('separator', '\t');
@@ -507,6 +506,7 @@ export const ClickhouseOutputPluginParams: FC<
                 </ActionIcon>
                 <ActionIcon
                   variant="transparent"
+                  aria-label="Set LF as delimiter"
                   title="Set LF as delimiter"
                   onClick={() => {
                     form.setFieldValue('separator', '\n');

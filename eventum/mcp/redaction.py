@@ -36,8 +36,8 @@ def read_config_secret_values(cfg_path: Path) -> list[str]:
 
     """
     try:
-        text = cfg_path.read_text()
-    except OSError:
+        text = cfg_path.read_text(encoding='utf-8')
+    except OSError, UnicodeDecodeError:
         return []
 
     names = extract_secrets(text)

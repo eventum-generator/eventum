@@ -10,7 +10,14 @@ import {
 } from './data';
 import { ROUTE_PATHS } from '@/routing/paths';
 
-export const Navbar: FC = () => {
+interface NavbarProps {
+  /** Called after a navigation link is followed. On narrow viewports the
+   *  navbar covers the whole page, so it has to close itself once the
+   *  destination is chosen. */
+  onNavigate?: () => void;
+}
+
+export const Navbar: FC<NavbarProps> = ({ onNavigate }) => {
   const { pathname } = useLocation();
 
   return (
@@ -22,6 +29,7 @@ export const Navbar: FC = () => {
           active={pathname === ROUTE_PATHS.ROOT}
           component={Link}
           to={ROUTE_PATHS.ROOT}
+          onClick={onNavigate}
         />
         {TOP_NAVIGATION_DATA.map((item) => (
           <NavLink
@@ -31,6 +39,7 @@ export const Navbar: FC = () => {
             active={pathname.startsWith(item.pathname)}
             component={Link}
             to={item.pathname}
+            onClick={onNavigate}
           />
         ))}
         {NAVIGATION_DATA.map((group) => (
@@ -45,6 +54,7 @@ export const Navbar: FC = () => {
                   active={pathname.startsWith(item.pathname)}
                   component={Link}
                   to={item.pathname}
+                  onClick={onNavigate}
                 />
               ))}
             </NavLink>

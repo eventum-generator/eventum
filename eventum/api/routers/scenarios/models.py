@@ -4,21 +4,21 @@ from pydantic import BaseModel, Field
 
 
 class GlobalsReferenceResponse(BaseModel, frozen=True):
-    """A single reference to globals in a template."""
+    """A single reference to globals in a generator file."""
 
     key: str
-    template: str
+    path: str
 
 
 class GlobalsWarningResponse(BaseModel, frozen=True):
     """A warning about globals usage that cannot be fully detected."""
 
     type: str
-    template: str
+    path: str
 
 
 class GlobalsUsageResponse(BaseModel, frozen=True):
-    """Detected globals usage across all templates in a generator."""
+    """Detected globals usage across all files of a generator."""
 
     writes: list[GlobalsReferenceResponse]
     reads: list[GlobalsReferenceResponse]

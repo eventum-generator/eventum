@@ -142,21 +142,33 @@ class EventStage:
 
         try:
             while not exhausted:
-                timestamps = input.get()
+                held = input.get()
+                timestamps = held.item
 
                 if timestamps is None:
                     break
 
-                events, exhausted = self._produce_batch(timestamps, input)
+                try:
+                    events, exhausted = self._produce_batch(timestamps, input)
+                finally:
+                    # The timestamps are turned into events by now, so
+                    # the batch stops occupying its queue here.
+                    held.release()
 
                 if events:
                     if output.is_full and self._params.live_mode:
                         throttler(
                             logger.warning,
                             (
-                                'Events queue is full, consider decreasing '
-                                'EPS or changing batching settings to avoid '
-                                'time lag with actual event timestamps'
+                                'Events queue is full, events are '
+                                'produced later than their timestamps'
+                            ),
+                            hint=(
+                                'Output stage is not keeping up with the '
+                                'generation rate, consider checking the '
+                                'output target performance or decreasing '
+                                'the rate; the queue also holds no more '
+                                'than the bytes it is allowed to'
                             ),
                         )
 

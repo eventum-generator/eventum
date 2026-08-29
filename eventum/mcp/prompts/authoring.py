@@ -22,8 +22,9 @@ request-driven ticks.
 `rand`/`faker`/`mimesis` are bundled), `subprocess`, \
 `locals`/`shared`/`globals` state, and `dispatch`. `replay` re-emits \
 lines from an existing log file. `script` runs an existing Python file \
-- MCP file tools cannot write `.py`, so pick it only when the script \
-is already on disk; otherwise prefer `template`.
+and receives the same `globals` state in `params['globals']` - MCP \
+file tools cannot write `.py`, so pick it only when the script is \
+already on disk; otherwise prefer `template`.
    - Output (delivery): `stdout`/`file` for local sinks, \
 `http`/`tcp`/`udp`/`kafka` to push to a pipeline, \
 `clickhouse`/`opensearch` to index into a datastore; pick a formatter \

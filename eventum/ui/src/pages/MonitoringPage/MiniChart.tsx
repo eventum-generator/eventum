@@ -17,6 +17,8 @@ interface MiniChartProps<T extends { t: number; time: string }> {
   domain?: [number, number];
   ticks?: number[];
   h?: number | string;
+  /** Length of the drawn window in points; the page-wide selector sets it. */
+  points?: number;
 }
 
 export function MiniChart<T extends { t: number; time: string }>({
@@ -27,6 +29,7 @@ export function MiniChart<T extends { t: number; time: string }>({
   domain,
   ticks,
   h = '100%',
+  points = MAX_POINTS,
 }: Readonly<MiniChartProps<T>>) {
   if (data.length < 2) {
     return (
@@ -42,7 +45,7 @@ export function MiniChart<T extends { t: number; time: string }>({
     T,
     't' | 'time'
   >;
-  const windowed = fixedWindow(data, MAX_POINTS, empty);
+  const windowed = fixedWindow(data, points, empty);
 
   return (
     <AreaChart
@@ -58,7 +61,7 @@ export function MiniChart<T extends { t: number; time: string }>({
       withYAxis
       xAxisProps={{ interval: 0 }}
       yAxisProps={{
-        width: 52,
+        width: 56,
         domain: domain ?? ['auto', 'auto'],
         tickFormatter: tickFormatter ?? valueFormatter,
         ...(ticks ? { ticks } : { tickCount: 4 }),

@@ -17,7 +17,7 @@ class RoutingHandler(logging.Handler):
         attribute: str,
         handler_factory: Callable[[Hashable], logging.Handler],
         default_handler: logging.Handler,
-        formatter: logging.Formatter,
+        default_value: Hashable | None = None,
         lru_size: int = 1024,
     ) -> None:
         """Initialize routing handler.
@@ -38,8 +38,10 @@ class RoutingHandler(logging.Handler):
             unhashable or any error occurs during usage of created
             handler.
 
-        formatter: logging.Formatter
-            Formatter that will be used for created handlers.
+        default_value : Hashable | None, default=None
+            Attribute value served by `default_handler` instead of a
+            handler from the factory, for the case the default handler
+            already targets the destination of that value.
 
         lru_size : int, default=1024
             Number of dynamically created handlers to keep in lru cache.
@@ -55,8 +57,8 @@ class RoutingHandler(logging.Handler):
         or error occurred during creating new handler using provided
         factory.
 
-        Provided formatter is used only for handlers created by
-        `handler_factory`, but not for `default_handler`.
+        Handlers are used as the factory returns them, so the factory
+        is responsible for setting their formatter.
 
         """
         if lru_size < 1:
@@ -68,7 +70,7 @@ class RoutingHandler(logging.Handler):
         self._attribute = attribute
         self._handler_factory = handler_factory
         self._default_handler = default_handler
-        self._formatter = formatter
+        self._default_value = default_value
 
         self._handlers: LRUCache[str, logging.Handler] = LRUCache(
             maxsize=lru_size,
@@ -79,7 +81,7 @@ class RoutingHandler(logging.Handler):
     def emit(self, record: logging.LogRecord) -> None:
         attr_value = getattr(record, self._attribute, None)
 
-        if attr_value is None:
+        if attr_value is None or attr_value == self._default_value:
             self._default_handler.emit(record)
             return
 
@@ -88,7 +90,6 @@ class RoutingHandler(logging.Handler):
                 self._handlers[attr_value].emit(record)
             else:
                 handler = self._handler_factory(attr_value)
-                handler.setFormatter(self._formatter)
                 self._handlers[attr_value] = handler
 
                 handler.emit(record)

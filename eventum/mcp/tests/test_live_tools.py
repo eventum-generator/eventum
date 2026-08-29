@@ -18,6 +18,11 @@ from eventum.app.startup.models import (
     StartupGeneratorParametersList,
 )
 from eventum.core.parameters import GenerationParameters
+from eventum.core.resources import (
+    GeneratorResources,
+    QueuesUsage,
+    QueueUsage,
+)
 from eventum.mcp.context import ServerLiveContext
 from eventum.mcp.errors import ToolFailure
 from eventum.mcp.tools.live import (
@@ -40,6 +45,7 @@ class _FakeGenerator:
         *,
         start_time: datetime | None = None,
         plugins: Any = None,
+        resources: Any = None,
     ) -> None:
         self.params = SimpleNamespace(
             id=generator_id, path=Path('nonexistent.yml')
@@ -51,11 +57,43 @@ class _FakeGenerator:
         self.is_stopping = False
         self.start_time = start_time
         self._plugins = plugins
+        self._resources = resources
 
     def get_plugins_info(self) -> Any:
         if isinstance(self._plugins, Exception):
             raise self._plugins
         return self._plugins
+
+    def get_resources(self, cpu_times: Any = None) -> Any:  # noqa: ARG002
+        if isinstance(self._resources, Exception):
+            raise self._resources
+        return self._resources or _fake_resources()
+
+
+def _fake_resources() -> GeneratorResources:
+    return GeneratorResources(
+        thread_count=5,
+        cpu_seconds=2.5,
+        run_delay_seconds=0.125,
+        disk_read_bytes=1024,
+        disk_written_bytes=8192,
+        network_sent_bytes=4096,
+        network_received_bytes=64,
+        queues=QueuesUsage(
+            timestamps=QueueUsage(
+                size=1,
+                maxsize=10,
+                size_bytes=160,
+                max_bytes=None,
+            ),
+            events=QueueUsage(
+                size=2,
+                maxsize=10,
+                size_bytes=2048,
+                max_bytes=65536,
+            ),
+        ),
+    )
 
 
 class _FakeManager:
@@ -157,6 +195,7 @@ def _ctx(
         log_format='plain',
         settings=MagicMock(),
         hooks=MagicMock(),
+        repositories=MagicMock(),
     )
 
 
@@ -486,7 +525,7 @@ async def test_get_generator_logs_does_not_raise(
         msg = 'disk gone'
         raise OSError(msg)
 
-    monkeypatch.setattr('eventum.mcp.tools.live._tail_lines', _boom)
+    monkeypatch.setattr('eventum.mcp.tools.live.tail_lines', _boom)
     result = await get_generator_logs(ctx, 'g1')
     assert isinstance(result, ToolFailure)
     assert result.error == 'Failed to read logs'
@@ -497,7 +536,7 @@ async def test_get_generator_logs_tail_drops_partial_first_line(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """A truncated tail drops the partial leading line."""
-    monkeypatch.setattr('eventum.mcp.tools.live._TAIL_MAX_BYTES', 12)
+    monkeypatch.setattr('eventum.mcp.log_tail.TAIL_MAX_BYTES', 12)
     ctx = _ctx(tmp_path, _FakeManager(), _FakeStartup())
     (tmp_path / 'generator_g1.log').write_text('AAAAAAAA\nBBBB\nCCCC\n')
     result = await get_generator_logs(ctx, 'g1')
@@ -510,7 +549,7 @@ async def test_get_generator_logs_keeps_single_oversized_line(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """A single line larger than the tail window is still returned."""
-    monkeypatch.setattr('eventum.mcp.tools.live._TAIL_MAX_BYTES', 8)
+    monkeypatch.setattr('eventum.mcp.log_tail.TAIL_MAX_BYTES', 8)
     ctx = _ctx(tmp_path, _FakeManager(), _FakeStartup())
     (tmp_path / 'generator_g1.log').write_text('X' * 40)
     result = await get_generator_logs(ctx, 'g1')
@@ -541,6 +580,7 @@ async def test_get_generator_logs_json_format(tmp_path: Path) -> None:
         log_format='json',
         settings=MagicMock(),
         hooks=MagicMock(),
+        repositories=MagicMock(),
     )
     (tmp_path / 'generator_g1.json').write_text('{"e":"hi"}\n')
     result = await get_generator_logs(ctx, 'g1')
@@ -591,6 +631,38 @@ async def test_get_generator_stats_running(tmp_path: Path) -> None:
     assert result['total_written'] == _WRITTEN
     assert result['event']['produced'] == _PRODUCED
     assert result['input_eps'] >= 0
+
+    resources = result['resources']
+    assert resources['thread_count'] == 5
+    assert resources['cpu_seconds'] == 2.5
+    assert resources['run_delay_seconds'] == 0.125
+    assert resources['disk_written_bytes'] == 8192
+    assert resources['network_sent_bytes'] == 4096
+    assert resources['queues']['events'] == {
+        'size': 2,
+        'maxsize': 10,
+        'size_bytes': 2048,
+        'max_bytes': 65536,
+    }
+
+
+async def test_get_generator_stats_resources_release_race(
+    tmp_path: Path,
+) -> None:
+    """Return a failure when the resources are gone after release."""
+    gen = _FakeGenerator(
+        'g1',
+        start_time=datetime(2020, 1, 1, tzinfo=ZoneInfo('UTC')),
+        plugins=_fake_plugins(),
+        resources=RuntimeError('resources released'),
+    )
+    manager = _FakeManager(generators={'g1': gen})
+    ctx = _ctx(tmp_path, manager, _FakeStartup())
+
+    result = await get_generator_stats(ctx, 'g1')
+
+    assert isinstance(result, ToolFailure)
+    assert result.error == 'Generator is not running'
 
 
 async def test_get_generator_stats_not_running(tmp_path: Path) -> None:

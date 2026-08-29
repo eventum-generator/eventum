@@ -2,6 +2,8 @@
 
 import platform
 import socket
+import sys
+import sysconfig
 from datetime import datetime
 
 import psutil
@@ -11,6 +13,38 @@ import eventum
 from eventum.utils.net_accounting import bytes_received, bytes_sent
 
 _PROCESS = psutil.Process()
+
+
+def _is_free_threaded() -> bool:
+    """Check whether the interpreter is built without the GIL.
+
+    Returns
+    -------
+    bool
+        `True` if interpreter is a free threaded build, `False`
+        otherwise.
+
+    """
+    # The config var is 1 on a free threaded build, 0 or absent otherwise
+    return bool(sysconfig.get_config_var('Py_GIL_DISABLED'))
+
+
+def _is_gil_enabled() -> bool:
+    """Check whether the GIL is enabled at the moment of the call.
+
+    Returns
+    -------
+    bool
+        `True` if the GIL is currently enabled, `False` otherwise.
+
+    Notes
+    -----
+    On a free threaded build the GIL can be enabled back at any time -
+    by `PYTHON_GIL=1`, by `-X gil=1`, or by importing an extension
+    module that does not declare free threading support.
+
+    """
+    return sys._is_gil_enabled()  # noqa: SLF001
 
 
 class InstanceInfo(BaseModel, extra='forbid', frozen=True):
@@ -36,6 +70,14 @@ class InstanceInfo(BaseModel, extra='forbid', frozen=True):
     python_compiler: str = Field(
         default_factory=platform.python_compiler,
         description='Python compiler',
+    )
+    python_free_threaded: bool = Field(
+        default_factory=_is_free_threaded,
+        description='Whether Python is a free threaded build',
+    )
+    python_gil_enabled: bool = Field(
+        default_factory=_is_gil_enabled,
+        description='Whether the GIL is currently enabled',
     )
 
     # Platform
@@ -92,6 +134,38 @@ class InstanceInfo(BaseModel, extra='forbid', frozen=True):
         """Available RAM in bytes."""
         return psutil.virtual_memory().available
 
+    @computed_field  # type: ignore[prop-decorator]
+    @property
+    def process_memory_bytes(self) -> int:
+        """Resident memory of this application in bytes."""
+        try:
+            return _PROCESS.memory_info().rss
+        except psutil.Error, OSError:
+            return 0
+
+    # File descriptors. Reported for the application alone: the
+    # descriptor table belongs to the process and is shared by every
+    # thread in it, so a generator has no figure of its own.
+    @computed_field  # type: ignore[prop-decorator]
+    @property
+    def process_open_fds(self) -> int:
+        """Number of file descriptors this application holds open."""
+        try:
+            return _PROCESS.num_fds()
+        except psutil.Error, OSError, AttributeError:
+            return 0
+
+    @computed_field  # type: ignore[prop-decorator]
+    @property
+    def process_max_fds(self) -> int:
+        """Maximum number of file descriptors this application may open."""
+        try:
+            soft_limit, _ = _PROCESS.rlimit(psutil.RLIMIT_NOFILE)
+        except psutil.Error, OSError, AttributeError:
+            return 0
+
+        return soft_limit
+
     # Network
     @computed_field  # type: ignore[prop-decorator]
     @property
@@ -110,19 +184,33 @@ class InstanceInfo(BaseModel, extra='forbid', frozen=True):
     @property
     def disk_written_bytes(self) -> int:
         """Number of bytes written to disk by this application."""
-        try:
-            return _PROCESS.io_counters().write_bytes
-        except psutil.Error, OSError:
-            return 0
+        return self._disk_bytes('write')
 
     @computed_field  # type: ignore[prop-decorator]
     @property
     def disk_read_bytes(self) -> int:
         """Number of bytes read from disk by this application."""
+        return self._disk_bytes('read')
+
+    @staticmethod
+    def _disk_bytes(direction: str) -> int:
+        """Get bytes the application passed through the file system.
+
+        Counts the bytes handed to the system calls rather than the ones
+        that reached the block device, which is the counter a generator
+        is accounted by, so the two views stay comparable. Outside Linux
+        only the block device counter exists and is reported instead.
+        """
         try:
-            return _PROCESS.io_counters().read_bytes
+            counters = _PROCESS.io_counters()
         except psutil.Error, OSError:
             return 0
+
+        return getattr(
+            counters,
+            f'{direction}_chars',
+            getattr(counters, f'{direction}_bytes', 0),
+        )
 
     # Time
     boot_timestamp: float = Field(

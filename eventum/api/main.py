@@ -23,12 +23,14 @@ from eventum.api.routers.generators import ws_router as ws_generators_router
 from eventum.api.routers.instance import router as instance_router
 from eventum.api.routers.instance import ws_router as ws_instance_router
 from eventum.api.routers.preview import router as preview_router
+from eventum.api.routers.repositories import router as repositories_router
 from eventum.api.routers.scenarios import router as scenarios_router
 from eventum.api.routers.secrets import router as secrets_router
 from eventum.api.routers.startup import router as startup_router
 from eventum.app.hooks import InstanceHooks
 from eventum.app.manager import GeneratorManager
 from eventum.app.models.settings import Settings
+from eventum.app.repositories import Repositories
 from eventum.app.startup import Startup
 
 logger = structlog.stdlib.get_logger()
@@ -39,6 +41,7 @@ def build_api_app(
     settings: Settings,
     instance_hooks: InstanceHooks,
     startup: Startup | None = None,
+    repositories: Repositories | None = None,
 ) -> FastAPI:
     """Build FastAPI application.
 
@@ -56,6 +59,12 @@ def build_api_app(
     startup : Startup | None, default None
         Shared startup-config service. When omitted, a new instance is
         created from settings.
+
+    repositories : Repositories | None, default None
+        Shared connected-repositories service. When omitted, a new
+        instance is created from settings; it owns the repositories
+        fetched through it, so an app built this way is meant for a
+        caller that closes it.
 
     Returns
     -------
@@ -100,6 +109,15 @@ def build_api_app(
             file_path=settings.path.startup,
             generators_dir=settings.path.generators_dir,
             generation_parameters=settings.generation,
+        )
+    )
+    app.state.repositories = (
+        repositories
+        if repositories is not None
+        else Repositories(
+            file_path=settings.path.repositories_file,
+            generators_dir=settings.path.generators_dir,
+            config_filename=settings.path.generator_config_filename.name,
         )
     )
 
@@ -161,6 +179,12 @@ def build_api_app(
         secrets_router,
         prefix='/secrets',
         tags=['Secrets'],
+        dependencies=[HttpAuthDepends],
+    )
+    app.include_router(
+        repositories_router,
+        prefix='/repositories',
+        tags=['Repositories'],
         dependencies=[HttpAuthDepends],
     )
     app.include_router(docs_router, tags=['Docs'])

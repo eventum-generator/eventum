@@ -61,7 +61,10 @@ async def get_startup_generator_parameters_list(
 
     """
     try:
-        async with aiofiles.open(settings.path.startup) as f:
+        async with aiofiles.open(
+            settings.path.startup,
+            encoding='utf-8',
+        ) as f:
             content = await f.read()
     except OSError as e:
         raise HTTPException(

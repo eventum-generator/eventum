@@ -41,6 +41,16 @@
         <td>Timeout in seconds</td>
         <td>int</td>
     </tr>
+    <tr>
+        <td>size</td>
+        <td>Size in bytes</td>
+        <td>int</td>
+    </tr>
+    <tr>
+        <td>limit</td>
+        <td>Upper bound the value is checked against</td>
+        <td>int</td>
+    </tr>
 
 </table>
 
@@ -105,6 +115,11 @@
         <td>http_status</td>
         <td>HTTP response code</td>
         <td>int</td>
+    </tr>
+    <tr>
+        <td>client_host</td>
+        <td>Network address of the client a request came from</td>
+        <td>str</td>
     </tr>
 </table>
 
@@ -177,6 +192,11 @@
     <th>Description</th>
     <th>Data type</th>
     <tr>
+        <td>component</td>
+        <td>Part of the application a record originates from: `main`, `server` or `mcp`</td>
+        <td>str</td>
+    </tr>
+    <tr>
         <td>generator_id</td>
         <td>ID of the generator</td>
         <td>str</td>
@@ -195,6 +215,11 @@
         <td>non_running_generators</td>
         <td>IDs of non running generators</td>
         <td>list[str]</td>
+    </tr>
+    <tr>
+        <td>ref</td>
+        <td>Git reference (branch or tag) of a connected repository</td>
+        <td>str</td>
     </tr>
 </table>
 

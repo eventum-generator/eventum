@@ -109,6 +109,15 @@ generation.queue.max_timestamp_batches: 10
 # Optional, default is 10
 generation.queue.max_event_batches: 10
 
+# Maximum number of bytes the batches waiting in events queue occupy
+# together. Applies alongside the limit on their number, whichever is
+# reached first, and keeps what the queue accumulates bounded no matter
+# how large the events are. What a generator occupies while producing
+# and writing a batch follows the batch size instead. Set to null to
+# leave the size of the queue unlimited
+# Optional, default is 268435456 (256 MiB)
+generation.queue.max_event_bytes: 268435456
+
 
 # Whether to keep chronological order of event using their timestamps
 # by disabling output plugins concurrency
@@ -130,6 +139,11 @@ generation.write_timeout : 10
 # Available values are "debug", "info", "warning", "error", "critical"
 # Optional, default is "info"
 log.level: info
+
+# Logging level of third-party libraries, independent of log.level
+# Available values are "debug", "info", "warning", "error", "critical"
+# Optional, default is "warning"
+log.third_party_level: warning
 
 # Logging format
 # Available options are "plain" and "json"
@@ -161,6 +175,12 @@ path.generators_dir: /app/config/generators/
 # Absolute path to keyring encrypted file with stored secrets
 # Required, there is no default value
 path.keyring_cryptfile: /app/config/cryptfile.cfg
+
+# Absolute path to file with list of connected generator repositories.
+# When not provided, the file named "repositories.yml" next to the
+# startup file is used
+# Optional, default is null
+path.repositories: null
 
 # Filename for generator configurations. This parameter is used
 # by the API for detection directories with generator

@@ -27,7 +27,9 @@ function StatCard({
 }: Readonly<{ value: string | number; label: string }>) {
   return (
     <Paper withBorder p="xs">
-      <Text size="md" fw={600} lh={1.2}>
+      {/* Names the figure for whoever reads it back - the pipeline graph
+          below labels its nodes with the same words. */}
+      <Text size="md" fw={600} lh={1.2} data-metric={label}>
         {value}
       </Text>
       <Text size="xs" c="dimmed" mt={2}>

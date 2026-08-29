@@ -1,0 +1,1124 @@
+/* The look of the release scenes.
+
+   Nothing animates from here: the take of each scene is one Motion
+   sequence, and this file only paints the parts and sets the state they
+   start from. Sizes are container units, so a scene scales with the
+   modal; colours are Mantine variables, so it follows the scheme.
+
+   The parts are the ones Studio itself draws - panels, cards, fields,
+   menus, buttons, tables, a log viewer - set larger than life, so a
+   fragment of a screen stays legible at the size of a panel. */
+
+.ev-scene {
+  container-type: inline-size;
+  position: relative;
+  width: 100%;
+  aspect-ratio: 460 / 232;
+  overflow: hidden;
+  font-family: var(--mantine-font-family);
+}
+
+/* The badge and the close button of the card lie over the top of the
+   scene, so what it draws is inset clear of both. Everything a scene
+   places is measured against this box. */
+.ev-scene-inset {
+  position: absolute;
+  inset: 17% 3.5% 6%;
+}
+
+/* The opening plate is a surface rather than a recording, so it takes
+   the whole stage and paints its own ground. */
+.ev-scene-inset[data-bleed='true'] {
+  inset: 0;
+}
+
+/* The ground the fragments float over: a drawing grid, faint enough to
+   be read as paper rather than as content. */
+.ev-scene-inset::before {
+  content: '';
+  position: absolute;
+  inset: -21% -3.6% -7%;
+  background-image: radial-gradient(
+    var(--mantine-color-dimmed) 1px,
+    transparent 1px
+  );
+  background-size: 3.6cqw 3.6cqw;
+  /* Faint against the page in either scheme: the border colour reads on
+     white and disappears on black, while the dimmed one is a mid tone in
+     both and only needs holding back. */
+  opacity: 0.3;
+}
+
+.ev-scene-inset[data-bleed='true']::before {
+  content: none;
+}
+
+.ev-scene-inset > *,
+.ev-pane > *,
+.ev-card > *,
+.ev-popover > *,
+.ev-browser > *,
+.ev-dropzone > *,
+.ev-layer > *,
+.ev-group > * {
+  position: absolute;
+}
+
+/* ========== Surfaces ========== */
+
+.ev-pane {
+  border: 1px solid var(--mantine-color-default-border);
+  border-radius: 2.2cqw;
+  background-color: var(--mantine-color-body);
+  box-shadow: 0 1.4cqw 3cqw -2cqw rgb(0 0 0 / 22%);
+}
+
+/* A card sits inside a panel, so it carries a border and no shadow -
+   two stacked shadows read as a third surface that is not there. */
+.ev-card {
+  border: 1px solid var(--mantine-color-default-border);
+  border-radius: 1.8cqw;
+  background-color: var(--mantine-color-body);
+}
+
+.ev-card-lit {
+  position: absolute;
+  inset: -1px;
+  border: 1px solid var(--mantine-color-primary-filled);
+  border-radius: inherit;
+  background-color: var(--mantine-color-primary-light);
+  opacity: 0;
+}
+
+/* What opens over the page: a menu, a notification, a download tray. It
+   is lifted off the surface under it rather than outlined against it. */
+.ev-popover {
+  border: 1px solid var(--mantine-color-default-border);
+  border-radius: 1.8cqw;
+  background-color: var(--mantine-color-body);
+  box-shadow: 0 2.4cqw 5cqw -1.6cqw rgb(0 0 0 / 34%);
+  opacity: 0;
+  transform-origin: top right;
+}
+
+/* The plate the reel opens on. The washes are the two stops of the
+   brand gradient, thrown in from opposite corners. */
+.ev-plate {
+  position: absolute;
+  inset: 0;
+  background-color: var(--mantine-color-body);
+  background-image:
+    radial-gradient(
+      70% 96% at 2% 128%,
+      var(--mantine-color-primary-light) 0%,
+      transparent 62%
+    ),
+    radial-gradient(
+      116% 150% at 6% 122%,
+      var(--mantine-color-primary-light) 0%,
+      transparent 60%
+    ),
+    radial-gradient(
+      88% 130% at 99% -26%,
+      var(--mantine-color-cyan-light) 0%,
+      transparent 58%
+    );
+}
+
+.ev-row {
+  border-radius: 1.4cqw;
+}
+
+.ev-row[data-lit='true'] .ev-row-glow {
+  opacity: 1;
+}
+
+.ev-row-glow {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background-color: var(--mantine-color-primary-light);
+  opacity: 0;
+}
+
+.ev-layer {
+  opacity: 0;
+}
+
+/* ========== Marks ========== */
+
+.ev-glyph {
+  width: 3.2cqw;
+  height: 3.2cqw;
+  flex: none;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  color: var(--mantine-color-dimmed);
+}
+
+/* A mark placed against a box is centred on the point it is given, so
+   it lines up with the row it marks rather than hanging off it. The
+   spot holds the placing and the mark holds nothing, which is what
+   lets a take turn the mark. */
+.ev-spot {
+  position: absolute;
+  display: flex;
+  transform: translate(-50%, -50%);
+}
+
+.ev-glyph[data-tone='accent'] {
+  color: var(--mantine-color-primary-text);
+}
+
+.ev-glyph[data-tone='cyan'] {
+  color: var(--mantine-color-cyan-text);
+}
+
+.ev-glyph[data-tone='yellow'] {
+  color: var(--mantine-color-yellow-text);
+}
+
+.ev-glyph[data-tone='green'] {
+  color: var(--mantine-color-green-text);
+}
+
+.ev-glyph[data-tone='red'] {
+  color: var(--mantine-color-red-text);
+}
+
+/* ========== Controls ========== */
+
+.ev-field {
+  border: 1px solid var(--mantine-color-default-border);
+  border-radius: 1.6cqw;
+  background-color: var(--mantine-color-default);
+}
+
+.ev-field > * {
+  position: absolute;
+}
+
+.ev-field-ring {
+  position: absolute;
+  inset: -1px;
+  border: 1px solid var(--mantine-color-primary-filled);
+  border-radius: inherit;
+  opacity: 0;
+}
+
+.ev-field[data-lit='true'] .ev-field-ring {
+  opacity: 1;
+}
+
+/* Smaller than the field it sits in, the way an icon button is smaller
+   than the input it is docked to. */
+.ev-adornment {
+  position: absolute;
+  display: flex;
+  width: 4.8cqw;
+  height: 4.8cqw;
+  align-items: center;
+  justify-content: center;
+  border-radius: 1.2cqw;
+  transform: translate(-50%, -50%);
+}
+
+.ev-adornment-lit {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background-color: var(--mantine-color-default-hover);
+  opacity: 0;
+}
+
+.ev-adornment .ev-glyph {
+  position: relative;
+  width: 3.1cqw;
+  height: 3.1cqw;
+}
+
+.ev-button {
+  border-radius: 1.6cqw;
+}
+
+.ev-button-face {
+  position: absolute;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 1cqw;
+  inset: 0;
+  padding: 0 1.6cqw;
+  border: 1px solid var(--mantine-color-default-border);
+  border-radius: inherit;
+  background-color: var(--mantine-color-default);
+  color: var(--mantine-color-text);
+  font-size: 2.5cqw;
+  font-weight: 500;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+.ev-button[data-variant='filled'] .ev-button-face {
+  border-color: transparent;
+  background-color: var(--mantine-color-primary-filled);
+  color: var(--mantine-color-white);
+}
+
+/* The second reading of a button lies over the first, so it has to hide
+   it outright: the light tints of the theme are sheer, and a tint alone
+   would leave `Install` legible under `Installed`. The ground is the
+   opaque one and the tint is painted over it. */
+.ev-button-on {
+  background-color: var(--mantine-color-body);
+  opacity: 0;
+}
+
+/* Pressed, or answered: the default button reads as picked and the
+   filled one goes the colour of what it did. */
+.ev-button[data-variant='default'] .ev-button-on {
+  border-color: var(--mantine-color-primary-filled);
+  background-image: linear-gradient(
+    var(--mantine-color-primary-light),
+    var(--mantine-color-primary-light)
+  );
+  color: var(--mantine-color-primary-text);
+}
+
+.ev-button[data-variant='filled'] .ev-button-on {
+  background-color: var(--mantine-color-primary-filled-hover);
+}
+
+.ev-button[data-variant='default'][data-tone='green'] .ev-button-on {
+  border-color: var(--mantine-color-green-outline);
+  background-image: linear-gradient(
+    var(--mantine-color-green-light),
+    var(--mantine-color-green-light)
+  );
+  color: var(--mantine-color-green-text);
+}
+
+.ev-button[data-variant='filled'][data-tone='green'] .ev-button-on {
+  background-color: var(--mantine-color-green-filled);
+  background-image: none;
+  color: var(--mantine-color-white);
+}
+
+.ev-button .ev-glyph {
+  width: 2.8cqw;
+  height: 2.8cqw;
+  color: inherit;
+}
+
+.ev-tab {
+  border-radius: 0;
+}
+
+.ev-tab-face {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--mantine-color-dimmed);
+  font-size: 2.8cqw;
+  font-weight: 500;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+.ev-tab-on {
+  color: var(--mantine-color-text);
+  opacity: 0;
+}
+
+.ev-tab-rule {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: -0.6cqw;
+  height: 0.5cqw;
+  border-radius: 999px;
+  background-color: var(--mantine-color-primary-filled);
+}
+
+.ev-chip-face {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--mantine-color-default-border);
+  border-radius: 1.4cqw;
+  background-color: var(--mantine-color-default);
+  color: var(--mantine-color-dimmed);
+  font-size: 2.4cqw;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+.ev-chip[data-lit='true'] .ev-chip-on {
+  opacity: 1;
+}
+
+.ev-chip-on {
+  border-color: var(--mantine-color-primary-filled);
+  background-color: var(--mantine-color-primary-light);
+  color: var(--mantine-color-primary-text);
+  opacity: 0;
+}
+
+/* Sized by what it says, so a badge cannot outgrow the row it marks.
+   The box holds the placing and the face holds the paint, which is what
+   lets a take pulse the face without losing the placing. */
+.ev-badge {
+  display: flex;
+  width: max-content;
+  align-items: center;
+  transform: translateY(-50%);
+}
+
+.ev-badge-end {
+  transform: translate(-100%, -50%);
+}
+
+.ev-badge-face {
+  display: flex;
+  align-items: center;
+  padding: 0.9cqw 1.5cqw;
+  border-radius: 999px;
+  background-color: var(--mantine-color-default);
+  color: var(--mantine-color-dimmed);
+  font-size: 1.95cqw;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  line-height: 1;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.ev-badge-face[data-mono='true'] {
+  font-family: var(--mantine-font-family-monospace);
+  font-weight: 500;
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+.ev-badge-face[data-tone='accent'] {
+  background-color: var(--mantine-color-primary-light);
+  color: var(--mantine-color-primary-text);
+}
+
+.ev-badge-face[data-tone='green'] {
+  background-color: var(--mantine-color-green-light);
+  color: var(--mantine-color-green-text);
+}
+
+.ev-badge-face[data-tone='yellow'] {
+  background-color: var(--mantine-color-yellow-light);
+  color: var(--mantine-color-yellow-text);
+}
+
+.ev-badge-face[data-tone='red'] {
+  background-color: var(--mantine-color-red-light);
+  color: var(--mantine-color-red-text);
+}
+
+.ev-badge-face[data-tone='cyan'] {
+  background-color: var(--mantine-color-cyan-light);
+  color: var(--mantine-color-cyan-text);
+}
+
+.ev-switch {
+  border-radius: 999px;
+  background-color: var(--mantine-color-default-border);
+}
+
+.ev-switch-on {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background-color: var(--mantine-color-primary-filled);
+  opacity: 0;
+}
+
+.ev-switch[data-on='true'] .ev-switch-on {
+  opacity: 1;
+}
+
+/* Sized against the track it rides in, not against the scene: the track
+   is a per-cent box of its pane, so a knob measured in container units
+   fits one switch and spills out of the next. */
+.ev-switch-knob {
+  position: absolute;
+  right: 6%;
+  top: 50%;
+  height: 74%;
+  aspect-ratio: 1;
+  transform: translateY(-50%);
+  border-radius: 999px;
+  background-color: var(--mantine-color-white);
+}
+
+.ev-dropzone {
+  border: 1px dashed var(--mantine-color-default-border);
+  border-radius: 1.8cqw;
+  background-color: var(--mantine-color-default);
+}
+
+.ev-dropzone-lit {
+  position: absolute;
+  inset: -1px;
+  border: 1px dashed var(--mantine-color-primary-filled);
+  border-radius: inherit;
+  background-color: var(--mantine-color-primary-light);
+  opacity: 0;
+}
+
+.ev-menu-item {
+  border-radius: 1.2cqw;
+}
+
+/* An entry reads the same whether it is picked or not, so the picked
+   face has to hide the plain one outright rather than tint it. */
+.ev-menu-item-face {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  padding: 0 1.6cqw;
+  border-radius: inherit;
+  color: var(--mantine-color-text);
+  font-size: 2.5cqw;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+.ev-menu-item-face[data-mono='true'] {
+  font-family: var(--mantine-font-family-monospace);
+  font-size: 2.4cqw;
+}
+
+.ev-menu-item-on {
+  background-color: var(--mantine-color-body);
+  background-image: linear-gradient(
+    var(--mantine-color-default-hover),
+    var(--mantine-color-default-hover)
+  );
+  opacity: 0;
+}
+
+.ev-menu-item[data-tone='accent'] .ev-menu-item-on {
+  background-image: linear-gradient(
+    var(--mantine-color-primary-light),
+    var(--mantine-color-primary-light)
+  );
+  color: var(--mantine-color-primary-text);
+}
+
+/* A word being typed. Each character carries its own caret, so the
+   caret runs along with the word instead of waiting at the end of it. */
+.ev-typed {
+  display: flex;
+  width: max-content;
+  align-items: center;
+  transform: translateY(-50%);
+  color: var(--mantine-color-text);
+  font-family: var(--mantine-font-family-monospace);
+  font-size: 2.5cqw;
+  line-height: 1;
+  white-space: pre;
+}
+
+.ev-typed[data-tone='accent'] {
+  color: var(--mantine-color-primary-text);
+}
+
+.ev-typed-char {
+  position: relative;
+  opacity: 0;
+}
+
+/* The caret belongs to the character it follows, and it goes out when
+   the next one lands - so a word that is finished has no caret left. */
+.ev-typed-caret {
+  position: absolute;
+  opacity: 0;
+  right: -0.5cqw;
+  top: 50%;
+  width: 0.34cqw;
+  height: 3.4cqw;
+  transform: translateY(-50%);
+  border-radius: 999px;
+  background-color: var(--mantine-color-primary-filled);
+}
+
+/* ========== Chrome ========== */
+
+.ev-browser {
+  overflow: hidden;
+  border: 1px solid var(--mantine-color-default-border);
+  border-radius: 2.2cqw;
+  background-color: var(--mantine-color-body);
+  box-shadow: 0 1.4cqw 3cqw -2cqw rgb(0 0 0 / 22%);
+}
+
+.ev-browser-bar {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 0;
+  display: flex;
+  height: 7.4cqw;
+  align-items: center;
+  gap: 1cqw;
+  padding: 0 2cqw;
+  border-bottom: 1px solid var(--mantine-color-default-border);
+  background-color: var(--mantine-color-default);
+}
+
+.ev-browser-dot {
+  width: 1.3cqw;
+  height: 1.3cqw;
+  flex: none;
+  border-radius: 999px;
+  background-color: var(--mantine-color-default-border);
+}
+
+.ev-browser-address {
+  overflow: hidden;
+  margin-left: 1.4cqw;
+  padding: 0.8cqw 1.8cqw;
+  flex: 1;
+  border-radius: 999px;
+  background-color: var(--mantine-color-body);
+  color: var(--mantine-color-dimmed);
+  font-family: var(--mantine-font-family-monospace);
+  font-size: 2.1cqw;
+  line-height: 1;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* What a browser shows while it saves a file. Sized by the name it
+   carries, so it cannot outgrow the window it drops into. */
+.ev-download {
+  display: flex;
+  width: max-content;
+  align-items: center;
+  gap: 1.4cqw;
+  padding: 1.4cqw 1.8cqw;
+  border: 1px solid var(--mantine-color-default-border);
+  border-radius: 1.6cqw;
+  background-color: var(--mantine-color-body);
+  box-shadow: 0 2cqw 4cqw -1.6cqw rgb(0 0 0 / 34%);
+  opacity: 0;
+}
+
+.ev-download-name {
+  color: var(--mantine-color-text);
+  font-family: var(--mantine-font-family-monospace);
+  font-size: 2.3cqw;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+.ev-download-ring {
+  position: relative;
+  width: 3.6cqw;
+  height: 3.6cqw;
+  flex: none;
+  transform: rotate(-90deg);
+}
+
+.ev-download-track {
+  fill: none;
+  stroke: var(--mantine-color-default-border);
+  stroke-width: 3;
+}
+
+.ev-download-arc {
+  fill: none;
+  stroke: var(--mantine-color-primary-filled);
+  stroke-width: 3;
+  stroke-linecap: round;
+  stroke-dasharray: 1;
+  stroke-dashoffset: 1;
+}
+
+.ev-download-done {
+  position: absolute;
+  right: 1.8cqw;
+  top: 50%;
+  display: flex;
+  width: 3.6cqw;
+  height: 3.6cqw;
+  align-items: center;
+  justify-content: center;
+  transform: translateY(-50%);
+  border-radius: 999px;
+  background-color: var(--mantine-color-body);
+  opacity: 0;
+}
+
+.ev-download-done .ev-glyph {
+  width: 3cqw;
+  height: 3cqw;
+}
+
+.ev-notice {
+  display: flex;
+  align-items: center;
+  gap: 1.8cqw;
+  padding: 0 2.2cqw;
+  border: 1px solid var(--mantine-color-default-border);
+  border-radius: 1.8cqw;
+  background-color: var(--mantine-color-body);
+  box-shadow: 0 2.4cqw 5cqw -1.6cqw rgb(0 0 0 / 34%);
+  opacity: 0;
+}
+
+.ev-notice > * {
+  position: relative;
+}
+
+.ev-notice-mark {
+  display: flex;
+  width: 5.6cqw;
+  height: 5.6cqw;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  background-color: var(--mantine-color-default);
+}
+
+.ev-notice[data-tone='green'] .ev-notice-mark {
+  background-color: var(--mantine-color-green-light);
+}
+
+.ev-notice[data-tone='green'] .ev-glyph {
+  color: var(--mantine-color-green-text);
+}
+
+.ev-notice-words {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 0.9cqw;
+}
+
+.ev-notice-title {
+  color: var(--mantine-color-text);
+  font-size: 2.6cqw;
+  font-weight: 600;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+.ev-notice-note {
+  color: var(--mantine-color-dimmed);
+  font-family: var(--mantine-font-family-monospace);
+  font-size: 2.2cqw;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+/* ========== Links ========== */
+
+.ev-diagram {
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+}
+
+.ev-conduit {
+  --ev-conduit-color: var(--mantine-color-default-border);
+
+  fill: none;
+  stroke: var(--ev-conduit-color);
+  stroke-width: 0.32cqw;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.ev-conduit[data-dashed='true'] {
+  stroke-dasharray: 0.9cqw 0.9cqw;
+}
+
+/* A link the take draws runs its dash off rather than fading in, so it
+   reads as being followed rather than as appearing.
+
+   The dash is one length longer than any link a scene draws, measured
+   the way the stroke is: the diagram is one square stretched over its
+   box, so a path measured in its own units would be drawn at a
+   different rate across than down. */
+.ev-conduit[data-hidden='true'] {
+  --ev-draw: 1;
+
+  stroke-dasharray: 46cqw;
+  stroke-dashoffset: calc(46cqw * var(--ev-draw));
+}
+
+.ev-conduit[data-tone='accent'] {
+  --ev-conduit-color: var(--mantine-color-primary-filled);
+}
+
+.ev-conduit[data-tone='cyan'] {
+  --ev-conduit-color: var(--mantine-color-cyan-filled);
+}
+
+/* A point on the board that carries what travels: the point moves, and
+   the chit hanging off it stays centred on it. */
+.ev-packet {
+  position: absolute;
+  left: var(--ev-from-x);
+  top: var(--ev-from-y);
+  width: 0;
+  height: 0;
+  opacity: 0;
+}
+
+.ev-packet-body {
+  position: absolute;
+  left: 0;
+  top: 0;
+  display: flex;
+  align-items: center;
+  gap: 1.1cqw;
+  padding: 1.2cqw 2cqw;
+  transform: translate(-50%, -50%);
+  border: 1px solid var(--mantine-color-default-border);
+  border-radius: 1.6cqw;
+  background-color: var(--mantine-color-body);
+  box-shadow: 0 1.2cqw 2.6cqw -1.4cqw rgb(0 0 0 / 35%);
+  border-color: var(--mantine-color-primary-filled);
+  color: var(--mantine-color-primary-text);
+  font-family: var(--mantine-font-family-monospace);
+  font-size: 2.3cqw;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+.ev-packet .ev-glyph {
+  width: 2.9cqw;
+  height: 2.9cqw;
+  color: inherit;
+}
+
+/* ========== Readings ========== */
+
+.ev-fill {
+  --ev-fill-color: var(--mantine-color-default-border);
+
+  border-radius: 999px;
+  background-color: var(--ev-tint, var(--ev-fill-color));
+  transform-origin: left center;
+}
+
+.ev-fill[data-tone='accent'] {
+  --ev-fill-color: var(--mantine-color-primary-filled);
+}
+
+.ev-fill[data-tone='cyan'] {
+  --ev-fill-color: var(--mantine-color-cyan-filled);
+}
+
+.ev-fill[data-tone='yellow'] {
+  --ev-fill-color: var(--mantine-color-yellow-text);
+}
+
+.ev-fill[data-tone='red'] {
+  --ev-fill-color: var(--mantine-color-red-text);
+}
+
+.ev-fill[data-tone='green'] {
+  --ev-fill-color: var(--mantine-color-green-text);
+}
+
+.ev-meter {
+  overflow: hidden;
+  border-radius: 999px;
+  background-color: var(--mantine-color-default-border);
+}
+
+.ev-meter-level {
+  position: absolute;
+  left: 0;
+  top: 0;
+  height: 100%;
+  border-radius: 999px;
+  background-color: var(--mantine-color-primary-filled);
+  transform-origin: left center;
+}
+
+.ev-meter-level[data-tone='cyan'] {
+  background-color: var(--mantine-color-cyan-filled);
+}
+
+.ev-meter-level[data-tone='yellow'] {
+  background-color: var(--mantine-color-yellow-text);
+}
+
+.ev-meter-level[data-tone='green'] {
+  background-color: var(--mantine-color-green-text);
+}
+
+.ev-meter-level[data-tone='red'] {
+  background-color: var(--mantine-color-red-text);
+}
+
+.ev-ticks {
+  --ev-tick-color: var(--mantine-color-default-border);
+}
+
+.ev-ticks[data-fade='true'] {
+  mask-image: linear-gradient(90deg, transparent, black 18%);
+}
+
+.ev-tick {
+  position: absolute;
+  bottom: 0;
+  border-radius: 0.7cqw;
+  background-color: var(--ev-tint, var(--ev-tick-color));
+  transform-origin: bottom center;
+}
+
+.ev-tick[data-tone='accent'] {
+  --ev-tick-color: var(--mantine-color-primary-filled);
+}
+
+.ev-tick[data-tone='cyan'] {
+  --ev-tick-color: var(--mantine-color-cyan-filled);
+}
+
+.ev-tick[data-tone='yellow'] {
+  --ev-tick-color: var(--mantine-color-yellow-text);
+}
+
+.ev-stack {
+  position: absolute;
+  overflow: visible;
+}
+
+/* A band is a share of the load, so it is read by its area rather than
+   by an outline; the one in front is simply less sheer. */
+.ev-stack-band {
+  fill: var(--ev-tint);
+  stroke: var(--mantine-color-body);
+  stroke-width: 0.4;
+  opacity: 0.5;
+  vector-effect: non-scaling-stroke;
+}
+
+.ev-stack-band[data-lead='true'] {
+  opacity: 0.92;
+}
+
+.ev-log {
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-start;
+  gap: 1.5cqw;
+  overflow: hidden;
+}
+
+.ev-log-line {
+  display: flex;
+  align-items: baseline;
+  gap: 1.4cqw;
+  font-family: var(--mantine-font-family-monospace);
+  font-size: 2.1cqw;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+.ev-log-number {
+  width: 3cqw;
+  flex: none;
+  color: var(--mantine-color-default-border);
+  text-align: right;
+}
+
+.ev-log-level {
+  flex: none;
+  color: var(--mantine-color-dimmed);
+}
+
+.ev-log-level[data-level='warn'] {
+  color: var(--mantine-color-yellow-text);
+}
+
+.ev-log-level[data-level='error'] {
+  color: var(--mantine-color-red-text);
+}
+
+.ev-log-text {
+  overflow: hidden;
+  flex: none;
+  width: 58%;
+  color: var(--mantine-color-text);
+  text-overflow: ellipsis;
+}
+
+.ev-log-from {
+  overflow: hidden;
+  flex: 1;
+  color: var(--mantine-color-dimmed);
+  text-overflow: ellipsis;
+}
+
+/* ========== Words ========== */
+
+.ev-headline {
+  transform: translateY(-50%);
+  color: var(--mantine-color-text);
+  font-size: 12.5cqw;
+  font-weight: 800;
+  line-height: 1;
+  letter-spacing: -0.045em;
+  white-space: nowrap;
+}
+
+.ev-headline-center {
+  transform: translate(-50%, -50%);
+}
+
+.ev-headline[data-tone='accent'] {
+  color: var(--mantine-color-primary-text);
+}
+
+/* Set on the line it is given, not hung from it. */
+.ev-label {
+  transform: translateY(-50%);
+  color: var(--mantine-color-dimmed);
+  font-size: 2.8cqw;
+  line-height: 1;
+  letter-spacing: -0.01em;
+  white-space: nowrap;
+}
+
+.ev-label-end {
+  transform: translate(-100%, -50%);
+}
+
+.ev-label-center {
+  transform: translate(-50%, -50%);
+}
+
+.ev-label[data-mono='true'] {
+  font-family: var(--mantine-font-family-monospace);
+  font-size: 2.5cqw;
+  letter-spacing: 0;
+}
+
+.ev-label[data-caps='true'] {
+  font-size: 1.95cqw;
+  font-weight: 600;
+  letter-spacing: 0.13em;
+  text-transform: uppercase;
+}
+
+/* The size a table of figures is read at - denser than a form label,
+   so a row of six columns still has air between them. */
+.ev-label[data-small='true'] {
+  font-size: 2.4cqw;
+}
+
+.ev-label[data-small='true'][data-mono='true'] {
+  font-size: 2.15cqw;
+}
+
+.ev-label code {
+  color: var(--mantine-color-primary-text);
+  font-family: var(--mantine-font-family-monospace);
+  font-size: 0.92em;
+}
+
+.ev-label[data-strong='true'] {
+  color: var(--mantine-color-text);
+  font-weight: 600;
+}
+
+.ev-label[data-tone='accent'] {
+  color: var(--mantine-color-primary-text);
+}
+
+.ev-label[data-tone='cyan'] {
+  color: var(--mantine-color-cyan-text);
+}
+
+.ev-label[data-tone='yellow'] {
+  color: var(--mantine-color-yellow-text);
+}
+
+.ev-label[data-tone='red'] {
+  color: var(--mantine-color-red-text);
+}
+
+.ev-label[data-tone='green'] {
+  color: var(--mantine-color-green-text);
+}
+
+/* ========== The pointer ========== */
+
+.ev-cursor {
+  width: 3.6cqw;
+  opacity: 0;
+}
+
+.ev-cursor-arrow {
+  display: block;
+  width: 100%;
+  height: auto;
+  fill: var(--mantine-color-text);
+  stroke: var(--mantine-color-body);
+  stroke-width: 1.2;
+  filter: drop-shadow(0 0.4cqw 0.8cqw rgb(0 0 0 / 25%));
+}
+
+/* The ring a tap leaves behind. */
+.ev-cursor-tap {
+  position: absolute;
+  left: -1.6cqw;
+  top: -1.6cqw;
+  width: 5.4cqw;
+  height: 5.4cqw;
+  border: 1px solid var(--mantine-color-primary-filled);
+  border-radius: 999px;
+  opacity: 0;
+}
+
+/* ========== At rest ========== */
+
+/* No take plays for a reader who asked for no motion, so a scene has to
+   read as one frame. That frame is the end of the take: what was
+   replaced is gone, what arrived is there, and every control the take
+   left switched on says so with `rest`. Anything a take only passes
+   through - a pointer, a file in flight, a state it took back - stays
+   out of it. */
+@media (prefers-reduced-motion: reduce) {
+  .ev-stale {
+    opacity: 0;
+  }
+
+  .ev-layer:not(.ev-flash) {
+    opacity: 1;
+  }
+
+  [data-rest='true'] {
+    opacity: 1;
+  }
+
+  .ev-conduit[data-hidden='true'][data-rest='true'] {
+    --ev-draw: 0;
+  }
+
+  .ev-download[data-rest='true'] .ev-download-arc {
+    opacity: 0;
+  }
+}

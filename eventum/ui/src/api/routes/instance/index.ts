@@ -2,6 +2,7 @@ import { apiClient } from '@/api/client';
 import {
   InstanceInfo,
   InstanceInfoSchema,
+  InstanceLogChannel,
   Settings,
   SettingsSchema,
 } from '@/api/routes/instance/schemas';
@@ -33,11 +34,14 @@ export async function restartInstance() {
   await apiClient.post('/instance/restart');
 }
 
-export function streamInstanceLogs(endOffset: number): WebSocket {
+export function streamInstanceLogs(
+  channel: InstanceLogChannel,
+  endOffset: number
+): WebSocket {
   const protocol = globalThis.location.protocol === 'https:' ? 'wss' : 'ws';
   const host = globalThis.location.host;
 
   return new WebSocket(
-    `${protocol}://${host}/api/instance/logs/main?end_offset=${endOffset}`
+    `${protocol}://${host}/api/instance/logs/${channel}?end_offset=${endOffset}`
   );
 }

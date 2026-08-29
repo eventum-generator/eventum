@@ -212,34 +212,16 @@ def test_server_parameters_nested_toggles() -> None:
     assert params.api.enabled is False
 
 
-def test_server_parameters_ui_enabled_alias_maps_to_nested() -> None:
-    """Deprecated `ui_enabled` folds into `ui.enabled` with a warning."""
-    with pytest.warns(DeprecationWarning, match='ui_enabled'):
-        params = ServerParameters.model_validate({'ui_enabled': False})
-    assert params.ui.enabled is False
+def test_server_parameters_flat_ui_toggle_rejected() -> None:
+    """The removed flat `ui_enabled` key is not accepted."""
+    with pytest.raises(ValidationError, match='ui_enabled'):
+        ServerParameters.model_validate({'ui_enabled': False})
 
 
-def test_server_parameters_api_enabled_alias_maps_to_nested() -> None:
-    """Deprecated `api_enabled` folds into `api.enabled` with a warning."""
-    with pytest.warns(DeprecationWarning, match='api_enabled'):
-        params = ServerParameters.model_validate({'api_enabled': False})
-    assert params.api.enabled is False
-
-
-def test_server_parameters_ui_alias_conflict_raises() -> None:
-    """Setting both `ui_enabled` and `ui` together is rejected."""
-    with pytest.raises(ValidationError, match='deprecated'):
-        ServerParameters.model_validate(
-            {'ui_enabled': True, 'ui': {'enabled': False}},
-        )
-
-
-def test_server_parameters_api_alias_conflict_raises() -> None:
-    """Setting both `api_enabled` and `api` together is rejected."""
-    with pytest.raises(ValidationError, match='deprecated'):
-        ServerParameters.model_validate(
-            {'api_enabled': True, 'api': {'enabled': False}},
-        )
+def test_server_parameters_flat_api_toggle_rejected() -> None:
+    """The removed flat `api_enabled` key is not accepted."""
+    with pytest.raises(ValidationError, match='api_enabled'):
+        ServerParameters.model_validate({'api_enabled': False})
 
 
 # --- LogParameters ---
@@ -322,3 +304,42 @@ def test_mcp_parameters_rejects_unknown_field() -> None:
     """Unknown fields are forbidden."""
     with pytest.raises(ValidationError):
         MCPParameters(unknown=True)  # type: ignore[call-arg]
+
+
+def test_repositories_defaults_next_to_the_startup_file():
+    parameters = PathParameters(
+        logs=Path('/opt/eventum/logs'),
+        startup=Path('/opt/eventum/startup.yml'),
+        generators_dir=Path('/opt/eventum/generators'),
+        keyring_cryptfile=Path('/opt/eventum/cryptfile.cfg'),
+    )
+
+    assert parameters.repositories is None
+    assert parameters.repositories_file == Path(
+        '/opt/eventum/repositories.yml',
+    )
+
+
+def test_repositories_is_taken_where_it_is_named():
+    parameters = PathParameters(
+        logs=Path('/opt/eventum/logs'),
+        startup=Path('/opt/eventum/startup.yml'),
+        generators_dir=Path('/opt/eventum/generators'),
+        keyring_cryptfile=Path('/opt/eventum/cryptfile.cfg'),
+        repositories=Path('/etc/eventum/repositories.yml'),
+    )
+
+    assert parameters.repositories_file == Path(
+        '/etc/eventum/repositories.yml',
+    )
+
+
+def test_repositories_must_be_absolute():
+    with pytest.raises(ValidationError):
+        PathParameters(
+            logs=Path('/opt/eventum/logs'),
+            startup=Path('/opt/eventum/startup.yml'),
+            generators_dir=Path('/opt/eventum/generators'),
+            keyring_cryptfile=Path('/opt/eventum/cryptfile.cfg'),
+            repositories=Path('repositories.yml'),
+        )

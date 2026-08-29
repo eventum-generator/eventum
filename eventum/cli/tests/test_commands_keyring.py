@@ -5,6 +5,7 @@ from unittest.mock import patch
 from click.testing import CliRunner
 
 from eventum.cli.commands.eventum_keyring import cli
+from eventum.security.manage import SecretNameError
 
 
 # --- get ---
@@ -36,6 +37,17 @@ def test_set_with_value(mock_set_secret):
     result = runner.invoke(cli, ['set', 'api_key', 's3cret'])
     assert result.exit_code == 0
     mock_set_secret.assert_called_once_with(name='api_key', value='s3cret')
+
+
+@patch('eventum.cli.commands.eventum_keyring.set_secret')
+def test_set_reports_a_name_that_cannot_be_referenced(mock_set_secret):
+    mock_set_secret.side_effect = SecretNameError('Name of secret must be')
+
+    runner = CliRunner()
+    result = runner.invoke(cli, ['set', 'API-KEY', 's3cret'])
+
+    assert result.exit_code == 1
+    assert 'Name of secret must be' in result.output
 
 
 @patch('eventum.cli.commands.eventum_keyring.set_secret')

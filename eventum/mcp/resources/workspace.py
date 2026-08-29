@@ -25,7 +25,7 @@ def render_workspace_configs(context: AuthoringContext) -> str:
             )
         else:
             generators.append({'name': name, 'files': listed})
-    return json.dumps({'generators': generators}, indent=2)
+    return json.dumps({'generators': generators}, indent=2, ensure_ascii=False)
 
 
 def register(mcp: FastMCP, context: AuthoringContext) -> None:

@@ -2,11 +2,14 @@
 
 import queue as queue_mod
 import threading
+import time
+from collections.abc import Mapping, Sequence
 from pathlib import Path
 from unittest.mock import MagicMock
 
 import numpy as np
 import pytest
+import structlog.testing
 
 from eventum.core.parameters import GeneratorParameters
 from eventum.core.queue import PipelineQueue
@@ -66,10 +69,11 @@ def _collect_output(output_q: PipelineQueue) -> list:
     """Drain all items from output queue until sentinel."""
     results = []
     while True:
-        item = output_q.get()
-        if item is None:
+        held = output_q.get()
+        held.release()
+        if held.item is None:
             break
-        results.append(item)
+        results.append(held.item)
     return results
 
 
@@ -434,7 +438,7 @@ def test_execute_closes_output_on_input_shutdown():
     stage_thread.start()
 
     # If output.close() was NOT called, this would hang forever
-    result = output_q.get()
+    result = output_q.get().item
     stage_thread.join(timeout=5)
 
     assert not stage_thread.is_alive()
@@ -514,7 +518,7 @@ def test_execute_fatal_error_shuts_down_input():
     stage_thread.start()
 
     # Output should still be closed (sentinel received)
-    result = output_q.get()
+    result = output_q.get().item
     stage_thread.join(timeout=5)
 
     assert not stage_thread.is_alive()
@@ -523,3 +527,114 @@ def test_execute_fatal_error_shuts_down_input():
     # Input queue should be shut down so put raises ShutDown
     with pytest.raises(queue_mod.ShutDown):
         input_q.put(_make_timestamps(count=1))
+
+
+# - Backpressure ------------------------------------------------------
+
+
+def _make_blocked_stage(
+    output_q: PipelineQueue[list[str]],
+    *,
+    live_mode: bool,
+) -> tuple[threading.Thread, PipelineQueue, threading.Event]:
+    """Run a stage against an output queue that is already full.
+
+    The queue is never drained, so the stage stays blocked on put right
+    after it has checked the queue for fullness. Both queues have to be
+    shut down by the caller to release the stage.
+
+    Returns
+    -------
+    tuple[threading.Thread, PipelineQueue, threading.Event]
+        Stage thread, its input queue and an event set once the plugin
+        has produced the batch the stage blocks on.
+
+    """
+    produced = threading.Event()
+
+    def produce(params) -> list[str]:
+        produced.set()
+        return ['ev']
+
+    plugin = MagicMock()
+    plugin.produce.side_effect = produce
+
+    stage = _make_event_stage(
+        plugin=plugin,
+        params=_make_params(live_mode=live_mode),
+    )
+
+    input_q: PipelineQueue[IdentifiedTimestamps] = PipelineQueue(maxsize=10)
+    input_q.put(_make_timestamps(count=1))
+    output_q.put(['occupied'])
+
+    thread = threading.Thread(
+        target=stage.execute,
+        kwargs={'input': input_q, 'output': output_q},
+    )
+    thread.start()
+
+    return thread, input_q, produced
+
+
+def _release_stage(
+    thread: threading.Thread,
+    input_q: PipelineQueue,
+    output_q: PipelineQueue,
+) -> None:
+    """Unblock the stage waiting on a full queue and join its thread."""
+    output_q.shutdown()
+    input_q.shutdown()
+    thread.join(timeout=5)
+    assert not thread.is_alive()
+
+
+def _wait_for_warnings(
+    logs: Sequence[Mapping],
+    timeout: float = 5.0,
+) -> list[Mapping]:
+    """Wait until at least one warning is captured and return warnings."""
+    deadline = time.monotonic() + timeout
+
+    while time.monotonic() < deadline:
+        warnings = [e for e in logs if e['log_level'] == 'warning']
+        if warnings:
+            return warnings
+        time.sleep(0.01)
+
+    return []
+
+
+def test_full_output_queue_warns_in_live_mode():
+    """A full events queue is reported as a lag with an actionable hint."""
+    output_q: PipelineQueue[list[str]] = PipelineQueue(maxsize=1)
+
+    with structlog.testing.capture_logs() as logs:
+        thread, input_q, _ = _make_blocked_stage(output_q, live_mode=True)
+        warnings = _wait_for_warnings(logs)
+        _release_stage(thread, input_q, output_q)
+
+    assert len(warnings) == 1
+    assert warnings[0]['hint']
+
+    # the stage cannot know the rate is the cause, so it must not claim it
+    assert 'EPS' not in warnings[0]['event']
+
+
+def test_full_output_queue_stays_silent_in_sample_mode():
+    """Sample mode has no schedule to lag behind, so a full queue is ok."""
+    output_q: PipelineQueue[list[str]] = PipelineQueue(maxsize=1)
+
+    with structlog.testing.capture_logs() as logs:
+        thread, input_q, produced = _make_blocked_stage(
+            output_q,
+            live_mode=False,
+        )
+        assert produced.wait(timeout=5)
+
+        # the check follows the production immediately, so by the time
+        # the stage blocks on put it has already decided to stay silent
+        time.sleep(0.1)
+        _release_stage(thread, input_q, output_q)
+
+    assert not [entry for entry in logs if entry['log_level'] == 'warning']

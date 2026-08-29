@@ -32,6 +32,11 @@ import { GeneratorDirsExtendedInfo } from '@/api/routes/generator-configs/schema
 
 export type UsageMode = 'all' | 'used' | 'unused';
 
+// Held apart from the props so an omitted filter is the same array on
+// every render: the effect below depends on its identity and writes
+// state, so a fresh literal would re-run it forever.
+const NO_INSTANCES: string[] = [];
+
 interface GeneratorDirsTableProps {
   data: GeneratorDirsExtendedInfo;
   projectNameFilter?: string;
@@ -39,10 +44,23 @@ interface GeneratorDirsTableProps {
   usageMode?: UsageMode;
 }
 
+/**
+ * The name of the control that sorts a column.
+ *
+ * The control is an icon alone, so it carries the name of the column it
+ * sorts - the header of that column when it is a word rather than a
+ * component of its own.
+ */
+function sortLabel(column: { id: string; columnDef: { header?: unknown } }) {
+  const header = column.columnDef.header;
+
+  return `Sort by ${typeof header === 'string' ? header.toLowerCase() : column.id}`;
+}
+
 export const GeneratorDirsTable: FC<GeneratorDirsTableProps> = ({
   data,
   projectNameFilter = '',
-  instancesFilter = [],
+  instancesFilter = NO_INSTANCES,
   usageMode = 'all',
 }) => {
   const [sorting, setSorting] = useState<SortingState>([
@@ -78,77 +96,87 @@ export const GeneratorDirsTable: FC<GeneratorDirsTableProps> = ({
   return (
     <Stack>
       <Paper withBorder p="sm">
-        <Table>
-          <Table.Thead>
-            {table.getHeaderGroups().map((headerGroup) => (
-              <Table.Tr key={headerGroup.id}>
-                {headerGroup.headers.map((header) => {
-                  const meta = header.column.columnDef?.meta as
-                    | { style?: React.CSSProperties }
-                    | undefined;
+        {/* Overflow belongs inside the panel - a table wide enough to push the
+            document takes the whole page sideways with it. */}
+        <Table.ScrollContainer minWidth={560} type="native">
+          <Table>
+            <Table.Thead>
+              {table.getHeaderGroups().map((headerGroup) => (
+                <Table.Tr key={headerGroup.id}>
+                  {headerGroup.headers.map((header) => {
+                    const meta = header.column.columnDef?.meta as
+                      | { style?: React.CSSProperties }
+                      | undefined;
 
-                  const style: React.CSSProperties = meta?.style ?? {};
+                    const style: React.CSSProperties = meta?.style ?? {};
 
-                  return (
-                    <Table.Th key={header.id} style={style}>
-                      {header.isPlaceholder ? null : (
-                        <Group gap="xs" wrap="nowrap">
-                          {flexRender(
-                            header.column.columnDef.header,
-                            header.getContext()
-                          )}
+                    return (
+                      <Table.Th key={header.id} style={style}>
+                        {header.isPlaceholder ? null : (
+                          <Group gap="xs" wrap="nowrap">
+                            {flexRender(
+                              header.column.columnDef.header,
+                              header.getContext()
+                            )}
 
-                          {header.column.getCanSort() && (
-                            <>
-                              {header.column.getIsSorted() === 'asc' && (
-                                <ActionIcon
-                                  variant="transparent"
-                                  size="sm"
-                                  onClick={header.column.getToggleSortingHandler()}
-                                >
-                                  <IconSortAscending size={16} />
-                                </ActionIcon>
-                              )}
-                              {header.column.getIsSorted() === 'desc' && (
-                                <ActionIcon
-                                  variant="transparent"
-                                  size="sm"
-                                  onClick={header.column.getToggleSortingHandler()}
-                                >
-                                  <IconSortDescending size={16} />
-                                </ActionIcon>
-                              )}
-                              {header.column.getIsSorted() === false && (
-                                <ActionIcon
-                                  variant="transparent"
-                                  size="sm"
-                                  onClick={header.column.getToggleSortingHandler()}
-                                >
-                                  <IconArrowsSort size={16} />
-                                </ActionIcon>
-                              )}
-                            </>
-                          )}
-                        </Group>
+                            {header.column.getCanSort() && (
+                              <>
+                                {header.column.getIsSorted() === 'asc' && (
+                                  <ActionIcon
+                                    variant="transparent"
+                                    size="sm"
+                                    aria-label={sortLabel(header.column)}
+                                    onClick={header.column.getToggleSortingHandler()}
+                                  >
+                                    <IconSortAscending size={16} />
+                                  </ActionIcon>
+                                )}
+                                {header.column.getIsSorted() === 'desc' && (
+                                  <ActionIcon
+                                    variant="transparent"
+                                    size="sm"
+                                    aria-label={sortLabel(header.column)}
+                                    onClick={header.column.getToggleSortingHandler()}
+                                  >
+                                    <IconSortDescending size={16} />
+                                  </ActionIcon>
+                                )}
+                                {header.column.getIsSorted() === false && (
+                                  <ActionIcon
+                                    variant="transparent"
+                                    size="sm"
+                                    aria-label={sortLabel(header.column)}
+                                    onClick={header.column.getToggleSortingHandler()}
+                                  >
+                                    <IconArrowsSort size={16} />
+                                  </ActionIcon>
+                                )}
+                              </>
+                            )}
+                          </Group>
+                        )}
+                      </Table.Th>
+                    );
+                  })}
+                </Table.Tr>
+              ))}
+            </Table.Thead>
+            <Table.Tbody>
+              {table.getRowModel().rows.map((row) => (
+                <Table.Tr key={row.id}>
+                  {row.getVisibleCells().map((cell) => (
+                    <Table.Td key={cell.id}>
+                      {flexRender(
+                        cell.column.columnDef.cell,
+                        cell.getContext()
                       )}
-                    </Table.Th>
-                  );
-                })}
-              </Table.Tr>
-            ))}
-          </Table.Thead>
-          <Table.Tbody>
-            {table.getRowModel().rows.map((row) => (
-              <Table.Tr key={row.id}>
-                {row.getVisibleCells().map((cell) => (
-                  <Table.Td key={cell.id}>
-                    {flexRender(cell.column.columnDef.cell, cell.getContext())}
-                  </Table.Td>
-                ))}
-              </Table.Tr>
-            ))}
-          </Table.Tbody>
-        </Table>
+                    </Table.Td>
+                  ))}
+                </Table.Tr>
+              ))}
+            </Table.Tbody>
+          </Table>
+        </Table.ScrollContainer>
         {table.getFilteredRowModel().rows.length === 0 && (
           <Center mt="xs">
             <Text size="sm" c="dimmed">

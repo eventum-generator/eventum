@@ -18,14 +18,14 @@ from eventum.api.routers.preview.dependencies import (
     EventPluginFromStorageDep,
     InputPluginsDep,
     SpanDep,
-    TemplateEventPluginGlobalStateDep,
+    EventPluginGlobalStateDep,
     TemplateEventPluginLocalStateDep,
     TemplateEventPluginSharedStateDep,
     get_event_plugin_from_storage,
     get_span,
 )
 from eventum.api.routers.preview.dependencies import (
-    get_template_event_plugin_global_state as get_template_plugin_global_state,
+    get_event_plugin_global_state as get_plugin_global_state,
 )
 from eventum.api.routers.preview.dependencies import (
     get_template_event_plugin_local_state as get_template_plugin_local_state,
@@ -44,6 +44,7 @@ from eventum.api.routers.preview.models import (
     FormattingResult,
     ProducedEventsInfo,
     ProduceEventErrorInfo,
+    ProduceParamsRequest,
     VersatileDatetimeParametersBody,
 )
 from eventum.api.routers.preview.plugins_storage import EVENT_PLUGINS
@@ -139,7 +140,7 @@ async def initialize_event_plugin(
 async def produce_events(
     plugin: EventPluginFromStorageDep,
     params_list: Annotated[
-        list[ProduceParams],
+        list[ProduceParamsRequest],
         Body(
             description=(
                 'List of timestamps and input plugins tags to use '
@@ -149,7 +150,12 @@ async def produce_events(
     ],
 ) -> ProducedEventsInfo:
     result = await asyncio.to_thread(
-        produce_events_with_plugin, plugin, params_list
+        produce_events_with_plugin,
+        plugin,
+        [
+            ProduceParams(timestamp=params.timestamp, tags=params.tags)
+            for params in params_list
+        ],
     )
 
     return ProducedEventsInfo(
@@ -308,15 +314,15 @@ async def delete_template_event_plugin_shared_state_key(
 
 
 @router.get(
-    '/{name}/event-plugin/template/state/global',
-    description='Get global state of template event plugin',
+    '/{name}/event-plugin/state/global',
+    description='Get global state shared across all event plugins',
     responses=merge_responses(
-        get_template_plugin_global_state.responses,
+        get_plugin_global_state.responses,
         {500: {'description': 'Failed to serialize plugin state'}},
     ),
 )
-async def get_template_event_plugin_global_state(
-    state: TemplateEventPluginGlobalStateDep,
+async def get_event_plugin_global_state(
+    state: EventPluginGlobalStateDep,
 ) -> dict[str, Any]:
     try:
         return await asyncio.to_thread(
@@ -330,12 +336,12 @@ async def get_template_event_plugin_global_state(
 
 
 @router.patch(
-    '/{name}/event-plugin/template/state/global',
-    description='Patch global state of template event plugin',
-    responses=get_template_plugin_global_state.responses,
+    '/{name}/event-plugin/state/global',
+    description='Patch global state shared across all event plugins',
+    responses=get_plugin_global_state.responses,
 )
-async def update_template_event_plugin_global_state(
-    state: TemplateEventPluginGlobalStateDep,
+async def update_event_plugin_global_state(
+    state: EventPluginGlobalStateDep,
     content: Annotated[
         dict[str, Any],
         Body(description='Content to patch in state'),
@@ -345,23 +351,25 @@ async def update_template_event_plugin_global_state(
 
 
 @router.delete(
-    '/{name}/event-plugin/template/state/global',
-    description='Clear global state of template event plugin',
-    responses=get_template_plugin_global_state.responses,
+    '/{name}/event-plugin/state/global',
+    description='Clear global state shared across all event plugins',
+    responses=get_plugin_global_state.responses,
 )
-async def clear_template_event_plugin_global_state(
-    state: TemplateEventPluginGlobalStateDep,
+async def clear_event_plugin_global_state(
+    state: EventPluginGlobalStateDep,
 ) -> None:
     state.clear()
 
 
 @router.delete(
-    '/{name}/event-plugin/template/state/global/{key}',
-    description='Delete a key from global state of template event plugin',
-    responses=get_template_plugin_global_state.responses,
+    '/{name}/event-plugin/state/global/{key}',
+    description=(
+        'Delete a key from global state shared across all event plugins'
+    ),
+    responses=get_plugin_global_state.responses,
 )
-async def delete_template_event_plugin_global_state_key(
-    state: TemplateEventPluginGlobalStateDep,
+async def delete_event_plugin_global_state_key(
+    state: EventPluginGlobalStateDep,
     key: Annotated[str, Path(description='Key to delete from global state')],
 ) -> None:
     await asyncio.to_thread(state.pop, key)

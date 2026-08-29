@@ -7,6 +7,8 @@ export const InstanceInfoSchema = z.object({
   python_version: z.string(),
   python_implementation: z.string(),
   python_compiler: z.string(),
+  python_free_threaded: z.boolean(),
+  python_gil_enabled: z.boolean(),
   platform: z.string(),
   host_name: z.string(),
   host_ip_v4: z.string(),
@@ -17,6 +19,9 @@ export const InstanceInfoSchema = z.object({
   memory_total_bytes: z.number().int(),
   memory_used_bytes: z.number().int(),
   memory_available_bytes: z.number().int(),
+  process_memory_bytes: z.number().int(),
+  process_open_fds: z.number().int(),
+  process_max_fds: z.number().int(),
   network_sent_bytes: z.number().int(),
   network_received_bytes: z.number().int(),
   disk_written_bytes: z.number().int(),
@@ -25,8 +30,31 @@ export const InstanceInfoSchema = z.object({
 });
 export type InstanceInfo = z.infer<typeof InstanceInfoSchema>;
 
+/**
+ * Read a cleared input as "not set".
+ *
+ * A cleared text input hands over an empty string and a cleared select
+ * hands over null, and neither is a value the backend takes - dropping
+ * the field instead leaves it at its own default.
+ */
 const emptyToUndefined = (v: unknown) => {
   if (v === '' || v === null) {
+    return;
+  }
+
+  return v;
+};
+
+/**
+ * Same, for a field where null is a value of its own - an unlimited
+ * events queue, a batch formed by delay alone.
+ *
+ * Only an empty input reads as unset here, so an explicit null survives
+ * the round trip: it reaches the backend as the limit being lifted, and
+ * reads back as the switch that lifted it being off.
+ */
+const blankToUndefined = (v: unknown) => {
+  if (v === '') {
     return;
   }
 
@@ -93,11 +121,11 @@ export type ServerParameters = z.infer<typeof ServerParametersSchema>;
 
 export const BatchParametersSchema = z.object({
   size: z.preprocess(
-    emptyToUndefined,
+    blankToUndefined,
     z.number().gte(1).int().nullable().optional()
   ),
   delay: z.preprocess(
-    emptyToUndefined,
+    blankToUndefined,
     z.number().gte(0.1).nullable().optional()
   ),
 });
@@ -110,6 +138,10 @@ const QueueParametersSchema = z.object({
   max_event_batches: z.preprocess(
     emptyToUndefined,
     z.number().int().gte(1).optional()
+  ),
+  max_event_bytes: z.preprocess(
+    blankToUndefined,
+    z.number().int().gte(1).nullable().optional()
   ),
 });
 export type QueueParameters = z.infer<typeof QueueParametersSchema>;
@@ -133,8 +165,20 @@ export type GenerationParameters = z.infer<typeof GenerationParametersSchema>;
 export const LOG_LEVELS = ['debug', 'info', 'warning', 'error', 'critical'];
 export const LOG_FORMATS = ['plain', 'json'];
 
+export const INSTANCE_LOG_CHANNELS = [
+  'main',
+  'server',
+  'server_access',
+  'mcp',
+] as const;
+export type InstanceLogChannel = (typeof INSTANCE_LOG_CHANNELS)[number];
+
 export const LogParametersSchema = z.object({
   level: z.preprocess(emptyToUndefined, z.enum(LOG_LEVELS).optional()),
+  third_party_level: z.preprocess(
+    emptyToUndefined,
+    z.enum(LOG_LEVELS).optional()
+  ),
   format: z.preprocess(emptyToUndefined, z.enum(LOG_FORMATS).optional()),
   max_bytes: z.preprocess(
     emptyToUndefined,

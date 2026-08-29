@@ -2,14 +2,16 @@ import { List, Text } from '@mantine/core';
 import { modals } from '@mantine/modals';
 import { FC } from 'react';
 
+import {
+  PROJECT_NAME_PATTERN_ERROR,
+  VALID_PROJECT_NAME_PATTERN,
+} from './project-name';
 import { useRenameGeneratorConfigMutation } from '@/api/hooks/useGeneratorConfigs';
 import { RenameModal } from '@/components/modals/RenameModal';
 import {
   showErrorNotification,
   showSuccessNotification,
 } from '@/utils/notifications';
-
-const VALID_PROJECT_NAME_PATTERN = /^[A-Za-z0-9_-]+$/;
 
 interface RenameProjectModalProps {
   projectName: string;
@@ -47,7 +49,7 @@ export const RenameProjectModal: FC<RenameProjectModalProps> = ({
       currentName={projectName}
       takenNames={existingProjectNames}
       pattern={VALID_PROJECT_NAME_PATTERN}
-      patternError='Only letters, digits and symbols "-" and "_" are allowed'
+      patternError={PROJECT_NAME_PATTERN_ERROR}
       isPending={renameProject.isPending}
       onRename={handleRename}
     >

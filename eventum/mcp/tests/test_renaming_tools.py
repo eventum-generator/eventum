@@ -7,6 +7,12 @@ import pytest
 import yaml
 
 from eventum.app.manager import GeneratorManager
+from eventum.app.renaming import (
+    RenameConflictError,
+    RenameError,
+    RenameNotFoundError,
+)
+from eventum.app.secrets import UpdatedReferences
 from eventum.app.startup import Startup
 from eventum.core.parameters import GenerationParameters, GeneratorParameters
 from eventum.mcp.context import ServerLiveContext
@@ -16,10 +22,7 @@ from eventum.mcp.tools.renaming import (
     rename_generator,
     rename_generator_config,
 )
-from eventum.security.manage import (
-    SecretConflictError,
-    SecretNotFoundError,
-)
+from eventum.security.manage import SecretNameError
 
 
 class _FakeGenerator:
@@ -58,6 +61,7 @@ def _ctx(
         log_format='plain',
         settings=MagicMock(),
         hooks=MagicMock(),
+        repositories=MagicMock(),
     )
 
 
@@ -250,17 +254,33 @@ async def test_rename_secret_moves_value(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """Renaming delegates to the keyring and reports both names."""
+    """Renaming delegates to the service and reports what it touched."""
     calls: list[tuple[str, str]] = []
 
-    def _rename(name: str, new_name: str) -> None:
+    def _rename(
+        *,
+        generators_dir: object,
+        config_filename: object,
+        repositories: object,
+        name: str,
+        new_name: str,
+    ) -> UpdatedReferences:
         calls.append((name, new_name))
+        return UpdatedReferences(
+            projects=['web-nginx'], repositories=['internal']
+        )
 
     monkeypatch.setattr(renaming, 'rename_secret', _rename)
 
     result = await renaming.rename_secret_name(_ctx(tmp_path), 'old', 'new')
 
-    assert result == {'name': 'old', 'new_name': 'new', 'renamed': True}
+    assert result == {
+        'name': 'old',
+        'new_name': 'new',
+        'renamed': True,
+        'projects': ['web-nginx'],
+        'repositories': ['internal'],
+    }
     assert calls == [('old', 'new')]
 
 
@@ -270,8 +290,15 @@ async def test_rename_secret_missing_is_failure(
 ) -> None:
     """An absent secret returns a structured failure."""
 
-    def _rename(name: str, new_name: str) -> None:
-        raise SecretNotFoundError('Secret is missing')
+    def _rename(
+        *,
+        generators_dir: object,
+        config_filename: object,
+        repositories: object,
+        name: str,
+        new_name: str,
+    ) -> UpdatedReferences:
+        raise RenameNotFoundError('Secret is missing', context={})
 
     monkeypatch.setattr(renaming, 'rename_secret', _rename)
 
@@ -288,26 +315,105 @@ async def test_rename_secret_taken_name_is_failure(
 ) -> None:
     """A taken target name returns a structured failure."""
 
-    def _rename(name: str, new_name: str) -> None:
-        raise SecretConflictError('Secret with this name already exists')
+    def _rename(
+        *,
+        generators_dir: object,
+        config_filename: object,
+        repositories: object,
+        name: str,
+        new_name: str,
+    ) -> UpdatedReferences:
+        raise RenameConflictError(
+            'Secret with this name already exists',
+            context={},
+        )
 
     monkeypatch.setattr(renaming, 'rename_secret', _rename)
 
     result = await renaming.rename_secret_name(_ctx(tmp_path), 'old', 'new')
 
     assert isinstance(result, ToolFailure)
+    assert result.error == 'Secret with this name already exists'
     assert result.details == {'name': 'new'}
+
+
+async def test_rename_secret_names_the_repositories_holding_the_name(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A name a repository holds is refused, and the holder is named."""
+
+    def _rename(
+        *,
+        generators_dir: object,
+        config_filename: object,
+        repositories: object,
+        name: str,
+        new_name: str,
+    ) -> UpdatedReferences:
+        raise RenameConflictError(
+            'Repositories already authenticate with the new name',
+            context={'secret': 'new', 'reason': 'github, mirror'},
+        )
+
+    monkeypatch.setattr(renaming, 'rename_secret', _rename)
+
+    result = await renaming.rename_secret_name(_ctx(tmp_path), 'old', 'new')
+
+    assert isinstance(result, ToolFailure)
+    assert (
+        result.error == 'Repositories already authenticate with the new name'
+    )
+    assert result.details == {
+        'name': 'new',
+        'secret': 'new',
+        'reason': 'github, mirror',
+    }
+
+
+async def test_rename_secret_unreferenceable_name_names_the_rule(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A name no configuration could reference tells the agent why."""
+
+    def _rename(
+        *,
+        generators_dir: object,
+        config_filename: object,
+        repositories: object,
+        name: str,
+        new_name: str,
+    ) -> UpdatedReferences:
+        raise SecretNameError('Name of secret must be words')
+
+    monkeypatch.setattr(renaming, 'rename_secret', _rename)
+
+    result = await renaming.rename_secret_name(_ctx(tmp_path), 'old', 'a-b')
+
+    assert isinstance(result, ToolFailure)
+    assert result.error == 'Name of secret must be words'
+    assert result.details == {'name': 'a-b'}
 
 
 async def test_rename_secret_keyring_error_carries_no_path(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """A keyring failure becomes a path-free ToolFailure."""
+    """A failure names what happened without the reason behind it."""
 
-    def _rename(name: str, new_name: str) -> None:
-        detail = 'cannot write /abs/keyring/cryptfile.cfg'
-        raise OSError(detail)
+    def _rename(
+        *,
+        generators_dir: object,
+        config_filename: object,
+        repositories: object,
+        name: str,
+        new_name: str,
+    ) -> UpdatedReferences:
+        raise RenameError(
+            'Failed to rename secret',
+            context={'reason': 'cannot write /abs/keyring/cryptfile.cfg'},
+        )
 
     monkeypatch.setattr(renaming, 'rename_secret', _rename)
 
@@ -315,7 +421,35 @@ async def test_rename_secret_keyring_error_carries_no_path(
 
     assert isinstance(result, ToolFailure)
     assert result.error == 'Failed to rename secret'
-    assert result.details == {}
+    assert result.details == {'name': 'old'}
+
+
+async def test_rename_secret_reports_repositories_left_behind(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A repointing that failed is named, so the agent can act on it."""
+
+    def _rename(
+        *,
+        generators_dir: object,
+        config_filename: object,
+        repositories: object,
+        name: str,
+        new_name: str,
+    ) -> UpdatedReferences:
+        raise RenameError(
+            'Repositories using the secret cannot be repointed',
+            context={'file_path': '/abs/instance/repositories.yml'},
+        )
+
+    monkeypatch.setattr(renaming, 'rename_secret', _rename)
+
+    result = await renaming.rename_secret_name(_ctx(tmp_path), 'old', 'new')
+
+    assert isinstance(result, ToolFailure)
+    assert result.error == 'Repositories using the secret cannot be repointed'
+    assert result.details == {'name': 'old'}
 
 
 async def test_rename_secret_read_only_is_failure(

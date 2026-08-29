@@ -168,6 +168,7 @@ export const SamplesParams: FC<SamplesParamsProps> = ({
                   <Group wrap="nowrap" gap="2px">
                     <ActionIcon
                       variant="transparent"
+                      aria-label="Set tabulation as delimiter"
                       title="Set tabulation as delimiter"
                       onClick={() => {
                         form.setFieldValue('delimiter', '\t');

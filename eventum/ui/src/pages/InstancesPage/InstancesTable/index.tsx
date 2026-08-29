@@ -47,6 +47,19 @@ function countErrors(stats: GeneratorStats): number {
   return stats.event.produce_failed + outputFailed;
 }
 
+/**
+ * Share of one core an instance has taken on average since it started. The
+ * list is fetched once rather than polled, so there is no earlier sample to
+ * derive the share at this moment from - the Monitoring page does that.
+ */
+function averageCpuShare(stats: GeneratorStats): number | undefined {
+  if (stats.uptime <= 0) {
+    return undefined;
+  }
+
+  return (stats.resources.cpu_seconds / stats.uptime) * 100;
+}
+
 interface InstancesTableProps {
   data: GeneratorsInfo;
   instancesFilter?: string;
@@ -55,6 +68,19 @@ interface InstancesTableProps {
   statsById?: Record<string, GeneratorStats>;
   rowSelection: RowSelectionState;
   onRowSelectionChange: React.Dispatch<React.SetStateAction<RowSelectionState>>;
+}
+
+/**
+ * The name of the control that sorts a column.
+ *
+ * The control is an icon alone, so it carries the name of the column it
+ * sorts - the header of that column when it is a word rather than a
+ * component of its own.
+ */
+function sortLabel(column: { id: string; columnDef: { header?: unknown } }) {
+  const header = column.columnDef.header;
+
+  return `Sort by ${typeof header === 'string' ? header.toLowerCase() : column.id}`;
 }
 
 export const InstancesTable: FC<InstancesTableProps> = ({
@@ -104,6 +130,7 @@ export const InstancesTable: FC<InstancesTableProps> = ({
         return {
           ...instance,
           flow: stats ? stats.output_eps : undefined,
+          cpu: stats ? averageCpuShare(stats) : undefined,
           errors: stats ? countErrors(stats) : undefined,
           written: stats ? stats.total_written : undefined,
         };
@@ -135,77 +162,91 @@ export const InstancesTable: FC<InstancesTableProps> = ({
   return (
     <Stack>
       <Paper withBorder p="sm">
-        <Table bdrs="md">
-          <Table.Thead>
-            {table.getHeaderGroups().map((headerGroup) => (
-              <Table.Tr key={headerGroup.id}>
-                {headerGroup.headers.map((header) => {
-                  const meta = header.column.columnDef?.meta as
-                    | { style?: React.CSSProperties }
-                    | undefined;
+        {/* Eight columns do not compress below ~900px, and without a scroll
+            container of its own the table widens the document instead - the
+            rightmost columns, the row menu among them, end up off-screen with
+            only the page scrollbar to reach them. `type="native"` keeps the
+            platform scrollbar and touch scrolling; Mantine's default
+            ScrollArea replaces both. */}
+        <Table.ScrollContainer minWidth={900} type="native">
+          <Table bdrs="md">
+            <Table.Thead>
+              {table.getHeaderGroups().map((headerGroup) => (
+                <Table.Tr key={headerGroup.id}>
+                  {headerGroup.headers.map((header) => {
+                    const meta = header.column.columnDef?.meta as
+                      | { style?: React.CSSProperties }
+                      | undefined;
 
-                  const style: React.CSSProperties = meta?.style ?? {};
+                    const style: React.CSSProperties = meta?.style ?? {};
 
-                  return (
-                    <Table.Th key={header.id} style={style}>
-                      {header.isPlaceholder ? null : (
-                        <Group gap="xs" wrap="nowrap">
-                          {flexRender(
-                            header.column.columnDef.header,
-                            header.getContext()
-                          )}
+                    return (
+                      <Table.Th key={header.id} style={style}>
+                        {header.isPlaceholder ? null : (
+                          <Group gap="xs" wrap="nowrap">
+                            {flexRender(
+                              header.column.columnDef.header,
+                              header.getContext()
+                            )}
 
-                          {header.column.getCanSort() && (
-                            <>
-                              {header.column.getIsSorted() === 'asc' && (
-                                <ActionIcon
-                                  variant="transparent"
-                                  size="sm"
-                                  onClick={header.column.getToggleSortingHandler()}
-                                >
-                                  <IconSortDescending size={16} />
-                                </ActionIcon>
-                              )}
-                              {header.column.getIsSorted() === 'desc' && (
-                                <ActionIcon
-                                  variant="transparent"
-                                  size="sm"
-                                  onClick={header.column.getToggleSortingHandler()}
-                                >
-                                  <IconSortAscending size={16} />
-                                </ActionIcon>
-                              )}
-                              {header.column.getIsSorted() === false && (
-                                <ActionIcon
-                                  variant="transparent"
-                                  size="sm"
-                                  onClick={header.column.getToggleSortingHandler()}
-                                >
-                                  <IconArrowsSort size={16} />
-                                </ActionIcon>
-                              )}
-                            </>
-                          )}
-                        </Group>
+                            {header.column.getCanSort() && (
+                              <>
+                                {header.column.getIsSorted() === 'asc' && (
+                                  <ActionIcon
+                                    variant="transparent"
+                                    size="sm"
+                                    aria-label={sortLabel(header.column)}
+                                    onClick={header.column.getToggleSortingHandler()}
+                                  >
+                                    <IconSortDescending size={16} />
+                                  </ActionIcon>
+                                )}
+                                {header.column.getIsSorted() === 'desc' && (
+                                  <ActionIcon
+                                    variant="transparent"
+                                    size="sm"
+                                    aria-label={sortLabel(header.column)}
+                                    onClick={header.column.getToggleSortingHandler()}
+                                  >
+                                    <IconSortAscending size={16} />
+                                  </ActionIcon>
+                                )}
+                                {header.column.getIsSorted() === false && (
+                                  <ActionIcon
+                                    variant="transparent"
+                                    size="sm"
+                                    aria-label={sortLabel(header.column)}
+                                    onClick={header.column.getToggleSortingHandler()}
+                                  >
+                                    <IconArrowsSort size={16} />
+                                  </ActionIcon>
+                                )}
+                              </>
+                            )}
+                          </Group>
+                        )}
+                      </Table.Th>
+                    );
+                  })}
+                </Table.Tr>
+              ))}
+            </Table.Thead>
+            <Table.Tbody>
+              {table.getRowModel().rows.map((row) => (
+                <Table.Tr key={row.id}>
+                  {row.getVisibleCells().map((cell) => (
+                    <Table.Td key={cell.id}>
+                      {flexRender(
+                        cell.column.columnDef.cell,
+                        cell.getContext()
                       )}
-                    </Table.Th>
-                  );
-                })}
-              </Table.Tr>
-            ))}
-          </Table.Thead>
-          <Table.Tbody>
-            {table.getRowModel().rows.map((row) => (
-              <Table.Tr key={row.id}>
-                {row.getVisibleCells().map((cell) => (
-                  <Table.Td key={cell.id}>
-                    {flexRender(cell.column.columnDef.cell, cell.getContext())}
-                  </Table.Td>
-                ))}
-              </Table.Tr>
-            ))}
-          </Table.Tbody>
-        </Table>
+                    </Table.Td>
+                  ))}
+                </Table.Tr>
+              ))}
+            </Table.Tbody>
+          </Table>
+        </Table.ScrollContainer>
         {table.getFilteredRowModel().rows.length === 0 && (
           <Center mt="xs">
             <Text size="sm" c="dimmed">

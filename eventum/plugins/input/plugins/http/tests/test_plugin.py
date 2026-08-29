@@ -1,5 +1,6 @@
 """Tests for http input plugin."""
 
+import logging
 import socket
 import time
 from collections.abc import Iterator
@@ -10,8 +11,10 @@ from zoneinfo import ZoneInfo
 
 import pytest
 import requests as rq  # type: ignore[import-untyped]
+import structlog
 from numpy import datetime64
 
+from eventum.logging.channels import resolve_channel
 from eventum.plugins.input.exceptions import PluginGenerationError
 from eventum.plugins.input.plugins.http.config import HttpInputPluginConfig
 from eventum.plugins.input.plugins.http.plugin import HttpInputPlugin
@@ -106,6 +109,52 @@ def test_plugin() -> None:
         future.result()
 
     assert len(timestamps) == REQUESTS * COUNT_PER_REQUEST
+
+
+@pytest.mark.filterwarnings('ignore:websockets')
+def test_plugin_logs_belong_to_its_generator() -> None:
+    """The plugin's own server logs to the generator that runs it."""
+    port = _free_port()
+    url = f'http://{HOST}:{port}'
+    channels: dict[str, str] = {}
+
+    class Capture(logging.Handler):
+        def emit(self, record: logging.LogRecord) -> None:
+            channels[record.name] = resolve_channel(record)
+
+    root = logging.getLogger()
+    handlers = root.handlers[:]
+    level = root.level
+    root.handlers.clear()
+    root.addHandler(Capture())
+    root.setLevel(logging.DEBUG)
+
+    # The generator binds its id at the entry of its own thread
+    structlog.contextvars.bind_contextvars(generator_id='gen-1')
+    plugin = _make_plugin(port)
+
+    try:
+        with ThreadPoolExecutor(max_workers=1) as executor:
+            future = executor.submit(
+                lambda: list(plugin.generate(size=100)),
+            )
+            _wait_until_started(plugin, future)
+
+            rq.post(
+                f'{url}/generate',
+                json={'count': 1},
+                timeout=REQUEST_TIMEOUT,
+            )
+            rq.post(f'{url}/stop', timeout=REQUEST_TIMEOUT)
+            future.result()
+    finally:
+        root.handlers.clear()
+        root.handlers.extend(handlers)
+        root.setLevel(level)
+        structlog.contextvars.clear_contextvars()
+
+    assert channels['uvicorn.error'] == 'generator_gen-1'
+    assert channels['uvicorn.access'] == 'generator_gen-1'
 
 
 @pytest.mark.filterwarnings('ignore:websockets')

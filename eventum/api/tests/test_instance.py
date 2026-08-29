@@ -6,8 +6,9 @@ import pytest
 import yaml
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
+from starlette.websockets import WebSocketDisconnect
 
-from eventum.api.routers.instance.routes import router
+from eventum.api.routers.instance.routes import router, ws_router
 from eventum.app.models.parameters.log import LogParameters
 from eventum.app.models.parameters.path import PathParameters
 from eventum.app.models.parameters.server import (
@@ -50,6 +51,15 @@ def client(tmp_settings, hooks):
     app.state.settings = tmp_settings
     app.state.instance_hooks = hooks
     app.include_router(router, prefix='/instance')
+    with TestClient(app) as c:
+        yield c
+
+
+@pytest.fixture
+def ws_client(tmp_settings):
+    app = FastAPI()
+    app.state.settings = tmp_settings
+    app.include_router(ws_router, prefix='/instance')
     with TestClient(app) as c:
         yield c
 
@@ -148,3 +158,39 @@ def test_restart_instance_error(client, hooks):
     hooks['restart'] = MagicMock(side_effect=RuntimeError('fail'))
     response = client.post('/instance/restart')
     assert response.status_code == 500
+
+
+# --- WS /logs/{channel} ---
+
+
+def test_stream_logs_of_channel(ws_client, tmp_settings):
+    tmp_settings.path.logs.mkdir()
+    (tmp_settings.path.logs / 'server_access.log').write_text(
+        'Access record\n',
+        encoding='utf-8',
+    )
+
+    with ws_client.websocket_connect('/instance/logs/server_access') as ws:
+        assert 'Access record' in ws.receive_text()
+
+
+def test_stream_logs_of_missing_file(ws_client, tmp_settings):
+    tmp_settings.path.logs.mkdir()
+
+    with (
+        pytest.raises(WebSocketDisconnect) as info,
+        ws_client.websocket_connect('/instance/logs/main') as ws,
+    ):
+        ws.receive_text()
+
+    assert info.value.code == 1013
+
+
+def test_stream_logs_of_unknown_channel(ws_client):
+    with (
+        pytest.raises(WebSocketDisconnect) as info,
+        ws_client.websocket_connect('/instance/logs/unknown'),
+    ):
+        pass
+
+    assert info.value.code == 1008

@@ -2,13 +2,13 @@ import z from 'zod';
 
 export const GlobalsReferenceSchema = z.object({
   key: z.string(),
-  template: z.string(),
+  path: z.string(),
 });
 export type GlobalsReference = z.infer<typeof GlobalsReferenceSchema>;
 
 export const GlobalsWarningSchema = z.object({
   type: z.enum(['dynamic_key', 'update_call']),
-  template: z.string(),
+  path: z.string(),
 });
 export type GlobalsWarning = z.infer<typeof GlobalsWarningSchema>;
 

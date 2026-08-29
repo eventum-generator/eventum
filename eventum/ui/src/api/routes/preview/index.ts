@@ -143,7 +143,7 @@ export async function getTemplateEventPluginGlobalState(
 ): Promise<TemplateEventPluginState> {
   return await validateResponse(
     TemplateEventPluginStateSchema,
-    apiClient.get(`/preview/${name}/event-plugin/template/state/global`)
+    apiClient.get(`/preview/${name}/event-plugin/state/global`)
   );
 }
 
@@ -151,14 +151,11 @@ export async function updateTemplateEventPluginGlobalState(
   name: string,
   state: TemplateEventPluginState
 ) {
-  await apiClient.patch(
-    `/preview/${name}/event-plugin/template/state/global`,
-    state
-  );
+  await apiClient.patch(`/preview/${name}/event-plugin/state/global`, state);
 }
 
 export async function clearTemplateEventPluginGlobalState(name: string) {
-  await apiClient.delete(`/preview/${name}/event-plugin/template/state/global`);
+  await apiClient.delete(`/preview/${name}/event-plugin/state/global`);
 }
 
 export async function deleteTemplateEventPluginGlobalStateKey(
@@ -166,7 +163,7 @@ export async function deleteTemplateEventPluginGlobalStateKey(
   key: string
 ) {
   await apiClient.delete(
-    `/preview/${name}/event-plugin/template/state/global/${encodeURIComponent(key)}`
+    `/preview/${name}/event-plugin/state/global/${encodeURIComponent(key)}`
   );
 }
 

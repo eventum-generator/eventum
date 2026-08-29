@@ -93,7 +93,7 @@ async def stream_file(
         If file cannot be read.
 
     """
-    async with aiofiles.open(path) as f:
+    async with aiofiles.open(path, encoding='utf-8', errors='replace') as f:
         await f.seek(0, os.SEEK_END)
         size = await f.tell()
         start_pos = max(0, size - end_offset)

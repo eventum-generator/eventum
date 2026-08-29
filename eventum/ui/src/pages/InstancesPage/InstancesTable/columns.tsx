@@ -18,6 +18,7 @@ import { ROUTE_PATHS } from '@/routing/paths';
 // render "-" (and sort last).
 export type InstanceRow = GeneratorsInfo[number] & {
   flow: number | undefined;
+  cpu: number | undefined;
   errors: number | undefined;
   written: number | undefined;
 };
@@ -154,6 +155,34 @@ export const columns = [
       );
     },
   }),
+  columnHelper.accessor('cpu', {
+    header: 'CPU',
+    id: 'cpu',
+    enableSorting: true,
+    sortUndefined: 'last',
+    cell: (info) => {
+      const value = info.getValue();
+
+      if (value === undefined) {
+        return noData;
+      }
+
+      return (
+        <Text
+          span
+          size="sm"
+          style={{ fontVariantNumeric: 'tabular-nums' }}
+          title="Average share of one core since the instance started"
+        >
+          {value.toFixed(1)}
+          <Text span c="dimmed" size="xs">
+            {' '}
+            %
+          </Text>
+        </Text>
+      );
+    },
+  }),
   columnHelper.accessor('errors', {
     header: 'Errors',
     id: 'errors',
@@ -234,7 +263,7 @@ export const columns = [
       return (
         <RowActions
           target={
-            <ActionIcon variant="transparent">
+            <ActionIcon variant="transparent" aria-label="Instance actions">
               <IconDotsVertical size={20} />
             </ActionIcon>
           }

@@ -55,8 +55,15 @@ export const InstanceHeader: FC<InstanceHeaderProps> = ({
   }
 
   return (
-    <Group justify="space-between" align="center" wrap="nowrap" gap="md">
-      <Group gap="sm" align="center" wrap="nowrap" style={{ minWidth: 0 }}>
+    // The row wraps rather than compressing: held on one line, the actions
+    // keep their width and the title is squeezed to nothing instead.
+    <Group justify="space-between" align="center" gap="md">
+      <Group
+        gap="sm"
+        align="center"
+        wrap="nowrap"
+        style={{ minWidth: 0, flex: '1 1 auto' }}
+      >
         <ActionIcon
           variant="subtle"
           size="lg"
@@ -69,7 +76,12 @@ export const InstanceHeader: FC<InstanceHeaderProps> = ({
           order={2}
           fz="1.5rem"
           fw={650}
-          style={{ wordBreak: 'break-all' }}
+          title={instanceId}
+          style={{
+            overflow: 'hidden',
+            textOverflow: 'ellipsis',
+            whiteSpace: 'nowrap',
+          }}
         >
           {instanceId}
         </Title>

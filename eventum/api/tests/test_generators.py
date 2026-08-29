@@ -1,7 +1,9 @@
 """Tests for generators API router."""
 
+from datetime import UTC, datetime
 from pathlib import Path
-from unittest.mock import MagicMock, patch
+from types import SimpleNamespace
+from unittest.mock import patch
 
 import pytest
 import yaml
@@ -9,7 +11,7 @@ from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
 from eventum.api.routers.generators.routes import router
-from eventum.app.manager import GeneratorManager, ManagingError
+from eventum.app.manager import GeneratorManager
 from eventum.app.models.parameters.log import LogParameters
 from eventum.app.models.parameters.path import PathParameters
 from eventum.app.models.parameters.server import (
@@ -19,9 +21,14 @@ from eventum.app.models.parameters.server import (
 from eventum.app.models.settings import Settings
 from eventum.app.startup import Startup
 from eventum.core.parameters import GenerationParameters, GeneratorParameters
+from eventum.core.resources import (
+    GeneratorResources,
+    QueuesUsage,
+    QueueUsage,
+)
 
 
-@pytest.fixture()
+@pytest.fixture
 def tmp_settings(tmp_path):
     generators_dir = tmp_path / 'generators'
     generators_dir.mkdir()
@@ -40,12 +47,12 @@ def tmp_settings(tmp_path):
     )
 
 
-@pytest.fixture()
+@pytest.fixture
 def manager():
     return GeneratorManager()
 
 
-@pytest.fixture()
+@pytest.fixture
 def startup(tmp_settings):
     tmp_settings.path.startup.write_text('')
     return Startup(
@@ -55,7 +62,7 @@ def startup(tmp_settings):
     )
 
 
-@pytest.fixture()
+@pytest.fixture
 def client(tmp_settings, manager, startup):
     app = FastAPI()
     app.state.settings = tmp_settings
@@ -306,3 +313,132 @@ def test_rename_generator_blank_id(client, manager, tmp_settings):
     response = client.post('/generators/ren_gen/rename', json={'new_id': ''})
 
     assert response.status_code == 422
+
+
+# --- GET /{id}/stats ---
+
+
+class _StubGenerator:
+    """Generator that reports fixed stats without executing anything."""
+
+    def __init__(self, *, running=True, resources_available=True):
+        self.is_running = running
+        self.start_time = datetime(2026, 1, 1, tzinfo=UTC)
+        self._resources_available = resources_available
+
+    def get_plugins_info(self):
+        return SimpleNamespace(
+            input=[SimpleNamespace(name='cron', id=1, generated=10)],
+            event=SimpleNamespace(
+                name='template',
+                id=1,
+                produced=8,
+                produce_failed=1,
+                dropped=1,
+            ),
+            output=[
+                SimpleNamespace(
+                    name='file',
+                    id=1,
+                    written=7,
+                    write_failed=1,
+                    format_failed=0,
+                )
+            ],
+        )
+
+    def get_resources(self, cpu_times=None):
+        if not self._resources_available:
+            msg = 'No information about resources is available'
+            raise RuntimeError(msg)
+
+        return GeneratorResources(
+            thread_count=4,
+            cpu_seconds=1.5,
+            run_delay_seconds=0.25,
+            disk_read_bytes=1024,
+            disk_written_bytes=4096,
+            network_sent_bytes=2048,
+            network_received_bytes=512,
+            queues=QueuesUsage(
+                timestamps=QueueUsage(
+                    size=1,
+                    maxsize=10,
+                    size_bytes=160,
+                    max_bytes=None,
+                ),
+                events=QueueUsage(
+                    size=2,
+                    maxsize=10,
+                    size_bytes=4096,
+                    max_bytes=65536,
+                ),
+            ),
+        )
+
+
+def test_get_generator_stats_not_running(client, manager, tmp_settings):
+    config_path = _make_config_file(tmp_settings, 'stats_gen')
+    manager.add(GeneratorParameters(id='stats_gen', path=Path(config_path)))
+
+    response = client.get('/generators/stats_gen/stats')
+
+    assert response.status_code == 400
+
+
+def test_get_generator_stats_running(client, manager):
+    manager._generators['stats_gen'] = _StubGenerator()
+
+    response = client.get('/generators/stats_gen/stats')
+
+    assert response.status_code == 200
+
+    resources = response.json()['resources']
+    assert resources['thread_count'] == 4
+    assert resources['cpu_seconds'] == 1.5
+    assert resources['run_delay_seconds'] == 0.25
+    assert resources['disk_read_bytes'] == 1024
+    assert resources['disk_written_bytes'] == 4096
+    assert resources['network_sent_bytes'] == 2048
+    assert resources['network_received_bytes'] == 512
+    assert resources['queues']['timestamps'] == {
+        'size': 1,
+        'maxsize': 10,
+        'size_bytes': 160,
+        'max_bytes': None,
+    }
+    assert resources['queues']['events'] == {
+        'size': 2,
+        'maxsize': 10,
+        'size_bytes': 4096,
+        'max_bytes': 65536,
+    }
+
+
+def test_get_generator_stats_stopped_while_reading(client, manager):
+    manager._generators['stats_gen'] = _StubGenerator(
+        resources_available=False,
+    )
+
+    response = client.get('/generators/stats_gen/stats')
+
+    assert response.status_code == 400
+
+
+# --- GET /group-actions/stats-running ---
+
+
+def test_get_running_generators_stats(client, manager):
+    manager._generators['running'] = _StubGenerator()
+    manager._generators['idle'] = _StubGenerator(running=False)
+    manager._generators['vanishing'] = _StubGenerator(
+        resources_available=False,
+    )
+
+    response = client.get('/generators/group-actions/stats-running')
+
+    assert response.status_code == 200
+
+    stats = response.json()
+    assert [entry['id'] for entry in stats] == ['running']
+    assert stats[0]['resources']['thread_count'] == 4

@@ -1,5 +1,7 @@
 """Tests for generator configs API router."""
 
+import io
+import zipfile
 from unittest.mock import MagicMock, patch
 
 import aiofiles
@@ -75,6 +77,15 @@ VALID_CONFIG = {
     'output': [{'stdout': {'formatter': {'format': 'plain'}}}],
 }
 
+# 'sobytiya.log' spelled in Cyrillic
+NON_ASCII_VALUE = 'события.log'
+
+NON_ASCII_CONFIG = {
+    'input': [{'cron': {'expression': '* * * * *', 'count': 1}}],
+    'event': {'replay': {'path': NON_ASCII_VALUE}},
+    'output': [{'stdout': {'formatter': {'format': 'plain'}}}],
+}
+
 
 def _create_config(settings, name='gen1'):
     gen_dir = settings.path.generators_dir / name
@@ -82,6 +93,15 @@ def _create_config(settings, name='gen1'):
     config_path = gen_dir / settings.path.generator_config_filename
     config_path.write_text(yaml.dump(VALID_CONFIG, sort_keys=False))
     return gen_dir
+
+
+def _read_config(settings, name):
+    config_path = (
+        settings.path.generators_dir
+        / name
+        / settings.path.generator_config_filename
+    )
+    return config_path.read_text(encoding='utf-8')
 
 
 # --- GET / ---
@@ -215,6 +235,27 @@ def test_get_config_invalid_yaml(client, tmp_settings):
     assert response.status_code == 422
 
 
+def test_get_config_with_non_ascii(client):
+    client.post('/configs/non_ascii_read_gen', json=NON_ASCII_CONFIG)
+
+    response = client.get('/configs/non_ascii_read_gen')
+
+    assert response.status_code == 200
+    assert response.json()['event']['replay']['path'] == NON_ASCII_VALUE
+
+
+def test_get_config_invalid_encoding(client, tmp_settings):
+    gen_dir = tmp_settings.path.generators_dir / 'bad_encoding'
+    gen_dir.mkdir()
+    config = gen_dir / tmp_settings.path.generator_config_filename
+    config.write_bytes(b'event:\n  replay:\n    path: \xff\xfe.log\n')
+
+    response = client.get('/configs/bad_encoding')
+
+    assert response.status_code == 422
+    assert 'encoding error' in response.json()['detail']
+
+
 def test_get_config_with_fsm_conditions(
     client: TestClient,
     tmp_settings: Settings,
@@ -278,6 +319,15 @@ def test_create_config_already_exists(client, tmp_settings):
     assert response.status_code == 409
 
 
+def test_create_config_keeps_non_ascii_unescaped(client, tmp_settings):
+    response = client.post('/configs/non_ascii_gen', json=NON_ASCII_CONFIG)
+    assert response.status_code == 201
+
+    content = _read_config(tmp_settings, 'non_ascii_gen')
+    assert NON_ASCII_VALUE in content
+    assert '\\u' not in content
+
+
 # --- PUT /{name} ---
 
 
@@ -290,6 +340,17 @@ def test_update_config(client, tmp_settings):
     }
     response = client.put('/configs/upd_gen', json=updated_config)
     assert response.status_code == 200
+
+
+def test_update_config_keeps_non_ascii_unescaped(client, tmp_settings):
+    _create_config(tmp_settings, 'upd_non_ascii_gen')
+
+    response = client.put('/configs/upd_non_ascii_gen', json=NON_ASCII_CONFIG)
+    assert response.status_code == 200
+
+    content = _read_config(tmp_settings, 'upd_non_ascii_gen')
+    assert NON_ASCII_VALUE in content
+    assert '\\u' not in content
 
 
 # --- DELETE /{name} ---
@@ -366,6 +427,226 @@ def test_get_file_declares_no_length(client, tmp_settings):
     response = client.get('/configs/length_gen/file/output.ndjson')
     assert response.status_code == 200
     assert 'content-length' not in response.headers
+
+
+def test_get_file_download_saves_as_attachment(client, tmp_settings):
+    gen_dir = _create_config(tmp_settings, 'download_gen')
+    (gen_dir / 'output.ndjson').write_text('{"a": 1}\n')
+
+    response = client.get(
+        '/configs/download_gen/file/output.ndjson',
+        params={'download': True},
+    )
+
+    assert response.status_code == 200
+    assert response.text == '{"a": 1}\n'
+    assert response.headers['content-disposition'] == (
+        'attachment; filename="output.ndjson"'
+    )
+    # An executable type would turn a downloadable file into
+    # same-origin script the moment the disposition stopped applying.
+    assert response.headers['content-type'] == 'application/octet-stream'
+    assert response.headers['x-content-type-options'] == 'nosniff'
+
+
+def test_get_file_download_names_the_file_not_its_path(
+    client,
+    tmp_settings,
+):
+    gen_dir = _create_config(tmp_settings, 'nested_gen')
+    (gen_dir / 'templates').mkdir()
+    (gen_dir / 'templates' / 'event.jinja').write_text('{{ ts }}')
+
+    response = client.get(
+        '/configs/nested_gen/file/templates/event.jinja',
+        params={'download': True},
+    )
+
+    assert response.status_code == 200
+    assert response.headers['content-disposition'] == (
+        'attachment; filename="event.jinja"'
+    )
+
+
+def test_get_file_download_encodes_non_ascii_name(client, tmp_settings):
+    gen_dir = _create_config(tmp_settings, 'non_ascii_gen')
+    (gen_dir / NON_ASCII_VALUE).write_text('content')
+
+    response = client.get(
+        f'/configs/non_ascii_gen/file/{NON_ASCII_VALUE}',
+        params={'download': True},
+    )
+
+    assert response.status_code == 200
+    assert "filename*=utf-8''" in response.headers['content-disposition']
+
+
+def test_get_file_download_declares_no_length(client, tmp_settings):
+    # The body is a snapshot of a file a generator may be appending to,
+    # so its length is as unknown here as it is for an inline read.
+    gen_dir = _create_config(tmp_settings, 'download_length_gen')
+    (gen_dir / 'output.ndjson').write_text('{"a": 1}\n')
+
+    response = client.get(
+        '/configs/download_length_gen/file/output.ndjson',
+        params={'download': True},
+    )
+
+    assert response.status_code == 200
+    assert 'content-length' not in response.headers
+
+
+def test_get_file_serves_inline_by_default(client, tmp_settings):
+    gen_dir = _create_config(tmp_settings, 'inline_gen')
+    (gen_dir / 'notes.txt').write_text('file content')
+
+    response = client.get('/configs/inline_gen/file/notes.txt')
+
+    assert response.status_code == 200
+    assert response.headers['content-type'] == 'text/plain; charset=utf-8'
+    assert response.headers['x-content-type-options'] == 'nosniff'
+    assert 'content-disposition' not in response.headers
+
+
+# --- Symlink escape ---
+
+# A relative path with no '..' in it still leaves the generator
+# directory when a component of it is a symlink: the relative-path check
+# reads the path as written, while the symlink is only followed once the
+# path is resolved.
+
+
+@pytest.fixture
+def escaping_gen(tmp_settings, tmp_path):
+    """Generator directory holding a symlink to a file outside it."""
+    gen_dir = _create_config(tmp_settings, 'symlink_gen')
+    outside = tmp_path / 'outside'
+    outside.mkdir()
+    (outside / 'secret.txt').write_text('secret content')
+    (gen_dir / 'link.txt').symlink_to(outside / 'secret.txt')
+    (gen_dir / 'linked_dir').symlink_to(outside, target_is_directory=True)
+
+    return gen_dir
+
+
+def test_get_file_symlink_escape_blocked(client, escaping_gen):
+    response = client.get('/configs/symlink_gen/file/link.txt')
+
+    assert response.status_code == 403
+
+
+def test_get_file_symlink_dir_escape_blocked(client, escaping_gen):
+    response = client.get('/configs/symlink_gen/file/linked_dir/secret.txt')
+
+    assert response.status_code == 403
+
+
+def test_upload_file_symlink_escape_blocked(client, escaping_gen, tmp_path):
+    response = client.post(
+        '/configs/symlink_gen/file/linked_dir/planted.txt',
+        files={'content': ('planted.txt', b'planted')},
+    )
+
+    assert response.status_code == 403
+    assert not (tmp_path / 'outside' / 'planted.txt').exists()
+
+
+def test_put_file_symlink_escape_blocked(client, escaping_gen, tmp_path):
+    response = client.put(
+        '/configs/symlink_gen/file/link.txt',
+        files={'content': ('link.txt', b'overwritten')},
+    )
+
+    assert response.status_code == 403
+    assert (tmp_path / 'outside' / 'secret.txt').read_text() == (
+        'secret content'
+    )
+
+
+def test_delete_file_symlink_escape_blocked(client, escaping_gen, tmp_path):
+    response = client.delete('/configs/symlink_gen/file/link.txt')
+
+    assert response.status_code == 403
+    assert (tmp_path / 'outside' / 'secret.txt').exists()
+
+
+def test_makedir_symlink_escape_blocked(client, escaping_gen, tmp_path):
+    response = client.post(
+        '/configs/symlink_gen/file-makedir/linked_dir/planted',
+    )
+
+    assert response.status_code == 403
+    assert not (tmp_path / 'outside' / 'planted').exists()
+
+
+def test_move_file_symlink_escape_blocked(client, escaping_gen, tmp_path):
+    response = client.post(
+        '/configs/symlink_gen/file-move',
+        params={
+            'source': 'link.txt',
+            'destination': 'moved.txt',
+        },
+    )
+
+    assert response.status_code == 403
+    assert (tmp_path / 'outside' / 'secret.txt').exists()
+
+
+def test_move_file_symlink_escape_of_destination_blocked(
+    client,
+    escaping_gen,
+    tmp_path,
+):
+    (escaping_gen / 'notes.txt').write_text('notes')
+
+    response = client.post(
+        '/configs/symlink_gen/file-move',
+        params={
+            'source': 'notes.txt',
+            'destination': 'linked_dir/notes.txt',
+        },
+    )
+
+    assert response.status_code == 403
+    assert not (tmp_path / 'outside' / 'notes.txt').exists()
+
+
+def test_copy_file_symlink_escape_blocked(client, escaping_gen, tmp_path):
+    (escaping_gen / 'notes.txt').write_text('notes')
+
+    response = client.post(
+        '/configs/symlink_gen/file-copy',
+        params={
+            'source': 'notes.txt',
+            'destination': 'linked_dir/notes.txt',
+        },
+    )
+
+    assert response.status_code == 403
+    assert not (tmp_path / 'outside' / 'notes.txt').exists()
+
+
+def test_symlink_inside_the_generator_still_works(client, tmp_settings):
+    # A symlink that stays within the generator directory is a file of
+    # that generator like any other.
+    gen_dir = _create_config(tmp_settings, 'inner_link_gen')
+    (gen_dir / 'samples').mkdir()
+    (gen_dir / 'samples' / 'hosts.csv').write_text('host\nweb-01\n')
+    (gen_dir / 'hosts.csv').symlink_to(gen_dir / 'samples' / 'hosts.csv')
+
+    response = client.get('/configs/inner_link_gen/file/hosts.csv')
+
+    assert response.status_code == 200
+    assert response.text == 'host\nweb-01\n'
+
+
+def test_delete_generator_root_still_blocked(client, tmp_settings):
+    _create_config(tmp_settings, 'root_gen')
+
+    response = client.delete('/configs/root_gen/file/')
+
+    assert response.status_code == 403
+    assert (tmp_settings.path.generators_dir / 'root_gen').is_dir()
 
 
 def test_get_file_not_found(client, tmp_settings):
@@ -509,3 +790,176 @@ def test_rename_config_nested_name(client, tmp_settings):
 
     assert response.status_code == 422
     assert (tmp_settings.path.generators_dir / 'ren_gen').is_dir()
+
+
+# --- GET /{name}/export ---
+
+
+def _archive_names(content: bytes) -> set[str]:
+    with zipfile.ZipFile(io.BytesIO(content)) as archive:
+        return {name.rstrip('/') for name in archive.namelist()}
+
+
+def _build_archive(entries: dict[str, str]) -> bytes:
+    buffer = io.BytesIO()
+
+    with zipfile.ZipFile(buffer, mode='w') as archive:
+        for name, content in entries.items():
+            archive.writestr(name, content)
+
+    return buffer.getvalue()
+
+
+def test_export_config(client, tmp_settings):
+    gen_dir = _create_config(tmp_settings, 'gen1')
+    (gen_dir / 'templates').mkdir()
+    (gen_dir / 'templates' / 'event.jinja').write_text('{}')
+
+    response = client.get('/configs/gen1/export')
+
+    assert response.status_code == 200
+    assert response.headers['content-type'] == 'application/octet-stream'
+    assert response.headers['content-disposition'] == (
+        'attachment; filename="gen1.zip"'
+    )
+    assert response.headers['x-content-type-options'] == 'nosniff'
+    assert _archive_names(response.content) == {
+        'generator.yml',
+        'templates',
+        'templates/event.jinja',
+    }
+
+
+def test_export_config_excludes_entries(client, tmp_settings):
+    gen_dir = _create_config(tmp_settings, 'gen1')
+    (gen_dir / 'output').mkdir()
+    (gen_dir / 'output' / 'events.log').write_text('event')
+
+    response = client.get('/configs/gen1/export', params={'exclude': 'output'})
+
+    assert response.status_code == 200
+    assert _archive_names(response.content) == {'generator.yml'}
+
+
+def test_export_config_rejects_excluded_configuration(client, tmp_settings):
+    _create_config(tmp_settings, 'gen1')
+
+    response = client.get(
+        '/configs/gen1/export', params={'exclude': 'generator.yml'}
+    )
+
+    assert response.status_code == 400
+
+
+def test_export_config_rejects_nested_exclude(client, tmp_settings):
+    _create_config(tmp_settings, 'gen1')
+
+    response = client.get(
+        '/configs/gen1/export', params={'exclude': 'output/events.log'}
+    )
+
+    assert response.status_code == 400
+
+
+def test_export_config_not_found(client):
+    response = client.get('/configs/absent/export')
+
+    assert response.status_code == 404
+
+
+# --- POST /{name}/import ---
+
+
+def test_import_config(client, tmp_settings):
+    archive = _build_archive(
+        {
+            'generator.yml': 'input: []',
+            'templates/event.jinja': '{}',
+        },
+    )
+
+    response = client.post(
+        '/configs/imported/import',
+        files={'content': ('project.zip', archive, 'application/zip')},
+    )
+
+    assert response.status_code == 201
+
+    gen_dir = tmp_settings.path.generators_dir / 'imported'
+    assert (gen_dir / 'generator.yml').read_text() == 'input: []'
+    assert (gen_dir / 'templates' / 'event.jinja').read_text() == '{}'
+
+
+def test_import_config_strips_wrapping_directory(client, tmp_settings):
+    archive = _build_archive({'web-nginx/generator.yml': 'input: []'})
+
+    response = client.post(
+        '/configs/imported/import',
+        files={'content': ('project.zip', archive, 'application/zip')},
+    )
+
+    assert response.status_code == 201
+    assert (
+        tmp_settings.path.generators_dir / 'imported' / 'generator.yml'
+    ).is_file()
+
+
+def test_import_config_leaves_no_staging_directory(client, tmp_settings):
+    archive = _build_archive({'generator.yml': 'input: []'})
+
+    client.post(
+        '/configs/imported/import',
+        files={'content': ('project.zip', archive, 'application/zip')},
+    )
+
+    assert [
+        path.name for path in tmp_settings.path.generators_dir.iterdir()
+    ] == ['imported']
+
+
+def test_import_config_already_exists(client, tmp_settings):
+    _create_config(tmp_settings, 'gen1')
+    archive = _build_archive({'generator.yml': 'input: []'})
+
+    response = client.post(
+        '/configs/gen1/import',
+        files={'content': ('project.zip', archive, 'application/zip')},
+    )
+
+    assert response.status_code == 409
+
+
+def test_import_config_directory_exists(client, tmp_settings):
+    (tmp_settings.path.generators_dir / 'gen1').mkdir()
+    archive = _build_archive({'generator.yml': 'input: []'})
+
+    response = client.post(
+        '/configs/gen1/import',
+        files={'content': ('project.zip', archive, 'application/zip')},
+    )
+
+    assert response.status_code == 409
+
+
+def test_import_config_not_an_archive(client, tmp_settings):
+    response = client.post(
+        '/configs/imported/import',
+        files={
+            'content': ('project.zip', b'not an archive', 'application/zip')
+        },
+    )
+
+    assert response.status_code == 422
+    assert not (tmp_settings.path.generators_dir / 'imported').exists()
+    assert list(tmp_settings.path.generators_dir.iterdir()) == []
+
+
+def test_import_config_without_configuration(client, tmp_settings):
+    archive = _build_archive({'templates/event.jinja': '{}'})
+
+    response = client.post(
+        '/configs/imported/import',
+        files={'content': ('project.zip', archive, 'application/zip')},
+    )
+
+    assert response.status_code == 422

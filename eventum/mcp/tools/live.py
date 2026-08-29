@@ -18,7 +18,9 @@ from eventum.app.startup import (
 )
 from eventum.app.workspace import WorkspaceError
 from eventum.core.generator import Generator
-from eventum.logging.file_paths import construct_generator_logfile_path
+from eventum.core.resources import QueueUsage
+from eventum.logging.channels import generator_channel
+from eventum.logging.file_paths import construct_channel_logfile_path
 from eventum.mcp.context import LiveContext
 from eventum.mcp.errors import (
     ToolFailure,
@@ -26,6 +28,11 @@ from eventum.mcp.errors import (
     relativize_path,
     scrub_log_line,
     to_tool_error,
+)
+from eventum.mcp.log_tail import (
+    DEFAULT_LOG_LINES,
+    MAX_LOG_LINES,
+    tail_lines,
 )
 from eventum.mcp.observability import observe_failure
 from eventum.mcp.redaction import read_config_secret_values
@@ -114,6 +121,36 @@ def _stats_dict(generator: Generator) -> dict[str, Any]:
         'total_written': total_written,
         'input_eps': total_generated / uptime if uptime > 0 else 0.0,
         'output_eps': total_written / uptime if uptime > 0 else 0.0,
+        'resources': _resources_dict(generator),
+    }
+
+
+def _resources_dict(generator: Generator) -> dict[str, Any]:
+    """Build a JSON-able dict of what a running generator occupies."""
+    resources = generator.get_resources()
+
+    return {
+        'thread_count': resources.thread_count,
+        'cpu_seconds': resources.cpu_seconds,
+        'run_delay_seconds': resources.run_delay_seconds,
+        'disk_read_bytes': resources.disk_read_bytes,
+        'disk_written_bytes': resources.disk_written_bytes,
+        'network_sent_bytes': resources.network_sent_bytes,
+        'network_received_bytes': resources.network_received_bytes,
+        'queues': {
+            'timestamps': _queue_dict(resources.queues.timestamps),
+            'events': _queue_dict(resources.queues.events),
+        },
+    }
+
+
+def _queue_dict(queue: QueueUsage) -> dict[str, Any]:
+    """Build a JSON-able dict of the fill level of one pipeline queue."""
+    return {
+        'size': queue.size,
+        'maxsize': queue.maxsize,
+        'size_bytes': queue.size_bytes,
+        'max_bytes': queue.max_bytes,
     }
 
 
@@ -291,7 +328,8 @@ async def get_generator_stats(
             details={'id': generator_id},
         )
     try:
-        return _stats_dict(generator)
+        # Reading the resources goes through the OS, so it blocks.
+        return await asyncio.to_thread(_stats_dict, generator)
     except RuntimeError:
         return ToolFailure(
             error='Generator is not running',
@@ -316,30 +354,10 @@ async def list_startup_generators(
     ]
 
 
-_DEFAULT_LOG_LINES = 200
-_MAX_LOG_LINES = 1000
-_TAIL_MAX_BYTES = 65536
-
-
-def _tail_lines(path: Path, count: int) -> list[str]:
-    """Return the last ``count`` lines, reading a bounded tail."""
-    size = path.stat().st_size
-    read = min(size, _TAIL_MAX_BYTES)
-    with path.open('rb') as f:
-        f.seek(size - read)
-        data = f.read()
-    lines = data.decode('utf-8', errors='replace').splitlines()
-    if read < size and len(lines) > 1:
-        # Drop the leading line - it is a partial cut from mid-file.
-        # Keep it when it is the only line (one oversized line).
-        lines = lines[1:]
-    return lines[-count:]
-
-
 async def get_generator_logs(
     context: LiveContext,
     generator_id: str,
-    lines: int = _DEFAULT_LOG_LINES,
+    lines: int = DEFAULT_LOG_LINES,
 ) -> dict[str, Any] | ToolFailure:
     """Return the scrubbed tail of a managed generator's log file.
 
@@ -348,7 +366,7 @@ async def get_generator_logs(
     values are redacted. Restricted to currently managed generators so
     the id cannot be used to read arbitrary files.
     """
-    count = max(1, min(lines, _MAX_LOG_LINES))
+    count = max(1, min(lines, MAX_LOG_LINES))
 
     def _read() -> dict[str, Any] | ToolFailure:
         try:
@@ -359,10 +377,10 @@ async def get_generator_logs(
                 details={'id': generator_id},
             )
         try:
-            path = construct_generator_logfile_path(
+            path = construct_channel_logfile_path(
                 format=context.log_format,
                 logs_dir=context.logs_dir,
-                generator_id=generator_id,
+                channel=generator_channel(generator_id),
             )
             # Defense in depth: the id is already constrained to a
             # managed generator, but reject a path escaping the logs dir.
@@ -373,7 +391,7 @@ async def get_generator_logs(
                 )
             if not path.is_file():
                 return {'id': generator_id, 'lines': []}
-            raw = _tail_lines(path, count)
+            raw = tail_lines(path, count)
         except OSError, ValueError:
             return ToolFailure(
                 error='Failed to read logs',
@@ -626,7 +644,7 @@ def register(mcp: FastMCP, context: LiveContext, *, transport: str) -> None:
     @mcp.tool(name='get_generator_logs')
     async def _get_generator_logs_tool(
         generator_id: str,
-        lines: int = _DEFAULT_LOG_LINES,
+        lines: int = DEFAULT_LOG_LINES,
     ) -> dict[str, Any] | ToolFailure:
         """Return the scrubbed tail of a managed generator's log file.
 
