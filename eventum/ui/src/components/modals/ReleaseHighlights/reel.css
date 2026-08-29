@@ -4,10 +4,14 @@
 
 /* The card arrives: it rises and settles while the blurred page falls
    away behind it. Longer than the paging move, since this happens once
-   an upgrade and the panel behind it is what the reader was reading. */
+   an upgrade and the panel behind it is what the reader was reading.
+
+   `backwards`, not `both`: an animation outranks an inline style, so a
+   held final frame would pin the card opaque and leave the dismissal to
+   the overlay alone - the card would sit there and then vanish. */
 .ev-reel {
   overflow: hidden;
-  animation: ev-reel-in 0.66s cubic-bezier(0.16, 1, 0.3, 1) both;
+  animation: ev-reel-in 0.66s cubic-bezier(0.16, 1, 0.3, 1) backwards;
 }
 
 /* ========== The stage ========== */
@@ -104,7 +108,7 @@
 .ev-reel-badge,
 .ev-reel-close,
 .ev-reel-controls {
-  animation: ev-reel-settle 0.5s ease-out both;
+  animation: ev-reel-settle 0.5s ease-out backwards;
   animation-delay: 0.26s;
 }
 
