@@ -152,7 +152,7 @@ const Reel: FC<ReelProps> = ({ release, opened, onClose }) => {
       padding={0}
       radius="lg"
       centered
-      transitionProps={{ transition: 'fade', duration: 420 }}
+      transitionProps={{ transition: 'fade', duration: 320, exitDuration: 120 }}
     >
       <Modal.Overlay blur={8} backgroundOpacity={0.7} />
       <Modal.Content
@@ -164,10 +164,12 @@ const Reel: FC<ReelProps> = ({ release, opened, onClose }) => {
           onPointerDown={onPointerDown}
           onPointerUp={onPointerUp}
         >
-          <span className="ev-reel-glow" aria-hidden="true" />
           <div key={panel.id} className="ev-reel-scene" data-way={direction}>
             <Illustration />
           </div>
+
+          <span className="ev-reel-glow" aria-hidden="true" />
+          <span className="ev-reel-sweep" aria-hidden="true" />
 
           <span className="ev-reel-badge">
             What&apos;s new
