@@ -2,8 +2,12 @@
    sit under it, and the controls stay on one line at the foot. Nothing
    here paints a colour of its own - the theme does. */
 
+/* The card arrives: it rises and settles while the blurred page falls
+   away behind it. Longer than the paging move, since this happens once
+   an upgrade and the panel behind it is what the reader was reading. */
 .ev-reel {
   overflow: hidden;
+  animation: ev-reel-in 0.66s cubic-bezier(0.16, 1, 0.3, 1) both;
 }
 
 /* ========== The stage ========== */
@@ -13,6 +17,28 @@
   background-color: var(--ev-canvas);
   border-bottom: 1px solid var(--mantine-color-default-border);
   touch-action: pan-y;
+}
+
+/* A wash of the brand colours blooming behind the first scene and gone
+   by the time it is read - the opening flourish, not a permanent tint. */
+.ev-reel-glow {
+  position: absolute;
+  inset: -60% -20% auto;
+  height: 220%;
+  background:
+    radial-gradient(
+      42% 58% at 24% 62%,
+      var(--mantine-color-primary-light),
+      transparent 70%
+    ),
+    radial-gradient(
+      38% 52% at 78% 54%,
+      var(--mantine-color-cyan-light),
+      transparent 72%
+    );
+  opacity: 0;
+  animation: ev-reel-glow 1.9s cubic-bezier(0.16, 1, 0.3, 1) both;
+  pointer-events: none;
 }
 
 .ev-reel-scene {
@@ -55,6 +81,15 @@
   position: absolute;
   top: 8px;
   right: 10px;
+}
+
+/* The chrome of the card follows the card in, so the reader lands on the
+   scene first and finds the controls a moment later. */
+.ev-reel-badge,
+.ev-reel-close,
+.ev-reel-controls {
+  animation: ev-reel-settle 0.5s ease-out both;
+  animation-delay: 0.26s;
 }
 
 /* ========== The words ========== */
@@ -113,6 +148,42 @@
 
 /* ========== Motion ========== */
 
+@keyframes ev-reel-in {
+  from {
+    opacity: 0;
+    transform: translateY(22px) scale(0.94);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes ev-reel-glow {
+  0% {
+    opacity: 0;
+    transform: scale(0.7);
+  }
+  38% {
+    opacity: 0.9;
+  }
+  100% {
+    opacity: 0;
+    transform: scale(1.15);
+  }
+}
+
+@keyframes ev-reel-settle {
+  from {
+    opacity: 0;
+    transform: translateY(-6px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
 @keyframes ev-scene-in {
   from {
     opacity: 0;
@@ -164,9 +235,17 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
+  .ev-reel,
   .ev-reel-scene,
-  .ev-reel-words {
+  .ev-reel-words,
+  .ev-reel-badge,
+  .ev-reel-close,
+  .ev-reel-controls {
     animation: none;
+  }
+
+  .ev-reel-glow {
+    display: none;
   }
 
   .ev-reel-dot {

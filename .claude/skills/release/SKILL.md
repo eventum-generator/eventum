@@ -48,6 +48,21 @@ Three artifacts across two repos, each in its own voice:
 - `eventum` on `develop` - the panels Studio shows after an upgrade, in `eventum/ui/src/releases/index.ts`. Set the newest entry to `<version>` (one is usually already staged from the cycle), point its `changelogHref` at the new page, and check its panels against the changelog. A guard test fails when the newest entry is older than the shipped version.
 - `../docs` - new page at `content/docs/changelog/<version>.mdx`, registered in `content/docs/changelog/meta.json`. User-facing voice: describe what changed for the end user (not developer) - not a one-to-one copy of the CHANGELOG entry. Commits land on a dedicated branch in step 6.
 
+#### The release panels
+
+Scenes live in `eventum/ui/src/releases/illustrations/`, drawn from the primitives in `scene.tsx`. One panel per user-visible change, an opening title card first, ordered by weight.
+
+- **Show the screen, not a metaphor.** Base a panel on the Studio screen the feature lives on - the real controls, the real gesture, the pointer moving and clicking. Abstract only where it clarifies, and only where no single screen exists. Real screenshots to work from: `../docs/public/images/studio_ui/`.
+- **A take is three to five beats**, paced so each is readable before the next. One beat reads as a wireframe twitching.
+- **Everything sits on a surface.** A row on the bare grid looks unfinished.
+- **Titles and bodies** follow the changelog rules: plain verb, no slogans, no internal constants.
+- **Declare the still.** No take plays under `prefers-reduced-motion`, so mark with `rest` the switched-on states that belong in the resting frame. A long take otherwise leaves two states drawn over each other - an empty search box reading `3 running`, a mask under a filled field.
+- **Motion writes the whole `transform`.** Animating `x`/`y` on a part that CSS centres destroys its placement; separate placement from paint instead.
+- **Size a part against its own container.** A knob measured in `cqw` fits one track and spills out of the next.
+- Every scene joins the `SCENES` list in `scenes.test.tsx`; the guard tests check that a take addresses only parts its scene draws.
+
+Verify by looking, not by reading code. Rebuild (`pnpm build` writes `eventum/www/`), then drive the running Studio with Playwright: sign in, set `localStorage['release-highlights-seen']` to the previous version, load `/`. Sample each panel at several points across its loop, in both colour schemes and once with `reducedMotion: 'reduce'`, and measure two things - every part's bounding box inside its parent's, and no two rows sharing a line **while the take runs** (a check that clears transforms first only sees the resting layout and misses collisions in flight).
+
 ### 3. Version bump and API reference
 
 - `eventum/__init__.py`: `__version__ = '<version>'`.

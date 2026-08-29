@@ -1,6 +1,7 @@
 import {
   AnimationScope,
   AnimationSequence,
+  DOMKeyframesDefinition,
   useAnimate,
   useReducedMotion,
 } from 'motion/react';
@@ -14,6 +15,26 @@ import { useEffect } from 'react';
 /** The selector a sequence step addresses a named part with. */
 export function part(name: string): string {
   return `[data-part='${name}']`;
+}
+
+/** Where something sets off from and where it lands, in per cent of the
+ *  scene it crosses. */
+export interface Journey {
+  from: [number, number];
+  to: [number, number];
+}
+
+/**
+ * The keyframes that carry a part along a journey.
+ *
+ * The scene places the part at the start and the take moves it to the
+ * end, so both read the one pair of points and cannot drift apart.
+ */
+export function travel({ from, to }: Journey): DOMKeyframesDefinition {
+  return {
+    left: [`${from[0]}%`, `${to[0]}%`],
+    top: [`${from[1]}%`, `${to[1]}%`],
+  };
 }
 
 /**

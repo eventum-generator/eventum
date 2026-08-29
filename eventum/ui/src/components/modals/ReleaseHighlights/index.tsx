@@ -152,8 +152,9 @@ const Reel: FC<ReelProps> = ({ release, opened, onClose }) => {
       padding={0}
       radius="lg"
       centered
+      transitionProps={{ transition: 'fade', duration: 420 }}
     >
-      <Modal.Overlay />
+      <Modal.Overlay blur={8} backgroundOpacity={0.7} />
       <Modal.Content
         classNames={{ content: 'ev-reel' }}
         aria-label="What's new in Eventum"
@@ -163,6 +164,7 @@ const Reel: FC<ReelProps> = ({ release, opened, onClose }) => {
           onPointerDown={onPointerDown}
           onPointerUp={onPointerUp}
         >
+          <span className="ev-reel-glow" aria-hidden="true" />
           <div key={panel.id} className="ev-reel-scene" data-way={direction}>
             <Illustration />
           </div>
@@ -209,6 +211,7 @@ const Reel: FC<ReelProps> = ({ release, opened, onClose }) => {
         </div>
 
         <Group
+          className="ev-reel-controls"
           justify="space-between"
           align="center"
           px="lg"
