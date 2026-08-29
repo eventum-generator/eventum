@@ -6,6 +6,7 @@ import {
   Cursor,
   Fill,
   Group,
+  Headline,
   Label,
   Layer,
   Pane,
@@ -33,76 +34,312 @@ const ANSWER = { duration: 0.42, ease: [0.22, 0.9, 0.24, 1] } as const;
 /** The pause on the result before the scene resets. */
 const HOLD = '+1.7';
 
-/** Repositories: a generator of a connected catalog becomes a project. */
-const repositoriesTake = (): AnimationSequence => [
-  [part('cursor'), { left: '16%', top: '58%', opacity: [0, 1] }, REACH],
+/** The card the reel opens on: the release names itself. */
+const openingTake = (): AnimationSequence => [
+  [part('mark'), { opacity: [0, 1], y: [10, 0] }, { duration: 0.5 }],
   [
-    part('cursor-tap'),
-    { scale: [0.4, 1.7], opacity: [0.85, 0] },
-    { ...TAP, at: '-0.1' },
+    part('version'),
+    { opacity: [0, 1], scale: [0.94, 1] },
+    { duration: 0.6, at: '<+0.1' },
   ],
-  [part('row'), { opacity: 1 }, { duration: 0.28, at: '<' }],
-  [part('cursor'), { left: '50%', top: '58%' }, { ...REACH, at: '+0.45' }],
+  [
+    part('theme'),
+    { opacity: 1 },
+    { duration: 0.4, at: '<+0.3', delay: stagger(0.13) },
+  ],
+  [part('theme'), { opacity: 0 }, { duration: 0.35, at: HOLD }],
+  [part('version'), { opacity: 0, scale: 0.97 }, { duration: 0.35, at: '<' }],
+  [part('mark'), { opacity: 0 }, { duration: 0.3, at: '<' }],
+];
+
+const OPENING_THEMES = [
+  { id: 'repositories', x: 2.6, w: 27.6 },
+  { id: 'archives', x: 32.2, w: 20.4 },
+  { id: 'secrets', x: 54.6, w: 18.6 },
+  { id: 'resources', x: 75.2, w: 22.2 },
+];
+
+export const OpeningScene: FC = () => (
+  <Scene title="Eventum 2.8.0, and what it brought" take={openingTake}>
+    <Label x={50} y={18} name="mark" center>
+      Eventum
+    </Label>
+    <Headline x={50} y={45} name="version" center>
+      2.8.0
+    </Headline>
+
+    {OPENING_THEMES.map((theme) => (
+      <Chip key={theme.id} x={theme.x} y={84} w={theme.w} h={16} name="theme">
+        {theme.id}
+      </Chip>
+    ))}
+  </Scene>
+);
+
+/** Repositories: a card of the catalog is installed into the workspace. */
+const repositoriesTake = (): AnimationSequence => [
+  [part('cursor'), { left: '54%', top: '56%', opacity: [0, 1] }, REACH],
   [
     part('cursor-tap'),
     { scale: [0.4, 1.7], opacity: [0.85, 0] },
     { ...TAP, at: '-0.1' },
   ],
   [part('install'), { opacity: 1 }, { duration: 0.25, at: '<' }],
-  [part('project'), { opacity: 1, x: [16, 0] }, { ...ANSWER, at: '<+0.12' }],
-  [
-    part('project-line'),
-    { scaleX: [0.1, 1] },
-    { duration: 0.55, at: '<+0.08', delay: stagger(0.12) },
-  ],
-  [part('project'), { opacity: 0, x: 16 }, { duration: 0.35, at: HOLD }],
+  [part('picked'), { opacity: 1 }, { duration: 0.3, at: '<+0.04' }],
+  [part('landed'), { opacity: 1, y: [-10, 0] }, { ...ANSWER, at: '<+0.18' }],
+  [part('landed'), { opacity: 0, y: -6 }, { duration: 0.35, at: HOLD }],
+  [part('picked'), { opacity: 0 }, { duration: 0.3, at: '<' }],
   [part('install'), { opacity: 0 }, { duration: 0.3, at: '<' }],
-  [part('row'), { opacity: 0 }, { duration: 0.3, at: '<' }],
   [part('cursor'), { opacity: 0 }, { duration: 0.3, at: '<' }],
+];
+
+const CATALOG_CARDS = [
+  { id: 'web-nginx', x: 0, picked: false },
+  { id: 'linux-auditd', x: 34.5, picked: true },
+  { id: 'cloud-s3', x: 69, picked: false },
 ];
 
 export const RepositoriesScene: FC = () => (
   <Scene
-    title="Installing a generator of a connected repository as a project"
+    title="Installing a generator of a repository catalog as a project"
     take={repositoriesTake}
   >
-    <Pane x={3} y={8} w={62} h={84}>
-      <Label x={5} y={16} tone="accent">
-        content-packs
-      </Label>
+    <Label x={1} y={5}>
+      content-packs
+    </Label>
 
-      <Label x={5} y={42}>
-        web-nginx
-      </Label>
+    {CATALOG_CARDS.map((card) => (
+      <Pane key={card.id} x={card.x} y={16} w={31} h={46}>
+        <Label x={11} y={26} tone={card.picked ? 'accent' : undefined}>
+          {card.id}
+        </Label>
+        <Fill x={11} y={54} w={62} h={7} />
+        <Fill x={11} y={76} w={44} h={7} />
+      </Pane>
+    ))}
 
-      <Row x={2} y={60} w={96} h={18} name="row" />
-      <Label x={5} y={60} tone="accent">
-        linux-auditd
-      </Label>
-      <Chip x={58} y={60} w={36} h={15} name="install">
-        Install
-      </Chip>
+    <Group x={34.5} y={16} w={31} h={46}>
+      <Layer x={0} y={0} w={100} h={100} name="picked">
+        <Chip x={11} y={82} w={78} h={20} name="install">
+          Install
+        </Chip>
+      </Layer>
+    </Group>
 
-      <Label x={5} y={80}>
-        cloud-s3
-      </Label>
-    </Pane>
-
-    <Layer x={68} y={8} w={29} h={84} name="project">
+    <Layer x={0} y={70} w={100} h={30} name="landed">
       <Pane x={0} y={0} w={100} h={100}>
-        <Label x={10} y={16} tone="accent">
+        <Label x={4} y={50}>
+          workspace
+        </Label>
+        <Chip x={40} y={50} w={38} h={40} tone="green">
           linux-auditd
-        </Label>
-        <Label x={10} y={36}>
-          installed
-        </Label>
-        <Fill x={10} y={52} w={72} h={6} tone="accent" name="project-line" />
-        <Fill x={10} y={68} w={56} h={6} name="project-line" />
-        <Fill x={10} y={84} w={64} h={6} name="project-line" />
+        </Chip>
       </Pane>
     </Layer>
 
-    <Cursor at={[20, 108]} name="cursor" />
+    <Cursor at={[54, 108]} name="cursor" />
+  </Scene>
+);
+
+/** Discover: GitHub is searched for the topic that marks a repository. */
+const discoverTake = (): AnimationSequence => [
+  [part('query'), { opacity: [0, 1] }, { duration: 0.35 }],
+  [
+    part('found'),
+    { opacity: [0, 1], y: [10, 0] },
+    { duration: 0.45, at: '<+0.2', delay: stagger(0.11) },
+  ],
+  [part('cursor'), { left: '85%', top: '47%', opacity: [0, 1] }, REACH],
+  [
+    part('cursor-tap'),
+    { scale: [0.4, 1.7], opacity: [0.85, 0] },
+    { ...TAP, at: '-0.1' },
+  ],
+  [part('connect'), { opacity: 1 }, { duration: 0.25, at: '<' }],
+  [part('connect'), { opacity: 0 }, { duration: 0.3, at: HOLD }],
+  [part('found'), { opacity: 0 }, { duration: 0.3, at: '<' }],
+  [part('query'), { opacity: 0 }, { duration: 0.3, at: '<' }],
+  [part('cursor'), { opacity: 0 }, { duration: 0.3, at: '<' }],
+];
+
+const DISCOVERED = [
+  { id: 'content-packs', y: 47, stars: 34 },
+  { id: 'acme-packs', y: 70, stars: 21 },
+  { id: 'lab-sources', y: 90, stars: 12 },
+];
+
+export const DiscoverScene: FC = () => (
+  <Scene
+    title="Searching GitHub for the repositories that publish generators"
+    take={discoverTake}
+  >
+    <Pane x={2} y={4} w={96} h={92}>
+      <Chip x={4} y={14} w={44} h={16}>
+        github.com
+      </Chip>
+      <Label x={52} y={14} tone="accent" name="query">
+        topic:eventum-generators
+      </Label>
+
+      <Group x={0} y={0} w={100} h={100}>
+        {DISCOVERED.map((repo) => (
+          <Group key={repo.id} x={0} y={0} w={100} h={100} name="found">
+            <Label x={5} y={repo.y}>
+              {repo.id}
+            </Label>
+            <Label x={50} y={repo.y}>
+              ★ {repo.stars}
+            </Label>
+          </Group>
+        ))}
+      </Group>
+
+      <Chip x={76} y={47} w={20} h={16} name="connect">
+        Connect
+      </Chip>
+    </Pane>
+
+    <Cursor at={[84, 108]} name="cursor" />
+  </Scene>
+);
+
+/** Secrets: a password field is filled from the keyring by name. */
+const keyringTake = (): AnimationSequence => [
+  [part('cursor'), { left: '86%', top: '34%', opacity: [0, 1] }, REACH],
+  [
+    part('cursor-tap'),
+    { scale: [0.4, 1.7], opacity: [0.85, 0] },
+    { ...TAP, at: '-0.1' },
+  ],
+  [part('key'), { opacity: 1 }, { duration: 0.25, at: '<' }],
+  [part('list'), { opacity: 1, y: [-8, 0] }, { ...ANSWER, at: '<+0.06' }],
+  [part('cursor'), { left: '55%', top: '65%' }, { ...REACH, at: '+0.4' }],
+  [
+    part('cursor-tap'),
+    { scale: [0.4, 1.7], opacity: [0.85, 0] },
+    { ...TAP, at: '-0.1' },
+  ],
+  [part('pick'), { opacity: 1 }, { duration: 0.25, at: '<' }],
+  [part('list'), { opacity: 0 }, { duration: 0.3, at: '+0.35' }],
+  [part('masked'), { opacity: 0 }, { duration: 0.25, at: '<' }],
+  [part('filled'), { opacity: [0, 1] }, { duration: 0.4, at: '<+0.05' }],
+  [part('filled'), { opacity: 0 }, { duration: 0.35, at: HOLD }],
+  [part('masked'), { opacity: 1 }, { duration: 0.3, at: '<' }],
+  [part('key'), { opacity: 0 }, { duration: 0.3, at: '<' }],
+  [part('pick'), { opacity: 0 }, { duration: 0.3, at: '<' }],
+  [part('cursor'), { opacity: 0 }, { duration: 0.3, at: '<' }],
+];
+
+const KEYRING_SECRETS = [
+  { id: 'gh_token', y: 24, pick: true },
+  { id: 'ch_password', y: 52, pick: false },
+  { id: 'os_api_key', y: 80, pick: false },
+];
+
+export const KeyringPickerScene: FC = () => (
+  <Scene
+    title="Filling a password field with a secret picked from the keyring"
+    take={keyringTake}
+  >
+    <Label x={2} y={8}>
+      Password
+    </Label>
+
+    <Pane x={2} y={20} w={96} h={30}>
+      <Stale x={0} y={0} w={100} h={100} name="masked">
+        <Label x={4} y={50}>
+          ••••••••••
+        </Label>
+      </Stale>
+      <Layer x={0} y={0} w={100} h={100} name="filled">
+        <Label x={4} y={50} tone="accent">
+          {'${secrets.gh_token}'}
+        </Label>
+      </Layer>
+      <Chip x={80} y={50} w={16} h={54} name="key">
+        key
+      </Chip>
+    </Pane>
+
+    <Layer x={44} y={54} w={54} h={46} name="list">
+      <Pane x={0} y={0} w={100} h={100}>
+        {KEYRING_SECRETS.map((secret) => (
+          <Label
+            key={secret.id}
+            x={8}
+            y={secret.y}
+            tone={secret.pick ? 'accent' : undefined}
+          >
+            {secret.id}
+          </Label>
+        ))}
+        <Row x={3} y={24} w={94} h={24} name="pick" />
+      </Pane>
+    </Layer>
+
+    <Cursor at={[82, 108]} name="cursor" />
+  </Scene>
+);
+
+/** Global state: a script reaches the keys a template already shared. */
+const globalStateTake = (): AnimationSequence => [
+  [part('template'), { opacity: [0.35, 1] }, { duration: 0.4 }],
+  [part('template-wire'), { scaleX: [0, 1] }, { duration: 0.5, at: '<+0.05' }],
+  [part('script'), { opacity: [0.35, 1] }, { duration: 0.4, at: '<+0.25' }],
+  [part('script-wire'), { scaleX: [0, 1] }, { duration: 0.5, at: '<+0.05' }],
+  [
+    part('state-key'),
+    { opacity: [0, 1], x: [-8, 0] },
+    { duration: 0.4, at: '<+0.12', delay: stagger(0.12) },
+  ],
+  [part('state-key'), { opacity: 0 }, { duration: 0.35, at: HOLD }],
+  [part('script-wire'), { scaleX: 0 }, { duration: 0.3, at: '<' }],
+  [part('template-wire'), { scaleX: 0 }, { duration: 0.3, at: '<' }],
+  [part('script'), { opacity: 0.35 }, { duration: 0.3, at: '<' }],
+  [part('template'), { opacity: 0.35 }, { duration: 0.3, at: '<' }],
+];
+
+const GLOBAL_KEYS = ['session.id', 'host.seq', 'user.pool'];
+
+export const GlobalStateScene: FC = () => (
+  <Scene
+    title="A template and a script writing to the state they share"
+    take={globalStateTake}
+  >
+    <Group x={0} y={6} w={34} h={40} name="template">
+      <Pane x={0} y={0} w={100} h={100}>
+        <Label x={14} y={50}>
+          template
+        </Label>
+      </Pane>
+    </Group>
+    <Fill x={34} y={18} w={14} h={4} tone="accent" name="template-wire" />
+
+    <Group x={0} y={56} w={34} h={40} name="script">
+      <Pane x={0} y={0} w={100} h={100}>
+        <Label x={18} y={50} tone="accent">
+          script
+        </Label>
+      </Pane>
+    </Group>
+    <Fill x={34} y={72} w={14} h={4} tone="accent" name="script-wire" />
+
+    <Pane x={48} y={6} w={52} h={90}>
+      <Label x={8} y={16}>
+        globals
+      </Label>
+      {GLOBAL_KEYS.map((key, index) => (
+        <Label
+          key={key}
+          x={8}
+          y={40 + index * 22}
+          name="state-key"
+          tone="accent"
+        >
+          {key}
+        </Label>
+      ))}
+    </Pane>
   </Scene>
 );
 

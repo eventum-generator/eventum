@@ -3,9 +3,13 @@ import { AnimationSequence } from 'motion/react';
 import { Mock, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import {
+  DiscoverScene,
+  GlobalStateScene,
   InstanceResourcesScene,
+  KeyringPickerScene,
   LogChannelsScene,
   MonitoringScene,
+  OpeningScene,
   ProjectArchiveScene,
   QueueBytesScene,
   RepositoriesScene,
@@ -24,7 +28,11 @@ vi.mock('motion/react', async (importOriginal) => ({
 }));
 
 const SCENES = [
+  ['Opening', OpeningScene],
   ['Repositories', RepositoriesScene],
+  ['Discover', DiscoverScene],
+  ['KeyringPicker', KeyringPickerScene],
+  ['GlobalState', GlobalStateScene],
   ['Monitoring', MonitoringScene],
   ['ProjectArchive', ProjectArchiveScene],
   ['LogChannels', LogChannelsScene],

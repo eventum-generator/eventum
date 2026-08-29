@@ -123,6 +123,8 @@ interface LabelProps extends Box, Part {
   tone?: Tone;
   /** Right-aligned to `x` instead of left-aligned. */
   end?: boolean;
+  /** Centred on `x` instead of left-aligned. */
+  center?: boolean;
   children: ReactNode;
 }
 
@@ -131,11 +133,40 @@ export const Label: FC<LabelProps> = ({
   name,
   tone,
   end,
+  center,
   children,
   ...box
 }) => (
   <div
-    className={`ev-label${end ? ' ev-label-end' : ''}`}
+    className={`ev-label${end ? ' ev-label-end' : ''}${
+      center ? ' ev-label-center' : ''
+    }`}
+    data-part={name}
+    data-tone={tone}
+    style={placeLine(box)}
+  >
+    {children}
+  </div>
+);
+
+interface HeadlineProps extends Box, Part {
+  tone?: Tone;
+  /** Centred on `x` rather than set from it. */
+  center?: boolean;
+  children: ReactNode;
+}
+
+/** A title at the size a title is set - for the scene that opens a reel
+ *  by naming the release instead of sketching a screen. */
+export const Headline: FC<HeadlineProps> = ({
+  name,
+  tone,
+  center,
+  children,
+  ...box
+}) => (
+  <div
+    className={`ev-headline${center ? ' ev-headline-center' : ''}`}
     data-part={name}
     data-tone={tone}
     style={placeLine(box)}
