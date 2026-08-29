@@ -44,6 +44,17 @@
   background-color: var(--ev-canvas);
 }
 
+/* Accordion items in the `separated` variant. Mantine paints a collapsed item
+   the control surface with a transparent border and swaps both once it opens,
+   so one repository read as bare text on the canvas while its opened
+   neighbour was a card in a different colour. An item is a panel in either
+   state here - the same surface and hairline a `Paper` carries - so opening
+   one only unfolds it. */
+.mantine-Accordion-root[data-variant='separated'] .mantine-Accordion-item {
+  border-color: var(--mantine-color-default-border);
+  background-color: var(--mantine-color-body);
+}
+
 /* Active nav item: accent rail alongside the soft background. */
 .mantine-NavLink-root[data-active] {
   position: relative;
