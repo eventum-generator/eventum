@@ -152,11 +152,6 @@ const Reel: FC<ReelProps> = ({ release, opened, onClose }) => {
       padding={0}
       radius="lg"
       centered
-      // The card is worth an arrival; leaving it is not worth a wait, so
-      // the exit is a fraction of the entrance. It cannot be nothing:
-      // Mantine leaves the content unmounted on the next open, and the
-      // reel then reopens empty.
-      transitionProps={{ transition: 'fade', duration: 160, exitDuration: 70 }}
     >
       <Modal.Overlay blur={8} backgroundOpacity={0.7} />
       <Modal.Content
