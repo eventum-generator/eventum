@@ -20,6 +20,24 @@
             "command": "python3 \"$(git rev-parse --show-toplevel)/.agents/hooks/post-edit.py\""
           }
         ]
+      },
+      {
+        "matcher": "exec",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"$(git rev-parse --show-toplevel)/.agents/hooks/post-edit.py\""
+          }
+        ]
+      },
+      {
+        "matcher": "shell",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"$(git rev-parse --show-toplevel)/.agents/hooks/post-edit.py\""
+          }
+        ]
       }
     ],
     "Stop": [

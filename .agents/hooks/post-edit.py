@@ -23,6 +23,16 @@ _PATH_PATTERN = re.compile(
 # still escaped. Unescape them so the line-anchored pattern can match.
 _ESCAPED_NEWLINE = re.compile(r'\\+n')
 
+# An agent driving the shell writes files through a redirection or an
+# in-place edit. Reading a file must not match, or every test run would
+# lint its target.
+_REDIRECT_PATTERN = re.compile(
+    r"(?:>>?|\btee\b(?:\s+-\S+)*)\s*['\"]?(?P<path>[\w./@+-]+)",
+)
+_SEGMENT_PATTERN = re.compile(r'[|;&\n]+')
+_SED_INPLACE_PATTERN = re.compile(r'\bsed\b.*\s-{1,2}i')
+_TOKEN_PATTERN = re.compile(r"['\"]?(?P<path>[\w./@+-]+)['\"]?")
+
 
 def _tool(name: str, fallback: str) -> str:
     """Return the absolute path of a required external tool."""
@@ -70,6 +80,30 @@ def _strings(value: Any) -> Iterator[str]:
         yield from (s for v in value for s in _strings(v))
 
 
+def _shell_written(command: str, root: Path, cwd: Path) -> set[Path]:
+    """Return project files a shell command writes to."""
+    written: set[Path] = set()
+
+    for segment in _SEGMENT_PATTERN.split(command):
+        candidates = [
+            m.group('path') for m in _REDIRECT_PATTERN.finditer(segment)
+        ]
+
+        # sed names its target as a plain argument, so an in-place run is
+        # the only case where every token of the segment is worth testing.
+        if _SED_INPLACE_PATTERN.search(segment):
+            candidates += [
+                m.group('path') for m in _TOKEN_PATTERN.finditer(segment)
+            ]
+
+        for value in candidates:
+            resolved = _existing_path(value, root, cwd)
+            if resolved is not None:
+                written.add(resolved)
+
+    return written
+
+
 def _edited_paths(event: dict[str, Any], root: Path, cwd: Path) -> list[Path]:
     """Extract files from Claude path input or a Codex patch input."""
     paths: set[Path] = set()
@@ -85,11 +119,15 @@ def _edited_paths(event: dict[str, Any], root: Path, cwd: Path) -> list[Path]:
     # Codex carries the patch as text, and its shape varies by tool: a bare
     # string, a list of command arguments, or a field of a structured call.
     for text in _strings(tool_input):
-        for match in _PATH_PATTERN.finditer(_ESCAPED_NEWLINE.sub('\n', text)):
+        unescaped = _ESCAPED_NEWLINE.sub('\n', text)
+
+        for match in _PATH_PATTERN.finditer(unescaped):
             value = match.group('path') or match.group('move_path')
             candidate = _existing_path(value.strip(), root, cwd)
             if candidate is not None:
                 paths.add(candidate)
+
+        paths.update(_shell_written(unescaped, root, cwd))
 
     return sorted(paths)
 
