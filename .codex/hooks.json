@@ -1,9 +1,9 @@
 {
-  "additionalDirectories": ["../docs", "../content-packs"],
+  "description": "Run the shared Eventum checks from .agents/hooks.",
   "hooks": {
     "PostToolUse": [
       {
-        "matcher": "Write|Edit|MultiEdit",
+        "matcher": "apply_patch",
         "hooks": [
           {
             "type": "command",
@@ -14,7 +14,6 @@
     ],
     "Stop": [
       {
-        "matcher": "",
         "hooks": [
           {
             "type": "command",
