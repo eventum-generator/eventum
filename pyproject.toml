@@ -188,6 +188,9 @@ exclude = ["**/tests/**"]
 "**/tests/**" = [
     "S101",     # assert - required in pytest tests
 ]
+".agents/hooks/*" = [
+    "INP001",   # standalone agent hook scripts, not a package
+]
 
 [tool.ruff.format]
 quote-style = "single"

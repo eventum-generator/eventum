@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """Check the shared agent layout and hand the rules to agents that need them.
 
-Claude Code discovers `.claude/rules/**` on its own; Codex does not, so it
-receives the same rules through this hook's additional context.
+Claude Code discovers `.claude/rules/**` on its own; Codex does not, so
+it gets an index of them here and the matching bodies before each edit.
 """
 
 from __future__ import annotations
@@ -19,9 +19,10 @@ _HOOKS_DIR = Path('.agents/hooks')
 _LINK_SIZE_LIMIT = 512
 
 _RULES_HEADER = (
-    'Project rules from `.claude/rules/`. They apply to this repository in '
-    'full, alongside AGENTS.md. Follow the sections covering the area you '
-    'touch.'
+    'Project rules live in `.claude/rules/` and are binding for this '
+    'repository, alongside AGENTS.md. The ones covering a file are handed '
+    'to you before you edit it; read any other listed here when its area '
+    'is relevant.'
 )
 
 
@@ -87,24 +88,31 @@ def _broken_links(root: Path) -> list[str]:
 
 
 def _rules(root: Path) -> str:
-    """Return every project rule file as one addressable document."""
-    files = sorted((root / _RULES_DIR).rglob('*.md'))
-    if not files:
-        return ''
+    """Return an index of the project rules and what each one covers."""
+    entries: list[str] = []
 
-    sections = [_RULES_HEADER]
-    for path in files:
+    for path in sorted((root / _RULES_DIR).rglob('*.md')):
         try:
-            body = path.read_text(encoding='utf-8')
+            lines = path.read_text(encoding='utf-8').splitlines()
         except OSError:
-            # One unreadable rule must not cost the agent all the others.
             continue
         except ValueError:
             continue
 
-        sections.append(f'--- {path.relative_to(root)} ---\n{body}')
+        title = next(
+            (
+                line.lstrip('# ').strip()
+                for line in lines
+                if line.startswith('# ')
+            ),
+            path.stem,
+        )
+        entries.append(f'- {path.relative_to(root)} - {title}')
 
-    return '\n\n'.join(sections) if len(sections) > 1 else ''
+    if not entries:
+        return ''
+
+    return '\n'.join([_RULES_HEADER, '', *entries])
 
 
 def main(argv: list[str]) -> int:
