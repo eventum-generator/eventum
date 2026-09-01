@@ -1,1 +1,0 @@
-../../.agents/hooks/python-format-lint.sh

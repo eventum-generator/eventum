@@ -1,1 +1,0 @@
-../../.agents/hooks/ts-format-lint.sh

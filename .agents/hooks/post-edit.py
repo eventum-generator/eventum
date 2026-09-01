@@ -6,8 +6,10 @@ from __future__ import annotations
 import json
 import os
 import re
+import shutil
 import subprocess
 import sys
+from collections.abc import Iterator
 from pathlib import Path
 from typing import Any
 
@@ -17,57 +19,78 @@ _PATH_PATTERN = re.compile(
     re.MULTILINE,
 )
 
+# Codex may deliver a patch nested in source code, where the newlines are
+# still escaped. Unescape them so the line-anchored pattern can match.
+_ESCAPED_NEWLINE = re.compile(r'\\+n')
 
-def _project_root(event: dict[str, Any]) -> Path:
+
+def _tool(name: str, fallback: str) -> str:
+    """Return the absolute path of a required external tool."""
+    return shutil.which(name) or fallback
+
+
+def _project_root(cwd: Path) -> Path | None:
     """Return the Git root for the active agent session."""
-    cwd = event.get('cwd') or Path.cwd()
-    result = subprocess.run(
-        ['/usr/bin/git', 'rev-parse', '--show-toplevel'],
-        cwd=cwd,
-        check=True,
-        capture_output=True,
-        text=True,
-    )
+    try:
+        result = subprocess.run(  # noqa: S603
+            [_tool('git', '/usr/bin/git'), 'rev-parse', '--show-toplevel'],
+            cwd=cwd,
+            check=False,
+            capture_output=True,
+            text=True,
+        )
+    except OSError:
+        return None
+
+    if result.returncode != 0:
+        return None
+
     return Path(result.stdout.strip()).resolve()
 
 
-def _existing_path(value: str, root: Path) -> Path | None:
+def _existing_path(value: str, root: Path, cwd: Path) -> Path | None:
     """Resolve an existing project file from a hook payload path."""
     candidate = Path(value)
-    if not candidate.is_absolute():
-        candidate = root / candidate
-    candidate = candidate.resolve()
-    if candidate.is_relative_to(root) and candidate.is_file():
-        return candidate
+    bases = (cwd, root) if not candidate.is_absolute() else (None,)
+
+    for base in bases:
+        resolved = (base / candidate if base else candidate).resolve()
+        if resolved.is_relative_to(root) and resolved.is_file():
+            return resolved
     return None
 
 
-def _edited_paths(event: dict[str, Any], root: Path) -> list[Path]:
+def _strings(value: Any) -> Iterator[str]:
+    """Yield every string nested anywhere inside a hook payload value."""
+    if isinstance(value, str):
+        yield value
+    elif isinstance(value, dict):
+        yield from (s for v in value.values() for s in _strings(v))
+    elif isinstance(value, list | tuple):
+        yield from (s for v in value for s in _strings(v))
+
+
+def _edited_paths(event: dict[str, Any], root: Path, cwd: Path) -> list[Path]:
     """Extract files from Claude path input or a Codex patch input."""
     paths: set[Path] = set()
-    tool_input = event.get('tool_input', {})
-    commands: list[str] = []
+    tool_input = event.get('tool_input')
 
     if isinstance(tool_input, dict):
         file_path = tool_input.get('file_path')
         if isinstance(file_path, str):
-            candidate = _existing_path(file_path, root)
+            candidate = _existing_path(file_path, root, cwd)
             if candidate is not None:
                 paths.add(candidate)
 
-        for key in ('command', 'input', 'patch'):
-            value = tool_input.get(key)
-            if isinstance(value, str):
-                commands.append(value)
-    elif isinstance(tool_input, str):
-        commands.append(tool_input)
-
-    for command in commands:
-        for match in _PATH_PATTERN.finditer(command):
+    # Codex carries the patch as text, and its shape varies by tool: a bare
+    # string, a list of command arguments, or a field of a structured call.
+    for text in _strings(tool_input):
+        for match in _PATH_PATTERN.finditer(_ESCAPED_NEWLINE.sub('\n', text)):
             value = match.group('path') or match.group('move_path')
-            candidate = _existing_path(value, root)
+            candidate = _existing_path(value.strip(), root, cwd)
             if candidate is not None:
                 paths.add(candidate)
+
     return sorted(paths)
 
 
@@ -75,35 +98,57 @@ def _run_hook(
     hook: Path,
     file_path: Path,
     root: Path,
-) -> subprocess.CompletedProcess[str]:
-    """Run one canonical edit hook with a Claude-compatible payload."""
+) -> subprocess.CompletedProcess[str] | None:
+    """Run one canonical edit hook with a Claude-compatible payload.
+
+    Returns None when the hook could not be started at all, which must
+    leave the agent running rather than surface as an edit failure.
+    """
     payload = json.dumps({'tool_input': {'file_path': str(file_path)}})
     environment = os.environ.copy()
     environment['CLAUDE_PROJECT_DIR'] = str(root)
-    return subprocess.run(  # noqa: S603
-        ['/usr/bin/bash', str(hook)],
-        input=payload,
-        text=True,
-        capture_output=True,
-        env=environment,
-        check=False,
-    )
+    try:
+        return subprocess.run(  # noqa: S603
+            [_tool('bash', '/bin/bash'), str(hook)],
+            input=payload,
+            text=True,
+            capture_output=True,
+            env=environment,
+            check=False,
+        )
+    except OSError:
+        return None
 
 
 def main() -> int:
     """Format and lint files edited by Claude or Codex."""
-    event = json.load(sys.stdin)
-    root = _project_root(event)
+    try:
+        event = json.load(sys.stdin)
+    except ValueError:
+        # A payload this hook cannot read must not block the agent.
+        return 0
+
+    if not isinstance(event, dict):
+        return 0
+
+    cwd = Path(event.get('cwd') or Path.cwd()).resolve()
+    root = _project_root(cwd)
+    if root is None:
+        return 0
+
     hooks = (
         root / '.agents/hooks/python-format-lint.sh',
         root / '.agents/hooks/ts-format-lint.sh',
     )
     failures: list[str] = []
 
-    for file_path in _edited_paths(event, root):
+    for file_path in _edited_paths(event, root, cwd):
         for hook in hooks:
+            if not hook.is_file():
+                continue
+
             result = _run_hook(hook, file_path, root)
-            if result.returncode != 0:
+            if result is not None and result.returncode != 0:
                 message = result.stderr.strip() or result.stdout.strip()
                 fallback = f'{hook.name} exited {result.returncode}'
                 failures.append(message or fallback)
@@ -116,4 +161,10 @@ def main() -> int:
 
 
 if __name__ == '__main__':
-    raise SystemExit(main())
+    try:
+        _code = main()
+    except Exception as error:  # noqa: BLE001 - a hook must never block the agent
+        sys.stderr.write(f'post-edit.py: {error}\n')
+        _code = 0
+
+    raise SystemExit(_code)
