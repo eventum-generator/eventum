@@ -58,14 +58,23 @@ def project_root(cwd: Path) -> Path | None:
     return Path(result.stdout.strip()).resolve()
 
 
-def _existing_path(value: str, root: Path, cwd: Path) -> Path | None:
-    """Resolve an existing project file from a hook payload path."""
+def _existing_path(
+    value: str,
+    roots: tuple[Path, ...],
+    cwd: Path,
+) -> Path | None:
+    """Resolve an existing file from a hook payload path.
+
+    Anything outside the given roots is dropped, so a payload cannot
+    point a hook at a file the agent is not working on.
+    """
     candidate = Path(value)
-    bases = (cwd, root) if not candidate.is_absolute() else (None,)
+    bases = (cwd, *roots) if not candidate.is_absolute() else (None,)
 
     for base in bases:
         resolved = (base / candidate if base else candidate).resolve()
-        if resolved.is_relative_to(root) and resolved.is_file():
+        inside = any(resolved.is_relative_to(root) for root in roots)
+        if inside and resolved.is_file():
             return resolved
 
     return None
@@ -81,7 +90,11 @@ def _strings(value: Any) -> Iterator[str]:
         yield from (s for v in value for s in _strings(v))
 
 
-def _shell_written(command: str, root: Path, cwd: Path) -> set[Path]:
+def _shell_written(
+    command: str,
+    roots: tuple[Path, ...],
+    cwd: Path,
+) -> set[Path]:
     """Return project files a shell command writes to."""
     written: set[Path] = set()
 
@@ -96,22 +109,32 @@ def _shell_written(command: str, root: Path, cwd: Path) -> set[Path]:
             ]
 
         for value in found:
-            resolved = _existing_path(value, root, cwd)
+            resolved = _existing_path(value, roots, cwd)
             if resolved is not None:
                 written.add(resolved)
 
     return written
 
 
-def edited_paths(event: dict[str, Any], root: Path, cwd: Path) -> list[Path]:
-    """Return the project files an edit event refers to."""
+def edited_paths(
+    event: dict[str, Any],
+    root: Path,
+    cwd: Path,
+    extra_roots: tuple[Path, ...] = (),
+) -> list[Path]:
+    """Return the files an edit event refers to.
+
+    `extra_roots` widens the search to sibling repositories the agent may
+    also edit; without it only the project itself is considered.
+    """
     paths: set[Path] = set()
+    roots = (root, *extra_roots)
     tool_input = event.get('tool_input')
 
     if isinstance(tool_input, dict):
         file_path = tool_input.get('file_path')
         if isinstance(file_path, str):
-            candidate = _existing_path(file_path, root, cwd)
+            candidate = _existing_path(file_path, roots, cwd)
             if candidate is not None:
                 paths.add(candidate)
 
@@ -122,10 +145,10 @@ def edited_paths(event: dict[str, Any], root: Path, cwd: Path) -> list[Path]:
 
         for match in _PATH_PATTERN.finditer(unescaped):
             value = match.group('path') or match.group('move_path')
-            candidate = _existing_path(value.strip(), root, cwd)
+            candidate = _existing_path(value.strip(), roots, cwd)
             if candidate is not None:
                 paths.add(candidate)
 
-        paths.update(_shell_written(unescaped, root, cwd))
+        paths.update(_shell_written(unescaped, roots, cwd))
 
     return sorted(paths)

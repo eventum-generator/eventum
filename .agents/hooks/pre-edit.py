@@ -33,7 +33,20 @@ _SCOPES: tuple[tuple[str, tuple[str, ...], tuple[str, ...]], ...] = (
     ('eventum/plugins/output/', ('.py',), ('backend/plugins/output.md',)),
     ('eventum/ui/src/', ('.ts', '.tsx', '.css'), ('frontend/ui.md',)),
     ('CHANGELOG.md', (), ('changelog.md',)),
+    ('../docs/content/docs/', ('.mdx', '.json'), ('docs/mdx.md',)),
+    ('../docs/content/blog/', ('.mdx',), ('docs/blog.md',)),
+    ('../docs/lib/hub-data/', ('.ts',), ('docs/hub.md',)),
+    ('../content-packs/generators/', (), ('content/generators.md',)),
+    (
+        '../content-packs/generators/',
+        ('.jinja', '.yml'),
+        ('content/templates.md',),
+    ),
 )
+
+# The rules also cover the sibling repositories of this workspace, which
+# the agent edits through its extra writable roots.
+_SIBLINGS = ('docs', 'content-packs')
 
 _HEADER = (
     'Project rules covering the files you are about to edit. They are '
@@ -67,12 +80,27 @@ def _remember(state: Path, sent: set[str]) -> None:
         state.write_text(json.dumps(sorted(sent)), encoding='utf-8')
 
 
+def _workspace_key(path: Path, root: Path) -> str | None:
+    """Return the path as named by a scope, or None when out of scope."""
+    if path.is_relative_to(root):
+        return path.relative_to(root).as_posix()
+
+    for sibling in _SIBLINGS:
+        base = root.parent / sibling
+        if path.is_relative_to(base):
+            return f'../{sibling}/{path.relative_to(base).as_posix()}'
+
+    return None
+
+
 def _matching_rules(paths: list[Path], root: Path) -> list[str]:
     """Return the rules covering the given project files, in order."""
     matched: list[str] = []
 
     for path in paths:
-        relative = path.relative_to(root).as_posix()
+        relative = _workspace_key(path, root)
+        if relative is None:
+            continue
         for prefix, suffixes, rules in _SCOPES:
             covered = relative.startswith(prefix) and (
                 not suffixes or relative.endswith(suffixes)
@@ -124,7 +152,8 @@ def main() -> int:
     state = _state_file(str(event.get('session_id') or ''))
     sent = _already_sent(state)
 
-    paths = edited_paths(event, root, cwd)
+    siblings = tuple(root.parent / name for name in _SIBLINGS)
+    paths = edited_paths(event, root, cwd, extra_roots=siblings)
     pending = [r for r in _matching_rules(paths, root) if r not in sent]
     if not pending:
         return 0
