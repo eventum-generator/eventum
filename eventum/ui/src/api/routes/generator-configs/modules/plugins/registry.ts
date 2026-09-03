@@ -8,6 +8,7 @@ import {
   Icon,
   IconAsteriskSimple,
   IconBraces,
+  IconBucket,
   IconCalendarMonthFilled,
   IconChartBar,
   IconCode,
@@ -42,6 +43,7 @@ import { FileOutputPluginDefaultConfig } from './default-configs/output/file';
 import { HTTPOutputPluginDefaultConfig } from './default-configs/output/http';
 import { KafkaOutputPluginDefaultConfig } from './default-configs/output/kafka';
 import { OpensearchOutputPluginDefaultConfig } from './default-configs/output/opensearch';
+import { S3OutputPluginDefaultConfig } from './default-configs/output/s3';
 import { StdoutOutputPluginDefaultConfig } from './default-configs/output/stdout';
 import { TcpOutputPluginDefaultConfig } from './default-configs/output/tcp';
 import { UdpOutputPluginDefaultConfig } from './default-configs/output/udp';
@@ -153,6 +155,11 @@ export const OUTPUT_PLUGINS_INFO = {
     icon: brandIcon(SiApachekafka),
     description: 'Produce events to Apache Kafka topics',
   },
+  s3: {
+    label: 'S3',
+    icon: IconBucket,
+    description: 'Write events as objects to S3 compatible storage',
+  },
   stdout: {
     label: 'Stdout',
     icon: IconTerminal2,
@@ -203,6 +210,7 @@ export const OUTPUT_PLUGIN_DEFAULT_CONFIGS = {
   http: HTTPOutputPluginDefaultConfig,
   kafka: KafkaOutputPluginDefaultConfig,
   opensearch: OpensearchOutputPluginDefaultConfig,
+  s3: S3OutputPluginDefaultConfig,
   stdout: StdoutOutputPluginDefaultConfig,
   tcp: TcpOutputPluginDefaultConfig,
   udp: UdpOutputPluginDefaultConfig,

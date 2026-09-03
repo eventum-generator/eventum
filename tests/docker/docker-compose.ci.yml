@@ -32,3 +32,10 @@ services:
         limits:
           memory: 768m
           cpus: "0.5"
+
+  minio:
+    deploy:
+      resources:
+        limits:
+          memory: 512m
+          cpus: "0.25"

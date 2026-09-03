@@ -2,6 +2,16 @@
 
 All notable changes to this project will be documented in this file.
 
+## Unreleased
+
+### 🚀 New Features
+
+- **Added the `s3` output plugin** — events are written as objects to S3 compatible storage: AWS, MinIO, Ceph and the interoperability endpoints of the other clouds, in place of writing to a local path and lifting the files with a separate uploader. Every batch of events becomes one object, so the size of objects follows the batch parameters of the generator, and the key each object takes is a template of the time it was written at, a sequence number, a random value and the extension of the encoding, which makes Hive style partitioning by hour the default layout. Objects hold JSON Lines, optionally compressed whole with gzip or zstd, or Parquet with its own column compression, row group size and a schema declared by pointing at one representative event — so a lake seeded by Eventum is read in place by ClickHouse, DuckDB, Athena, Spark or Databricks. Credentials are given as an access key pair, optionally through `${secrets.*}`, or left out for the storage client to resolve from the environment; the endpoint, region, addressing style, timeouts, retries, TLS verification, CA certificate and proxy are configurable. What cannot work is refused when the configuration is loaded rather than at the first write: an encoding takes only the event formats it can read back, a key template that would render one key for every object is rejected, and a path to a missing schema or certificate file fails validation
+
+### 📦 Dependencies
+
+- **Added `obstore` and `pyarrow`** — the storage client of the `s3` output plugin and the Parquet encoder behind its columnar objects. Both are loaded when a generator opens the plugin rather than at startup, so an installation that writes nowhere near object storage keeps them out of its resident memory, though they are installed either way
+
 ## 2.8.0 (2026-08-29)
 
 ### 🚀 New Features

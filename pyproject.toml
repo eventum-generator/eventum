@@ -66,8 +66,10 @@ dependencies = [
     "mimesis>=19.0.0",
     "msgspec>=0.20.0",
     "numpy>=2.4.2",
+    "obstore>=0.11.1",
     "psutil>=7.2.2",
     "pwinput>=1.0.3",
+    "pyarrow>=25.0.1",
     "pydantic>=2.12.5",
     "python-multipart>=0.0.22",
     "pyyaml>=6.0.3",
@@ -115,6 +117,11 @@ plugins = "pydantic.mypy"
 
 [[tool.mypy.overrides]]
 module = ["aiokafka", "aiokafka.*"]
+ignore_missing_imports = true
+follow_untyped_imports = true
+
+[[tool.mypy.overrides]]
+module = ["pyarrow", "pyarrow.*"]
 ignore_missing_imports = true
 follow_untyped_imports = true
 
