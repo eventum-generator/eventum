@@ -23,6 +23,10 @@ KEY_TEMPLATE_FIELDS = frozenset(
 
 _SAMPLE_MOMENT = datetime(2026, 1, 2, 3, 4, 5)  # noqa: DTZ001
 
+_OTHER_MOMENT = datetime(2027, 6, 7, 8, 9, 10)  # noqa: DTZ001
+"""Second moment a template is rendered with, to tell whether the key
+it produces varies at all."""
+
 _FORMATTER = Formatter()
 
 _DISALLOWED_IN_KEY = re.compile(r'[\s\x00-\x1f\x7f]')
@@ -51,7 +55,9 @@ def validate_key_template(template: str) -> str:
     -----
     Validation renders the template with sample values, so a format
     specification the field type cannot take is rejected here instead
-    of failing on the first write.
+    of failing on the first write. It renders twice, with a different
+    moment and sequence number, since a template that produces one key
+    for every object would have each object replace the previous one.
 
     """
     try:
@@ -82,11 +88,26 @@ def validate_key_template(template: str) -> str:
             sequence=0,
             extension='.sample',
         )
+        other_key = render_key(
+            template,
+            moment=_OTHER_MOMENT,
+            sequence=1,
+            extension='.sample',
+        )
     except (ValueError, TypeError, IndexError, KeyError) as e:
         msg = f'Key template cannot be rendered: {e}'
         raise ValueError(msg) from None
 
     _validate_rendered_key(key)
+
+    if key == other_key:
+        varying = ', '.join(sorted(KEY_TEMPLATE_FIELDS - {'ext'}))
+        msg = (
+            'Key template renders the same key for every object, so each '
+            f'object would replace the previous one; substitute one of '
+            f'{varying}'
+        )
+        raise ValueError(msg)
 
     return template
 

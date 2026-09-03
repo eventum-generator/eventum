@@ -3,7 +3,6 @@
 import asyncio
 from collections.abc import Sequence
 from datetime import UTC, datetime, timedelta
-from pathlib import Path
 from typing import TYPE_CHECKING, override
 
 if TYPE_CHECKING:
@@ -15,6 +14,8 @@ if TYPE_CHECKING:
         S3Store,
     )
 
+from eventum import __version__
+from eventum.plugins.exceptions import PluginConfigurationError
 from eventum.plugins.output.base.plugin import OutputPlugin, OutputPluginParams
 from eventum.plugins.output.exceptions import PluginOpenError, PluginWriteError
 from eventum.plugins.output.plugins.s3.config import (
@@ -26,7 +27,6 @@ from eventum.plugins.output.plugins.s3.encoding import (
     content_type_of,
     encode,
     extension_of,
-    read_schema,
 )
 from eventum.plugins.output.plugins.s3.keys import render_key
 from eventum.utils.net_accounting import record_sent
@@ -55,7 +55,6 @@ class S3OutputPlugin(
 
         self._store: S3Store
 
-        self._schema: pa.Schema | None = None
         self._sequence = 0
 
         self._extension = extension_of(config.encoder)
@@ -76,13 +75,85 @@ class S3OutputPlugin(
         )
 
         encoder = config.encoder
-        self._schema_path: Path | None = None
-
-        if (
-            isinstance(encoder, ParquetEncoderConfig)
+        self._schema_path = (
+            self.resolve_path(encoder.schema_path)
+            if isinstance(encoder, ParquetEncoderConfig)
             and encoder.schema_path is not None
-        ):
-            self._schema_path = self.resolve_path(encoder.schema_path)
+            else None
+        )
+
+        self._ca_certificate = self._read_ca_certificate()
+        self._schema = self._read_schema()
+
+    def _read_ca_certificate(self) -> bytes | None:
+        """Read the configured CA certificate.
+
+        Returns
+        -------
+        bytes | None
+            Content of the certificate, `None` when none is configured.
+
+        Raises
+        ------
+        PluginConfigurationError
+            If the certificate cannot be read.
+
+        """
+        if self._ca_cert_path is None:
+            return None
+
+        try:
+            return self._ca_cert_path.read_bytes()
+        except OSError as e:
+            msg = 'Failed to read CA certificate'
+            raise PluginConfigurationError(
+                msg,
+                context={
+                    'reason': str(e),
+                    'file_path': str(self._ca_cert_path),
+                },
+            ) from e
+
+    def _read_schema(self) -> pa.Schema | None:
+        """Read the declared schema of objects.
+
+        Returns
+        -------
+        pa.Schema | None
+            Schema every object is encoded with, `None` when none is
+            declared or the encoding has no schema.
+
+        Raises
+        ------
+        PluginConfigurationError
+            If the schema cannot be read from the configured file.
+
+        """
+        if self._schema_path is None:
+            return None
+
+        from eventum.plugins.output.plugins.s3.encoding import read_schema
+
+        try:
+            return read_schema(self._schema_path)
+        except OSError as e:
+            msg = 'Failed to read schema of objects'
+            raise PluginConfigurationError(
+                msg,
+                context={
+                    'reason': str(e),
+                    'file_path': str(self._schema_path),
+                },
+            ) from e
+        except EncodingError as e:
+            msg = 'Failed to infer schema of objects'
+            raise PluginConfigurationError(
+                msg,
+                context={
+                    'reason': str(e),
+                    'file_path': str(self._schema_path),
+                },
+            ) from None
 
     def _build_client_config(self) -> ClientConfig:
         """Build config of the HTTP client of the store.
@@ -91,11 +162,6 @@ class S3OutputPlugin(
         -------
         ClientConfig
             Client config.
-
-        Raises
-        ------
-        OSError
-            If CA certificate cannot be read.
 
         """
         config: ClientConfig = {
@@ -106,10 +172,12 @@ class S3OutputPlugin(
             'allow_http': self._endpoint is not None
             and self._endpoint.startswith('http://'),
             'allow_invalid_certificates': not self._config.verify,
+            # names the writer in the access log of the storage
+            'user_agent': f'eventum/{__version__}',
         }
 
-        if self._ca_cert_path is not None:
-            config['root_certificate'] = self._ca_cert_path.read_bytes()
+        if self._ca_certificate is not None:
+            config['root_certificate'] = self._ca_certificate
 
         if self._config.proxy_url is not None:
             config['proxy_url'] = str(self._config.proxy_url)
@@ -160,55 +228,24 @@ class S3OutputPlugin(
 
     @override
     async def _open(self) -> None:
-        # the storage client and the columnar encoder are heavy, so they
-        # are loaded when a generator opens this plugin instead of when
-        # the plugin module is imported to build the config types
+        # the storage client is heavy, so it is loaded when a generator
+        # opens this plugin instead of when the plugin module is
+        # imported to build the config types of every generator
         from obstore.exceptions import BaseError as ObjectStoreError
         from obstore.store import S3Store
 
-        if self._schema_path is not None:
-            try:
-                self._schema = await asyncio.to_thread(
-                    read_schema,
-                    self._schema_path,
-                )
-            except OSError as e:
-                msg = 'Failed to read schema of objects'
-                raise PluginOpenError(
-                    msg,
-                    context={
-                        'reason': str(e),
-                        'file_path': str(self._schema_path),
-                    },
-                ) from e
-            except EncodingError as e:
-                msg = 'Failed to infer schema of objects'
-                raise PluginOpenError(
-                    msg,
-                    context={
-                        'reason': str(e),
-                        'file_path': str(self._schema_path),
-                    },
-                ) from None
-
-        try:
-            client_config = self._build_client_config()
-        except OSError as e:
-            msg = 'Failed to read CA certificate'
-            raise PluginOpenError(
-                msg,
-                context={
-                    'reason': str(e),
-                    'file_path': str(self._ca_cert_path),
-                },
-            ) from e
+        if self._endpoint is not None and self._endpoint.startswith('http://'):
+            await self._logger.awarning(
+                'Objects are written over a plain HTTP endpoint',
+                url=self._endpoint,
+            )
 
         retry_config: RetryConfig = {'max_retries': self._config.max_retries}
 
         try:
             self._store = S3Store(
                 config=self._build_store_config(),
-                client_options=client_config,
+                client_options=self._build_client_config(),
                 retry_config=retry_config,
             )
         except (ObjectStoreError, ValueError) as e:
@@ -248,15 +285,19 @@ class S3OutputPlugin(
                 self._schema,
             )
         except EncodingError as e:
+            context = {
+                'reason': str(e),
+                'bucket': self._config.bucket,
+                'object_key': key,
+            }
+
+            # a declared schema is the usual cause of an event the
+            # encoding cannot take, so the error names the file to fix
+            if self._schema_path is not None:
+                context['file_path'] = str(self._schema_path)
+
             msg = 'Failed to encode events'
-            raise PluginWriteError(
-                msg,
-                context={
-                    'reason': str(e),
-                    'bucket': self._config.bucket,
-                    'object_key': key,
-                },
-            ) from None
+            raise PluginWriteError(msg, context=context) from None
 
         try:
             await obstore.put_async(

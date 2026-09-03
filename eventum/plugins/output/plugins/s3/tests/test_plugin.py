@@ -13,6 +13,7 @@ from obstore.exceptions import GenericError, NotFoundError
 import obstore.store
 from obstore.store import MemoryStore, S3Store
 
+from eventum.plugins.exceptions import PluginConfigurationError
 from eventum.plugins.output.base.plugin import OutputPluginParams
 from eventum.plugins.output.exceptions import PluginOpenError, PluginWriteError
 from eventum.plugins.output.plugins.s3.config import S3OutputPluginConfig
@@ -347,6 +348,34 @@ class TestEncodings:
         with pytest.raises(PluginWriteError, match='Failed to encode'):
             await instance.write([json.dumps({'n': 1.5})])
 
+    async def test_conflict_with_the_schema_names_the_schema_file(
+        self,
+        opened,
+        tmp_path,
+    ):
+        """A declared schema is the usual cause, so the error points at
+        the file to fix."""
+        schema_path = tmp_path / 'event.json'
+        schema_path.write_text(json.dumps({'n': 1}))
+        instance = await opened(
+            MemoryStore(),
+            encoder={'encoding': 'parquet', 'schema_path': str(schema_path)},
+        )
+
+        with pytest.raises(PluginWriteError) as info:
+            await instance.write([json.dumps({'n': 1.5})])
+
+        assert info.value.context['file_path'] == str(schema_path)
+
+    async def test_inferred_schema_conflict_names_no_file(self, opened):
+        instance = await opened(MemoryStore(), encoder={'encoding': 'parquet'})
+        events = [json.dumps({'n': 1}), json.dumps({'n': 'text'})]
+
+        with pytest.raises(PluginWriteError) as info:
+            await instance.write(events)
+
+        assert 'file_path' not in info.value.context
+
     async def test_failed_encoding_writes_no_object(self, opened):
         store = MemoryStore()
         instance = await opened(store, encoder={'encoding': 'parquet'})
@@ -368,32 +397,55 @@ class TestEncodings:
 
 
 class TestOpening:
-    async def test_missing_schema_file_fails_opening(self, tmp_path):
+    def test_missing_schema_file_fails_configuration(self, tmp_path):
+        """A typo in the path is caught when a generator is validated,
+        not when it starts."""
+        with pytest.raises(
+            PluginConfigurationError,
+            match='Failed to read schema',
+        ):
+            build(
+                encoder={
+                    'encoding': 'parquet',
+                    'schema_path': str(tmp_path / 'absent.json'),
+                },
+            )
+
+    def test_broken_schema_file_fails_configuration(self, tmp_path):
+        schema_path = tmp_path / 'event.json'
+        schema_path.write_text('[1, 2, 3]')
+
+        with pytest.raises(
+            PluginConfigurationError,
+            match='Failed to infer schema',
+        ):
+            build(
+                encoder={
+                    'encoding': 'parquet',
+                    'schema_path': str(schema_path),
+                },
+            )
+
+    def test_missing_ca_certificate_fails_configuration(self, tmp_path):
+        with pytest.raises(
+            PluginConfigurationError,
+            match='CA certificate',
+        ):
+            build(ca_cert=str(tmp_path / 'absent.pem'))
+
+    def test_huge_schema_file_is_read(self, tmp_path):
+        """The record reader refuses a record straddling two blocks."""
+        schema_path = tmp_path / 'event.json'
+        schema_path.write_text(json.dumps({'msg': 'x' * 3_000_000}))
+
         instance = build(
             encoder={
                 'encoding': 'parquet',
-                'schema_path': str(tmp_path / 'absent.json'),
+                'schema_path': str(schema_path),
             },
         )
 
-        with pytest.raises(PluginOpenError, match='Failed to read schema'):
-            await instance.open()
-
-    async def test_broken_schema_file_fails_opening(self, tmp_path):
-        schema_path = tmp_path / 'event.json'
-        schema_path.write_text('[1, 2, 3]')
-        instance = build(
-            encoder={'encoding': 'parquet', 'schema_path': str(schema_path)},
-        )
-
-        with pytest.raises(PluginOpenError, match='Failed to infer schema'):
-            await instance.open()
-
-    async def test_missing_ca_certificate_fails_opening(self, tmp_path):
-        instance = build(ca_cert=str(tmp_path / 'absent.pem'))
-
-        with pytest.raises(PluginOpenError, match='CA certificate'):
-            await instance.open()
+        assert instance._schema.names == ['msg']
 
     async def test_schema_file_is_resolved_against_the_base_path(
         self,

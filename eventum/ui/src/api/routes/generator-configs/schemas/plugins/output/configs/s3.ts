@@ -27,7 +27,6 @@ export const MAX_ZSTD_COMPRESSION_LEVEL = 22;
 
 const JSONLinesEncoderConfigSchema = z.object({
   encoding: z.literal(Encoding.JSONLines),
-  separator: z.string().min(1).optional(),
   compression: orPlaceholder(z.enum(JSON_LINES_COMPRESSIONS)).optional(),
   compression_level: orPlaceholder(
     z.number().int().gte(1).lte(MAX_ZSTD_COMPRESSION_LEVEL)

@@ -121,6 +121,23 @@ class TestValidation:
         with pytest.raises(ValueError, match='whitespace'):
             validate_key_template('data\t{uuid}')
 
+    def test_template_that_never_varies_is_rejected(self):
+        with pytest.raises(ValueError, match='same key for every'):
+            validate_key_template('events.jsonl')
+
+    def test_template_of_only_an_extension_is_rejected(self):
+        with pytest.raises(ValueError, match='same key for every'):
+            validate_key_template('data{ext}')
+
+    def test_template_varying_by_sequence_is_accepted(self):
+        assert validate_key_template('{seq}{ext}')
+
+    def test_template_varying_by_time_is_accepted(self):
+        assert validate_key_template('{timestamp}{ext}')
+
+    def test_template_varying_by_uuid_is_accepted(self):
+        assert validate_key_template('{uuid}{ext}')
+
     def test_leading_slash_is_rejected(self):
         with pytest.raises(ValueError, match='starting with'):
             validate_key_template('/{uuid}{ext}')

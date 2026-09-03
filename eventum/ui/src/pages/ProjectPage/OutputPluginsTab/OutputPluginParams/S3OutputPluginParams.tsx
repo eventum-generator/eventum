@@ -13,8 +13,8 @@ import { zod4Resolver } from 'mantine-form-zod-resolver';
 import { FC } from 'react';
 
 import { ProjectFileSelect } from '../../components/ProjectFileSelect';
-import { EncoderParams } from './components/EncoderParams';
 import { FormatterParams } from './components/FormatterParams';
+import { S3EncoderParams } from './components/S3EncoderParams';
 import {
   ADDRESSING_STYLES,
   S3OutputPluginConfig,
@@ -219,7 +219,7 @@ export const S3OutputPluginParams: FC<S3OutputPluginParamsProps> = ({
             batch parameters of the generator.
           </Text>
 
-          <EncoderParams
+          <S3EncoderParams
             value={form.getValues().encoder}
             onChange={(values) => form.setFieldValue('encoder', values)}
           />

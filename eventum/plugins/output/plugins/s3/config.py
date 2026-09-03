@@ -3,7 +3,7 @@
 from abc import ABC
 from enum import StrEnum
 from pathlib import Path
-from typing import Literal, Self
+from typing import Literal, Self, assert_never
 
 from pydantic import (
     BaseModel,
@@ -46,15 +46,12 @@ class BaseEncoderConfig(BaseModel, ABC, frozen=True, extra='forbid'):
 
 
 class JsonLinesEncoderConfig(BaseEncoderConfig, frozen=True):
-    r"""Config for encoding objects as JSON Lines.
+    """Config for encoding objects as JSON Lines.
 
     Attributes
     ----------
     encoding : Literal[Encoding.JSON_LINES]
         Target encoding.
-
-    separator : str, default='\n'
-        Separator placed after each event.
 
     compression : Literal['none', 'gzip', 'zstd'], default='none'
         Compression applied to the whole object.
@@ -66,7 +63,6 @@ class JsonLinesEncoderConfig(BaseEncoderConfig, frozen=True):
     """
 
     encoding: Literal[Encoding.JSON_LINES]
-    separator: str = Field(default='\n', min_length=1)
     compression: Literal['none', 'gzip', 'zstd'] = 'none'
     compression_level: int | None = Field(
         default=None,
@@ -114,13 +110,15 @@ class ParquetEncoderConfig(BaseEncoderConfig, frozen=True):
     schema_path : Path | None, default=None
         Path to a JSON file holding one representative event, the
         schema of every object is taken from it, `None` to infer the
-        schema from the first batch of events and keep it for the rest
-        of the run.
+        schema of each object from the events it holds.
 
     Notes
     -----
-    A field the schema does not declare is left out of the objects, so
-    every object of one run carries the same columns.
+    A declared schema is what keeps the objects of one run comparable:
+    a field it does not declare is left out and a field the events lack
+    becomes null, so every object carries the same columns. Inferred
+    instead, an object describes only its own events, and two objects
+    differ as soon as their batches differ in shape.
 
     """
 
@@ -139,14 +137,33 @@ class ParquetEncoderConfig(BaseEncoderConfig, frozen=True):
 
 EncoderConfigT = JsonLinesEncoderConfig | ParquetEncoderConfig
 
-SUPPORTED_FORMATS: dict[Encoding, frozenset[Format]] = {
-    Encoding.JSON_LINES: frozenset(
-        {Format.PLAIN, Format.JSON, Format.TEMPLATE},
-    ),
-    Encoding.PARQUET: frozenset({Format.JSON}),
-}
-"""Formats each encoding takes, the rest produce an object that is not
-readable as the encoding promises."""
+_JSON_LINES_FORMATS = frozenset({Format.PLAIN, Format.JSON, Format.TEMPLATE})
+
+_PARQUET_FORMATS = frozenset({Format.JSON})
+
+
+def supported_formats(config: EncoderConfigT) -> frozenset[Format]:
+    """Get formats an encoding takes.
+
+    Parameters
+    ----------
+    config : EncoderConfigT
+        Encoder config.
+
+    Returns
+    -------
+    frozenset[Format]
+        Formats the encoding can read back, the rest produce an object
+        that is not readable as the encoding promises.
+
+    """
+    match config:
+        case JsonLinesEncoderConfig():
+            return _JSON_LINES_FORMATS
+        case ParquetEncoderConfig():
+            return _PARQUET_FORMATS
+        case t:
+            assert_never(t)
 
 
 class S3OutputPluginConfig(OutputPluginConfig, frozen=True):
@@ -301,7 +318,7 @@ class S3OutputPluginConfig(OutputPluginConfig, frozen=True):
 
     @model_validator(mode='after')
     def validate_formatter_is_supported(self) -> Self:  # noqa: D102
-        supported = SUPPORTED_FORMATS[self.encoder.encoding]
+        supported = supported_formats(self.encoder)
 
         if self.formatter.format not in supported:
             formats = ', '.join(sorted(supported))

@@ -1,4 +1,4 @@
-import { NumberInput, Select, Stack, TextInput } from '@mantine/core';
+import { NumberInput, Select, Stack } from '@mantine/core';
 import { FC } from 'react';
 
 import { ProjectFileSelect } from '../../../components/ProjectFileSelect';
@@ -12,10 +12,12 @@ import {
 } from '@/api/routes/generator-configs/schemas/plugins/output/configs/s3';
 import { LabelWithTooltip } from '@/components/ui/LabelWithTooltip';
 
-interface EncoderParamsProps {
+interface S3EncoderParamsProps {
   value: EncoderConfig | undefined;
   onChange: (config: EncoderConfig | undefined) => void;
 }
+
+/** Sub-form of the `encoder` field of the s3 output plugin. */
 
 /** Maximum compression level the selected algorithm takes. */
 function maxCompressionLevel(compression: string | undefined): number {
@@ -24,7 +26,10 @@ function maxCompressionLevel(compression: string | undefined): number {
     : MAX_ZSTD_COMPRESSION_LEVEL;
 }
 
-export const EncoderParams: FC<EncoderParamsProps> = ({ value, onChange }) => {
+export const S3EncoderParams: FC<S3EncoderParamsProps> = ({
+  value,
+  onChange,
+}) => {
   const compression =
     typeof value?.compression === 'string' ? value.compression : undefined;
 
@@ -54,27 +59,6 @@ export const EncoderParams: FC<EncoderParamsProps> = ({ value, onChange }) => {
 
       {value?.encoding === Encoding.JSONLines && (
         <>
-          <TextInput
-            label={
-              <LabelWithTooltip
-                label="Separator"
-                tooltip="Separator placed after each event, a line break by
-                default"
-              />
-            }
-            placeholder="\n"
-            value={value.separator ?? ''}
-            onChange={(event) =>
-              onChange({
-                ...value,
-                separator:
-                  event.currentTarget.value !== ''
-                    ? event.currentTarget.value
-                    : undefined,
-              })
-            }
-          />
-
           <Select
             label={
               <LabelWithTooltip
@@ -88,7 +72,6 @@ export const EncoderParams: FC<EncoderParamsProps> = ({ value, onChange }) => {
             onChange={(selected) =>
               onChange({
                 encoding: value.encoding,
-                separator: value.separator,
                 compression:
                   (selected as (typeof JSON_LINES_COMPRESSIONS)[number]) ??
                   undefined,

@@ -73,11 +73,6 @@ class TestJsonLinesEncoding:
 
         assert body.decode().splitlines() == EVENTS
 
-    def test_custom_separator(self):
-        body = encode(EVENTS, json_lines(separator='\r\n'))
-
-        assert body.decode().split('\r\n')[:-1] == EVENTS
-
     def test_gzip_roundtrip(self):
         body = encode(EVENTS, json_lines(compression='gzip'))
 

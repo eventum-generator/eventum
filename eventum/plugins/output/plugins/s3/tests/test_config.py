@@ -71,6 +71,10 @@ class TestKeyTemplate:
             'data/{uuid}.jsonl'
         )
 
+    def test_template_producing_one_key_is_rejected(self):
+        with pytest.raises(ValidationError, match='same key for every'):
+            config(key_template='events.jsonl')
+
 
 class TestCredentials:
     def test_key_id_without_secret_is_rejected(self):
@@ -202,7 +206,11 @@ class TestEncoderDiscrimination:
 
     def test_json_lines_field_under_parquet_is_rejected(self):
         with pytest.raises(ValidationError):
-            config(encoder={'encoding': 'parquet', 'separator': '\n'})
+            config(encoder={'encoding': 'parquet', 'compression_level': 5})
+
+    def test_separator_is_not_a_setting_of_json_lines(self):
+        with pytest.raises(ValidationError):
+            config(encoder={'encoding': 'jsonl', 'separator': ', '})
 
     def test_parquet_compression_is_its_own_vocabulary(self):
         cfg = config(encoder={'encoding': 'parquet', 'compression': 'snappy'})

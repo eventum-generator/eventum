@@ -20,10 +20,22 @@ from eventum.plugins.output.plugins.s3.config import (
 _ENCODING = 'utf-8'
 """Objects are encoded as UTF-8, as JSON and Parquet both require."""
 
+_SEPARATOR = '\n'
+"""JSON Lines is delimited by line breaks, so this is not a setting."""
+
 _COMPRESSION_EXTENSIONS = {'none': '', 'gzip': '.gz', 'zstd': '.zst'}
 
 _MIN_BLOCK_SIZE = 1 << 20
 """Block size the record reader falls back to, matching its own default."""
+
+
+def _block_size(record: bytes | str) -> int:
+    """Get a reader block size that the largest record fits into.
+
+    The reader splits its input into blocks and refuses a record that
+    straddles two of them, so the block has to take the whole record.
+    """
+    return max(_MIN_BLOCK_SIZE, 2 * len(record))
 
 
 class EncodingError(Exception):
@@ -111,7 +123,10 @@ def read_schema(path: Path) -> pa.Schema:
     content = path.read_bytes()
 
     try:
-        return pj.read_json(io.BytesIO(content)).schema
+        return pj.read_json(
+            io.BytesIO(content),
+            read_options=pj.ReadOptions(block_size=_block_size(content)),
+        ).schema
     except pa.ArrowInvalid as e:
         msg = f'Sample event is not a JSON object: {e}'
         raise EncodingError(msg) from None
@@ -196,14 +211,12 @@ def _read_records(
         msg = f'Cannot encode events: {e}'
         raise EncodingError(msg) from None
 
-    # the reader splits its input into blocks and refuses a record that
-    # straddles two of them, so the block takes the largest event
-    block_size = max(_MIN_BLOCK_SIZE, 2 * max(map(len, events)))
-
     try:
         return pj.read_json(
             io.BytesIO(records),
-            read_options=pj.ReadOptions(block_size=block_size),
+            read_options=pj.ReadOptions(
+                block_size=_block_size(max(events, key=len)),
+            ),
             parse_options=parse_options,
         )
     except pa.ArrowInvalid as e:
@@ -236,10 +249,8 @@ def _encode_json_lines(
         If the events cannot be encoded.
 
     """
-    separator = config.separator
-
     try:
-        body = ''.join(event + separator for event in events).encode(
+        body = ''.join(event + _SEPARATOR for event in events).encode(
             _ENCODING,
         )
     except UnicodeEncodeError as e:
