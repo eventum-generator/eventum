@@ -88,14 +88,15 @@ All green is required to advance. On failure, fix and re-run; if three cycles do
 
 ### 6. Adversarial review
 
-Self-review is the weakest check: the reasoning that wrote the defect clears it, and green tests read as proof. Dispatch four read-only subagents in parallel, one lens each, with the issue number, the worktree path, the base ref (`origin/develop`), and the rules matching touched paths.
+Self-review is the weakest check: the reasoning that wrote the defect clears it, and green tests read as proof. Dispatch five read-only subagents in parallel, one lens each, with the issue number, the worktree path, the base ref (`origin/develop`), and the rules matching touched paths.
 
 - **Correctness** - inputs and states that break it: error paths, boundaries, concurrency, resource lifetimes.
 - **Test integrity** - assume the tests prove nothing: what still passes after a regression, what is mocked away or asserted vacuously.
 - **Contracts and rules** - `.claude/rules/**` and the cross-cutting sync they demand (Zod schema and form, `LOGGING.md` fields, OpenAPI export, docs).
 - **Requirement fidelity** - issue and comments against the diff: what is missing, partial, or reinterpreted.
+- **Design integrity** - architecture and code as a permanent part of the system: extensibility, maintainability, consistency with the project's concepts, no new mechanism duplicating an existing one, enterprise-grade safety.
 
-Each finding: claim, `file:line`, and a concrete failure scenario (inputs -> wrong result).
+Each finding: claim, `file:line`, and a concrete failure scenario (inputs -> wrong result) - for a design finding, what it collides with.
 
 Verify every finding against the code before acting - a testable claim gets the failing test. Then fix it (return to step 5), refute it with evidence, or defer it as a follow-up issue. Blanket-accepting and blanket-dismissing are the same failure. Re-dispatch once if triage changed logic; after two rounds report what stays open.
 
