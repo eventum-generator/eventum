@@ -366,7 +366,7 @@ async def test_plugin_refreshes_token_on_unauthorized(
 ):
     monkeypatch.setattr(
         authenticators,
-        'MIN_FORCED_REFRESH_INTERVAL_SECONDS',
+        'MIN_REJECTED_TOKEN_AGE_SECONDS',
         0.0,
     )
     tokens = iter(['stale', 'fresh'])
@@ -412,7 +412,7 @@ async def test_plugin_fails_after_one_refresh(
 ):
     monkeypatch.setattr(
         authenticators,
-        'MIN_FORCED_REFRESH_INTERVAL_SECONDS',
+        'MIN_REJECTED_TOKEN_AGE_SECONDS',
         0.0,
     )
     httpx_mock.add_response(

@@ -102,7 +102,8 @@ class OAuth2ClientCredentialsHttpAuthConfig(BaseHttpAuthConfig, frozen=True):
         Type of authentication.
 
     token_url : HttpUrl
-        URL of the token endpoint.
+        URL of the token endpoint, over https: the client secret
+        travels the body of the request to it.
 
     client_id : str
         Identifier of the client.
@@ -139,6 +140,18 @@ class OAuth2ClientCredentialsHttpAuthConfig(BaseHttpAuthConfig, frozen=True):
     audience: str | None = Field(default=None, min_length=1)
     resource: str | None = Field(default=None, min_length=1)
     extra_params: dict[str, str] = Field(default_factory=dict)
+
+    @field_validator('token_url')
+    @classmethod
+    def validate_token_url(cls, v: HttpUrl) -> HttpUrl:  # noqa: D102
+        if v.scheme != 'https':
+            msg = (
+                'Token endpoint must be addressed over https, since '
+                'the client secret travels the request to it'
+            )
+            raise ValueError(msg)
+
+        return v
 
 
 HttpAuthConfigT = (

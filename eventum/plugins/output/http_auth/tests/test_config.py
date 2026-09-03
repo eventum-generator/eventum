@@ -112,3 +112,14 @@ def test_variants_are_frozen() -> None:
 
     with pytest.raises(ValidationError):
         config.token = 'other'  # type: ignore[misc]  # noqa: S105
+
+
+def test_oauth2_refuses_a_token_endpoint_without_tls() -> None:
+    """The client secret travels the body of the token request."""
+    with pytest.raises(ValidationError, match='https'):
+        OAuth2ClientCredentialsHttpAuthConfig(
+            type=AuthType.OAUTH2_CLIENT_CREDENTIALS,
+            token_url='http://login.example.com/token',  # type: ignore[arg-type]  # noqa: S106
+            client_id='id',
+            client_secret='secret',  # noqa: S106
+        )

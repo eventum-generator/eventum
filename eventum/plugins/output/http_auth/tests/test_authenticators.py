@@ -2,7 +2,7 @@
 
 import asyncio
 import math
-from typing import Any
+from typing import Any, Literal, override
 from urllib.parse import parse_qs
 
 import httpx
@@ -11,15 +11,19 @@ from pytest_httpx import HTTPXMock
 
 from eventum.plugins.output.http_auth import authenticators
 from eventum.plugins.output.http_auth.authenticators import (
+    AcquiredToken,
     AuthenticationError,
     BasicHttpAuthenticator,
     BearerHttpAuthenticator,
     HttpAuthenticator,
+    HttpAuthenticatorParams,
     OAuth2ClientCredentialsHttpAuthenticator,
+    TokenHttpAuthenticator,
     create_authenticator,
 )
 from eventum.plugins.output.http_auth.config import (
     AuthType,
+    BaseHttpAuthConfig,
     BasicHttpAuthConfig,
     BearerHttpAuthConfig,
     ClientAuthMethod,
@@ -28,9 +32,9 @@ from eventum.plugins.output.http_auth.config import (
 
 
 @pytest.fixture
-def client() -> httpx.AsyncClient:
-    """Return a client the authenticators are given."""
-    return httpx.AsyncClient()
+def client() -> HttpAuthenticatorParams:
+    """Return the params the authenticators are given."""
+    return HttpAuthenticatorParams(client=httpx.AsyncClient())
 
 
 def _httpx_basic_header(username: str, password: str) -> str:
@@ -42,7 +46,9 @@ def _httpx_basic_header(username: str, password: str) -> str:
 
 
 @pytest.mark.asyncio
-async def test_basic_header_matches_httpx(client: httpx.AsyncClient) -> None:
+async def test_basic_header_matches_httpx(
+    client: HttpAuthenticatorParams,
+) -> None:
     """Basic credentials are encoded the way httpx encodes them."""
     authenticator = create_authenticator(
         config=BasicHttpAuthConfig(
@@ -50,7 +56,7 @@ async def test_basic_header_matches_httpx(client: httpx.AsyncClient) -> None:
             username='user',
             password='pass',  # noqa: S106
         ),
-        client=client,
+        params=client,
     )
 
     await authenticator.open()
@@ -62,12 +68,12 @@ async def test_basic_header_matches_httpx(client: httpx.AsyncClient) -> None:
 
 @pytest.mark.asyncio
 async def test_basic_without_password_uses_empty_one(
-    client: httpx.AsyncClient,
+    client: HttpAuthenticatorParams,
 ) -> None:
     """A username alone authenticates with an empty password."""
     authenticator = create_authenticator(
         config=BasicHttpAuthConfig(type=AuthType.BASIC, username='user'),
-        client=client,
+        params=client,
     )
 
     headers = await authenticator.headers()
@@ -77,12 +83,12 @@ async def test_basic_without_password_uses_empty_one(
 
 @pytest.mark.asyncio
 async def test_bearer_sets_authorization_header(
-    client: httpx.AsyncClient,
+    client: HttpAuthenticatorParams,
 ) -> None:
     """A static token is sent as a bearer credential."""
     authenticator = create_authenticator(
         config=BearerHttpAuthConfig(type=AuthType.BEARER, token='abc'),  # noqa: S106
-        client=client,
+        params=client,
     )
 
     await authenticator.open()
@@ -94,12 +100,12 @@ async def test_bearer_sets_authorization_header(
 
 @pytest.mark.asyncio
 async def test_static_authenticators_do_not_retry(
-    client: httpx.AsyncClient,
+    client: HttpAuthenticatorParams,
 ) -> None:
     """A static credential cannot be renewed, so no retry is asked."""
     authenticator = create_authenticator(
         config=BearerHttpAuthConfig(type=AuthType.BEARER, token='abc'),  # noqa: S106
-        client=client,
+        params=client,
     )
 
     assert await authenticator.handle_unauthorized({}) is False
@@ -144,7 +150,7 @@ def _oauth2_config(**kwargs: Any) -> OAuth2ClientCredentialsHttpAuthConfig:
 
 @pytest.mark.asyncio
 async def test_oauth2_sends_client_credentials_grant(
-    client: httpx.AsyncClient,
+    client: HttpAuthenticatorParams,
     httpx_mock: HTTPXMock,
 ) -> None:
     """Every parameter of the grant lands in the form of the request."""
@@ -161,7 +167,7 @@ async def test_oauth2_sends_client_credentials_grant(
             resource='https://monitor.azure.com/',
             extra_params={'tenant': 'contoso'},
         ),
-        client=client,
+        params=client,
     )
     await authenticator.open()
 
@@ -188,7 +194,7 @@ async def test_oauth2_sends_client_credentials_grant(
 
 @pytest.mark.asyncio
 async def test_oauth2_basic_client_auth_uses_header(
-    client: httpx.AsyncClient,
+    client: HttpAuthenticatorParams,
     httpx_mock: HTTPXMock,
 ) -> None:
     """Client credentials may be presented as a basic header."""
@@ -200,7 +206,7 @@ async def test_oauth2_basic_client_auth_uses_header(
 
     authenticator = create_authenticator(
         config=_oauth2_config(client_auth_method=ClientAuthMethod.BASIC),
-        client=client,
+        params=client,
     )
     await authenticator.open()
 
@@ -217,7 +223,7 @@ async def test_oauth2_basic_client_auth_uses_header(
 
 @pytest.mark.asyncio
 async def test_oauth2_caches_token_until_expiry(
-    client: httpx.AsyncClient,
+    client: HttpAuthenticatorParams,
     httpx_mock: HTTPXMock,
 ) -> None:
     """A token that is still valid is reused."""
@@ -239,7 +245,7 @@ async def test_oauth2_caches_token_until_expiry(
 
 @pytest.mark.asyncio
 async def test_oauth2_refreshes_expired_token(
-    client: httpx.AsyncClient,
+    client: HttpAuthenticatorParams,
     httpx_mock: HTTPXMock,
 ) -> None:
     """An expired token is replaced before the request is sent."""
@@ -262,7 +268,7 @@ async def test_oauth2_refreshes_expired_token(
 
 @pytest.mark.asyncio
 async def test_oauth2_requests_token_once_for_concurrent_callers(
-    client: httpx.AsyncClient,
+    client: HttpAuthenticatorParams,
     httpx_mock: HTTPXMock,
 ) -> None:
     """Callers finding a cold cache wait for one token request."""
@@ -289,7 +295,7 @@ async def test_oauth2_requests_token_once_for_concurrent_callers(
 
 @pytest.mark.asyncio
 async def test_oauth2_throttles_forced_refresh(
-    client: httpx.AsyncClient,
+    client: HttpAuthenticatorParams,
     httpx_mock: HTTPXMock,
 ) -> None:
     """A token minted seconds ago is not discarded on a rejection."""
@@ -314,7 +320,7 @@ async def test_oauth2_throttles_forced_refresh(
 
 @pytest.mark.asyncio
 async def test_oauth2_drops_token_when_refresh_is_allowed(
-    client: httpx.AsyncClient,
+    client: HttpAuthenticatorParams,
     httpx_mock: HTTPXMock,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -327,7 +333,7 @@ async def test_oauth2_drops_token_when_refresh_is_allowed(
     )
     monkeypatch.setattr(
         authenticators,
-        'MIN_FORCED_REFRESH_INTERVAL_SECONDS',
+        'MIN_REJECTED_TOKEN_AGE_SECONDS',
         0.0,
     )
 
@@ -344,7 +350,7 @@ async def test_oauth2_drops_token_when_refresh_is_allowed(
 
 @pytest.mark.asyncio
 async def test_oauth2_reports_token_endpoint_error(
-    client: httpx.AsyncClient,
+    client: HttpAuthenticatorParams,
     httpx_mock: HTTPXMock,
 ) -> None:
     """A refusal of the token endpoint is reported with its answer."""
@@ -367,7 +373,7 @@ async def test_oauth2_reports_token_endpoint_error(
 
 @pytest.mark.asyncio
 async def test_oauth2_hides_payload_of_unexpected_response(
-    client: httpx.AsyncClient,
+    client: HttpAuthenticatorParams,
     httpx_mock: HTTPXMock,
 ) -> None:
     """A successful answer without a token never reaches the context."""
@@ -387,7 +393,7 @@ async def test_oauth2_hides_payload_of_unexpected_response(
 
 @pytest.mark.asyncio
 async def test_oauth2_reports_unreachable_token_endpoint(
-    client: httpx.AsyncClient,
+    client: HttpAuthenticatorParams,
     httpx_mock: HTTPXMock,
 ) -> None:
     """An unreachable token endpoint is reported as an error."""
@@ -407,7 +413,7 @@ async def test_oauth2_reports_unreachable_token_endpoint(
 
 @pytest.mark.asyncio
 async def test_oauth2_retries_a_token_that_was_already_replaced(
-    client: httpx.AsyncClient,
+    client: HttpAuthenticatorParams,
     httpx_mock: HTTPXMock,
 ) -> None:
     """A rejection naming a superseded token is worth a retry."""
@@ -433,7 +439,7 @@ async def test_oauth2_retries_a_token_that_was_already_replaced(
 
 @pytest.mark.asyncio
 async def test_oauth2_holds_back_from_a_failing_endpoint(
-    client: httpx.AsyncClient,
+    client: HttpAuthenticatorParams,
     httpx_mock: HTTPXMock,
 ) -> None:
     """A refusing token endpoint is not asked once per request."""
@@ -458,7 +464,7 @@ async def test_oauth2_holds_back_from_a_failing_endpoint(
 
 @pytest.mark.asyncio
 async def test_oauth2_asks_again_once_the_interval_passed(
-    client: httpx.AsyncClient,
+    client: HttpAuthenticatorParams,
     httpx_mock: HTTPXMock,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -472,7 +478,7 @@ async def test_oauth2_asks_again_once_the_interval_passed(
     )
     monkeypatch.setattr(
         authenticators,
-        'MIN_FORCED_REFRESH_INTERVAL_SECONDS',
+        'FAILED_ACQUISITION_HOLD_SECONDS',
         0.0,
     )
 
@@ -487,7 +493,7 @@ async def test_oauth2_asks_again_once_the_interval_passed(
 
 @pytest.mark.asyncio
 async def test_oauth2_renews_ahead_of_the_stated_expiry(
-    client: httpx.AsyncClient,
+    client: HttpAuthenticatorParams,
     httpx_mock: HTTPXMock,
 ) -> None:
     """A token is replaced before the endpoint stops accepting it."""
@@ -509,7 +515,7 @@ async def test_oauth2_renews_ahead_of_the_stated_expiry(
 
 @pytest.mark.asyncio
 async def test_oauth2_halves_a_life_shorter_than_the_leeway(
-    client: httpx.AsyncClient,
+    client: HttpAuthenticatorParams,
     httpx_mock: HTTPXMock,
 ) -> None:
     """A short lived token is not born already expired."""
@@ -535,7 +541,7 @@ async def test_oauth2_halves_a_life_shorter_than_the_leeway(
 )
 @pytest.mark.asyncio
 async def test_oauth2_holds_a_token_of_unstated_life(
-    client: httpx.AsyncClient,
+    client: HttpAuthenticatorParams,
     httpx_mock: HTTPXMock,
     expires_in: Any,
 ) -> None:
@@ -555,7 +561,7 @@ async def test_oauth2_holds_a_token_of_unstated_life(
 
 @pytest.mark.asyncio
 async def test_oauth2_reports_a_body_that_is_not_json(
-    client: httpx.AsyncClient,
+    client: HttpAuthenticatorParams,
     httpx_mock: HTTPXMock,
 ) -> None:
     """A successful answer that is not JSON is reported as an error."""
@@ -569,7 +575,7 @@ async def test_oauth2_reports_a_body_that_is_not_json(
 
 @pytest.mark.asyncio
 async def test_oauth2_rejects_a_token_outside_ascii(
-    client: httpx.AsyncClient,
+    client: HttpAuthenticatorParams,
     httpx_mock: HTTPXMock,
 ) -> None:
     """A token no header can carry is reported once, not per request."""
@@ -589,7 +595,7 @@ async def test_oauth2_rejects_a_token_outside_ascii(
 
 @pytest.mark.asyncio
 async def test_oauth2_joins_scopes_with_a_space(
-    client: httpx.AsyncClient,
+    client: HttpAuthenticatorParams,
     httpx_mock: HTTPXMock,
 ) -> None:
     """Several scopes travel as one space separated parameter."""
@@ -601,7 +607,7 @@ async def test_oauth2_joins_scopes_with_a_space(
 
     authenticator = create_authenticator(
         config=_oauth2_config(scopes=['openid', 'profile']),
-        client=client,
+        params=client,
     )
     await authenticator.open()
 
@@ -612,7 +618,7 @@ async def test_oauth2_joins_scopes_with_a_space(
 
 @pytest.mark.asyncio
 async def test_oauth2_sends_the_named_grant_parameters(
-    client: httpx.AsyncClient,
+    client: HttpAuthenticatorParams,
     httpx_mock: HTTPXMock,
 ) -> None:
     """Audience, resource and the extra parameters reach the endpoint."""
@@ -628,7 +634,7 @@ async def test_oauth2_sends_the_named_grant_parameters(
             resource='https://monitor.azure.com/',
             extra_params={'tenant': 'contoso'},
         ),
-        client=client,
+        params=client,
     )
     await authenticator.open()
 
@@ -641,7 +647,7 @@ async def test_oauth2_sends_the_named_grant_parameters(
 
 @pytest.mark.asyncio
 async def test_oauth2_holds_a_token_of_a_life_that_is_not_a_number(
-    client: httpx.AsyncClient,
+    client: HttpAuthenticatorParams,
     httpx_mock: HTTPXMock,
 ) -> None:
     """A life stated as NaN is no life to compare a clock against."""
@@ -664,7 +670,7 @@ async def test_oauth2_holds_a_token_of_a_life_that_is_not_a_number(
 @pytest.mark.parametrize('token', ['tok en', 'tok\nen', 'token\n'])
 @pytest.mark.asyncio
 async def test_oauth2_rejects_a_token_no_header_can_carry(
-    client: httpx.AsyncClient,
+    client: HttpAuthenticatorParams,
     httpx_mock: HTTPXMock,
     token: str,
 ) -> None:
@@ -683,7 +689,7 @@ async def test_oauth2_rejects_a_token_no_header_can_carry(
 
 @pytest.mark.asyncio
 async def test_oauth2_reports_a_body_that_is_not_an_object(
-    client: httpx.AsyncClient,
+    client: HttpAuthenticatorParams,
     httpx_mock: HTTPXMock,
 ) -> None:
     """JSON that is not an object carries no token either."""
@@ -697,7 +703,7 @@ async def test_oauth2_reports_a_body_that_is_not_an_object(
 
 @pytest.mark.asyncio
 async def test_oauth2_holds_back_from_an_endpoint_failing_slowly(
-    client: httpx.AsyncClient,
+    client: HttpAuthenticatorParams,
     httpx_mock: HTTPXMock,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -717,7 +723,7 @@ async def test_oauth2_holds_back_from_an_endpoint_failing_slowly(
     # asked again by every request that waited for it
     monkeypatch.setattr(
         authenticators,
-        'MIN_FORCED_REFRESH_INTERVAL_SECONDS',
+        'FAILED_ACQUISITION_HOLD_SECONDS',
         0.01,
     )
 
@@ -732,7 +738,7 @@ async def test_oauth2_holds_back_from_an_endpoint_failing_slowly(
 
 @pytest.mark.asyncio
 async def test_oauth2_takes_a_token_once_the_endpoint_recovers(
-    client: httpx.AsyncClient,
+    client: HttpAuthenticatorParams,
     httpx_mock: HTTPXMock,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -754,7 +760,7 @@ async def test_oauth2_takes_a_token_once_the_endpoint_recovers(
     )
     monkeypatch.setattr(
         authenticators,
-        'MIN_FORCED_REFRESH_INTERVAL_SECONDS',
+        'FAILED_ACQUISITION_HOLD_SECONDS',
         0.0,
     )
 
@@ -769,9 +775,71 @@ async def test_oauth2_takes_a_token_once_the_endpoint_recovers(
     # answered with the failure that came before it
     monkeypatch.setattr(
         authenticators,
-        'MIN_FORCED_REFRESH_INTERVAL_SECONDS',
+        'FAILED_ACQUISITION_HOLD_SECONDS',
         5.0,
     )
     await asyncio.sleep(0.01)
 
     assert (await authenticator.headers())['Authorization'] == 'Bearer tok'
+
+
+class _KeyHttpAuthConfig(BaseHttpAuthConfig, frozen=True):
+    """Config of a method built on the token lifecycle."""
+
+    type: Literal[AuthType.BASIC] = AuthType.BASIC
+    key: str = 'key'
+
+
+class _KeyHttpAuthenticator(TokenHttpAuthenticator[_KeyHttpAuthConfig]):
+    """Method supplying nothing but the exchange minting a token."""
+
+    minted = 0
+
+    @override
+    async def _fetch_token(self) -> AcquiredToken:
+        type(self).minted += 1
+        return AcquiredToken(value=f'tok-{self.minted}', lifetime=0.001)
+
+
+@pytest.mark.asyncio
+async def test_a_method_built_on_the_lifecycle_inherits_it(
+    client: HttpAuthenticatorParams,
+) -> None:
+    """A further method supplies the exchange and nothing else.
+
+    The cache, the renewal ahead of the expiry, the single lock over
+    them and the answer to a rejection are the reason this seam
+    exists: a method that mints a token differently must not have to
+    carry its own copy of them.
+    """
+    _KeyHttpAuthenticator.minted = 0
+    authenticator = _KeyHttpAuthenticator(_KeyHttpAuthConfig(), client)
+
+    await authenticator.open()
+    sent = await authenticator.headers()
+
+    assert sent == {'Authorization': 'Bearer tok-1'}
+
+    # cached until it expires, then renewed
+    assert await authenticator.headers() == sent
+    await asyncio.sleep(0.01)
+    assert await authenticator.headers() == {'Authorization': 'Bearer tok-2'}
+
+    # a rejection naming a token just minted is not answered by
+    # minting another one
+    assert await authenticator.handle_unauthorized(sent) is True
+    assert (
+        await authenticator.handle_unauthorized(
+            {'Authorization': 'Bearer tok-2'},
+        )
+        is False
+    )
+
+
+def test_an_abstract_method_claims_no_auth_type() -> None:
+    """The lifecycle itself is not an answer to any auth type."""
+    registered = HttpAuthenticator._registered_authenticators  # noqa: SLF001
+
+    assert TokenHttpAuthenticator not in registered.values()
+    assert _KeyHttpAuthenticator not in registered.values()
+    assert registered[AuthType.BASIC] is BasicHttpAuthenticator

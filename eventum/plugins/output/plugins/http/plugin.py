@@ -12,6 +12,7 @@ from eventum.plugins.output.exceptions import PluginOpenError, PluginWriteError
 from eventum.plugins.output.http_auth import (
     AuthenticationError,
     HttpAuthenticator,
+    HttpAuthenticatorParams,
     create_authenticator,
 )
 from eventum.plugins.output.http_client import (
@@ -133,7 +134,7 @@ class HttpOutputPlugin(
             try:
                 self._authenticator = create_authenticator(
                     config=self._config.auth,
-                    client=self._client,
+                    params=HttpAuthenticatorParams(client=self._client),
                 )
                 await self._authenticator.open()
             except AuthenticationError as e:
@@ -151,6 +152,9 @@ class HttpOutputPlugin(
 
     @override
     async def _close(self) -> None:
+        if self._authenticator is not None:
+            await self._authenticator.close()
+
         await self._client.aclose()
 
     async def _send_request(
@@ -176,11 +180,11 @@ class HttpOutputPlugin(
             If credentials cannot be acquired or the request failed.
 
         """
-        headers = dict(self._config.headers)
+        credentials: Mapping[str, str] = {}
 
         if self._authenticator is not None:
             try:
-                headers.update(await self._authenticator.headers())
+                credentials = await self._authenticator.headers()
             except AuthenticationError as e:
                 msg = 'Failed to authenticate'
                 raise PluginWriteError(msg, context=e.context) from None
@@ -190,7 +194,7 @@ class HttpOutputPlugin(
                 method=self._config.method,
                 url=str(self._config.url),
                 content=data,
-                headers=headers,
+                headers=dict(self._config.headers) | dict(credentials),
             )
         except httpx.RequestError as e:
             msg = 'Request failed'
@@ -202,7 +206,7 @@ class HttpOutputPlugin(
                 },
             ) from e
 
-        return response, headers
+        return response, credentials
 
     async def _perform_request(self, data: str) -> None:
         """Perform request with provided data.

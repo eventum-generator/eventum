@@ -12,10 +12,13 @@ from typing import (
     Any,
     ClassVar,
     Generic,
+    NamedTuple,
     TypedDict,
     TypeVar,
     override,
 )
+
+import httpx
 
 from eventum.exceptions import ContextualError
 from eventum.plugins.output.http_auth.config import (
@@ -32,22 +35,73 @@ from eventum.plugins.output.http_auth.config import (
 if TYPE_CHECKING:
     from collections.abc import Mapping
 
-import httpx
-
 EXPIRY_LEEWAY_SECONDS = 30.0
 """Seconds a token is considered expired before it actually is."""
 
-MIN_FORCED_REFRESH_INTERVAL_SECONDS = 5.0
-"""Interval the attempts to take a token are kept apart by.
+MIN_REJECTED_TOKEN_AGE_SECONDS = 5.0
+"""Minimal age of a token that a rejected request may discard.
 
-It is the minimal age of a token that a rejected request may discard,
-and the time a failure of the token endpoint is answered with before
-it is asked again.
+A token minted moments ago and refused is refused for what it is, not
+for its age, so replacing it would only ask for the same refusal.
+"""
+
+FAILED_ACQUISITION_HOLD_SECONDS = 5.0
+"""Time a failure of a token endpoint is answered with.
+
+Without it an endpoint refusing the credentials would be asked once
+per event.
+"""
+
+TOKEN_REQUEST_TIMEOUT_SECONDS = 30.0
+"""Timeout of a token request.
+
+The requests of a plugin wait for the token being taken, so the budget
+of a token exchange is not the budget of shipping a batch of events.
 """
 
 
 class AuthenticationError(ContextualError):
     """Credentials cannot be turned into request headers."""
+
+
+def basic_auth_header(username: str, password: str) -> str:
+    """Build the header of HTTP basic authentication.
+
+    Parameters
+    ----------
+    username : str
+        Username to authenticate with.
+
+    password : str
+        Password of the user.
+
+    Returns
+    -------
+    str
+        Value of the `Authorization` header.
+
+    """
+    credentials = f'{username}:{password}'.encode()
+
+    return f'Basic {b64encode(credentials).decode()}'
+
+
+class AcquiredToken(NamedTuple):
+    """Token taken from an endpoint.
+
+    Attributes
+    ----------
+    value : str
+        Token itself.
+
+    lifetime : float
+        Seconds the token can be used for, `math.inf` when the
+        endpoint states no usable life for it.
+
+    """
+
+    value: str
+    lifetime: float
 
 
 class HttpAuthenticatorParams(TypedDict):
@@ -72,8 +126,9 @@ class HttpAuthenticator(ABC, Generic[T]):
 
     Other Parameters
     ----------------
-    auth_type : AuthType
-        Authentication type to bind authenticator class to.
+    auth_type : AuthType | None, default=None
+        Authentication type to bind authenticator class to. Left unset
+        by an abstract authenticator that a concrete one is built on.
 
     """
 
@@ -81,7 +136,14 @@ class HttpAuthenticator(ABC, Generic[T]):
         dict[AuthType, type[HttpAuthenticator[Any]]]
     ] = {}
 
-    def __init_subclass__(cls, auth_type: AuthType, **kwargs: Any) -> None:
+    def __init_subclass__(
+        cls,
+        auth_type: AuthType | None = None,
+        **kwargs: Any,
+    ) -> None:
+        if auth_type is None:
+            return super().__init_subclass__(**kwargs)
+
         registered = HttpAuthenticator._registered_authenticators
         if auth_type in registered:
             msg = (
@@ -149,6 +211,10 @@ class HttpAuthenticator(ABC, Generic[T]):
         """
         return
 
+    async def close(self) -> None:
+        """Release whatever was acquired."""
+        return
+
     @abstractmethod
     async def headers(self) -> Mapping[str, str]:
         """Get authentication headers of a single request.
@@ -175,7 +241,8 @@ class HttpAuthenticator(ABC, Generic[T]):
         Parameters
         ----------
         sent : Mapping[str, str]
-            Headers the rejected request carried.
+            Authentication headers the rejected request carried, as
+            they were returned by `headers`.
 
         Returns
         -------
@@ -200,9 +267,12 @@ class BasicHttpAuthenticator(
     ) -> None:
         super().__init__(config, params)
 
-        credentials = f'{config.username}:{config.password or ""}'
-        token = b64encode(credentials.encode()).decode()
-        self._headers = {'Authorization': f'Basic {token}'}
+        self._headers = {
+            'Authorization': basic_auth_header(
+                config.username,
+                config.password or '',
+            ),
+        }
 
     @override
     async def headers(self) -> Mapping[str, str]:
@@ -230,25 +300,21 @@ class BearerHttpAuthenticator(
         return self._headers
 
 
-class OAuth2ClientCredentialsHttpAuthenticator(
-    HttpAuthenticator[OAuth2ClientCredentialsHttpAuthConfig],
-    auth_type=AuthType.OAUTH2_CLIENT_CREDENTIALS,
-):
-    """Authenticator holding a token of the client credentials grant.
+class TokenHttpAuthenticator(HttpAuthenticator[T]):
+    """Authenticator holding a token it takes and renews itself.
 
     Notes
     -----
-    One lock guards the cached token, so concurrent requests that find
-    it missing or expired produce a single token request.
+    Everything a renewable credential needs lives here: one lock over
+    the cached token, renewal ahead of the expiry it was given, the
+    hold on an endpoint that just refused, and the answer to a request
+    the destination rejected. A method built on this supplies only the
+    exchange that mints the token.
 
     """
 
     @override
-    def __init__(
-        self,
-        config: OAuth2ClientCredentialsHttpAuthConfig,
-        params: HttpAuthenticatorParams,
-    ) -> None:
+    def __init__(self, config: T, params: HttpAuthenticatorParams) -> None:
         super().__init__(config, params)
 
         self._lock = asyncio.Lock()
@@ -285,12 +351,34 @@ class OAuth2ClientCredentialsHttpAuthenticator(
                 return True
 
             age = time.monotonic() - self._obtained_at
-            if age < MIN_FORCED_REFRESH_INTERVAL_SECONDS:
+            if age < MIN_REJECTED_TOKEN_AGE_SECONDS:
                 return False
 
             self._token = None
 
         return True
+
+    @abstractmethod
+    async def _fetch_token(self) -> AcquiredToken:
+        """Take a token from wherever this method takes it from.
+
+        Returns
+        -------
+        AcquiredToken
+            Token and the seconds it can be used for.
+
+        Raises
+        ------
+        AuthenticationError
+            If the token cannot be taken.
+
+        Notes
+        -----
+        Called with `self._lock` held, so the attempts are single
+        file and no two of them reach the endpoint at once.
+
+        """
+        ...
 
     async def _take_token(self) -> None:
         """Take a token, holding back from a failing endpoint.
@@ -303,32 +391,43 @@ class OAuth2ClientCredentialsHttpAuthenticator(
 
         Notes
         -----
-        Without the interval between the attempts a token endpoint
-        that refuses the credentials would be requested once per
-        event.
+        The caller must hold `self._lock`, which is what makes the
+        attempts single file.
 
         """
         waited = time.monotonic() - self._attempted_at
 
         if (
             self._failure is not None
-            and waited < MIN_FORCED_REFRESH_INTERVAL_SECONDS
+            and waited < FAILED_ACQUISITION_HOLD_SECONDS
         ):
             msg, context = self._failure
             raise AuthenticationError(msg, context=context)
 
         try:
-            await self._request_token()
+            token = await self._fetch_token()
         except AuthenticationError as e:
             self._failure = (str(e), e.context)
             raise
         else:
+            # the age of the token is the age of the token, so a
+            # failed attempt does not make the cached one look fresh
+            self._obtained_at = time.monotonic()
             self._failure = None
+            self._token = token.value
+            self._expires_at = self._obtained_at + token.lifetime
         finally:
             # the attempt is stamped where it ends, not where it
             # starts: an endpoint that takes longer to fail than the
-            # interval would otherwise be asked again at once
+            # hold would otherwise be asked again at once
             self._attempted_at = time.monotonic()
+
+
+class OAuth2ClientCredentialsHttpAuthenticator(
+    TokenHttpAuthenticator[OAuth2ClientCredentialsHttpAuthConfig],
+    auth_type=AuthType.OAUTH2_CLIENT_CREDENTIALS,
+):
+    """Authenticator holding a token of the client credentials grant."""
 
     def _build_form(self) -> dict[str, str]:
         """Build form parameters of the token request."""
@@ -352,115 +451,160 @@ class OAuth2ClientCredentialsHttpAuthenticator(
 
         return form
 
-    async def _request_token(self) -> None:
-        """Request a token and cache it with its expiry.
-
-        Raises
-        ------
-        AuthenticationError
-            If the token endpoint is unreachable or answers with
-            anything but a token.
-
-        """
+    @override
+    async def _fetch_token(self) -> AcquiredToken:
         config = self._config
         url = str(config.token_url)
+        headers = {}
 
-        client = self._params['client']
-        form = self._build_form()
-
-        try:
-            # the client carries no auth of its own, so a request
-            # sent without one goes out unauthenticated
-            if config.client_auth_method is ClientAuthMethod.BASIC:
-                response = await client.post(
-                    url=url,
-                    data=form,
-                    auth=httpx.BasicAuth(
-                        config.client_id,
-                        config.client_secret,
-                    ),
-                )
-            else:
-                response = await client.post(url=url, data=form)
-        except httpx.RequestError as e:
-            msg = 'Failed to request access token'
-            raise AuthenticationError(
-                msg,
-                context={'reason': str(e), 'url': url},
-            ) from e
-
-        if not response.is_success:
-            msg = 'Token endpoint returned unsuccessful status code'
-            raise AuthenticationError(
-                msg,
-                context={
-                    'http_status': response.status_code,
-                    'reason': response.text,
-                    'url': url,
-                },
+        if config.client_auth_method is ClientAuthMethod.BASIC:
+            headers['Authorization'] = basic_auth_header(
+                config.client_id,
+                config.client_secret,
             )
 
-        # a successful answer is exactly where a token lives, so
-        # nothing of it reaches the context of an error
-        try:
-            payload = response.json()
-        except ValueError:
-            msg = 'Token endpoint returned invalid JSON'
-            raise AuthenticationError(
-                msg,
-                context={'http_status': response.status_code, 'url': url},
-            ) from None
-
-        token = (
-            payload.get('access_token') if isinstance(payload, dict) else None
+        response = await request_token(
+            client=self._params['client'],
+            url=url,
+            form=self._build_form(),
+            headers=headers,
         )
 
-        if not isinstance(token, str) or not token:
-            msg = 'Token endpoint returned no access token'
-            raise AuthenticationError(
-                msg,
-                context={'http_status': response.status_code, 'url': url},
-            )
+        return parse_token_response(response=response, url=url)
 
-        if not is_header_value(token):
-            # a token no header can carry fails at every request
-            # instead of once, and without naming its cause; the same
-            # rule guards a token written in the configuration
-            msg = 'Token endpoint returned a token no header can carry'
-            raise AuthenticationError(
-                msg,
-                context={'http_status': response.status_code, 'url': url},
-            )
 
-        self._token = token
-        self._obtained_at = time.monotonic()
-        self._expires_at = self._obtained_at + self._get_lifetime(payload)
+async def request_token(
+    client: httpx.AsyncClient,
+    url: str,
+    form: dict[str, str],
+    headers: dict[str, str],
+) -> httpx.Response:
+    """Perform a token request of an OAuth2 grant.
 
-    @staticmethod
-    def _get_lifetime(payload: dict[str, Any]) -> float:
-        """Get seconds the token can be used for.
+    Parameters
+    ----------
+    client : httpx.AsyncClient
+        Client to perform the request with.
 
-        Notes
-        -----
-        A missing, non numeric or non positive `expires_in` means the
-        answer carries no expiry information, so the token is held
-        until a request is rejected with it.
+    url : str
+        URL of the token endpoint.
 
-        """
-        try:
-            expires_in = float(payload['expires_in'])
-        except KeyError, TypeError, ValueError:
-            return math.inf
+    form : dict[str, str]
+        Form parameters of the grant.
 
-        if not math.isfinite(expires_in) or expires_in <= 0:
-            return math.inf
+    headers : dict[str, str]
+        Headers of the request, the configured headers of a plugin
+        are deliberately not among them.
 
-        return max(expires_in - EXPIRY_LEEWAY_SECONDS, expires_in / 2)
+    Returns
+    -------
+    httpx.Response
+        Response of the endpoint, of any status code.
+
+    Raises
+    ------
+    AuthenticationError
+        If the endpoint cannot be reached.
+
+    """
+    try:
+        return await client.post(
+            url=url,
+            data=form,
+            headers=headers,
+            timeout=httpx.Timeout(TOKEN_REQUEST_TIMEOUT_SECONDS),
+        )
+    except httpx.RequestError as e:
+        msg = 'Failed to request access token'
+        raise AuthenticationError(
+            msg,
+            context={'reason': str(e), 'url': url},
+        ) from e
+
+
+def parse_token_response(response: httpx.Response, url: str) -> AcquiredToken:
+    """Read the token an OAuth2 endpoint answered with.
+
+    Parameters
+    ----------
+    response : httpx.Response
+        Response of the token endpoint.
+
+    url : str
+        URL of the token endpoint, reported with a failure.
+
+    Returns
+    -------
+    AcquiredToken
+        Token and the seconds it can be used for.
+
+    Raises
+    ------
+    AuthenticationError
+        If the response carries anything but a usable token.
+
+    """
+    if not response.is_success:
+        msg = 'Token endpoint returned unsuccessful status code'
+        raise AuthenticationError(
+            msg,
+            context={
+                'http_status': response.status_code,
+                'reason': response.text,
+                'url': url,
+            },
+        )
+
+    # a successful answer is exactly where a token lives, so nothing
+    # of it reaches the context of an error
+    context = {'http_status': response.status_code, 'url': url}
+
+    try:
+        payload = response.json()
+    except ValueError:
+        msg = 'Token endpoint returned invalid JSON'
+        raise AuthenticationError(msg, context=context) from None
+
+    token = payload.get('access_token') if isinstance(payload, dict) else None
+
+    if not isinstance(token, str) or not token:
+        msg = 'Token endpoint returned no access token'
+        raise AuthenticationError(msg, context=context)
+
+    if not is_header_value(token):
+        # a token no header can carry fails at every request instead
+        # of once, and without naming a cause; the same rule guards a
+        # token written in the configuration
+        msg = 'Token endpoint returned a token no header can carry'
+        raise AuthenticationError(msg, context=context)
+
+    return AcquiredToken(value=token, lifetime=_get_lifetime(payload))
+
+
+def _get_lifetime(payload: dict[str, Any]) -> float:
+    """Get seconds a token can be used for.
+
+    Notes
+    -----
+    A missing, non numeric or non positive `expires_in` means the
+    answer carries no expiry information, so the token is held until a
+    request is rejected with it.
+
+    """
+    try:
+        expires_in = float(payload['expires_in'])
+    except KeyError, TypeError, ValueError:
+        return math.inf
+
+    if not math.isfinite(expires_in) or expires_in <= 0:
+        return math.inf
+
+    return max(expires_in - EXPIRY_LEEWAY_SECONDS, expires_in / 2)
 
 
 def create_authenticator(
     config: HttpAuthConfigT,
-    client: httpx.AsyncClient,
+    params: HttpAuthenticatorParams,
 ) -> HttpAuthenticator[Any]:
     """Create authenticator corresponding to the config.
 
@@ -469,8 +613,8 @@ def create_authenticator(
     config : HttpAuthConfigT
         Authentication config.
 
-    client : httpx.AsyncClient
-        Client the data requests travel.
+    params : HttpAuthenticatorParams
+        Authenticator params.
 
     Returns
     -------
@@ -487,7 +631,4 @@ def create_authenticator(
         config.type,
     )
 
-    return AuthenticatorCls(
-        config,
-        params=HttpAuthenticatorParams(client=client),
-    )
+    return AuthenticatorCls(config, params=params)
