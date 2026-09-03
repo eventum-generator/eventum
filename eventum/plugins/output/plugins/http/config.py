@@ -11,6 +11,9 @@ from eventum.plugins.output.fields import (
     FormatterConfigT,
     JsonFormatterConfig,
 )
+from eventum.plugins.output.http_auth.config import HttpAuthConfigT
+
+_REMOVED_CREDENTIAL_KEYS = ('username', 'password')
 
 
 class HttpOutputPluginConfig(OutputPluginConfig, frozen=True):
@@ -30,14 +33,12 @@ class HttpOutputPluginConfig(OutputPluginConfig, frozen=True):
         Expected HTTP response code, if server returns other code, then
         it is considered as an error.
 
-    headers: dict[str, Any], default={}
+    headers: dict[str, str], default={}
         Request headers.
 
-    username: str | None, default=None
-        Username that is used to authenticate.
-
-    password: str | None, default=None
-        Password for user to authenticate.
+    auth: HttpAuthConfigT | None, default=None
+        Authentication used for requests, no authentication is
+        performed when it is omitted.
 
     connect_timeout : int, default=10
         Connection timeout in seconds.
@@ -85,9 +86,11 @@ class HttpOutputPluginConfig(OutputPluginConfig, frozen=True):
         'DELETE',
     ] = Field(default='POST')
     success_code: int = Field(default=201, ge=100)
-    headers: dict[str, Any] = Field(default_factory=dict)
-    username: str | None = Field(default=None, min_length=1)
-    password: str | None = Field(default=None, min_length=1)
+    headers: dict[str, str] = Field(default_factory=dict)
+    auth: HttpAuthConfigT | None = Field(
+        default=None,
+        discriminator='type',
+    )
     connect_timeout: int = Field(default=10, ge=1)
     request_timeout: int = Field(default=300, ge=1)
     verify: bool = Field(default=True)
@@ -104,6 +107,37 @@ class HttpOutputPluginConfig(OutputPluginConfig, frozen=True):
         validate_default=True,
         discriminator='format',
     )
+
+    @model_validator(mode='before')
+    @classmethod
+    def _reject_flat_credentials(cls, data: Any) -> Any:
+        """Name the auth section to configs still using flat keys."""
+        if not isinstance(data, dict):
+            return data
+
+        if any(key in data for key in _REMOVED_CREDENTIAL_KEYS):
+            msg = (
+                '`username` and `password` are moved into the `auth` '
+                'section; use `auth` with `type: basic` instead'
+            )
+            raise ValueError(msg)
+
+        return data
+
+    @model_validator(mode='after')
+    def validate_authorization_header(self) -> Self:  # noqa: D102
+        if self.auth is None:
+            return self
+
+        for header in self.headers:
+            if header.lower() == 'authorization':
+                msg = (
+                    'The `Authorization` header cannot be set together '
+                    'with `auth`; keep one of them'
+                )
+                raise ValueError(msg)
+
+        return self
 
     @model_validator(mode='after')
     def validate_client_cert(self) -> Self:  # noqa: D102

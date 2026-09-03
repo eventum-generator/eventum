@@ -14,6 +14,7 @@ import { zod4Resolver } from 'mantine-form-zod-resolver';
 import { FC } from 'react';
 
 import { ProjectFileSelect } from '../../components/ProjectFileSelect';
+import { AuthParams } from './components/AuthParams';
 import { FormatterParams } from './components/FormatterParams';
 import {
   HTTPOutputPluginConfig,
@@ -21,8 +22,6 @@ import {
   HTTP_METHODS,
 } from '@/api/routes/generator-configs/schemas/plugins/output/configs/http';
 import { LabelWithTooltip } from '@/components/ui/LabelWithTooltip';
-import { SecretPasswordInput } from '@/components/ui/SecretPasswordInput';
-import { useOpenSecretsPage } from '@/utils/useOpenSecretsPage';
 
 interface HTTPOutputPluginParamsProps {
   initialConfig: HTTPOutputPluginConfig;
@@ -33,7 +32,6 @@ export const HTTPOutputPluginParams: FC<HTTPOutputPluginParamsProps> = ({
   initialConfig,
   onChange,
 }) => {
-  const openSecretsPage = useOpenSecretsPage();
   const form = useForm<HTTPOutputPluginConfig>({
     initialValues: initialConfig,
     validate: zod4Resolver(HTTPOutputPluginConfigSchema),
@@ -117,45 +115,25 @@ export const HTTPOutputPluginParams: FC<HTTPOutputPluginParamsProps> = ({
             return;
           }
 
-          if (typeof parsed === 'object') {
-            form.setFieldValue('headers', parsed as Record<string, unknown>);
+          // a header value that is not a string cannot be sent, and
+          // the plugin refuses it
+          if (
+            typeof parsed === 'object' &&
+            parsed !== null &&
+            Object.values(parsed).every((value) => typeof value === 'string')
+          ) {
+            form.setFieldValue('headers', parsed as Record<string, string>);
           }
         }}
         error={form.errors.headers}
       />
 
-      <Group align="start" wrap="nowrap" grow>
-        <TextInput
-          label={
-            <LabelWithTooltip
-              label="Username"
-              tooltip="Username that is used to authenticate to ClickHouse"
-            />
-          }
-          {...form.getInputProps('username')}
-          onChange={(value) =>
-            form.setFieldValue(
-              'username',
-              value.currentTarget.value !== ''
-                ? value.currentTarget.value
-                : undefined
-            )
-          }
+      <Paper withBorder p="sm">
+        <AuthParams
+          value={form.getValues().auth ?? undefined}
+          onChange={(auth) => form.setFieldValue('auth', auth)}
         />
-        <SecretPasswordInput
-          onOpenSecrets={openSecretsPage}
-          label={
-            <LabelWithTooltip
-              label="Password"
-              tooltip="Password for user to authenticate"
-            />
-          }
-          {...form.getInputProps('password')}
-          onChange={(value) =>
-            form.setFieldValue('password', value !== '' ? value : undefined)
-          }
-        />
-      </Group>
+      </Paper>
 
       <Group grow wrap="nowrap" align="start">
         <NumberInput

@@ -2,6 +2,36 @@
 
 All notable changes to this project will be documented in this file.
 
+## Unreleased
+
+### 🚀 New Features
+
+- **Added token authentication to the `http` output** — the credentials of a request are written in an `auth` section: a user name and a password, a static bearer token, or the OAuth2 client credentials grant, where Eventum takes a token from the configured token endpoint, renews it before it expires and once more when a request comes back rejected. Token requests travel the same TLS settings, proxy and timeouts as the events themselves, and the client secret and the token are secret-bearing fields offering the keyring in Studio. This covers the endpoints that accept nothing else — Azure Monitor Logs Ingestion, Google SecOps, and hosted log APIs handing out tokens with a lifetime
+
+### 📝 Other Changes
+
+- **Moved the `username` and `password` of the `http` output into the `auth` section** — a configuration still carrying the flat keys is rejected, with an error naming the section to write instead. A password given without a user name used to load and authenticate with nothing, which the section makes impossible, and an `Authorization` header written by hand alongside `auth` is now refused rather than silently overridden
+
+  ```yaml
+  # before
+  output:
+    - http:
+        url: https://api.example.com/ingest
+        username: user
+        password: ${secrets.api_password}
+
+  # after
+  output:
+    - http:
+        url: https://api.example.com/ingest
+        auth:
+          type: basic
+          username: user
+          password: ${secrets.api_password}
+  ```
+
+- **Narrowed the `headers` of the `http` output to string values** — a value of any other type was accepted by the configuration and then refused by the HTTP client, so a header written as a number stopped the generator at start or, once the credential moved into `auth`, failed every event quietly. It is now named where it is written
+
 ## 2.8.0 (2026-08-29)
 
 ### 🚀 New Features
