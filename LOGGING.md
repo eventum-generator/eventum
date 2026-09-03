@@ -305,6 +305,16 @@
         <td>Original event</td>
         <td>str</td>
     </tr>
+    <tr>
+        <td>bucket</td>
+        <td>Name of the object storage bucket</td>
+        <td>str</td>
+    </tr>
+    <tr>
+        <td>object_key</td>
+        <td>Key of the object in the bucket</td>
+        <td>str</td>
+    </tr>
 </table>
 
 ## Security

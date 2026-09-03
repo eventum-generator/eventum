@@ -91,3 +91,46 @@ def test_install_is_idempotent() -> None:
     finally:
         sender.close()
         receiver.close()
+
+
+def test_record_sent_counts_bytes_of_the_calling_thread() -> None:
+    """Traffic that never reaches a socket is counted where reported."""
+    net_accounting.install()
+    reported = 1234
+
+    def report() -> None:
+        net_accounting.record_sent(reported)
+
+    thread = threading.Thread(target=report, name='reported', daemon=True)
+    thread.start()
+    thread.join(timeout=5)
+
+    usage = net_accounting.usage_of(lambda name: name == 'reported')
+
+    assert usage.sent_bytes == reported
+    assert usage.received_bytes == 0
+
+
+def test_recorded_bytes_add_up_with_socket_bytes() -> None:
+    """Reported bytes land in the same counters as socket bytes."""
+    net_accounting.install()
+
+    payload_size = 100
+
+    def exchange() -> None:
+        sender, receiver = socket.socketpair()
+        try:
+            sender.sendall(b'x' * payload_size)
+            receiver.recv(payload_size)
+            net_accounting.record_sent(payload_size)
+        finally:
+            sender.close()
+            receiver.close()
+
+    thread = threading.Thread(target=exchange, name='mixed', daemon=True)
+    thread.start()
+    thread.join(timeout=5)
+
+    usage = net_accounting.usage_of(lambda name: name == 'mixed')
+
+    assert usage.sent_bytes == 2 * payload_size

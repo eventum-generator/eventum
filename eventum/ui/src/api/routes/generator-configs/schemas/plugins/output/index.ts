@@ -21,6 +21,10 @@ import {
   OpensearchOutputPluginNamedConfigSchema,
 } from './configs/opensearch';
 import {
+  S3OutputPluginConfigSchema,
+  S3OutputPluginNamedConfigSchema,
+} from './configs/s3';
+import {
   StdoutOutputPluginConfigSchema,
   StdoutOutputPluginNamedConfigSchema,
 } from './configs/stdout';
@@ -39,6 +43,7 @@ export const OutputPluginNamedConfigSchema = z.union([
   HTTPOutputPluginNamedConfigSchema,
   KafkaOutputPluginNamedConfigSchema,
   OpensearchOutputPluginNamedConfigSchema,
+  S3OutputPluginNamedConfigSchema,
   StdoutOutputPluginNamedConfigSchema,
   TcpOutputPluginNamedConfigSchema,
   UdpOutputPluginNamedConfigSchema,
@@ -53,6 +58,7 @@ export const OutputPluginConfigSchema = z.union([
   HTTPOutputPluginConfigSchema,
   KafkaOutputPluginConfigSchema,
   OpensearchOutputPluginConfigSchema,
+  S3OutputPluginConfigSchema,
   StdoutOutputPluginConfigSchema,
   TcpOutputPluginConfigSchema,
   UdpOutputPluginConfigSchema,
