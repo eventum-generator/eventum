@@ -1,19 +1,26 @@
 """Definition of http output plugin."""
 
 import asyncio
-from collections.abc import Iterator, Sequence
-from typing import override
+from collections.abc import Iterator, Mapping, Sequence
+from typing import Any, override
 
 import httpx
 
 from eventum.plugins.exceptions import PluginConfigurationError
 from eventum.plugins.output.base.plugin import OutputPlugin, OutputPluginParams
-from eventum.plugins.output.exceptions import PluginWriteError
+from eventum.plugins.output.exceptions import PluginOpenError, PluginWriteError
+from eventum.plugins.output.http_auth import (
+    AuthenticationError,
+    HttpAuthenticator,
+    create_authenticator,
+)
 from eventum.plugins.output.http_client import (
     create_client,
     create_ssl_context,
 )
 from eventum.plugins.output.plugins.http.config import HttpOutputPluginConfig
+
+_UNAUTHORIZED_STATUS = 401
 
 
 class _FailedRequests:
@@ -101,15 +108,17 @@ class HttpOutputPlugin(
             ) from e
 
         self._client: httpx.AsyncClient
+        self._authenticator: HttpAuthenticator[Any] | None = None
         self._semaphore: asyncio.Semaphore
 
     @override
     async def _open(self) -> None:
+        # the configured headers address the endpoint of this plugin,
+        # so they travel the requests to it rather than the client the
+        # authenticator also reaches its own endpoint through
         self._client = create_client(
             ssl_context=self._ssl_context,
-            username=self._config.username,
-            password=self._config.password,
-            headers=self._config.headers,
+            headers={},
             connect_timeout=self._config.connect_timeout,
             request_timeout=self._config.request_timeout,
             proxy_url=(
@@ -118,6 +127,24 @@ class HttpOutputPlugin(
             max_connections=self._config.concurrency,
         )
 
+        if self._config.auth is not None:
+            # the plugin is not opened, so `_close` never runs and the
+            # client would be left behind
+            try:
+                self._authenticator = create_authenticator(
+                    config=self._config.auth,
+                    client=self._client,
+                )
+                await self._authenticator.open()
+            except AuthenticationError as e:
+                await self._client.aclose()
+
+                msg = 'Failed to authenticate'
+                raise PluginOpenError(msg, context=e.context) from None
+            except BaseException:
+                await self._client.aclose()
+                raise
+
         # the semaphore belongs to the plugin and not to a single write,
         # so the bound holds when writes overlap
         self._semaphore = asyncio.Semaphore(self._config.concurrency)
@@ -125,6 +152,57 @@ class HttpOutputPlugin(
     @override
     async def _close(self) -> None:
         await self._client.aclose()
+
+    async def _send_request(
+        self,
+        data: str,
+    ) -> tuple[httpx.Response, Mapping[str, str]]:
+        """Send a single request with authentication applied.
+
+        Parameters
+        ----------
+        data : str
+            Data for request.
+
+        Returns
+        -------
+        tuple[httpx.Response, Mapping[str, str]]
+            Response of the server, of any status code, and the
+            authentication headers the request carried.
+
+        Raises
+        ------
+        PluginWriteError
+            If credentials cannot be acquired or the request failed.
+
+        """
+        headers = dict(self._config.headers)
+
+        if self._authenticator is not None:
+            try:
+                headers.update(await self._authenticator.headers())
+            except AuthenticationError as e:
+                msg = 'Failed to authenticate'
+                raise PluginWriteError(msg, context=e.context) from None
+
+        try:
+            response = await self._client.request(
+                method=self._config.method,
+                url=str(self._config.url),
+                content=data,
+                headers=headers,
+            )
+        except httpx.RequestError as e:
+            msg = 'Request failed'
+            raise PluginWriteError(
+                msg,
+                context={
+                    'reason': str(e),
+                    'url': str(self._config.url),
+                },
+            ) from e
+
+        return response, headers
 
     async def _perform_request(self, data: str) -> None:
         """Perform request with provided data.
@@ -141,34 +219,34 @@ class HttpOutputPlugin(
             expected one.
 
         """
-        try:
-            response = await self._client.request(
-                method=self._config.method,
-                url=str(self._config.url),
-                content=data,
-            )
-        except httpx.RequestError as e:
-            msg = 'Request failed'
-            raise PluginWriteError(
-                msg,
-                context={
-                    'reason': str(e),
-                    'url': str(self._config.url),
-                },
-            ) from e
+        response, sent = await self._send_request(data)
 
-        if response.status_code != self._config.success_code:
-            content = await response.aread()
-            text = content.decode()
-            msg = 'Server returned not expected status code'
-            raise PluginWriteError(
-                msg,
-                context={
-                    'http_status': response.status_code,
-                    'reason': text,
-                    'url': str(self._config.url),
-                },
-            )
+        if response.status_code == self._config.success_code:
+            return
+
+        # a rejected credential is worth one more attempt, but only
+        # once the expected status code is ruled out
+        if (
+            response.status_code == _UNAUTHORIZED_STATUS
+            and self._authenticator is not None
+            and await self._authenticator.handle_unauthorized(sent)
+        ):
+            response, _ = await self._send_request(data)
+
+            if response.status_code == self._config.success_code:
+                return
+
+        content = await response.aread()
+        text = content.decode()
+        msg = 'Server returned not expected status code'
+        raise PluginWriteError(
+            msg,
+            context={
+                'http_status': response.status_code,
+                'reason': text,
+                'url': str(self._config.url),
+            },
+        )
 
     async def _perform_requests(
         self,
