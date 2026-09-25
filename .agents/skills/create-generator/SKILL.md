@@ -79,7 +79,7 @@ Ground rules:
 - If the generator errors or produces no output, re-run with `-v` (CRITICAL) up to `-vvvvv` (DEBUG) for diagnostic logs.
 - The eventum CLI is already installed - skip package installs.
 
-In anomaly mode, verify at least one complete chain and its shared identifiers. In background mode, verify the chain never appears and ordinary event types still do. Include both modes in the checks below.
+In anomaly mode, verify at least one complete chain, its shared identifiers, and the actual `@timestamp` span against the detection window stated in the README. In background mode, verify the chain never appears and ordinary event types still do. Include both modes in the checks below.
 
 Five checks, all must pass:
 - **JSON parse** - every output line is valid JSON containing ECS fields `@timestamp`, `event`, `ecs` (when applicable).
