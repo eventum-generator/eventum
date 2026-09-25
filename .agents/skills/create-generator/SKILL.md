@@ -126,9 +126,9 @@ Show the user:
 - All five validation checks with pass/fail status for both modes.
 - Any notable omissions or trade-offs.
 
-Ask only: proceed to publish to the hub? Architecture was gated in phases 2 and 5 - do not re-open it.
+If the user already authorized commits and hub PRs for this work, proceed to phase 8 without asking again. Otherwise ask only: proceed to publish to the hub? Architecture was gated in phases 2 and 5 - do not re-open it.
 
-**Explicit ok also authorizes the commit and PR in the docs repo for phase 8** - do not ask for permission again. If changes are requested, return to the relevant phase.
+**Existing authorization or an explicit ok also authorizes the commit and PR in the docs repo for phase 8** - do not ask for permission again. If changes are requested, return to the relevant phase.
 
 ### 8. Publish
 
