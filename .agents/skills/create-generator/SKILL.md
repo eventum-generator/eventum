@@ -70,16 +70,16 @@ Exit criterion: all files in place, generator runnable.
 Generate in sample mode from `../content-packs/` and verify the output with `anomaly_mode` both `true` and `false`:
 
 ```bash
-flock -x /tmp/eventum-generator-heavy.lock timeout 3 eventum generate --path generators/<name>/generator.yml --id test --live-mode false
+flock -x /tmp/eventum-generator-heavy.lock timeout 3 uv run --project ../eventum eventum generate --path generators/<name>/generator.yml --id test --live-mode false
 ```
 
 Ground rules:
 - `--live-mode false` required; live mode hangs on cron ticks.
 - For six-field cron expressions, croniter reads seconds from the sixth field: `* * * * * */30` means every 30 seconds. Verify the generated `@timestamp` spacing and daily event volume, including the input `count`; do not infer cadence from the expression alone.
-- `timeout 3` bounds the initial sample run - exit code 124 is expected. Extend only when the complete chain needs more events. Do not mask other exit codes.
+- `timeout 3` bounds the initial sample run - exit code 124 is expected. For full-chain validation, set finite `input[0].cron.start/end` in a temporary config and require exit code 0. Do not mask other exit codes.
 - No verbosity flags during validation; high levels stall validation, low levels add noise.
 - If the generator errors or produces no output, re-run with `-v` (CRITICAL) up to `-vvvvv` (DEBUG) for diagnostic logs.
-- The eventum CLI is already installed - skip package installs.
+- Use the existing Eventum project environment through `uv run --project ../eventum`; skip package installs.
 
 In anomaly mode, verify at least one complete chain, its shared identifiers, and the actual `@timestamp` span against the detection window stated in the README and any timing visible in the primary source. In background mode, verify the complete chain never appears while the constituent event types still occur independently. Check that a chain-only action, fixed actor, or static marker cannot trivially distinguish anomaly mode from background. Include both modes in the checks below.
 
