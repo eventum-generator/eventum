@@ -30,6 +30,8 @@ Primary sources:
 - Vendor documentation: event ID catalogs, log format specs, real-world frequency distributions between event types.
 - Protocol or format RFCs where applicable (syslog, CEF, etc.).
 
+Before naming a new pack, compare `vendor:product:stream` with existing hub cards, content packs, and open PRs. Treat aliases, rebrands, versions, and CEF/KV/JSON encodings of the same event stream as one source; extend the existing pack instead. For a different stream from the same product, compare event IDs and channels and document why a separate pack is useful.
+
 Exit criterion: field map (path, source, generation strategy) targeting ≥90% coverage of reference fields, gaps listed with reasons.
 
 ### 2. Plan
