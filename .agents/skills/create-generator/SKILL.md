@@ -58,7 +58,7 @@ Needed by later phases:
 - Reference `sample_event.json` saved under `generators/<name>/reference/` (used in phases 4 and 6).
 - Template output structure mirrors the reference (phase 4 needs ≥90% field coverage).
 
-Add `event.template.params.anomaly_mode: true` to every new generator. When set to `false`, it must generate only ordinary background events: no anomaly-chain events or state transitions. The default `true` mode mixes the chain with background. Keep the chain reconstructible from stable identifiers and plausible timing.
+Add `event.template.params.anomaly_mode: true` to every new generator. When set to `false`, it must generate ordinary background without the complete anomaly chain. Event types used in the chain should also appear independently in background when the source normally emits them; no event type, fixed actor, or static marker should identify the anomaly by itself. The default `true` mode mixes the chain with background. Keep the chain reconstructible from stable identifiers and plausible timing, using the source's own timestamps as a cadence reference when available. Let chain actors also produce ordinary background events.
 
 Caveat: `generator.yml` has two distinct fields named `params`. Top-level `params` / `secrets` are `${params.x}` / `${secrets.x}` substitutions for user-facing overrides. `event.template.params` is a Jinja map of template-internal constants. Full rule: generators.md, section Parameterization.
 
@@ -79,7 +79,7 @@ Ground rules:
 - If the generator errors or produces no output, re-run with `-v` (CRITICAL) up to `-vvvvv` (DEBUG) for diagnostic logs.
 - The eventum CLI is already installed - skip package installs.
 
-In anomaly mode, verify at least one complete chain, its shared identifiers, and the actual `@timestamp` span against the detection window stated in the README. In background mode, verify the chain never appears and ordinary event types still do. Include both modes in the checks below.
+In anomaly mode, verify at least one complete chain, its shared identifiers, and the actual `@timestamp` span against the detection window stated in the README and any timing visible in the primary source. In background mode, verify the complete chain never appears while the constituent event types still occur independently. Check that a chain-only action, fixed actor, or static marker cannot trivially distinguish anomaly mode from background. Include both modes in the checks below.
 
 Five checks, all must pass:
 - **JSON parse** - every output line is valid JSON containing ECS fields `@timestamp`, `event`, `ecs` (when applicable).
@@ -98,7 +98,7 @@ Check against every rule in `.claude/rules/content/templates.md` and `.claude/ru
 - Top-level `params` / `secrets` declared but missing from the README parameters table.
 - Coverage gaps accepted without justification in the phase 1 field map.
 - README sample event stale from a pre-rebuild run.
-- `anomaly_mode: false` still emits any anomaly step or does not generate a valid background stream.
+- `anomaly_mode: false` still emits a complete anomaly chain, omits normal examples of its constituent event types, or produces no valid background stream.
 
 If anything triggers: return to phase 3, or to phase 2 if the issue is architectural. Rerun phase 4, then redo this phase. Proceed only when nothing fires.
 
