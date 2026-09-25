@@ -128,7 +128,7 @@ Ask only: proceed to publish to the hub? Architecture was gated in phases 2 and 
 
 ### 8. Publish
 
-Add a hub page in `../docs/` following `.claude/rules/docs/hub.md`. Set `generationModes` to `background` and `anomaly` and give `anomalyChain` a short, specific tooltip summary based on the README. Existing cards default to background; SAP HANA is marked anomaly only. Verify with `pnpm build`.
+Add a hub page in `../docs/` following `.claude/rules/docs/hub.md`. Every new generator supports both modes, so set `generationModes` to `['background', 'anomaly']` and keep `anomalyChain` as a short description based on the README. On hub cards, use muted Lucide `Logs` for background and `ScanEye` for anomaly. The hover and accessible labels are only `Background logs` and `Contains anomaly`; never put the chain description in the tooltip. Existing cards default to background only; SAP HANA is anomaly only. Verify with `pnpm build`.
 
 Workflow:
 - In the docs repo, branch off `master` (not `develop`) and target the PR at `master`. Branching from `develop` would sweep unrelated work into the PR. The flow is independent of the eventum release cycle.
