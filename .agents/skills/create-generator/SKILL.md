@@ -75,6 +75,7 @@ flock -x /tmp/eventum-generator-heavy.lock timeout 3 eventum generate --path gen
 
 Ground rules:
 - `--live-mode false` required; live mode hangs on cron ticks.
+- For six-field cron expressions, croniter reads seconds from the sixth field: `* * * * * */30` means every 30 seconds. Verify the generated `@timestamp` spacing and daily event volume, including the input `count`; do not infer cadence from the expression alone.
 - `timeout 3` bounds the initial sample run - exit code 124 is expected. Extend only when the complete chain needs more events. Do not mask other exit codes.
 - No verbosity flags during validation; high levels stall validation, low levels add noise.
 - If the generator errors or produces no output, re-run with `-v` (CRITICAL) up to `-vvvvv` (DEBUG) for diagnostic logs.
