@@ -10,7 +10,7 @@ description: Create a new Eventum content pack generator end-to-end - research t
 
 ## Output
 
-A validated generator at `../content-packs/generators/<name>/` with a README, plus a hub page PR opened in the docs repo (page goes live on PR merge).
+A validated generator at `../content-packs/generators/<name>/` with background and anomaly modes, a README that explains its anomaly chain, and a hub page PR opened in the docs repo (page goes live on PR merge).
 
 ## Reference
 
@@ -26,11 +26,14 @@ Nine phases in order. Phases 4 and 5 can send work back when issues surface. Pha
 ### 1. Research
 
 Primary sources:
-- Elastic integration `sample_event.json` + `fields.yml` per data stream - ground truth for output structure. Save `sample_event.json` for the coverage check in phase 4.
-- Vendor documentation: event ID catalogs, log format specs, real-world frequency distributions between event types.
+- Vendor documentation or a complete native raw fixture from a maintained integration for the chosen version and transport. Confirm every modeled event class, field meaning, and timestamp source against vendor material. If neither a complete raw record nor a field-complete format specification exists, stop at the research gate; do not invent a wire format.
+- Elastic integration `sample_event.json` + `fields.yml` per data stream when available - reference for ECS structure, not proof of the native wire format. Save the matching sample for phase 4.
+- Vendor event ID catalogs and documented timing or frequency behavior. Mark unsupported rate assumptions as synthetic in the README.
 - Protocol or format RFCs where applicable (syslog, CEF, etc.).
 
-Exit criterion: field map (path, source, generation strategy) targeting ≥90% coverage of reference fields, gaps listed with reasons.
+Before naming a new pack, compare `vendor:product:stream` with existing hub cards, content packs, and open PRs. Treat aliases, rebrands, versions, and CEF/KV/JSON encodings of the same event stream as one source; extend the existing pack instead. For a different stream from the same product, compare event IDs and channels and document why a separate pack is useful.
+
+Exit criterion: a field map (path, source, generation strategy) targeting ≥90% coverage when a reference event exists, with gaps and assumptions listed. Prefer a versioned complete native example. If the vendor publishes none after a bounded search, use its documented format and mark every inferred part and the missing-capture limit in the README and draft PR; move to the next source rather than searching indefinitely.
 
 ### 2. Plan
 
@@ -42,6 +45,7 @@ Architecture options - in `.claude/rules/content/templates.md` and `.claude/rule
 - **Source cardinality** - multi-source (many instances, per-instance correlations) vs single-source (one instance, per-flow correlations). Full rule: `generators.md`, section Source cardinality.
 - **Sample layout** - which fields come from static samples versus generated live.
 - **Template reuse** - whether event types overlap enough to share a template via `vars`.
+- **Anomaly chain** - a source-specific, multi-event sequence whose actors, targets and identifiers remain consistent amid ordinary traffic; define its observable steps and a detection idea. Schedule repeated episodes at a source-appropriate interval over hours or days, not a one-time occurrence. Vary episode-specific identifiers while keeping each episode internally correlated. A generator must also produce ordinary background events without the complete sequence.
 
 Do not copy architecture from existing generators - they carry known quality issues. Decisions come from phase 1 facts, not from precedent.
 
@@ -52,8 +56,10 @@ Exit criterion: every architectural choice traceable to a phase 1 fact.
 Generator path: `../content-packs/generators/<name>/`. Conventions: `.claude/rules/content/generators.md` and `.claude/rules/content/templates.md`.
 
 Needed by later phases:
-- Reference `sample_event.json` saved under `generators/<name>/reference/` (used in phases 4 and 6).
+- Native raw examples or a complete format specification, plus a matching `sample_event.json` when available, saved under `generators/<name>/reference/` for phases 4 and 6.
 - Template output structure mirrors the reference (phase 4 needs ≥90% field coverage).
+
+Add `event.template.params.anomaly_mode: true` to every new generator. When set to `false`, it must generate ordinary background without the complete anomaly chain. Event types used in the chain should also appear independently in background when the source normally emits them; no event type, fixed actor, or static marker should identify the anomaly by itself. The default `true` mode mixes periodic chain episodes with background. Give the recurrence a configurable, positive interval in hours or days, keep scheduling state bounded, and vary episode-specific identifiers. Keep each chain reconstructible from stable identifiers and plausible timing, using the source's own timestamps as a cadence reference when available. Let chain actors also produce ordinary background events.
 
 Caveat: `generator.yml` has two distinct fields named `params`. Top-level `params` / `secrets` are `${params.x}` / `${secrets.x}` substitutions for user-facing overrides. `event.template.params` is a Jinja map of template-internal constants. Full rule: generators.md, section Parameterization.
 
@@ -61,22 +67,25 @@ Exit criterion: all files in place, generator runnable.
 
 ### 4. Validate
 
-Generate in sample mode from `../content-packs/` and verify the output:
+Generate in sample mode from `../content-packs/` and verify the output with `anomaly_mode` both `true` and `false`:
 
 ```bash
-timeout 15 eventum generate --path generators/<name>/generator.yml --id test --live-mode false || true
+flock -x /tmp/eventum-generator-heavy.lock timeout 3 uv run --project ../eventum eventum generate --path generators/<name>/generator.yml --id test --live-mode false
 ```
 
 Ground rules:
 - `--live-mode false` required; live mode hangs on cron ticks.
-- `timeout 15` terminates the process after 15 seconds - exit code 124 is expected.
+- For six-field cron expressions, croniter reads seconds from the sixth field: `* * * * * */30` means every 30 seconds. Verify the generated `@timestamp` spacing and daily event volume, including the input `count`; do not infer cadence from the expression alone.
+- `timeout 3` bounds the initial sample run - exit code 124 is expected. For full-chain validation, set finite `input[0].cron.start/end` in a temporary config and require exit code 0. Do not mask other exit codes.
 - No verbosity flags during validation; high levels stall validation, low levels add noise.
 - If the generator errors or produces no output, re-run with `-v` (CRITICAL) up to `-vvvvv` (DEBUG) for diagnostic logs.
-- The eventum CLI is already installed - skip package installs.
+- Use the existing Eventum project environment through `uv run --project ../eventum`; skip package installs.
+
+In anomaly mode, use a finite window long enough to verify at least two complete episodes, their internal identifiers, distinct episode-specific values, recurrence interval, and actual `@timestamp` spans against the README and primary source. In background mode, cover the same interval and verify zero complete chains while constituent event types still occur independently. Check that a chain-only action, fixed actor, or static marker cannot trivially distinguish anomaly mode from background. Repeat with changed interval and source parameters; include both modes in the checks below.
 
 Five checks, all must pass:
 - **JSON parse** - every output line is valid JSON containing ECS fields `@timestamp`, `event`, `ecs` (when applicable).
-- **Field coverage** - at least 90% of reference fields present in generated output. List misses with reasons.
+- **Field coverage and native fidelity** - target at least 90% of available reference fields; compare `event.original` against the versioned vendor record or documented format for each event class. List misses, inferred parts and deviations with reasons. If no complete native example exists, state that raw parity was not established.
 - **Branch coverage** - every `{% if %}` / `{% elif %}` / `{% else %}` in templates produces at least one event (grep distinguishing field values to confirm).
 - **Sample integrity** - sample files referenced in `generator.yml` exist; every column or key accessed in templates exists in samples; strings containing `"`, `\`, or unicode are escaped via `| tojson`.
 - **State safety** - every `shared.set` / `locals.set` / `.append` / `.update` has a cap or cleanup. No unbounded growth.
@@ -89,8 +98,10 @@ Check against every rule in `.claude/rules/content/templates.md` and `.claude/ru
 
 - Picking mode defaulted to `chance` on a source that is actually stateful, sequenced, or otherwise non-random.
 - Top-level `params` / `secrets` declared but missing from the README parameters table.
-- Coverage gaps accepted without justification in the phase 1 field map.
+- Coverage gaps or inferred native fields accepted without justification in the phase 1 field map or README.
 - README sample event stale from a pre-rebuild run.
+- Anomaly mode emits only one episode, repeats too frequently, reuses an identifier that should change between episodes, or has unbounded scheduler state.
+- `anomaly_mode: false` still emits a complete anomaly chain, omits normal examples of its constituent event types, or produces no valid background stream.
 
 If anything triggers: return to phase 3, or to phase 2 if the issue is architectural. Rerun phase 4, then redo this phase. Proceed only when nothing fires.
 
@@ -100,6 +111,7 @@ Write the generator's README to the spec in `.claude/rules/content/generators.md
 
 Two additions specific to this skill:
 - The Sample output event must be a real event copied from `output/events.json` before the cleanup step below. Not a hand-written sample.
+- Add a clearly labeled `## Anomaly Chain` section that lists the sequence, linking fields, recurrence interval, episode variation, and possible detections. State that `anomaly_mode` defaults to `true` and that `false` produces only background.
 - The README Parameters section documents user-facing knobs in two subsections: **Event Parameters** - the `event.template.params` constants a user edits in-file (hostnames, versions, provider suffixes, ...), listed with defaults; and **Output Parameters** - the top-level `${params}` / `${secrets}` placeholders for pointing output at a backend (e.g. OpenSearch host and credentials), shown as the override pattern while the shipped `generator.yml` keeps file output so it runs out of the box. Internal template logic (inline constants, distribution parameters) is not listed.
 
 After the README is written, delete `output/` and `reference/`. They are test artifacts, not committed.
@@ -112,16 +124,16 @@ Show the user:
 - Event types with distributions and picking mode.
 - Coverage: `<covered>/<total>` fields against reference.
 - One sample event from generator output.
-- All five validation checks with pass/fail status.
+- All five validation checks with pass/fail status for both modes.
 - Any notable omissions or trade-offs.
 
-Ask only: proceed to publish to the hub? Architecture was gated in phases 2 and 5 - do not re-open it.
+If the user already authorized commits and hub PRs for this work, proceed to phase 8 without asking again. Otherwise ask only: proceed to publish to the hub? Architecture was gated in phases 2 and 5 - do not re-open it.
 
-**Explicit ok also authorizes the commit and PR in the docs repo for phase 8** - do not ask for permission again. If changes are requested, return to the relevant phase.
+**Existing authorization or an explicit ok also authorizes the commit and PR in the docs repo for phase 8** - do not ask for permission again. If changes are requested, return to the relevant phase.
 
 ### 8. Publish
 
-Add a hub page in `../docs/` following `.claude/rules/docs/hub.md`. Verify with `pnpm build`.
+Add a hub page in `../docs/` following `.claude/rules/docs/hub.md`. Every new generator supports both modes, so set `generationModes` to `['background', 'anomaly']` and keep `anomalyChain` as a short description based on the README. On hub cards, use muted Lucide `Logs` for background and `ScanEye` for anomaly. The hover and accessible labels are only `Background logs` and `Contains anomaly`; never put the chain description in the tooltip. Existing cards default to background only; SAP HANA is anomaly only. Verify with `pnpm build`.
 
 Workflow:
 - In the docs repo, branch off `master` (not `develop`) and target the PR at `master`. Branching from `develop` would sweep unrelated work into the PR. The flow is independent of the eventum release cycle.
@@ -138,4 +150,4 @@ Final summary to the user:
 
 ## Notes
 
-**One generator at a time.** Phase 4 is resource-intensive (real eventum processes plus validation); concurrent load has dropped agents previously. Sequential until parallel load is profiled.
+**Parallel generators.** Use a separate content-packs worktree for each generator and a separate docs worktree for hub changes. Research and editing may run in parallel, but serialize resource-intensive Eventum validation and Node.js documentation builds with one shared `flock` lock. Keep sample runs short and remove generated output promptly to avoid WSL OOM.
