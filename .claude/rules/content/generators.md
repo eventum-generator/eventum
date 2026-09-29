@@ -79,7 +79,7 @@ These defaults apply only to generators shipped within the `content-packs` repo.
 
 ## Samples
 
-- Small fixed lists sit inline in `generator.yml` as `type: items`. Larger sets live under `samples/` as CSV (with headers) or JSON (arrays of objects).
+- All sample data lives under `samples/` as CSV (with headers) or JSON (arrays of objects), whatever its size. Do not inline data in `generator.yml` as `type: items`.
 - 50-100 items per sample file is the usual scale (hosts, users, processes).
 - Use realistic-looking but clearly fake data: RFC 1918 IPs, generic company names (Contoso, Fabrikam), synthetic usernames. Never real PII.
 
@@ -113,3 +113,5 @@ Required sections:
 - Usage - CLI examples for batch and live mode.
 - One complete real JSON event as sample output.
 - References to vendor docs and the matching Elastic integration.
+
+The limitations section lists only how the generated data differs from the real source: missing event types or fields, inferred values, synthetic rates, timing and volume differences stated as properties of the data (e.g. "related records are seconds apart, not milliseconds"). It never describes Eventum internals - input plugins, timestamps or ticks, queues, template state, guards, batch or live mechanics, generation speed - nor the validation process (captures, calibrations, statistical tests, review rounds, standard deviations across runs). It is written for the consumer of the data: only properties of what is generated. Operational notes (how to run a finite window, output overrides) belong in Usage.
