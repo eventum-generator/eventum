@@ -24,7 +24,7 @@ description: Create a new MDX documentation page for the Eventum docs site - res
 
 Any new technical docs page under `../docs/content/docs/`.
 
-Not for: blog posts (see `.claude/rules/docs/blog.md`), hub entries for generators (use the `create-generator` skill), release changelogs (use the `release` skill), API reference pages (auto-generated from OpenAPI).
+Not for: blog posts (see `.claude/rules/docs/blog.md`), hub entries for generators (the `publish-generator` skill of the `content-design` plugin), release changelogs (use the `release` skill), API reference pages (auto-generated from OpenAPI).
 
 ## Process
 
