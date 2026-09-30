@@ -67,9 +67,9 @@ output:
 A generator from the `content-packs` repo must work out-of-the-box with `eventum generate --path generator.yml --id test --live-mode true`. Its defaults should therefore follow these rules:
 
 - Output results to a local file with an appropriate formatter in an `output/` directory.
-- Use a predictable steady-rate input, e.g. `cron` or `timer`.
+- The input sets the rate: every input timestamp yields exactly one event. Use `time_patterns` with a daily hour curve (people follow a working day, automation stays flat) and tagged inputs per population; never shape the rate with `dispatch.drop()`.
 
-These defaults apply only to generators shipped within the `content-packs` repo. Outside that scope, any Eventum plugin is fine (e.g. `time_patterns`, broker outputs, etc.).
+These defaults apply only to generators shipped within the `content-packs` repo. Outside that scope, any Eventum plugin is fine (e.g. broker outputs).
 
 ## Parameterization
 

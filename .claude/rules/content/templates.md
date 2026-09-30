@@ -139,9 +139,9 @@ Top-level: `shuffle`, `choice`, `choices`, `weighted_choice`, `weighted_choices`
 | Namespace | Functions |
 |-----------|-----------|
 | `module.rand.number` | `integer`, `floating`, `gauss`, `lognormal`, `exponential`, `pareto`, `triangular`, `clamp` |
-| `module.rand.string` | `letters`, `letters_lowercase`, `letters_uppercase`, `digits`, `punctuation`, `hex` |
-| `module.rand.network` | `ip_v4`, `ip_v4_public`, `ip_v4_private_a`, `ip_v4_private_b`, `ip_v4_private_c`, `ip_v4_in_subnet`, `mac` |
-| `module.rand.crypto` | `uuid4`, `md5`, `sha256` |
+| `module.rand.string` | `letters`, `letters_lowercase`, `letters_uppercase`, `digits`, `punctuation`, `hex`, `pattern` |
+| `module.rand.network` | `ip_v4`, `ip_v4_public`, `ip_v4_private`, `ip_v4_private_a`, `ip_v4_private_b`, `ip_v4_private_c`, `ip_v4_in_subnet`, `ip_v6`, `ip_v6_global`, `ip_v6_link_local`, `ip_v6_ula`, `mac` |
+| `module.rand.crypto` | `uuid4`, `md5`, `sha1`, `sha256` |
 | `module.rand.datetime` | `timestamp(start, end)` |
 
 **Bundled: `module.faker` / `module.mimesis`**
