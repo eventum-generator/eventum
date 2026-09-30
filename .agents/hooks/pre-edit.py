@@ -35,18 +35,11 @@ _SCOPES: tuple[tuple[str, tuple[str, ...], tuple[str, ...]], ...] = (
     ('CHANGELOG.md', (), ('changelog.md',)),
     ('../docs/content/docs/', ('.mdx', '.json'), ('docs/mdx.md',)),
     ('../docs/content/blog/', ('.mdx',), ('docs/blog.md',)),
-    ('../docs/lib/hub-data/', ('.ts',), ('docs/hub.md',)),
-    ('../content-packs/generators/', (), ('content/generators.md',)),
-    (
-        '../content-packs/generators/',
-        ('.jinja', '.yml'),
-        ('content/templates.md',),
-    ),
 )
 
 # The rules also cover the sibling repositories of this workspace, which
 # the agent edits through its extra writable roots.
-_SIBLINGS = ('docs', 'content-packs')
+_SIBLINGS = ('docs',)
 
 _HEADER = (
     'Project rules covering the files you are about to edit. They are '

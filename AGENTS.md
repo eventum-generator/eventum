@@ -66,7 +66,9 @@ Standard tool invocations (`uv run pytest`, `uv run ruff check`, `uv run mypy ev
 
 ## Rules
 
-Area-specific rules live in `.claude/rules/`, scoped by `backend`, `frontend`, `docs`, and `content`. Read the relevant scope before touching that area.
+Area-specific rules live in `.claude/rules/`, scoped by `backend`, `frontend` and `docs`. Read the relevant scope before touching that area.
+
+Generator content (content packs, Hub cards) is designed with the `content-design` plugin from `github.com/eventum-generator/ai-plugins`; its conventions live there, not in this repository.
 
 ## Hard rules
 

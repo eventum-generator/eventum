@@ -29,3 +29,7 @@ Interactive plugins produce timestamps in response to external events (e.g. HTTP
 
 - Opt in via the class declaration: `class FooPlugin(InputPlugin[...], interactive=True):`.
 - Interactive plugins also implement `has_interaction`, `can_interact`, `stop_interacting()`.
+
+## Cross-cutting updates
+
+A new input plugin, or a change to a config field, default or timestamp semantics of an existing one, is mirrored in the generator API reference of the `content-design` plugin (`github.com/eventum-generator/ai-plugins`, `skills/create-generator/references/eventum-api.md`), with the Eventum version it was verified against.
