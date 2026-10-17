@@ -75,6 +75,9 @@ jobs:
     name: Test
     runs-on: ubuntu-latest
     needs: [lint, type-check]
+    # A stage thread a regression leaves running keeps the interpreter
+    # from exiting after the suite, so the job is bounded on its own.
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
       - uses: astral-sh/setup-uv@v5

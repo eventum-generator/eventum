@@ -2,7 +2,7 @@
 
 import time
 from pathlib import Path
-from threading import Event
+from threading import Event, Timer
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -128,6 +128,58 @@ def test_start_success(mock_load, mock_init, mock_executor_cls):
 def test_stop_when_not_running():
     gen = Generator(params=_make_params())
     gen.stop()  # should not raise
+
+
+@patch('eventum.core.generator.Executor')
+@patch('eventum.core.generator.init_plugins')
+@patch('eventum.core.generator.load')
+def test_stop_while_execution_ends(mock_load, mock_init, mock_executor_cls):
+    """Stop does not fail on an executor the ending thread released."""
+    mock_load.return_value = MagicMock()
+    mock_init.return_value = MagicMock()
+
+    block_event = Event()
+    mock_executor = MagicMock()
+    mock_executor.execute.side_effect = lambda: block_event.wait()
+    mock_executor_cls.return_value = mock_executor
+
+    gen = Generator(params=_make_params())
+    gen.start()
+
+    # The thread has released its runtime and is about to end
+    gen._executor = None
+    Timer(0.1, block_event.set).start()
+
+    gen.stop()
+
+    assert gen.is_ended_up is True
+
+
+@patch('eventum.core.generator.collect_network_usage')
+@patch('eventum.core.generator.collect_thread_usage')
+def test_get_resources_while_execution_ends(mock_usage, mock_network):
+    """Resources are reported for an executor released meanwhile."""
+    gen = Generator(params=_make_params())
+    executor = MagicMock()
+    gen._executor = executor
+    gen._network_baseline = MagicMock(sent_bytes=0, received_bytes=0)
+    mock_network.return_value = gen._network_baseline
+
+    def release(*args):
+        gen._executor = None
+        return MagicMock(
+            count=1,
+            cpu_seconds=0.0,
+            run_delay_seconds=0.0,
+            disk_read_bytes=0,
+            disk_written_bytes=0,
+        )
+
+    mock_usage.side_effect = release
+
+    gen.get_resources()
+
+    executor.queue_usage.assert_called_once()
 
 
 def test_join_when_no_thread():

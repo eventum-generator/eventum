@@ -1,7 +1,7 @@
 """Definition of base input plugin."""
 
 from abc import abstractmethod
-from collections.abc import Callable, Iterator
+from collections.abc import Iterator
 from typing import Any, Required, TypeVar, override
 from zoneinfo import ZoneInfo
 
@@ -42,9 +42,8 @@ class InputPlugin(Plugin[ConfigT, ParamsT], register=False):
     interactive : bool, default=False
         Whether to mark input plugin as interactive. Interactive input
         plugins produce timestamps in response to external events (e.g.
-        HTTP requests) rather than on a schedule. They can be merged
-        with others, but the resulting order of timestamps may be
-        unpredictable.
+        HTTP requests) rather than on a schedule. They are consumed
+        each on its own, never merged with others.
 
     """
 
@@ -57,7 +56,6 @@ class InputPlugin(Plugin[ConfigT, ParamsT], register=False):
 
         self._buffer = Buffer()
 
-        self._interaction_callback: Callable[[], None] | None = None
         self._generated = 0
 
     def __init_subclass__(
@@ -103,10 +101,8 @@ class InputPlugin(Plugin[ConfigT, ParamsT], register=False):
 
         Notes
         -----
-        If interactive plugin is not ready to yield any timestamps it
-        should indicate about it via `has_interactive_timestamps`
-        method. And when it is ready notify about it via callback set
-        with `set_interaction_callback` method.
+        Interactive plugin may wait for an interaction for as long as
+        none comes, but must end once `stop_interacting` is called.
 
         """
         self._generated = 0
@@ -136,34 +132,12 @@ class InputPlugin(Plugin[ConfigT, ParamsT], register=False):
         """Whether the plugin is interactive."""
         return self._interactive  # type: ignore[attr-defined]
 
-    @property
-    def has_interaction(self) -> bool:
-        """Whether the interactive plugin is ready to yield any
-        timestamps or stop iteration.
-        """
-        raise NotImplementedError
-
-    @property
-    def can_interact(self) -> bool:
-        """Whether the interactive plugin is still available for
-        interaction (i.e. new timestamps may be yielded later).
-        """
-        raise NotImplementedError
-
     def stop_interacting(self) -> None:
         """Stop interacting of interactive plugin. After this method is
-        called no new timestamps can be added for yielding.
+        called no new timestamps can be added for yielding. Must be
+        idempotent and safe to call from any thread.
         """
         raise NotImplementedError
-
-    def set_interaction_callback(
-        self,
-        callback: Callable[[], None] | None,
-    ) -> None:
-        """Register callback that will be called each time interaction
-        happens with interactive plugin.
-        """
-        self._interaction_callback = callback
 
     @property
     def generated(self) -> int:

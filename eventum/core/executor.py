@@ -101,6 +101,7 @@ class Executor:
             plugin=event,
             input_tags=self._input_stage.input_tags,
             params=params,
+            abandon_input=self._input_stage.stop,
         )
         self._output_stage = OutputStage(plugins=output, params=params)
 
@@ -121,11 +122,7 @@ class Executor:
 
     def request_stop(self) -> None:
         """Request graceful stop from another thread. Idempotent."""
-        if self._stop_event.is_set():
-            return
-
-        self._stop_event.set()
-        self._input_stage.stop_interactive_plugins()
+        self._input_stage.stop()
 
     # - Pipeline orchestration ----------------------------------------
 
@@ -224,11 +221,12 @@ class Executor:
         """Unblock upstream stages after output stage failure.
 
         Without this, a failed output stage leaves the event and
-        input stages hanging on queue put/close operations.
+        input stages hanging on queue put/close operations, and an
+        interactive input waiting for interaction.
         """
         self._events_queue.shutdown()
         self._timestamps_queue.shutdown()
-        self._stop_event.set()
+        self._input_stage.stop()
 
     async def _execute_output_stage(self) -> None:
         """Open output plugins, run the write loop, close plugins.

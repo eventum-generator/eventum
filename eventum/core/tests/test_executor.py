@@ -256,6 +256,42 @@ def test_request_stop_calls_stop_interactive():
     p2.stop_interacting.assert_not_called()
 
 
+def test_request_stop_after_abort_stops_interactive():
+    """request_stop() reaches interactive plugins after an abort."""
+    plugin = _make_mock_input_plugin()
+    plugin.is_interactive = True
+
+    executor = Executor(
+        input=[plugin],
+        event=_make_mock_event_plugin(),
+        output=[_make_mock_output_plugin()],
+        params=_make_params(),
+    )
+    executor._abort_upstream()
+    executor.request_stop()
+
+    assert plugin.stop_interacting.call_count == 2
+
+
+# - Stage-originated cancellation -----------------------------------------
+
+
+def test_abort_upstream_stops_interactive():
+    """Output stage abort stops interactive plugins."""
+    plugin = _make_mock_input_plugin()
+    plugin.is_interactive = True
+
+    executor = Executor(
+        input=[plugin],
+        event=_make_mock_event_plugin(),
+        output=[_make_mock_output_plugin()],
+        params=_make_params(),
+    )
+    executor._abort_upstream()
+
+    plugin.stop_interacting.assert_called_once()
+
+
 # - Configuration ---------------------------------------------------------
 
 

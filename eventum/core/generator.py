@@ -215,7 +215,12 @@ class Generator:
                 return
 
             self._logger.debug('Requesting executor to stop')
-            self._executor.request_stop()  # type: ignore[union-attr]
+
+            # The thread releases the executor as its execution ends,
+            # which may happen at any moment before it is joined.
+            executor = self._executor
+            if executor is not None:
+                executor.request_stop()
 
             self._logger.debug('Joining executing thread')
             self._thread.join()  # type: ignore[union-attr]
@@ -283,7 +288,9 @@ class Generator:
             If the generator is not executing, so it holds no queues.
 
         """
-        if self._executor is None:
+        # Held, as the thread may release it while usage is collected.
+        executor = self._executor
+        if executor is None:
             msg = 'No information about resources is available'
             raise RuntimeError(msg)
 
@@ -302,7 +309,7 @@ class Generator:
             network_received_bytes=(
                 network.received_bytes - self._network_baseline.received_bytes
             ),
-            queues=self._executor.queue_usage(),
+            queues=executor.queue_usage(),
         )
 
     def get_config(self) -> GeneratorConfig:

@@ -1,6 +1,7 @@
 """Event stage of the pipeline — consumes timestamps, produces events."""
 
 import queue as queue_mod
+from collections.abc import Callable
 from datetime import datetime
 from typing import TYPE_CHECKING
 from zoneinfo import ZoneInfo
@@ -39,6 +40,10 @@ class EventStage:
     params : GeneratorParameters
         Generator parameters.
 
+    abandon_input : Callable[[], None]
+        Called when the stage stops consuming timestamps before its
+        input ends, so the producer stops too.
+
     """
 
     def __init__(
@@ -46,6 +51,7 @@ class EventStage:
         plugin: EventPlugin,
         input_tags: dict[int, tuple[str, ...]],
         params: GeneratorParameters,
+        abandon_input: Callable[[], None],
     ) -> None:
         """Initialize event stage.
 
@@ -60,10 +66,15 @@ class EventStage:
         params : GeneratorParameters
             Generator parameters.
 
+        abandon_input : Callable[[], None]
+            Called when the stage stops consuming timestamps before its
+            input ends, so the producer stops too.
+
         """
         self._plugin = plugin
         self._input_tags = input_tags
         self._params = params
+        self._abandon_input = abandon_input
         self._timezone = ZoneInfo(self._params.timezone)
 
     def _produce_batch(
@@ -104,7 +115,7 @@ class EventStage:
                 logger.debug(
                     'Events exhausted, closing upstream queue',
                 )
-                input.shutdown()
+                self._abandon(input)
                 return events, True
             except Exception as e:
                 logger.exception(
@@ -113,6 +124,18 @@ class EventStage:
                 )
 
         return events, False
+
+    def _abandon(self, input: PipelineQueue[IdentifiedTimestamps]) -> None:
+        """Stop consuming timestamps and let the producer know.
+
+        Parameters
+        ----------
+        input : PipelineQueue[IdentifiedTimestamps]
+            Queue of timestamp batches being abandoned.
+
+        """
+        input.shutdown()
+        self._abandon_input()
 
     def execute(
         self,
@@ -180,7 +203,7 @@ class EventStage:
                 'Fatal error in event stage',
                 reason=str(e),
             )
-            input.shutdown()
+            self._abandon(input)
         finally:
             logger.debug('Finishing event plugin execution')
             output.close()

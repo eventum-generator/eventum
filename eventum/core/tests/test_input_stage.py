@@ -7,12 +7,15 @@ from pathlib import Path
 from unittest.mock import MagicMock
 
 import numpy as np
+import pytest
 import structlog.testing
 
 from eventum.core.parameters import BatchParameters, GeneratorParameters
 from eventum.core.queue import PipelineQueue
 from eventum.core.stages.input_stage import InputStage
 from eventum.plugins.input.batcher import TimestampsBatcher
+from eventum.plugins.input.exceptions import PluginGenerationError
+from eventum.plugins.input.merger import InputPluginsMerger
 from eventum.plugins.input.protocols import IdentifiedTimestamps
 from eventum.plugins.input.scheduler import BatchScheduler
 
@@ -96,14 +99,13 @@ def test_plugins_property():
 
 
 def test_configure_single_non_interactive():
-    """configure() with one non-interactive plugin sets non-interactive source."""
+    """configure() with one non-interactive plugin builds one source."""
     p1 = _make_mock_input_plugin(plugin_id=1, is_interactive=False)
     stage = InputStage(plugins=[p1], params=_make_params())
     stop = threading.Event()
     stage.configure(stop_event=stop)
 
-    assert stage._configured_non_interactive is not None
-    assert stage._configured_interactive is None
+    assert len(stage._sources) == 1
 
 
 def test_configure_live_mode_gives_batch_size_to_scheduler():
@@ -118,7 +120,7 @@ def test_configure_live_mode_gives_batch_size_to_scheduler():
     )
     stage.configure(stop_event=threading.Event())
 
-    scheduler = stage._configured_non_interactive
+    (scheduler,) = stage._sources
 
     assert isinstance(scheduler, BatchScheduler)
     assert scheduler._max_batch_size == 500
@@ -136,7 +138,7 @@ def test_configure_live_mode_keeps_interactive_batches_unmerged():
     )
     stage.configure(stop_event=threading.Event())
 
-    scheduler = stage._configured_interactive
+    (scheduler,) = stage._sources
 
     assert isinstance(scheduler, BatchScheduler)
     assert scheduler._max_batch_size is None
@@ -148,7 +150,7 @@ def test_configure_sample_mode_leaves_batcher_unwrapped():
     stage = InputStage(plugins=[p1], params=_make_params(live_mode=False))
     stage.configure(stop_event=threading.Event())
 
-    assert not isinstance(stage._configured_non_interactive, BatchScheduler)
+    assert not isinstance(stage._sources[0], BatchScheduler)
 
 
 def test_configure_sample_mode_drops_delay():
@@ -163,7 +165,7 @@ def test_configure_sample_mode_drops_delay():
     )
     stage.configure(stop_event=threading.Event())
 
-    batcher = stage._configured_non_interactive
+    (batcher,) = stage._sources
 
     assert isinstance(batcher, TimestampsBatcher)
     assert batcher._batch_size == 500
@@ -182,7 +184,7 @@ def test_configure_sample_mode_keeps_delay_without_size():
     )
     stage.configure(stop_event=threading.Event())
 
-    batcher = stage._configured_non_interactive
+    (batcher,) = stage._sources
 
     assert isinstance(batcher, TimestampsBatcher)
     assert batcher._batch_size is None
@@ -201,7 +203,7 @@ def test_configure_live_mode_keeps_delay():
     )
     stage.configure(stop_event=threading.Event())
 
-    scheduler = stage._configured_non_interactive
+    (scheduler,) = stage._sources
 
     assert isinstance(scheduler, BatchScheduler)
     assert isinstance(scheduler._source, TimestampsBatcher)
@@ -209,23 +211,40 @@ def test_configure_live_mode_keeps_delay():
 
 
 def test_configure_zero_plugins():
-    """configure() with no plugins sets both sources to None."""
+    """configure() with no plugins builds no sources."""
     stage = InputStage(plugins=[], params=_make_params())
     stop = threading.Event()
     stage.configure(stop_event=stop)
 
-    assert stage._configured_non_interactive is None
-    assert stage._configured_interactive is None
+    assert stage._sources == []
+
+
+def test_configure_source_per_interactive_plugin():
+    """Non-interactive plugins share one merged source, while every
+    interactive plugin gets a source of its own.
+    """
+    plugins = [
+        _make_mock_input_plugin(plugin_id=1, is_interactive=False),
+        _make_mock_input_plugin(plugin_id=2, is_interactive=False),
+        _make_mock_input_plugin(plugin_id=3, is_interactive=True),
+        _make_mock_input_plugin(plugin_id=4, is_interactive=True),
+    ]
+    stage = InputStage(plugins=plugins, params=_make_params())
+    stage.configure(stop_event=threading.Event())
+
+    merged, *interactive = stage._sources
+
+    assert isinstance(merged._source, InputPluginsMerger)
+    assert [s._source._plugin for s in interactive] == plugins[2:]
 
 
 # - Execute: no sources -----------------------------------------------
 
 
 def test_execute_no_sources_closes_output():
-    """When both configured sources are None, output is closed immediately."""
+    """When no sources are configured, output is closed immediately."""
     stage = InputStage(plugins=[], params=_make_params())
-    stage._configured_non_interactive = None
-    stage._configured_interactive = None
+    stage._sources = []
     stage._stop_event = threading.Event()
 
     output_q: PipelineQueue[IdentifiedTimestamps] = PipelineQueue(maxsize=10)
@@ -254,8 +273,7 @@ def test_execute_single_source():
 
     p1 = _make_mock_input_plugin()
     stage = InputStage(plugins=[p1], params=_make_params())
-    stage._configured_non_interactive = source
-    stage._configured_interactive = None
+    stage._sources = [source]
     stage._stop_event = threading.Event()
 
     output_q: PipelineQueue[IdentifiedTimestamps] = PipelineQueue(maxsize=10)
@@ -293,8 +311,7 @@ def test_execute_single_source_stop_event():
 
     p1 = _make_mock_input_plugin()
     stage = InputStage(plugins=[p1], params=_make_params())
-    stage._configured_non_interactive = source
-    stage._configured_interactive = None
+    stage._sources = [source]
     stage._stop_event = stop
 
     output_q: PipelineQueue[IdentifiedTimestamps] = PipelineQueue(maxsize=10)
@@ -325,8 +342,7 @@ def test_execute_always_closes_output_on_error():
 
     p1 = _make_mock_input_plugin()
     stage = InputStage(plugins=[p1], params=_make_params())
-    stage._configured_non_interactive = source
-    stage._configured_interactive = None
+    stage._sources = [source]
     stage._stop_event = threading.Event()
 
     output_q: PipelineQueue[IdentifiedTimestamps] = PipelineQueue(maxsize=10)
@@ -360,8 +376,7 @@ def test_execute_plugin_generation_error():
 
     p1 = _make_mock_input_plugin()
     stage = InputStage(plugins=[p1], params=_make_params())
-    stage._configured_non_interactive = source
-    stage._configured_interactive = None
+    stage._sources = [source]
     stage._stop_event = threading.Event()
 
     output_q: PipelineQueue[IdentifiedTimestamps] = PipelineQueue(maxsize=10)
@@ -393,8 +408,7 @@ def test_execute_merged_sources():
     p1 = _make_mock_input_plugin(plugin_id=1)
     p2 = _make_mock_input_plugin(plugin_id=2, is_interactive=True)
     stage = InputStage(plugins=[p1, p2], params=_make_params())
-    stage._configured_non_interactive = source1
-    stage._configured_interactive = source2
+    stage._sources = [source1, source2]
     stage._stop_event = threading.Event()
 
     output_q: PipelineQueue[IdentifiedTimestamps] = PipelineQueue(maxsize=10)
@@ -413,18 +427,63 @@ def test_execute_merged_sources():
     assert total == 5  # 2 + 3
 
 
-# - stop_interactive_plugins ------------------------------------------
+@pytest.mark.parametrize(
+    'error',
+    [
+        PluginGenerationError('gen failed', context={'reason': 'x'}),
+        RuntimeError('crash'),
+    ],
+)
+def test_execute_failed_source_leaves_others_running(error):
+    """A source failing in its sub-thread is logged, and the others
+    keep producing.
+    """
+
+    def failing_iterate(*, skip_past):
+        raise error
+
+    failing = MagicMock()
+    failing.iterate = failing_iterate
+    working = _make_mock_source([_make_timestamps(count=3, plugin_id=2)])
+
+    p1 = _make_mock_input_plugin(plugin_id=1)
+    p2 = _make_mock_input_plugin(plugin_id=2, is_interactive=True)
+    stage = InputStage(plugins=[p1, p2], params=_make_params())
+    stage._sources = [failing, working]
+    stage._stop_event = threading.Event()
+
+    output_q: PipelineQueue[IdentifiedTimestamps] = PipelineQueue(maxsize=10)
+
+    with structlog.testing.capture_logs() as logs:
+        stage_thread = threading.Thread(
+            target=stage.execute,
+            kwargs={'output': output_q, 'skip_past': False},
+        )
+        stage_thread.start()
+
+        batches = _collect_output(output_q)
+        stage_thread.join(timeout=5)
+
+    assert not stage_thread.is_alive()
+    assert sum(len(b) for b in batches) == 3
+    assert [entry['log_level'] for entry in logs].count('error') == 1
 
 
-def test_stop_interactive_plugins():
-    """stop_interactive_plugins calls stop_interacting on interactive only."""
+# - stop --------------------------------------------------------------
+
+
+def test_stop():
+    """stop sets the stop event and stops interactive plugins only."""
     p1 = _make_mock_input_plugin(plugin_id=1, is_interactive=False)
     p2 = _make_mock_input_plugin(plugin_id=2, is_interactive=True)
     p3 = _make_mock_input_plugin(plugin_id=3, is_interactive=True)
 
     stage = InputStage(plugins=[p1, p2, p3], params=_make_params())
-    stage.stop_interactive_plugins()
+    stop_event = threading.Event()
+    stage.configure(stop_event=stop_event)
+    stage.stop()
 
+    assert stop_event.is_set()
     p1.stop_interacting.assert_not_called()
     p2.stop_interacting.assert_called_once()
     p3.stop_interacting.assert_called_once()
@@ -450,8 +509,7 @@ def _run_stage_against_full_queue(
         plugins=[_make_mock_input_plugin()],
         params=_make_params(live_mode=live_mode),
     )
-    stage._configured_non_interactive = source
-    stage._configured_interactive = None
+    stage._sources = [source]
     stage._stop_event = threading.Event()
 
     output_q.put(_make_timestamps(count=1))
