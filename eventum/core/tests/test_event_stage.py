@@ -49,6 +49,7 @@ def _make_event_stage(
     plugin=None,
     input_tags=None,
     params=None,
+    abandon_input=None,
 ) -> EventStage:
     """Factory for EventStage with sensible defaults."""
     if plugin is None:
@@ -58,10 +59,13 @@ def _make_event_stage(
         input_tags = {1: ('tag1',)}
     if params is None:
         params = _make_params()
+    if abandon_input is None:
+        abandon_input = MagicMock()
     return EventStage(
         plugin=plugin,
         input_tags=input_tags,
         params=params,
+        abandon_input=abandon_input,
     )
 
 
@@ -527,6 +531,74 @@ def test_execute_fatal_error_shuts_down_input():
     # Input queue should be shut down so put raises ShutDown
     with pytest.raises(queue_mod.ShutDown):
         input_q.put(_make_timestamps(count=1))
+
+
+# - Abandoning input ---------------------------------------------------
+
+
+def _start_stage(stage, input_q, output_q) -> threading.Thread:
+    stage_thread = threading.Thread(
+        target=stage.execute,
+        kwargs={'input': input_q, 'output': output_q},
+        daemon=True,
+    )
+    stage_thread.start()
+    return stage_thread
+
+
+@pytest.mark.parametrize('cause', ['exhausted', 'fatal'])
+def test_execute_abandons_input_before_draining_output(cause):
+    """Abandoning the input is reported before the output drains.
+
+    Closing the output waits for its consumer, which may never come
+    when the output stage is stuck - the producer must not wait for it.
+    """
+    plugin = MagicMock()
+    input_tags = {1: ('tag1',)}
+
+    if cause == 'exhausted':
+        plugin.produce.side_effect = PluginEventsExhaustedError()
+    else:
+        input_tags = {}
+
+    abandoned = threading.Event()
+    stage = _make_event_stage(
+        plugin=plugin,
+        input_tags=input_tags,
+        abandon_input=abandoned.set,
+    )
+    input_q: PipelineQueue[IdentifiedTimestamps] = PipelineQueue(maxsize=10)
+    output_q: PipelineQueue[list[str]] = PipelineQueue(maxsize=10)
+    input_q.put(_make_timestamps(count=1, plugin_id=1))
+
+    stage_thread = _start_stage(stage, input_q, output_q)
+
+    # The output is not consumed yet, so the stage is still closing it
+    assert abandoned.wait(timeout=5)
+
+    _collect_output(output_q)
+    stage_thread.join(timeout=5)
+    assert not stage_thread.is_alive()
+
+
+def test_execute_ended_input_is_not_abandoned():
+    """Input that ends on its own is not reported as abandoned."""
+    abandon_input = MagicMock()
+    stage = _make_event_stage(abandon_input=abandon_input)
+    input_q: PipelineQueue[IdentifiedTimestamps] = PipelineQueue(maxsize=10)
+    output_q: PipelineQueue[list[str]] = PipelineQueue(maxsize=10)
+
+    threading.Thread(
+        target=_feed_and_close,
+        args=(input_q, [_make_timestamps(count=1, plugin_id=1)]),
+    ).start()
+    stage_thread = _start_stage(stage, input_q, output_q)
+
+    _collect_output(output_q)
+    stage_thread.join(timeout=5)
+
+    assert not stage_thread.is_alive()
+    abandon_input.assert_not_called()
 
 
 # - Backpressure ------------------------------------------------------

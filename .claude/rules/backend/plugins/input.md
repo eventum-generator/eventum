@@ -28,7 +28,9 @@ All timestamps flowing through the pipeline are naive UTC numpy `datetime64`.
 Interactive plugins produce timestamps in response to external events (e.g. HTTP requests) rather than on a schedule.
 
 - Opt in via the class declaration: `class FooPlugin(InputPlugin[...], interactive=True):`.
-- Interactive plugins also implement `has_interaction`, `can_interact`, `stop_interacting()`.
+- Interactive plugins also implement `stop_interacting()` - idempotent and callable from any thread, as the pipeline calls it on every stop, abort and abandonment of the input.
+- `_generate` of an interactive plugin may wait for an interaction indefinitely, but ends once `stop_interacting()` is called, including when that comes before it starts.
+- Each interactive plugin is consumed as a source of its own; `InputPluginsMerger` rejects them, as their timestamps have nothing to be ordered against.
 
 ## Cross-cutting updates
 

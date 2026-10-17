@@ -3,7 +3,6 @@ single source.
 """
 
 from collections.abc import Iterable, Iterator
-from threading import Event
 from typing import override
 
 import numpy as np
@@ -37,20 +36,22 @@ class InputPluginsMerger(
         Raises
         ------
         ValueError
-            If one or less plugins provided in sequence.
+            If one or less plugins provided in sequence, or any of them
+            is interactive.
+
+        Notes
+        -----
+        Interactive plugins publish timestamps the moment they are
+        interacted with, so there is nothing to order them against -
+        they are consumed on their own instead.
 
         """
         self._plugins: dict[str, InputPlugin] = {}
 
         for plugin in plugins:
             if plugin.is_interactive:
-                logger.warning(
-                    'Interactive input plugin detected in list of merged '
-                    'plugins. Note that order of timestamps may be '
-                    'unpredictable.',
-                    plugin_name=plugin.name,
-                    plugin_id=plugin.id,
-                )
+                msg = 'Interactive plugins cannot be merged'
+                raise ValueError(msg)
 
             self._plugins[plugin.guid] = plugin
 
@@ -58,15 +59,7 @@ class InputPluginsMerger(
             msg = 'At least two plugin must be provided'
             raise ValueError(msg)
 
-        self._interaction_event = Event()
-
-        for plugin in self._plugins.values():
-            if plugin.is_interactive:
-                plugin.set_interaction_callback(
-                    lambda: self._interaction_event.set(),
-                )
-
-    def _slice(  # noqa: C901, PLR0912, PLR0915
+    def _slice(  # noqa: C901, PLR0912
         self,
         size: int,
         *,
@@ -108,10 +101,6 @@ class InputPluginsMerger(
         In the above example for 3 independent generators `_slice`
         method will yield 5 times.
 
-        Slices of timestamps of interactive generators will be missing
-        in returned object if no interactive timestamps is available
-        at moment of slicing.
-
         """
         active_generators = {
             guid: {
@@ -126,68 +115,44 @@ class InputPluginsMerger(
 
         while True:
             # get next arrays from generators if required
-            if next_required_guids:
-                postponed_interactive_plugin_guids: list[str] = []
-                self._interaction_event.clear()
+            for guid in next_required_guids:
+                plugin: InputPlugin = active_generators[guid]['plugin']  # type: ignore[assignment]
 
-                for guid in next_required_guids:
-                    plugin: InputPlugin = active_generators[guid]['plugin']  # type: ignore[assignment]
-                    if (
-                        plugin.is_interactive
-                        and plugin.can_interact
-                        and not plugin.has_interaction
-                    ):
-                        postponed_interactive_plugin_guids.append(guid)
-                        continue
+                try:
+                    array = next(active_generators[guid]['generate'])  # type: ignore[call-overload]
+                    next_arrays[guid] = array
+                except StopIteration:
+                    del active_generators[guid]
+                except PluginGenerationError as e:
+                    logger.error(
+                        (
+                            'One of the input plugins finished execution '
+                            'with error'
+                        ),
+                        plugin_id=plugin.id,
+                        plugin_type=plugin.type,
+                        plugin_name=plugin.name,
+                        **e.context,
+                    )
+                    del active_generators[guid]
+                except Exception as e:
+                    logger.exception(
+                        (
+                            'One of the input plugins finished execution '
+                            'with unexpected error'
+                        ),
+                        plugin_id=plugin.id,
+                        plugin_type=plugin.type,
+                        plugin_name=plugin.name,
+                        reason=str(e),
+                    )
+                    del active_generators[guid]
 
-                    try:
-                        array = next(active_generators[guid]['generate'])  # type: ignore[call-overload]
-                        next_arrays[guid] = array
-                    except StopIteration:
-                        del active_generators[guid]
-                    except PluginGenerationError as e:
-                        logger.error(
-                            (
-                                'One of the input plugins finished execution '
-                                'with error'
-                            ),
-                            plugin_id=plugin.id,
-                            plugin_type=plugin.type,
-                            plugin_name=plugin.name,
-                            **e.context,
-                        )
-                        del active_generators[guid]
-                    except Exception as e:
-                        logger.exception(
-                            (
-                                'One of the input plugins finished execution '
-                                'with unexpected error'
-                            ),
-                            plugin_id=plugin.id,
-                            plugin_type=plugin.type,
-                            plugin_name=plugin.name,
-                            reason=str(e),
-                        )
+            next_required_guids.clear()
 
-                # if all remaining plugins are interactive
-                # and there are no timestamps from all of them
-                # we are waiting for event that should be set via
-                # interactive plugins callback to avoid busy waiting
-                if postponed_interactive_plugin_guids and set(
-                    postponed_interactive_plugin_guids,
-                ) == set(
-                    next_required_guids,
-                ):
-                    self._interaction_event.wait()
-
-                next_required_guids.clear()
-                next_required_guids.extend(postponed_interactive_plugin_guids)
-
-            if not active_generators and not next_arrays:
-                break
-
+            # every active generator has an array pending by now
             if not next_arrays:
-                continue
+                break
 
             # find cutoff timestamp
             cutoff_timestamp = min(

@@ -2,7 +2,7 @@
 
 from collections.abc import Iterator
 from concurrent.futures import Future, ThreadPoolExecutor
-from queue import Empty, Queue
+from queue import Queue
 from typing import override
 
 import uvicorn
@@ -17,6 +17,10 @@ from eventum.plugins.input.base.plugin import InputPlugin, InputPluginParams
 from eventum.plugins.input.exceptions import PluginGenerationError
 from eventum.plugins.input.plugins.http.config import HttpInputPluginConfig
 from eventum.plugins.input.utils.time_utils import now64
+
+# Seconds the server waits for requests in progress when stopping, so a
+# client that never finishes its request cannot hold the plugin running.
+_SHUTDOWN_TIMEOUT = 5
 
 
 def _describe_server_error(error: BaseException) -> str:
@@ -112,11 +116,12 @@ class HttpInputPlugin(
                 host=self._config.host,
                 port=self._config.port,
                 log_config=None,
+                timeout_graceful_shutdown=_SHUTDOWN_TIMEOUT,
             ),
         )
-        self._request_queue: Queue[int | None] = Queue(
-            maxsize=config.max_pending_requests,
-        )
+        # Unbounded, so the closing sentinel never waits for room - the
+        # limit of pending requests is enforced on accepting them.
+        self._request_queue: Queue[int | None] = Queue()
         self._is_stopping = False
         self._server_error: BaseException | None = None
 
@@ -134,7 +139,7 @@ class HttpInputPlugin(
         Raises
         ------
         HTTPException
-            429 - If requests queue is full;
+            429 - If pending requests limit is reached;
             409 - If server is stopping;
 
         """
@@ -148,9 +153,9 @@ class HttpInputPlugin(
                 detail='Server is stopping',
             )
 
-        if self._request_queue.full():
+        if self._request_queue.qsize() >= self._config.max_pending_requests:
             await self._logger.awarning(
-                'Generate request is skipped due to queue is full',
+                'Generate request is skipped due to pending requests limit',
                 count=data.count,
             )
             raise HTTPException(
@@ -158,14 +163,14 @@ class HttpInputPlugin(
                 detail='Too Many Requests',
             )
 
+        # Enqueued before anything awaits, so concurrent requests cannot
+        # all pass the limit check.
+        self._request_queue.put_nowait(data.count)
+
         await self._logger.adebug(
             'Generate request is received',
             count=data.count,
         )
-        self._request_queue.put_nowait(data.count)
-
-        if self._interaction_callback is not None:
-            self._interaction_callback()
 
     async def _handle_stop(self) -> None:
         """Handle incoming stop request."""
@@ -210,6 +215,11 @@ class HttpInputPlugin(
         *,
         skip_past: bool = True,
     ) -> Iterator[NDArray[datetime64]]:
+        # Stopped before it started, as when the pipeline fails early -
+        # the server has nothing to serve, and its port is left alone.
+        if self._is_stopping:
+            return
+
         self._logger.info(
             'Starting http server',
             host=self._config.host,
@@ -226,42 +236,34 @@ class HttpInputPlugin(
             future.add_done_callback(self._watch_server)
 
             self._logger.debug('Waiting for incoming generation requests')
-            while True:
-                try:
+            try:
+                while True:
                     count = self._request_queue.get()
-                except Empty:
-                    continue
 
-                if count is None:
-                    error = self._server_error
-                    if error is None:
-                        break
+                    if count is None:
+                        error = self._server_error
+                        if error is None:
+                            break
 
-                    msg = 'Error during server execution'
-                    raise PluginGenerationError(
-                        msg,
-                        context={
-                            'reason': _describe_server_error(error),
-                            'host': self._config.host,
-                            'port': self._config.port,
-                        },
-                    ) from error
+                        msg = 'Error during server execution'
+                        raise PluginGenerationError(
+                            msg,
+                            context={
+                                'reason': _describe_server_error(error),
+                                'host': self._config.host,
+                                'port': self._config.port,
+                            },
+                        ) from error
 
-                self._buffer.m_push(
-                    timestamp=now64(self._timezone),
-                    multiply=count,
-                )
-                yield from self._buffer.read(size, partial=True)
-
-    @property
-    @override
-    def has_interaction(self) -> bool:
-        return not self._request_queue.empty()
-
-    @property
-    @override
-    def can_interact(self) -> bool:
-        return self._server.started and not self._is_stopping
+                    self._buffer.m_push(
+                        timestamp=now64(self._timezone),
+                        multiply=count,
+                    )
+                    yield from self._buffer.read(size, partial=True)
+            finally:
+                # Leaving the executor waits for the server, so a
+                # generator its consumer abandoned has to end it too.
+                self.stop_interacting()
 
     @override
     def stop_interacting(self) -> None:
