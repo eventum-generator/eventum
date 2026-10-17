@@ -230,12 +230,35 @@ export default function InstancesPage() {
             color: 'red',
           });
         },
-        onSuccess: () => {
+        onSuccess: ({ non_deleted_generator_ids: nonDeletedIds }) => {
+          // An instance that did not stop stays, along with its
+          // definition, so it is not lost while it keeps running.
+          const deletedIds = instanceIds.filter(
+            (id) => !nonDeletedIds.includes(id)
+          );
+
+          if (nonDeletedIds.length > 0) {
+            notifications.show({
+              title: 'Error',
+              message: `Instances did not stop and are not deleted: ${nonDeletedIds.join(', ')}`,
+              color: 'red',
+            });
+          }
+
+          if (deletedIds.length === 0) {
+            return;
+          }
+
           bulkDeleteGeneratorsFromStartup.mutate(
-            { ids: instanceIds },
+            { ids: deletedIds },
             {
               onSuccess: () => {
                 setRowSelection({});
+
+                if (nonDeletedIds.length > 0) {
+                  return;
+                }
+
                 notifications.show({
                   title: 'Success',
                   message: `Instances are deleted`,

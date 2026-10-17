@@ -14,6 +14,7 @@ from eventum.core.executor import (
     ExecutionError,
     Executor,
     ImproperlyConfiguredError,
+    max_stop_seconds,
 )
 from eventum.core.parameters import GeneratorParameters
 from eventum.core.plugins_initializer import (
@@ -52,6 +53,7 @@ class Generator:
         self._initialized_event = Event()
         self._successfully_done_event = Event()
         self._is_stopping = False
+        self._is_abandoned = False
 
         self._logger = structlog.stdlib.get_logger().bind(
             generator_id=self._params.id,
@@ -179,6 +181,18 @@ class Generator:
         self._logger.info('Starting generator')
         self._logger.debug('Acquiring lock')
         with self._lock:
+            if self.is_abandoned:
+                self._logger.error(
+                    'Generator cannot be started, its earlier execution '
+                    'did not stop',
+                    hint=(
+                        'Restart the Eventum process to release it, and '
+                        'check the plugins of the generator for code that '
+                        'does not return'
+                    ),
+                )
+                return False
+
             if self.is_running:
                 self._logger.debug('Generator is already running')
                 return True
@@ -186,11 +200,15 @@ class Generator:
             self._logger.debug('Clearing status')
             self._initialized_event.clear()
             self._successfully_done_event.clear()
+            self._is_abandoned = False
 
             self._logger.debug('Creating and starting thread')
+            # A daemon thread, as an execution that does not stop is
+            # abandoned and must not keep the process from exiting.
             self._thread = Thread(
                 target=self._start,
                 name=f'generator:{self._params.id}',
+                daemon=True,
             )
             self._thread.start()
 
@@ -200,32 +218,78 @@ class Generator:
 
             return self._initialized_event.is_set()
 
-    def stop(self) -> None:
-        """Stop generator with joining underlying thread. Ignore call
-        if generator is not running.
+    def stop(self) -> bool:
+        """Stop generator within bounded time. Ignore call if generator
+        is not running.
+
+        The generator is given `stop_timeout` seconds to deliver the
+        events it has already produced, after which its execution is
+        aborted.
+
+        Returns
+        -------
+        bool
+            `True` if the generator stopped or was not running, `False`
+            if its execution is still running after the abort, which
+            leaves it to plugin code that does not return.
+
         """
         self._logger.info('Stopping generator')
         self._is_stopping = True
 
-        self._logger.debug('Acquiring lock')
-        with self._lock:
-            if not self.is_running:
-                self._logger.debug('Generator is not running')
-                self._is_stopping = False
-                return
+        try:
+            # A stop under way or a start stuck in loading the plugins
+            # holds the lock, and neither may hold this stop for good.
+            self._logger.debug('Acquiring lock')
+            if not self._lock.acquire(timeout=max_stop_seconds(self._params)):
+                self._logger.error(
+                    'Generator did not stop, it is still being started or '
+                    'stopped',
+                    hint=(
+                        'Restart the Eventum process if it stays so, and '
+                        'check the plugins of the generator for code that '
+                        'does not return'
+                    ),
+                )
+                return False
 
+            try:
+                return self._stop_locked()
+            finally:
+                self._lock.release()
+        finally:
+            self._is_stopping = False
+
+    def _stop_locked(self) -> bool:
+        """Stop generator holding the lock, see `stop`."""
+        if not self.is_running:
+            self._logger.debug('Generator is not running')
+            return True
+
+        # The thread releases the executor as its execution ends,
+        # which may happen at any moment before it is joined.
+        executor = self._executor
+        if executor is not None:
             self._logger.debug('Requesting executor to stop')
 
-            # The thread releases the executor as its execution ends,
-            # which may happen at any moment before it is joined.
-            executor = self._executor
-            if executor is not None:
-                executor.request_stop()
+            if not executor.stop():
+                self._is_abandoned = True
+                self._logger.error(
+                    'Generator did not stop, its execution is abandoned',
+                    hint=(
+                        'Restart the Eventum process to release it, and '
+                        'check the plugins of the generator for code that '
+                        'does not return'
+                    ),
+                )
+                return False
 
-            self._logger.debug('Joining executing thread')
-            self._thread.join()  # type: ignore[union-attr]
+        # The execution has ended, so the thread is only finishing its
+        # own bookkeeping.
+        self._logger.debug('Joining executing thread')
+        self._thread.join()  # type: ignore[union-attr]
 
-        self._is_stopping = False
+        return True
 
     def _release(self) -> None:
         """Release resources of generator runtime after stopping or
@@ -354,6 +418,17 @@ class Generator:
             self._thread is not None
             and self._thread.is_alive()
             and self._initialized_event.is_set()
+        )
+
+    @property
+    def is_abandoned(self) -> bool:
+        """Whether the generator did not stop and its execution is left
+        to plugin code that does not return.
+        """
+        return (
+            self._is_abandoned
+            and self._thread is not None
+            and self._thread.is_alive()
         )
 
     @property

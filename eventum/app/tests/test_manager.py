@@ -3,7 +3,11 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from eventum.app.manager import GeneratorManager, ManagingError
+from eventum.app.manager import (
+    GeneratorManager,
+    GeneratorStopError,
+    ManagingError,
+)
 
 
 @pytest.fixture
@@ -78,6 +82,130 @@ def test_start_stop(mock_generator_class, manager, fake_params):
 
     with pytest.raises(ManagingError):
         manager.stop('nonexistent')
+
+
+@patch('eventum.app.manager.Generator')
+def test_stop_reports_generator_that_did_not_stop(
+    mock_generator_class,
+    manager,
+    fake_params,
+):
+    mock_instance = MagicMock()
+    mock_instance.stop.return_value = False
+    mock_generator_class.return_value = mock_instance
+    manager.add(fake_params)
+
+    with pytest.raises(GeneratorStopError):
+        manager.stop('gen1')
+
+
+def _stuck_generator(id: str) -> MagicMock:
+    generator = MagicMock()
+    generator.params.id = id
+    generator.stop.return_value = False
+    return generator
+
+
+@patch('eventum.app.manager.Generator')
+def test_remove_generator_that_did_not_stop(
+    mock_generator_class,
+    manager,
+    fake_params,
+):
+    """A generator that does not stop stays managed, as it still runs."""
+    mock_instance = _stuck_generator('gen1')
+    mock_generator_class.return_value = mock_instance
+    manager.add(fake_params)
+
+    with pytest.raises(GeneratorStopError):
+        manager.remove('gen1')
+
+    assert manager.get_generator('gen1') is mock_instance
+    mock_instance.stop.assert_called_once()
+
+
+@patch('eventum.app.manager.Generator')
+def test_remove_leaves_id_taken_meanwhile_to_new_generator(
+    mock_generator_class,
+    manager,
+    fake_params,
+):
+    """A generator added under the id while the old one was stopping
+    is not replaced by the old one that did not stop.
+    """
+    stuck = _stuck_generator('gen1')
+    newer = MagicMock()
+
+    def stop_while_id_is_taken() -> bool:
+        manager.add(FakeParams('gen1'))
+        return False
+
+    stuck.stop.side_effect = stop_while_id_is_taken
+    mock_generator_class.side_effect = [stuck, newer]
+    manager.add(fake_params)
+
+    with pytest.raises(GeneratorStopError):
+        manager.remove('gen1')
+
+    assert manager.get_generator('gen1') is newer
+
+
+@patch('eventum.app.manager.Generator')
+def test_bulk_stop_reports_generators_that_did_not_stop(
+    mock_generator_class,
+    manager,
+):
+    stuck = _stuck_generator('stuck')
+    healthy = MagicMock()
+    healthy.params.id = 'healthy'
+    healthy.stop.return_value = True
+    mock_generator_class.side_effect = [stuck, healthy]
+    manager.add(FakeParams('stuck'))
+    manager.add(FakeParams('healthy'))
+
+    assert manager.bulk_stop(['stuck', 'healthy', 'missing']) == ['stuck']
+
+
+@patch('eventum.app.manager.Generator')
+def test_bulk_remove_keeps_generators_that_did_not_stop(
+    mock_generator_class,
+    manager,
+):
+    stuck = _stuck_generator('stuck')
+    healthy = MagicMock()
+    healthy.params.id = 'healthy'
+    healthy.stop.return_value = True
+    mock_generator_class.side_effect = [stuck, healthy]
+    manager.add(FakeParams('stuck'))
+    manager.add(FakeParams('healthy'))
+
+    abandoned = manager.bulk_remove(['stuck', 'healthy', 'missing'])
+
+    assert abandoned == ['stuck']
+    assert manager.generator_ids == ['stuck']
+
+
+@patch('eventum.app.manager.Generator')
+def test_bulk_stop_stops_all_generators_at_once(mock_generator_class, manager):
+    """Stopping many takes as long as the slowest, not their sum over
+    a pool smaller than their number.
+    """
+    count = 40
+    stopping = threading.Barrier(count, timeout=10)
+
+    def make(params):
+        generator = MagicMock()
+        generator.params.id = params.id
+        generator.stop.side_effect = lambda: stopping.wait() is not None
+        return generator
+
+    mock_generator_class.side_effect = make
+    ids = [f'g{i}' for i in range(count)]
+    for id in ids:
+        manager.add(FakeParams(id))
+
+    # every stop waits for all others, so they must run together
+    assert manager.bulk_stop(ids) == []
 
 
 @patch('eventum.app.manager.Generator')

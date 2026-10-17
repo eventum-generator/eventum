@@ -100,3 +100,8 @@ export const BulkStartResponseSchema = z.object({
   non_running_generator_ids: z.array(z.string()),
 });
 export type BulkStartResponse = z.infer<typeof BulkStartResponseSchema>;
+
+export const BulkDeleteResponseSchema = z.object({
+  non_deleted_generator_ids: z.array(z.string()),
+});
+export type BulkDeleteResponse = z.infer<typeof BulkDeleteResponseSchema>;

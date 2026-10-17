@@ -132,11 +132,22 @@ def test_generation_parameters_write_timeout_one_passes():
     assert params.write_timeout == 1
 
 
+def test_generation_parameters_stop_timeout_zero_raises():
+    with pytest.raises(ValidationError):
+        GenerationParameters(stop_timeout=0)
+
+
+def test_generation_parameters_stop_timeout_one_passes():
+    params = GenerationParameters(stop_timeout=1)
+    assert params.stop_timeout == 1
+
+
 def test_generation_parameters_defaults():
     params = GenerationParameters()
     assert params.keep_order is False
     assert params.max_concurrency == 100
     assert params.write_timeout == 10
+    assert params.stop_timeout == 30
     assert isinstance(params.batch, BatchParameters)
     assert isinstance(params.queue, QueueParameters)
 

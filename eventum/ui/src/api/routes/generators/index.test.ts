@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import {
   addGenerator,
+  bulkRemoveGenerators,
   bulkStartGenerators,
   bulkStopGenerators,
   deleteGenerator,
@@ -14,17 +15,22 @@ import {
   updateGenerator,
 } from './index';
 import { GeneratorParameters } from './schemas';
-import { apiClient } from '@/api/client';
+import { STOP_TIMEOUT, apiClient } from '@/api/client';
 import { APIError } from '@/api/errors';
 
-vi.mock('@/api/client', () => ({
-  apiClient: {
-    get: vi.fn(),
-    post: vi.fn(),
-    put: vi.fn(),
-    delete: vi.fn(),
-  },
-}));
+vi.mock('@/api/client', async (importOriginal) => {
+  const original = await importOriginal<typeof import('@/api/client')>();
+
+  return {
+    STOP_TIMEOUT: original.STOP_TIMEOUT,
+    apiClient: {
+      get: vi.fn(),
+      post: vi.fn(),
+      put: vi.fn(),
+      delete: vi.fn(),
+    },
+  };
+});
 
 const get = vi.mocked(apiClient.get);
 const post = vi.mocked(apiClient.post);
@@ -147,7 +153,9 @@ describe('writing an instance', () => {
   it('deletes one by id', async () => {
     await deleteGenerator('web');
 
-    expect(del).toHaveBeenCalledWith('/generators/web');
+    expect(del).toHaveBeenCalledWith('/generators/web', {
+      timeout: STOP_TIMEOUT,
+    });
   });
 
   it('escapes an id that would otherwise change the path it renames', async () => {
@@ -165,7 +173,9 @@ describe('lifecycle actions', () => {
     await stopGenerator('web');
 
     expect(post).toHaveBeenNthCalledWith(1, '/generators/web/start');
-    expect(post).toHaveBeenNthCalledWith(2, '/generators/web/stop');
+    expect(post).toHaveBeenNthCalledWith(2, '/generators/web/stop', undefined, {
+      timeout: STOP_TIMEOUT,
+    });
   });
 
   it('reports which of the started instances came up', async () => {
@@ -188,9 +198,44 @@ describe('lifecycle actions', () => {
   it('sends the ids to stop as the body, not as a query', async () => {
     await bulkStopGenerators(['web']);
 
-    expect(post).toHaveBeenCalledWith('/generators/group-actions/bulk-stop', [
-      'web',
-    ]);
+    expect(post).toHaveBeenCalledWith(
+      '/generators/group-actions/bulk-stop',
+      ['web'],
+      { timeout: STOP_TIMEOUT }
+    );
+  });
+
+  // A stop is bounded by the stop timeout of each generator, which may
+  // run past the regular deadline of a request.
+  it('waits for the backend to answer a stop rather than a fixed time', () => {
+    expect(STOP_TIMEOUT).toBe(0);
+  });
+
+  it('removes instances without the regular deadline', async () => {
+    post.mockResolvedValue({ data: { non_deleted_generator_ids: [] } });
+    await bulkRemoveGenerators(['web']);
+
+    expect(post).toHaveBeenCalledWith(
+      '/generators/group-actions/bulk-delete',
+      ['web'],
+      { timeout: STOP_TIMEOUT }
+    );
+  });
+});
+
+describe('bulkRemoveGenerators', () => {
+  it('reports the instances that did not stop', async () => {
+    post.mockResolvedValue({ data: { non_deleted_generator_ids: ['web'] } });
+
+    await expect(bulkRemoveGenerators(['web', 'db'])).resolves.toEqual({
+      non_deleted_generator_ids: ['web'],
+    });
+  });
+
+  it('rejects a response without the instances left', async () => {
+    post.mockResolvedValue({ data: null });
+
+    await expect(bulkRemoveGenerators(['web'])).rejects.toThrow();
   });
 });
 

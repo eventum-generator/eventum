@@ -1,7 +1,8 @@
 """Tests for bounded one-shot generator runs."""
 
+import time
 from pathlib import Path
-from threading import Event
+from threading import Event, Timer, current_thread
 from types import SimpleNamespace
 
 import pytest
@@ -19,6 +20,8 @@ from eventum.core.parameters import GeneratorParameters
 _TIMEOUT = 0.2
 _CAP = 5
 _E2E_COUNT = 10
+_STUCK_RUN_TIMEOUT = 2.0
+_STUCK_RUN_BOUND = 8.0
 
 
 def _params(tmp_path: Path) -> GeneratorParameters:
@@ -48,17 +51,24 @@ class _FakeExecutor:
         *,
         writes: int = 0,
         blocks: bool = False,
+        stuck: bool = False,
         error: Exception | None = None,
     ) -> None:
         self._output = output
         self._writes = writes
         self._blocks = blocks
+        self._stuck = stuck
         self._error = error
         self._stop = Event()
         self.stop_requested = False
+        self.ran_as_daemon: bool | None = None
+        safety = Timer(20, self._stop.set)
+        safety.daemon = True
+        safety.start()
 
     def execute(self) -> None:
         """Write counters, then optionally raise or block until stop."""
+        self.ran_as_daemon = current_thread().daemon
         self._output.written += self._writes
         if self._error is not None:
             raise self._error
@@ -66,8 +76,20 @@ class _FakeExecutor:
             self._stop.wait()
 
     def request_stop(self) -> None:
-        """Record the stop request and unblock execute()."""
+        """Record the stop request and unblock execute() unless
+        stuck.
+        """
         self.stop_requested = True
+        if not self._stuck:
+            self._stop.set()
+
+    def stop(self) -> bool:
+        """Request a stop, report whether execution ended."""
+        self.request_stop()
+        return not self._stuck
+
+    def release(self) -> None:
+        """Unblock execute() regardless of being stuck."""
         self._stop.set()
 
 
@@ -138,6 +160,25 @@ def test_run_bounded_times_out(
     assert summary.outcome == 'timeout'
     assert summary.events_written == 0
     assert executor.stop_requested is True
+
+
+def test_run_bounded_abandons_run_that_does_not_stop(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A run that does not stop is abandoned with the stuck outcome."""
+    output = _FakeOutput()
+    executor = _FakeExecutor(output, writes=_CAP, blocks=True, stuck=True)
+    _patch_pipeline(monkeypatch, executor, output)
+
+    try:
+        summary = run_bounded(_params(tmp_path), timeout_seconds=_TIMEOUT)
+    finally:
+        executor.release()
+
+    assert summary.outcome == 'stuck'
+    assert summary.events_written == _CAP
+    # an abandoned run must not keep the process from exiting
+    assert executor.ran_as_daemon is True
 
 
 def test_run_bounded_caps_on_max_events(
@@ -237,3 +278,49 @@ def test_run_bounded_end_to_end_reports_written_events(
     assert summary.outcome == 'completed'
     assert summary.events_written == _E2E_COUNT
     assert summary.events_failed == 0
+
+
+def test_run_bounded_end_to_end_abandons_stuck_plugin(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A plugin that never returns no longer hangs the call.
+
+    Regression for #308: the run was stopped by a request and a join
+    without a deadline, so the call never returned.
+    """
+    monkeypatch.setattr('eventum.core.executor.ABORT_TIMEOUT', 0.5)
+    release = tmp_path / 'release'
+    safety = Timer(20, release.touch)
+    safety.daemon = True
+    safety.start()
+    (tmp_path / 'produce.py').write_text(
+        'import time\n'
+        'from pathlib import Path\n'
+        'def produce(params):\n'
+        f'    while not Path({str(release)!r}).exists():\n'
+        '        time.sleep(0.05)\n'
+        '    return []\n',
+    )
+    (tmp_path / 'generator.yml').write_text(
+        'input:\n'
+        '  - linspace:\n'
+        '      start: "2025-01-01 00:00:00"\n'
+        '      end: "2025-01-01 01:00:00"\n'
+        '      count: 10\n'
+        'event:\n'
+        '  script:\n'
+        '    path: produce.py\n'
+        'output:\n'
+        '  - stdout:\n'
+        '      stream: stderr\n'
+    )
+    params = _params(tmp_path).model_copy(update={'stop_timeout': 1})
+
+    started = time.monotonic()
+    try:
+        summary = run_bounded(params, timeout_seconds=_STUCK_RUN_TIMEOUT)
+    finally:
+        release.touch()
+
+    assert summary.outcome == 'stuck'
+    assert time.monotonic() - started < _STUCK_RUN_BOUND

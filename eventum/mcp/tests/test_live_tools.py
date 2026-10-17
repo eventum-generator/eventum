@@ -11,7 +11,7 @@ from zoneinfo import ZoneInfo
 
 import pytest
 
-from eventum.app.manager import ManagingError
+from eventum.app.manager import GeneratorStopError, ManagingError
 from eventum.app.startup import StartupError, StartupNotFoundError
 from eventum.app.startup.models import (
     StartupGeneratorParameters,
@@ -103,6 +103,7 @@ class _FakeManager:
     ) -> None:
         self.started: list[str] = []
         self.stopped: list[str] = []
+        self.stuck: set[str] = set()
         self.added: list[Any] = []
         self.removed: list[str] = []
         self._generators = (
@@ -124,6 +125,9 @@ class _FakeManager:
         return True
 
     def stop(self, generator_id: str) -> None:
+        if generator_id in self.stuck:
+            msg = 'Generator did not stop, its execution is abandoned'
+            raise GeneratorStopError(msg)
         self.stopped.append(generator_id)
 
     def add(self, params: Any) -> None:
@@ -131,6 +135,9 @@ class _FakeManager:
         self._generators[params.id] = _FakeGenerator(params.id)
 
     def remove(self, generator_id: str) -> None:
+        if generator_id in self.stuck:
+            msg = 'Generator did not stop, its execution is abandoned'
+            raise GeneratorStopError(msg)
         if generator_id not in self._generators:
             msg = 'Generator is not found'
             raise ManagingError(msg)
@@ -243,6 +250,19 @@ async def test_start_and_stop_generator(tmp_path: Path) -> None:
     assert manager.stopped == ['g1']
 
 
+async def test_stop_generator_that_did_not_stop(tmp_path: Path) -> None:
+    """A generator that did not stop yields a failure, not a hang."""
+    manager = _FakeManager()
+    manager.stuck.add('g1')
+    ctx = _ctx(tmp_path, manager, _FakeStartup())
+
+    result = await stop_generator(ctx, 'g1')
+
+    assert isinstance(result, ToolFailure)
+    assert 'did not stop' in result.error
+    assert result.details == {'id': 'g1'}
+
+
 async def test_write_tools_gate_on_read_only(tmp_path: Path) -> None:
     """Read-only mode refuses writes without touching the manager."""
     manager = _FakeManager()
@@ -349,6 +369,25 @@ async def test_unregister_removes_from_both(tmp_path: Path) -> None:
     assert result == {'id': 'g1', 'unregistered': True}
     assert manager.removed == ['g1']
     assert startup.deleted == ['g1']
+
+
+async def test_unregister_generator_that_did_not_stop(
+    tmp_path: Path,
+) -> None:
+    """A generator that does not stop keeps its startup entry, as it
+    stays managed.
+    """
+    manager = _FakeManager()
+    manager.stuck.add('g1')
+    startup = _FakeStartup(present={'g1'})
+    ctx = _ctx(tmp_path, manager, startup)
+
+    result = await unregister_generator(ctx, 'g1')
+
+    assert isinstance(result, ToolFailure)
+    assert 'did not stop' in result.error
+    assert manager.removed == []
+    assert startup.deleted == []
 
 
 async def test_unregister_gates_on_read_only(tmp_path: Path) -> None:

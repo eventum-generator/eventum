@@ -6,6 +6,7 @@ from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import pytest
+import structlog.testing
 from sse_starlette.sse import AppStatus
 
 from eventum.app.hooks import InstanceHooks
@@ -322,3 +323,35 @@ def test_start_server_resets_sse_drain(tmp_path: Path) -> None:
             assert AppStatus.should_exit is False
         finally:
             app.stop()
+
+
+def test_stop_generators_reports_abandoned_ones(app: App) -> None:
+    """Generators that did not stop are named in one record."""
+    with (
+        patch.object(
+            app._manager,  # noqa: SLF001
+            'bulk_stop',
+            return_value=['stuck'],
+        ),
+        structlog.testing.capture_logs() as logs,
+    ):
+        app._stop_generators()  # noqa: SLF001
+
+    errors = [log for log in logs if log['log_level'] == 'error']
+    assert len(errors) == 1
+    assert errors[0]['generator_ids'] == ['stuck']
+
+
+def test_stop_generators_quiet_when_all_stopped(app: App) -> None:
+    """Nothing is reported when every generator stopped."""
+    with (
+        patch.object(
+            app._manager,  # noqa: SLF001
+            'bulk_stop',
+            return_value=[],
+        ),
+        structlog.testing.capture_logs() as logs,
+    ):
+        app._stop_generators()  # noqa: SLF001
+
+    assert not [log for log in logs if log['log_level'] == 'error']

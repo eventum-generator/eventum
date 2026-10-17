@@ -244,7 +244,17 @@ class App:
             'Bulk stopping generators',
             generator_ids=generator_ids,
         )
-        self._manager.bulk_stop(generator_ids)
+        abandoned = self._manager.bulk_stop(generator_ids)
+
+        if abandoned:
+            logger.error(
+                'Some generators did not stop, their execution is abandoned',
+                generator_ids=abandoned,
+                hint=(
+                    'Restart the Eventum process to release them, and '
+                    'check their plugins for code that does not return'
+                ),
+            )
 
     def _run_server(self) -> None:
         """Run server with handling possible errors.

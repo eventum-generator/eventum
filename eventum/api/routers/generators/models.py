@@ -260,6 +260,26 @@ class BulkStartResponse(BaseModel, extra='forbid', frozen=True):
     non_running_generator_ids: list[str]
 
 
+class BulkDeleteResponse(BaseModel, extra='forbid', frozen=True):
+    """Response model that contains ids of generators left after bulk
+    delete operation.
+
+    Attributes
+    ----------
+    non_deleted_generator_ids : list[str]
+        List of ids of generators that did not stop, so they are not
+        deleted and their execution is abandoned.
+
+    """
+
+    non_deleted_generator_ids: list[str] = Field(
+        description=(
+            'IDs of generators that did not stop, so they are not deleted '
+            'and their execution is abandoned'
+        ),
+    )
+
+
 class RenameGeneratorRequest(BaseModel, extra='forbid', frozen=True):
     """New id for an existing generator."""
 

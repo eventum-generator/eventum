@@ -31,6 +31,7 @@ const SETTINGS = {
     keep_order: false,
     max_concurrency: 100,
     write_timeout: 10,
+    stop_timeout: 30,
   },
   log: {
     level: 'info',

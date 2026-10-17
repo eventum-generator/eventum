@@ -155,8 +155,9 @@ def register(
         -------
         dict[str, Any] | ToolFailure
             ``{'id', 'reason', 'events_written', 'events_failed'}``
-            where reason is completed, timeout, max_events, or error;
-            or a structured failure. Does not raise.
+            where reason is completed, timeout, max_events, error, or
+            stuck - a plugin that never returned, so the run is
+            abandoned; or a structured failure. Does not raise.
 
         """
         return observe_failure(

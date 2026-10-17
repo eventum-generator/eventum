@@ -185,6 +185,21 @@ def test_stop_generator_not_found(client):
     assert response.status_code == 404
 
 
+def test_stop_generator_that_did_not_stop(client, manager, tmp_settings):
+    config_path = _make_config_file(tmp_settings, 'stuck')
+    manager.add(GeneratorParameters(id='stuck', path=Path(config_path)))
+
+    with patch.object(
+        manager.get_generator('stuck'),
+        'stop',
+        return_value=False,
+    ):
+        response = client.post('/generators/stuck/stop')
+
+    assert response.status_code == 500
+    assert 'did not stop' in response.json()['detail']
+
+
 # --- DELETE /{id} ---
 
 
@@ -228,12 +243,48 @@ def test_bulk_stop(client, manager, tmp_settings):
     params = GeneratorParameters(id='bulk2', path=Path(config_path))
     manager.add(params)
 
-    with patch.object(manager, 'bulk_stop'):
+    with patch.object(manager, 'bulk_stop', return_value=[]):
         response = client.post(
             '/generators/group-actions/bulk-stop',
             json=['bulk2'],
         )
     assert response.status_code == 200
+
+
+def test_bulk_stop_reports_generators_that_did_not_stop(client, manager):
+    with patch.object(manager, 'bulk_stop', return_value=['stuck']):
+        response = client.post(
+            '/generators/group-actions/bulk-stop',
+            json=['stuck', 'healthy'],
+        )
+    assert response.status_code == 500
+    assert 'did not stop' in response.json()['detail']
+
+
+def test_bulk_delete_reports_generators_that_did_not_stop(client, manager):
+    """The others are deleted, so the client learns which ones are not."""
+    with patch.object(manager, 'bulk_remove', return_value=['stuck']):
+        response = client.post(
+            '/generators/group-actions/bulk-delete',
+            json=['stuck', 'healthy'],
+        )
+    assert response.status_code == 200
+    assert response.json() == {'non_deleted_generator_ids': ['stuck']}
+
+
+def test_delete_generator_that_did_not_stop(client, manager, tmp_settings):
+    config_path = _make_config_file(tmp_settings, 'stuck')
+    manager.add(GeneratorParameters(id='stuck', path=Path(config_path)))
+
+    with patch.object(
+        manager.get_generator('stuck'),
+        'stop',
+        return_value=False,
+    ):
+        response = client.delete('/generators/stuck')
+
+    assert response.status_code == 500
+    assert 'stuck' in manager.generator_ids
 
 
 # --- POST /{id}/rename ---

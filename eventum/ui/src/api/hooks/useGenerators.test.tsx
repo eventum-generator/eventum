@@ -47,7 +47,9 @@ beforeEach(() => {
   vi.mocked(routes.startGenerator).mockResolvedValue();
   vi.mocked(routes.stopGenerator).mockResolvedValue();
   vi.mocked(routes.bulkStopGenerators).mockResolvedValue();
-  vi.mocked(routes.bulkRemoveGenerators).mockResolvedValue();
+  vi.mocked(routes.bulkRemoveGenerators).mockResolvedValue({
+    non_deleted_generator_ids: [],
+  });
 });
 
 describe('useGenerators', () => {

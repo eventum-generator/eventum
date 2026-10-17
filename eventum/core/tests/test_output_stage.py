@@ -470,3 +470,75 @@ async def test_batch_counts_until_the_last_plugin_is_done():
     await asyncio.wait_for(execution, timeout=2)
 
     assert input_q.size_bytes == 0
+
+
+# - abort ---------------------------------------------------------------
+
+
+async def _wait_for_writes(plugin: MagicMock, count: int) -> None:
+    while plugin.write.await_count < count:
+        await asyncio.sleep(0.01)
+
+
+@pytest.mark.asyncio
+async def test_execute_discards_writes_on_queue_shutdown():
+    """A queue shut down ends the stage with writes in progress
+    canceled and reported once, rather than as an unexpected error.
+    """
+    plugin = _make_mock_output_plugin()
+    plugin.write = AsyncMock(side_effect=_slow_write)
+    stage = _make_output_stage(
+        plugins=[plugin],
+        params=_make_params(write_timeout=60),
+    )
+    input_q: PipelineQueue[list[str]] = PipelineQueue(maxsize=10)
+    input_q.put(['a'])
+    input_q.put(['b'])
+
+    with structlog.testing.capture_logs() as logs:
+        task = asyncio.create_task(stage.execute(input=input_q))
+        await asyncio.wait_for(_wait_for_writes(plugin, 2), 5)
+        input_q.shutdown()
+        await asyncio.wait_for(task, 5)
+
+    assert stage._tasks == set()
+    discarded = [
+        log for log in logs if log['event'].startswith('Write operations')
+    ]
+    assert len(discarded) == 1
+    assert discarded[0]['count'] == 2
+    assert discarded[0]['log_level'] == 'warning'
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize('keep_order', [True, False])
+async def test_execute_cancellation_discards_writes(keep_order):
+    """A cancelled stage cancels its writes before ending, including
+    concurrent ones it does not wait for.
+    """
+    plugin = _make_mock_output_plugin()
+    plugin.write = AsyncMock(side_effect=_slow_write)
+    stage = _make_output_stage(
+        plugins=[plugin],
+        params=_make_params(write_timeout=60, keep_order=keep_order),
+    )
+    input_q: PipelineQueue[list[str]] = PipelineQueue(maxsize=10)
+    input_q.put(['a'])
+
+    task = asyncio.create_task(stage.execute(input=input_q))
+
+    try:
+        await asyncio.wait_for(_wait_for_writes(plugin, 1), 5)
+        task.cancel()
+
+        with pytest.raises(asyncio.CancelledError):
+            await asyncio.wait_for(task, 5)
+
+        assert stage._tasks == set()
+        assert stage._discarded_writes == 1
+    finally:
+        # Releases the worker waiting on the queue, which the loop
+        # would otherwise wait for as it closes.
+        input_q.shutdown()
+        for leftover in list(stage._tasks):
+            leftover.cancel()

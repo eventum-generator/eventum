@@ -1,7 +1,7 @@
 """Module for managing multiple generators."""
 
 import threading
-from collections.abc import Callable, Iterable, Iterator
+from collections.abc import Iterable, Iterator
 from concurrent.futures import Future, ThreadPoolExecutor
 
 import structlog
@@ -25,6 +25,10 @@ as a result, which is preferable to the spike.
 
 class ManagingError(Exception):
     """Error in managing generators."""
+
+
+class GeneratorStopError(ManagingError):
+    """Generator did not stop, its execution is abandoned."""
 
 
 class GeneratorManager:
@@ -113,6 +117,10 @@ class GeneratorManager:
 
         Raises
         ------
+        GeneratorStopError
+            If generator did not stop, so it stays managed with its
+            execution abandoned.
+
         ManagingError
             If generator is not found in list of managed generators.
 
@@ -121,9 +129,12 @@ class GeneratorManager:
             generator = self.get_generator(generator_id)
             del self._generators[generator_id]
 
-        generator.stop()
+        if not generator.stop():
+            self._keep_abandoned([generator])
+            msg = 'Generator did not stop, its execution is abandoned'
+            raise GeneratorStopError(msg)
 
-    def bulk_remove(self, generator_ids: Iterable[str]) -> None:
+    def bulk_remove(self, generator_ids: Iterable[str]) -> list[str]:
         """Remove generators from list of managed generators. Stop
         generators that are running. If no generator of specified id
         found in list of managed generators it is just skipped.
@@ -132,6 +143,12 @@ class GeneratorManager:
         ----------
         generator_ids : Iterable[str]
             ID of generators to remove.
+
+        Returns
+        -------
+        list[str]
+            IDs of generators that did not stop, so they stay managed
+            with their execution abandoned.
 
         """
         with self._lock:
@@ -143,11 +160,41 @@ class GeneratorManager:
                 except KeyError:
                     continue
 
+        abandoned = self._stop_all(work)
+        self._keep_abandoned(abandoned)
+
+        return [generator.params.id for generator in abandoned]
+
+    def _keep_abandoned(self, generators: Iterable[Generator]) -> None:
+        """Put back generators that did not stop, so the ones still
+        executing are not lost from management. An id taken by another
+        generator meanwhile is left to it.
+        """
+        with self._lock:
+            for generator in generators:
+                self._generators.setdefault(generator.params.id, generator)
+
+    @staticmethod
+    def _stop_all(generators: list[Generator]) -> list[Generator]:
+        """Stop generators at once and return those that did not stop.
+
+        Every generator gets a thread of its own, so stopping many takes
+        as long as stopping the slowest of them.
+        """
+        if not generators:
+            return []
+
         with ThreadPoolExecutor(
+            max_workers=len(generators),
             thread_name_prefix=_STOPPING_POOL_PREFIX,
         ) as executor:
-            for generator in work:
-                executor.submit(generator.stop)
+            stopped = list(executor.map(lambda g: g.stop(), generators))
+
+        return [
+            generator
+            for generator, is_stopped in zip(generators, stopped, strict=True)
+            if not is_stopped
+        ]
 
     def start(self, generator_id: str) -> bool:
         """Start generator. Ignore call if generator is already
@@ -236,46 +283,29 @@ class GeneratorManager:
 
         Raises
         ------
+        GeneratorStopError
+            If generator did not stop, so its execution is abandoned.
+
         ManagingError
             If generator is not found in list of managed generators.
 
         """
         generator = self.get_generator(generator_id)
-        generator.stop()
 
-    def _run_on_generators(
-        self,
-        generator_ids: Iterable[str],
-        op: Callable[[Generator], object],
-        thread_name_prefix: str,
-    ) -> None:
-        """Snapshot live generators under the lock and submit `op` for
-        each to a named thread pool.
+        if not generator.stop():
+            msg = 'Generator did not stop, its execution is abandoned'
+            raise GeneratorStopError(msg)
 
-        Parameters
-        ----------
-        generator_ids : Iterable[str]
-            ID of generators to operate on. Unknown ids are skipped.
-        op : Callable[[Generator], object]
-            Operation to submit for each live generator.
-        thread_name_prefix : str
-            Prefix for the worker thread names.
-
-        """
+    def _snapshot(self, generator_ids: Iterable[str]) -> list[Generator]:
+        """Live generators of the ids, unknown ones skipped."""
         with self._lock:
-            work = [
+            return [
                 g
                 for id in generator_ids
                 if (g := self._generators.get(id)) is not None
             ]
 
-        with ThreadPoolExecutor(
-            thread_name_prefix=thread_name_prefix,
-        ) as executor:
-            for generator in work:
-                executor.submit(op, generator)
-
-    def bulk_stop(self, generator_ids: Iterable[str]) -> None:
+    def bulk_stop(self, generator_ids: Iterable[str]) -> list[str]:
         """Stop generators. Ignore call for those that are not running.
         If no generator of specified id found in list of managed
         generators it is just skipped.
@@ -285,12 +315,15 @@ class GeneratorManager:
         generator_ids : Iterable[str]
             ID of generators to stop.
 
+        Returns
+        -------
+        list[str]
+            IDs of generators that did not stop, so their execution is
+            abandoned.
+
         """
-        self._run_on_generators(
-            generator_ids,
-            lambda generator: generator.stop(),
-            _STOPPING_POOL_PREFIX,
-        )
+        abandoned = self._stop_all(self._snapshot(generator_ids))
+        return [generator.params.id for generator in abandoned]
 
     def bulk_join(self, generator_ids: Iterable[str]) -> None:
         """Wait until all running generator terminates.
@@ -301,11 +334,17 @@ class GeneratorManager:
             ID of generators to join.
 
         """
-        self._run_on_generators(
-            generator_ids,
-            lambda generator: generator.join(),
-            'generators-joining:',
-        )
+        work = self._snapshot(generator_ids)
+
+        if not work:
+            return
+
+        with ThreadPoolExecutor(
+            max_workers=len(work),
+            thread_name_prefix='generators-joining:',
+        ) as executor:
+            for generator in work:
+                executor.submit(generator.join)
 
     def get_generator(self, generator_id: str) -> Generator:
         """Get generator from list of managed generators.

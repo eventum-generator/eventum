@@ -1,6 +1,7 @@
 """Output stage of the pipeline — consumes events, writes to outputs."""
 
 import asyncio
+import queue as queue_mod
 from collections import Counter, defaultdict
 from typing import TYPE_CHECKING, cast
 
@@ -61,6 +62,7 @@ class OutputStage:
             lambda: Throttler(limit=1, period=10),
         )
         self._timed_out_writes: Counter[str] = Counter()
+        self._discarded_writes = 0
 
     async def open(self) -> None:
         """Open all output plugins for writing.
@@ -104,6 +106,30 @@ class OutputStage:
         input: PipelineQueue[list[str]],
     ) -> None:
         """Consume event batches and write to output plugins.
+
+        Parameters
+        ----------
+        input : PipelineQueue[list[str]]
+            Queue of event batches to consume.
+
+        Notes
+        -----
+        A queue shut down or a cancellation of the stage means the
+        execution is aborted: writes in progress are canceled rather
+        than awaited.
+
+        """
+        try:
+            await self._consume(input)
+        except queue_mod.ShutDown:
+            await self._discard_writes()
+            logger.debug('Output stage interrupted by queue shutdown')
+        except asyncio.CancelledError:
+            await self._discard_writes()
+            raise
+
+    async def _consume(self, input: PipelineQueue[list[str]]) -> None:
+        """Consume event batches until the queue is closed.
 
         Parameters
         ----------
@@ -159,6 +185,22 @@ class OutputStage:
                 return_exceptions=True,
             )
             self._tasks.clear()
+
+    async def _discard_writes(self) -> None:
+        """Cancel writes in progress and wait for them to wind down."""
+        tasks = list(self._tasks)
+
+        for task in tasks:
+            task.cancel()
+
+        await asyncio.gather(*tasks, return_exceptions=True)
+
+        if self._discarded_writes:
+            await logger.awarning(
+                'Write operations are discarded, their events are not '
+                'counted as written',
+                count=self._discarded_writes,
+            )
 
     @staticmethod
     def _releaser(
@@ -250,7 +292,8 @@ class OutputStage:
                 reason=str(e),
             )
         except asyncio.CancelledError:
-            logger.warning('Write operation discarded')
+            # reported once for all of them by the discarding side
+            self._discarded_writes += 1
         finally:
             self._semaphore.release()
             self._tasks.remove(task)

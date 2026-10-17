@@ -3,8 +3,10 @@
 Loads a generator configuration, initializes its plugins, and runs
 the full pipeline while holding the plugin instances for the whole
 call, so the final output counts stay readable however fast the run
-ends. The run always terminates: naturally for a finite generator,
-or stopped at a timeout or written-events cap for an open-ended one.
+ends. Once executing, the call returns in bounded time: the run ends
+naturally for a finite generator, or is stopped at a timeout or
+written-events cap for an open-ended one, and a run that does not stop
+even then is abandoned.
 """
 
 import time
@@ -24,9 +26,10 @@ from eventum.core.plugins_initializer import (
 
 logger = structlog.stdlib.get_logger()
 
-RunOutcome = Literal['completed', 'timeout', 'max_events', 'error']
-"""How a bounded run ended: naturally ('completed' or 'error') or
-stopped at a bound ('timeout' or 'max_events')."""
+RunOutcome = Literal['completed', 'timeout', 'max_events', 'error', 'stuck']
+"""How a bounded run ended: naturally ('completed' or 'error'), stopped
+at a bound ('timeout' or 'max_events'), or abandoned as it did not stop
+('stuck')."""
 
 _MAX_TIMEOUT = 300.0
 _POLL_INTERVAL = 0.05
@@ -41,7 +44,7 @@ class RunSummary:
     outcome : RunOutcome
         How the run ended: 'completed' or 'error' for a natural
         finish, 'timeout' or 'max_events' for a run stopped at a
-        bound.
+        bound, 'stuck' for a run abandoned as it did not stop.
 
     events_written : int
         Events successfully written across all output plugins.
@@ -69,6 +72,24 @@ def _output_counts(plugins: InitializedPlugins) -> tuple[int, int]:
     return written, failed
 
 
+def _stop_at_bound(
+    executor: Executor,
+    thread: Thread,
+    params: GeneratorParameters,
+    bound: RunOutcome,
+) -> RunOutcome:
+    """Stop a run that reached its bound and classify how it ended."""
+    if executor.stop():
+        thread.join()
+        return bound
+
+    logger.error(
+        'Run did not stop, its execution is abandoned',
+        generator_id=params.id,
+    )
+    return 'stuck'
+
+
 def run_bounded(
     params: GeneratorParameters,
     *,
@@ -78,12 +99,15 @@ def run_bounded(
     """Run a generator pipeline to its outputs within bounds.
 
     Loads the configuration, initializes the plugins, and executes
-    the full pipeline, blocking until the run ends. The run always
-    terminates: naturally for a finite generator, or stopped once
-    the timeout or the written-events cap is reached. The plugin
-    instances are held for the whole call, so the returned counts
-    reflect the final state of the output plugins even when the run
-    ends faster than the first poll.
+    the full pipeline, blocking until the run ends. Once executing,
+    the call returns in bounded time: the run ends naturally for a
+    finite generator, or is stopped once the timeout or the written-events
+    cap is reached - gracefully within `stop_timeout` of the
+    parameters, then aborted. A run that does not end even after the
+    abort is abandoned to the plugin code that does not return. The
+    plugin instances are held for the whole call, so the returned
+    counts reflect the final state of the output plugins even when the
+    run ends faster than the first poll.
 
     Parameters
     ----------
@@ -154,7 +178,13 @@ def run_bounded(
             )
             failures.append(e)
 
-    thread = Thread(target=_execute, name=f'generator:{params.id}')
+    # A daemon thread, as a run that does not stop is abandoned and
+    # must not keep the process from exiting.
+    thread = Thread(
+        target=_execute,
+        name=f'generator:{params.id}',
+        daemon=True,
+    )
     thread.start()
 
     deadline = time.monotonic() + _clamp_timeout(timeout_seconds)
@@ -173,10 +203,10 @@ def run_bounded(
 
         time.sleep(_POLL_INTERVAL)
 
+    outcome: RunOutcome
+
     if bound is not None and thread.is_alive():
-        executor.request_stop()
-        thread.join()
-        outcome: RunOutcome = bound
+        outcome = _stop_at_bound(executor, thread, params, bound)
     else:
         # A natural finish at the same moment as a bound hit is
         # classified as the natural outcome.

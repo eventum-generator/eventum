@@ -132,6 +132,13 @@ generation.max_concurrency: 100
 # Optional, default is 10
 generation.write_timeout : 10
 
+# Time (in seconds) a stopping generator is given to deliver the events it
+# has already produced. Once it runs out, the events still waiting are
+# discarded and writes in progress are canceled, so one unreachable output
+# cannot hold back stop, restart or shutdown of the instance
+# Optional, default is 30
+generation.stop_timeout: 30
+
 
 # =============================== Log Parameters ==============================
 

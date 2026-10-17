@@ -106,6 +106,10 @@ class GenerationParameters(BaseModel, extra='forbid', frozen=True):
     write_timeout : int, default=10
         Timeout (in seconds) before canceling single write task.
 
+    stop_timeout : int, default=30
+        Time (in seconds) a stopping generator is given to deliver the
+        events it has already produced before they are discarded.
+
     """
 
     timezone: str = Field(default='UTC', min_length=3)
@@ -114,6 +118,7 @@ class GenerationParameters(BaseModel, extra='forbid', frozen=True):
     keep_order: bool = Field(default=False)
     max_concurrency: int = Field(default=100, ge=1)
     write_timeout: int = Field(default=10, ge=1)
+    stop_timeout: int = Field(default=30, ge=1)
 
     @field_validator('timezone')
     @classmethod
