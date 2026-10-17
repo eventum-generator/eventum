@@ -38,12 +38,19 @@ def _make_mock_output_plugin(write_return: int = 5):
 def _make_output_stage(
     plugins=None,
     params=None,
+    discard_events=None,
 ) -> OutputStage:
     if plugins is None:
         plugins = [_make_mock_output_plugin()]
     if params is None:
         params = _make_params()
-    return OutputStage(plugins=plugins, params=params)
+    if discard_events is None:
+        discard_events = MagicMock()
+    return OutputStage(
+        plugins=plugins,
+        params=params,
+        discard_events=discard_events,
+    )
 
 
 def _feed_and_close(input_q: PipelineQueue, batches: list) -> None:
@@ -542,3 +549,68 @@ async def test_execute_cancellation_discards_writes(keep_order):
         input_q.shutdown()
         for leftover in list(stage._tasks):
             leftover.cancel()
+
+
+@pytest.mark.asyncio
+async def test_cancellation_counts_batch_not_handed_to_every_plugin():
+    """A batch cut off before every plugin got it is reported as
+    discarded, as the plugins left out never count it.
+    """
+    first = _make_mock_output_plugin()
+    first.write = AsyncMock(side_effect=_slow_write)
+    second = _make_mock_output_plugin()
+    discard_events = MagicMock()
+    stage = _make_output_stage(
+        plugins=[first, second],
+        # the second plugin waits for the slot the first one holds
+        params=_make_params(write_timeout=60, max_concurrency=1),
+        discard_events=discard_events,
+    )
+    input_q: PipelineQueue[list[str]] = PipelineQueue(maxsize=10)
+    input_q.put(['a', 'b', 'c'])
+
+    task = asyncio.create_task(stage.execute(input=input_q))
+
+    try:
+        await asyncio.wait_for(_wait_for_writes(first, 1), 5)
+        task.cancel()
+
+        with pytest.raises(asyncio.CancelledError):
+            await asyncio.wait_for(task, 5)
+    finally:
+        input_q.shutdown()
+
+    second.write.assert_not_called()
+    discard_events.assert_called_once_with(3)
+
+
+@pytest.mark.asyncio
+async def test_cancellation_after_every_plugin_got_the_batch():
+    """A batch every plugin already got is counted by their writes, not
+    as discarded.
+    """
+    first = _make_mock_output_plugin()
+    first.write = AsyncMock(side_effect=_slow_write)
+    second = _make_mock_output_plugin()
+    second.write = AsyncMock(side_effect=_slow_write)
+    discard_events = MagicMock()
+    stage = _make_output_stage(
+        plugins=[first, second],
+        params=_make_params(write_timeout=60),
+        discard_events=discard_events,
+    )
+    input_q: PipelineQueue[list[str]] = PipelineQueue(maxsize=10)
+    input_q.put(['a', 'b'])
+
+    task = asyncio.create_task(stage.execute(input=input_q))
+
+    try:
+        await asyncio.wait_for(_wait_for_writes(second, 1), 5)
+        task.cancel()
+
+        with pytest.raises(asyncio.CancelledError):
+            await asyncio.wait_for(task, 5)
+    finally:
+        input_q.shutdown()
+
+    discard_events.assert_not_called()

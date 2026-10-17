@@ -18,6 +18,14 @@ interface StatusBadgesProps {
 export const StatusBadges: FC<StatusBadgesProps> = ({ row }) => {
   const chips: ReactNode[] = [];
 
+  if (row.stuckCount > 0) {
+    chips.push(
+      <StatusChip key="stuck" variant="stuck">
+        {row.stuckCount} stuck
+      </StatusChip>
+    );
+  }
+
   if (row.runningCount > 0) {
     chips.push(
       <StatusChip key="running" variant="good">

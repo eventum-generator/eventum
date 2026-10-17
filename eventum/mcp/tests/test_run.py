@@ -5,7 +5,11 @@ from typing import Any
 
 import pytest
 
-from eventum.app.bounded_run import RunOutcome, RunSummary
+from eventum.app.bounded_run import (
+    InitializationTimeoutError,
+    RunOutcome,
+    RunSummary,
+)
 from eventum.core.config_loader import ConfigurationLoadError
 from eventum.core.parameters import GeneratorParameters
 from eventum.mcp.context import FileAuthoringContext
@@ -54,7 +58,7 @@ async def test_run_missing_generator(tmp_path: Path) -> None:
 
 
 @pytest.mark.parametrize(
-    'outcome', ['completed', 'timeout', 'max_events', 'error']
+    'outcome', ['completed', 'timeout', 'max_events', 'error', 'stuck']
 )
 async def test_run_serializes_outcome_and_counts(
     tmp_path: Path,
@@ -66,7 +70,10 @@ async def test_run_serializes_outcome_and_counts(
     monkeypatch.setattr(
         _RUN_BOUNDED,
         lambda *_a, **_k: RunSummary(
-            outcome=outcome, events_written=42, events_failed=3
+            outcome=outcome,
+            events_written=42,
+            events_failed=3,
+            events_discarded=5,
         ),
     )
     result = await run_generator(_ctx(tmp_path), 'g')
@@ -75,6 +82,7 @@ async def test_run_serializes_outcome_and_counts(
         'reason': outcome,
         'events_written': 42,
         'events_failed': 3,
+        'events_discarded': 5,
     }
 
 
@@ -95,7 +103,10 @@ async def test_run_passes_parameters(
         captured['timeout_seconds'] = timeout_seconds
         captured['max_events'] = max_events
         return RunSummary(
-            outcome='completed', events_written=0, events_failed=0
+            outcome='completed',
+            events_written=0,
+            events_failed=0,
+            events_discarded=0,
         )
 
     monkeypatch.setattr(_RUN_BOUNDED, _fake)
@@ -135,6 +146,26 @@ async def test_run_config_error_returns_failure(
     assert isinstance(result, ToolFailure)
     assert result.error == 'Failed to load configuration'
     assert result.details == {'reason': 'bad yaml'}
+
+
+async def test_run_initialization_timeout_returns_failure(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A generator that does not load in time is reported, with the
+    timeout it exceeded.
+    """
+    _make_gen(tmp_path, 'g')
+
+    def _raise(*_args: Any, **_kwargs: Any) -> RunSummary:
+        msg = 'Generator did not initialize in time'
+        raise InitializationTimeoutError(msg, context={'timeout': 60})
+
+    monkeypatch.setattr(_RUN_BOUNDED, _raise)
+    result = await run_generator(_ctx(tmp_path), 'g')
+
+    assert isinstance(result, ToolFailure)
+    assert result.error == 'Generator did not initialize in time'
+    assert result.details == {'timeout': 60}
 
 
 async def test_run_rejects_empty_name(

@@ -3,6 +3,9 @@ import { scenarioStatusBucket } from '@/components/ui/statusPalette';
 
 export interface ScenarioStatusCounts {
   total: number;
+  /** Instances that did not stop or did not finish starting; neither start
+   *  nor stop acts on them. */
+  stuck: number;
   running: number;
   initializing: number;
   stopping: number;
@@ -17,6 +20,7 @@ export function summarizeScenarioStatuses(
 ): ScenarioStatusCounts {
   const counts: ScenarioStatusCounts = {
     total: statuses.length,
+    stuck: 0,
     running: 0,
     initializing: 0,
     stopping: 0,
@@ -25,7 +29,8 @@ export function summarizeScenarioStatuses(
 
   for (const status of statuses) {
     const bucket = scenarioStatusBucket(status);
-    if (bucket === 'running') counts.running += 1;
+    if (bucket === 'stuck') counts.stuck += 1;
+    else if (bucket === 'running') counts.running += 1;
     else if (bucket === 'initializing') counts.initializing += 1;
     else if (bucket === 'stopping') counts.stopping += 1;
     else counts.inactive += 1;

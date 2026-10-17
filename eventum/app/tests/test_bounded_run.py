@@ -2,7 +2,7 @@
 
 import time
 from pathlib import Path
-from threading import Event, Timer, current_thread
+from threading import Event, Thread, Timer, current_thread
 from types import SimpleNamespace
 
 import pytest
@@ -10,6 +10,7 @@ import pytest
 from eventum.app.bounded_run import (
     _MAX_TIMEOUT,
     _POLL_INTERVAL,
+    InitializationTimeoutError,
     _clamp_timeout,
     run_bounded,
 )
@@ -61,6 +62,8 @@ class _FakeExecutor:
         self._error = error
         self._stop = Event()
         self.stop_requested = False
+        self.discarded_events = 0
+        self.threads: list = []
         self.ran_as_daemon: bool | None = None
         safety = Timer(20, self._stop.set)
         safety.daemon = True
@@ -239,6 +242,74 @@ def test_run_bounded_classifies_unexpected_error(
     summary = run_bounded(_params(tmp_path), timeout_seconds=5.0)
 
     assert summary.outcome == 'error'
+
+
+def test_run_bounded_reports_discarded_events(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Events dropped unwritten as the run stopped are reported."""
+    output = _FakeOutput()
+    executor = _FakeExecutor(output, blocks=True)
+    executor.discarded_events = _CAP
+    _patch_pipeline(monkeypatch, executor, output)
+
+    summary = run_bounded(_params(tmp_path), timeout_seconds=_TIMEOUT)
+
+    assert summary.events_discarded == _CAP
+
+
+def test_run_bounded_abandons_initialization_that_does_not_end(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A configuration that does not load in time ends the call with
+    an error instead of hanging it.
+    """
+    release = Event()
+    safety = Timer(20, release.set)
+    safety.daemon = True
+    safety.start()
+
+    monkeypatch.setattr(
+        'eventum.app.bounded_run.load',
+        lambda _path, _params: release.wait(),
+    )
+    params = _params(tmp_path).model_copy(update={'init_timeout': 1})
+
+    started = time.monotonic()
+    try:
+        with pytest.raises(InitializationTimeoutError) as error:
+            run_bounded(params, timeout_seconds=_TIMEOUT)
+    finally:
+        release.set()
+
+    assert error.value.context == {'timeout': 1}
+    assert time.monotonic() - started < _STUCK_RUN_BOUND
+
+
+def test_run_bounded_disowns_threads_earlier_runs_left(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A thread a run abandoned earlier is not counted for this one."""
+    output = _FakeOutput()
+    executor = _FakeExecutor(output, writes=_CAP)
+    _patch_pipeline(monkeypatch, executor, output)
+
+    release = Event()
+    left = Thread(
+        target=release.wait,
+        args=(20,),
+        name='event:g',
+        daemon=True,
+    )
+    left.start()
+
+    try:
+        run_bounded(_params(tmp_path), timeout_seconds=5.0)
+    finally:
+        release.set()
+        left.join(5)
+
+    assert left.name == 'abandoned:event:g'
 
 
 def test_run_bounded_missing_config_raises(tmp_path: Path) -> None:

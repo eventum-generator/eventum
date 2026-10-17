@@ -50,6 +50,7 @@ def _make_event_stage(
     input_tags=None,
     params=None,
     abandon_input=None,
+    discard_events=None,
 ) -> EventStage:
     """Factory for EventStage with sensible defaults."""
     if plugin is None:
@@ -61,11 +62,14 @@ def _make_event_stage(
         params = _make_params()
     if abandon_input is None:
         abandon_input = MagicMock()
+    if discard_events is None:
+        discard_events = MagicMock()
     return EventStage(
         plugin=plugin,
         input_tags=input_tags,
         params=params,
         abandon_input=abandon_input,
+        discard_events=discard_events,
     )
 
 
@@ -710,3 +714,28 @@ def test_full_output_queue_stays_silent_in_sample_mode():
         _release_stage(thread, input_q, output_q)
 
     assert not [entry for entry in logs if entry['log_level'] == 'warning']
+
+
+def test_execute_counts_events_the_shut_output_drops():
+    """Events produced for an output queue shut down meanwhile are
+    reported as discarded rather than lost without a trace.
+    """
+    plugin = MagicMock()
+    plugin.produce.return_value = ['a', 'b']
+    discard_events = MagicMock()
+    stage = _make_event_stage(plugin=plugin, discard_events=discard_events)
+
+    input_q: PipelineQueue[IdentifiedTimestamps] = PipelineQueue(maxsize=10)
+    output_q: PipelineQueue[list[str]] = PipelineQueue(maxsize=10)
+    input_q.put(_make_timestamps(count=3))
+    output_q.shutdown()
+
+    thread = threading.Thread(
+        target=stage.execute,
+        kwargs={'input': input_q, 'output': output_q},
+    )
+    thread.start()
+    thread.join(timeout=5)
+
+    assert not thread.is_alive()
+    discard_events.assert_called_once_with(6)

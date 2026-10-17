@@ -7,6 +7,7 @@ import {
   bulkStopGenerators,
   deleteGenerator,
   getGenerator,
+  getGeneratorStatus,
   listGenerators,
   renameGenerator,
   startGenerator,
@@ -62,6 +63,7 @@ describe('listGenerators', () => {
             is_ended_up: false,
             is_ended_up_successfully: false,
             is_stopping: false,
+            is_abandoned: false,
           },
           start_time: '2026-08-20T10:00:00Z',
         },
@@ -86,6 +88,7 @@ describe('listGenerators', () => {
             is_ended_up: false,
             is_ended_up_successfully: false,
             is_stopping: false,
+            is_abandoned: false,
           },
           start_time: null,
         },
@@ -118,6 +121,7 @@ describe('listGenerators', () => {
             is_ended_up: false,
             is_ended_up_successfully: false,
             is_stopping: false,
+            is_abandoned: false,
           },
           start_time: null,
         },
@@ -125,6 +129,42 @@ describe('listGenerators', () => {
     });
 
     await expect(listGenerators()).rejects.toBeInstanceOf(APIError);
+  });
+});
+
+describe('getGeneratorStatus', () => {
+  const STATUS = {
+    is_initializing: false,
+    is_running: true,
+    is_ended_up: false,
+    is_ended_up_successfully: false,
+    is_stopping: false,
+    is_abandoned: false,
+  };
+
+  it('returns an instance that a stop could not end', async () => {
+    get.mockResolvedValue({ data: { ...STATUS, is_abandoned: true } });
+
+    const status = await getGeneratorStatus('web');
+
+    expect(get).toHaveBeenCalledWith('/generators/web/status');
+    expect(status.is_abandoned).toBe(true);
+    expect(status.is_running).toBe(true);
+  });
+
+  it('rejects a status that does not say whether it is stuck', async () => {
+    // A backend older than the field leaves it out.
+    get.mockResolvedValue({
+      data: {
+        is_initializing: false,
+        is_running: true,
+        is_ended_up: false,
+        is_ended_up_successfully: false,
+        is_stopping: false,
+      },
+    });
+
+    await expect(getGeneratorStatus('web')).rejects.toBeInstanceOf(APIError);
   });
 });
 

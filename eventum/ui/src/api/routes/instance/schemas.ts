@@ -163,6 +163,10 @@ export const GenerationParametersSchema = z.object({
     emptyToUndefined,
     z.number().int().gte(1).optional()
   ),
+  init_timeout: z.preprocess(
+    emptyToUndefined,
+    z.number().int().gte(1).optional()
+  ),
 });
 export type GenerationParameters = z.infer<typeof GenerationParametersSchema>;
 

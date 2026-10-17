@@ -150,13 +150,15 @@ def _total() -> NetUsage:
 def _bucket() -> _Bucket:
     """Get the counters of the calling thread, registering them if the
     thread is counting for the first time.
-    """
-    try:
-        return _local.bucket  # type: ignore[no-any-return]
-    except AttributeError:
-        pass
 
+    A thread renamed meanwhile counts under its new name from then on,
+    as the counters it holds are those of the name it had.
+    """
     name = threading.current_thread().name
+
+    cached: tuple[str, _Bucket] | None = getattr(_local, 'bucket', None)
+    if cached is not None and cached[0] == name:
+        return cached[1]
 
     with _registry_lock:
         bucket = _buckets.get(name)
@@ -165,7 +167,7 @@ def _bucket() -> _Bucket:
             bucket = _Bucket()
             _buckets[name] = bucket
 
-    _local.bucket = bucket
+    _local.bucket = (name, bucket)
 
     return bucket
 

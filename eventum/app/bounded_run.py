@@ -23,6 +23,8 @@ from eventum.core.plugins_initializer import (
     InitializedPlugins,
     init_plugins,
 )
+from eventum.core.resources import disown_threads
+from eventum.exceptions import ContextualError
 
 logger = structlog.stdlib.get_logger()
 
@@ -53,11 +55,17 @@ class RunSummary:
         Events that failed formatting or writing across all output
         plugins.
 
+    events_discarded : int
+        Events produced but never handed to every output plugin, as the
+        run was aborted or its outputs failed. Counted once per event,
+        unlike the counts summed across output plugins.
+
     """
 
     outcome: RunOutcome
     events_written: int
     events_failed: int
+    events_discarded: int
 
 
 def _clamp_timeout(timeout_seconds: float) -> float:
@@ -70,6 +78,66 @@ def _output_counts(plugins: InitializedPlugins) -> tuple[int, int]:
     written = sum(p.written for p in plugins.output)
     failed = sum(p.write_failed + p.format_failed for p in plugins.output)
     return written, failed
+
+
+class InitializationTimeoutError(ContextualError):
+    """Generator did not initialize in time."""
+
+
+def _initialize(
+    params: GeneratorParameters,
+) -> tuple[InitializedPlugins, Executor]:
+    """Load the configuration and initialize the plugins in bounded
+    time.
+
+    Loading runs in a thread of its own, which is abandoned to the
+    plugin code holding it once `init_timeout` of the parameters runs
+    out.
+    """
+    result: list[tuple[InitializedPlugins, Executor]] = []
+    failures: list[Exception] = []
+
+    def initialize() -> None:
+        structlog.contextvars.bind_contextvars(generator_id=params.id)
+        try:
+            config = load(params.path, params.params)
+            plugins = init_plugins(
+                input=config.input,
+                event=config.event,
+                output=config.output,
+                params=params,
+            )
+            executor = Executor(
+                input=plugins.input,
+                event=plugins.event,
+                output=plugins.output,
+                params=params,
+            )
+        except Exception as e:  # noqa: BLE001 - raised in the caller
+            failures.append(e)
+        else:
+            result.append((plugins, executor))
+
+    # A daemon thread, as loading that does not end is abandoned.
+    thread = Thread(
+        target=initialize,
+        name=f'generator:{params.id}',
+        daemon=True,
+    )
+    thread.start()
+    thread.join(params.init_timeout)
+
+    if thread.is_alive():
+        msg = 'Generator did not initialize in time'
+        raise InitializationTimeoutError(
+            msg,
+            context={'timeout': params.init_timeout},
+        )
+
+    if failures:
+        raise failures[0]
+
+    return result[0]
 
 
 def _stop_at_bound(
@@ -138,6 +206,10 @@ def run_bounded(
     ImproperlyConfiguredError
         If the plugins cannot be executed with the given parameters.
 
+    InitializationTimeoutError
+        If loading the configuration and initializing the plugins
+        takes longer than `init_timeout` of the parameters.
+
     Notes
     -----
     Errors raised after execution has started do not propagate: they
@@ -145,19 +217,9 @@ def run_bounded(
     may already have been written by then.
 
     """
-    config = load(params.path, params.params)
-    plugins = init_plugins(
-        input=config.input,
-        event=config.event,
-        output=config.output,
-        params=params,
-    )
-    executor = Executor(
-        input=plugins.input,
-        event=plugins.event,
-        output=plugins.output,
-        params=params,
-    )
+    # Threads earlier runs left behind are not counted for this one.
+    disown_threads(params.id)
+    plugins, executor = _initialize(params)
 
     if max_events is not None and max_events < 1:
         max_events = None
@@ -219,4 +281,5 @@ def run_bounded(
         outcome=outcome,
         events_written=written,
         events_failed=failed,
+        events_discarded=executor.discarded_events,
     )

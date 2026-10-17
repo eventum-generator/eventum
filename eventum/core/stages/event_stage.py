@@ -44,6 +44,10 @@ class EventStage:
         Called when the stage stops consuming timestamps before its
         input ends, so the producer stops too.
 
+    discard_events : Callable[[int], None]
+        Called with the number of events produced but left unwritten,
+        as the output queue was shut down before they were put into it.
+
     """
 
     def __init__(
@@ -52,6 +56,7 @@ class EventStage:
         input_tags: dict[int, tuple[str, ...]],
         params: GeneratorParameters,
         abandon_input: Callable[[], None],
+        discard_events: Callable[[int], None],
     ) -> None:
         """Initialize event stage.
 
@@ -70,11 +75,17 @@ class EventStage:
             Called when the stage stops consuming timestamps before its
             input ends, so the producer stops too.
 
+        discard_events : Callable[[int], None]
+            Called with the number of events produced but left
+            unwritten, as the output queue was shut down before they
+            were put into it.
+
         """
         self._plugin = plugin
         self._input_tags = input_tags
         self._params = params
         self._abandon_input = abandon_input
+        self._discard_events = discard_events
         self._timezone = ZoneInfo(self._params.timezone)
 
     def _produce_batch(
@@ -195,7 +206,11 @@ class EventStage:
                             ),
                         )
 
-                    output.put(events)
+                    try:
+                        output.put(events)
+                    except queue_mod.ShutDown:
+                        self._discard_events(len(events))
+                        raise
         except queue_mod.ShutDown:
             logger.debug('Event stage interrupted by queue shutdown')
         except Exception as e:

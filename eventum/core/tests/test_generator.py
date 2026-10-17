@@ -250,6 +250,9 @@ def test_stop_abandons_execution_that_does_not_stop(
         assert gen.is_running is True
         assert gen.is_stopping is False
 
+        # a stuck generator keeps reporting what its threads consume
+        assert gen._thread.name == 'generator:test-gen'
+
         # the lock is released, so another stop is not blocked
         assert gen._lock.acquire(blocking=False) is True
         gen._lock.release()
@@ -303,7 +306,7 @@ def test_stop_while_start_hangs_in_loading_plugins(
     monkeypatch,
 ):
     """A start stuck in plugin code holds the lock, yet the stop still
-    returns within bounded time.
+    returns once the start gives the loading up.
     """
     monkeypatch.setattr('eventum.core.executor.ABORT_TIMEOUT', 0.5)
     mock_load.return_value = MagicMock()
@@ -314,7 +317,7 @@ def test_stop_while_start_hangs_in_loading_plugins(
     safety.start()
     mock_init.side_effect = lambda **_: release.wait() and None
 
-    gen = Generator(params=_make_params(stop_timeout=1))
+    gen = Generator(params=_make_params(stop_timeout=1, init_timeout=1))
     starting = Thread(target=gen.start, daemon=True)
     starting.start()
 
@@ -331,6 +334,138 @@ def test_stop_while_start_hangs_in_loading_plugins(
         starting.join(10)
 
 
+@patch('eventum.core.generator.Executor')
+@patch('eventum.core.generator.init_plugins')
+@patch('eventum.core.generator.load')
+def test_start_abandons_initialization_that_does_not_end(
+    mock_load,
+    mock_init,
+    mock_executor_cls,
+):
+    """A start returns once the init timeout runs out, and the late
+    end of the initialization does not go on to execute.
+    """
+    mock_load.return_value = MagicMock()
+    release = Event()
+    safety = Timer(20, release.set)
+    safety.daemon = True
+    safety.start()
+    mock_init.side_effect = lambda **_: release.wait() and MagicMock()
+
+    gen = Generator(params=_make_params(init_timeout=1))
+
+    try:
+        started = time.monotonic()
+        assert gen.start() is False
+        assert time.monotonic() - started < 5  # noqa: PLR2004
+
+        assert gen.is_abandoned is True
+        assert gen.is_initializing is True
+        assert gen.stop() is False
+        assert gen.start() is False
+    finally:
+        release.set()
+        gen.join()
+
+    mock_executor_cls.return_value.execute.assert_not_called()
+    assert gen.is_abandoned is False
+    assert gen.is_running is False
+
+    # a later start loads in time and goes on to execute
+    mock_init.side_effect = None
+    mock_init.return_value = MagicMock()
+    assert gen.start() is True
+    gen.join()
+    mock_executor_cls.return_value.execute.assert_called_once()
+
+
+@patch('eventum.core.generator.Executor')
+@patch('eventum.core.generator.init_plugins')
+@patch('eventum.core.generator.load')
+def test_stop_during_slow_loading_keeps_it_from_executing(
+    mock_load,
+    mock_init,
+    mock_executor_cls,
+):
+    """A stop asked while the plugins are still loading wins over the
+    start: the loading ends, and execution never begins.
+    """
+    mock_load.return_value = MagicMock()
+    loading = Event()
+    release = Event()
+
+    def init(**_kwargs):
+        loading.set()
+        release.wait(20)
+        return MagicMock()
+
+    mock_init.side_effect = init
+
+    gen = Generator(params=_make_params())
+    starting = Thread(target=gen.start, daemon=True)
+    starting.start()
+    assert loading.wait(10)
+
+    Timer(0.3, release.set).start()
+    assert gen.stop() is True
+
+    starting.join(10)
+    gen.join()
+    mock_executor_cls.return_value.execute.assert_not_called()
+    assert gen.is_abandoned is False
+
+
 def test_join_when_no_thread():
     gen = Generator(params=_make_params())
     gen.join()  # should not raise
+
+
+def test_late_initialization_after_abandon_does_not_execute():
+    gen = Generator(params=_make_params())
+
+    assert gen._abandon_initialization() is False
+    assert gen._mark_initialized(0.0) is False
+    assert gen._initialized_event.is_set() is False
+
+
+def test_abandon_after_initialization_keeps_the_start():
+    gen = Generator(params=_make_params())
+
+    assert gen._mark_initialized(0.0) is True
+    assert gen._abandon_initialization() is True
+    assert gen._is_abandoned is False
+
+
+@patch('eventum.core.generator.Executor')
+@patch('eventum.core.generator.init_plugins')
+@patch('eventum.core.generator.load')
+def test_start_disowns_threads_earlier_runs_left(
+    mock_load,
+    mock_init,
+    mock_executor_cls,
+):
+    """A worker an aborted run left behind is not counted for the run
+    started next under the same id.
+    """
+    mock_load.return_value = MagicMock()
+    mock_init.return_value = MagicMock()
+    mock_executor_cls.return_value = MagicMock()
+
+    release = Event()
+    left = Thread(
+        target=release.wait,
+        args=(20,),
+        name='output-worker:test-gen:_0',
+        daemon=True,
+    )
+    left.start()
+
+    try:
+        gen = Generator(params=_make_params())
+        assert gen.start() is True
+        gen.join()
+    finally:
+        release.set()
+        left.join(5)
+
+    assert left.name == 'abandoned:output-worker:test-gen:_0'

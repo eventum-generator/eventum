@@ -190,7 +190,7 @@ const softLightTints = Object.fromEntries(
 // on the dark canvas that is the vivid end of the ramp at low opacity, while
 // on white the same deep tint greys out - there it takes a denser share of a
 // paler shade instead. Only the states that can be live carry one.
-const LIVE_COLORS = ['green', 'yellow'];
+const LIVE_COLORS = ['green', 'yellow', 'red'];
 
 const glowTints = (build: (color: string) => string) =>
   Object.fromEntries(

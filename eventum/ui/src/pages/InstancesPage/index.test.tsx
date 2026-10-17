@@ -20,6 +20,7 @@ const IDLE = {
   is_ended_up: false,
   is_ended_up_successfully: false,
   is_stopping: false,
+  is_abandoned: false,
 };
 
 const INSTANCES: GeneratorsInfo = [
@@ -127,6 +128,21 @@ describe('InstancesPage', () => {
     setup();
 
     expect(screen.getByText(/2 instances/)).toBeInTheDocument();
+    expect(screen.getByText(/1 active/)).toBeInTheDocument();
+  });
+
+  it('does not count a stuck instance as active', () => {
+    setup([
+      ...INSTANCES,
+      {
+        id: 'api',
+        path: '/generators/api/generator.yml',
+        status: { ...IDLE, is_running: true, is_abandoned: true },
+        start_time: '2026-08-20T10:00:00Z',
+      },
+    ]);
+
+    expect(screen.getByText(/3 instances/)).toBeInTheDocument();
     expect(screen.getByText(/1 active/)).toBeInTheDocument();
   });
 

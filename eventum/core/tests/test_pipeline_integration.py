@@ -474,6 +474,7 @@ def test_stop_ends_healthy_pipeline_gracefully(short_abort):
     assert stopped is True
     assert elapsed < STOP_TIMEOUT
     assert executor._is_aborted is False
+    assert executor.discarded_events == 0
     assert not thread.is_alive()
     assert errors == []
     output_plugin.close.assert_awaited_once()
@@ -489,7 +490,11 @@ def test_stop_aborts_drain_of_hanging_writes(short_abort):
     output_plugin, _, entered = _make_hanging_output_plugin(on='write')
     executor = _make_executor(
         output=[output_plugin],
-        params=_make_stoppable_params(keep_order=True, write_timeout=3600),
+        params=_make_stoppable_params(
+            keep_order=True,
+            write_timeout=3600,
+            batch={'size': 1},
+        ),
     )
     thread, errors = _start_execution(executor)
     _wait(entered)
@@ -503,6 +508,9 @@ def test_stop_aborts_drain_of_hanging_writes(short_abort):
     assert not thread.is_alive()
     assert errors == []
     output_plugin.close.assert_awaited_once()
+
+    # what waited in the queue behind the stuck write is accounted for
+    assert executor.discarded_events > 0
 
 
 @no_thread_errors
@@ -754,6 +762,20 @@ def test_stage_threads_are_daemon():
     executor._await_pipeline(threads)
 
     assert all(t.daemon for t in threads)
+
+
+def test_abort_counts_events_waiting_in_queue():
+    """Events of every batch the abort takes out of the queue are
+    counted, each of them once.
+    """
+    executor = _make_executor()
+    for batch in (['a', 'b'], ['c', 'd', 'e'], ['f']):
+        executor._events_queue.put(batch)
+
+    executor.abort()
+    executor.abort()
+
+    assert executor.discarded_events == 6
 
 
 def _run_script(path: Path, source: str) -> subprocess.CompletedProcess:

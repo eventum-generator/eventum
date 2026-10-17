@@ -5,7 +5,8 @@ import { StatusChip } from '@/components/ui/StatusChip';
 import { Variant } from '@/components/ui/statusPalette';
 
 /**
- * Aggregate status of a whole scenario, shown next to its name. Running wins
+ * Aggregate status of a whole scenario, shown next to its name. Stuck wins
+ * over everything, since only a restart of Eventum clears it; running wins
  * over the transitional states so a scenario with any live instance reads as
  * up; an all-idle scenario reads as inactive.
  */
@@ -15,7 +16,10 @@ export const ScenarioStatusPill: FC<{ counts: ScenarioStatusCounts }> = ({
   let variant: Variant = 'idle';
   let label = 'Inactive';
 
-  if (counts.running > 0) {
+  if (counts.stuck > 0) {
+    variant = 'stuck';
+    label = 'Stuck';
+  } else if (counts.running > 0) {
     variant = 'good';
     label = 'Running';
   } else if (counts.initializing > 0) {

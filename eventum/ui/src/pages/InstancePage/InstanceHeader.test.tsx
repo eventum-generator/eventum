@@ -17,6 +17,7 @@ const IDLE: GeneratorStatus = {
   is_ended_up: false,
   is_ended_up_successfully: false,
   is_stopping: false,
+  is_abandoned: false,
 };
 
 const RUNNING: GeneratorStatus = { ...IDLE, is_running: true };

@@ -105,6 +105,7 @@ export const RowActions: FC<RowActionsProps> = ({
         is_ended_up: false,
         is_ended_up_successfully: false,
         is_stopping: false,
+        is_abandoned: false,
       },
     });
 
@@ -143,6 +144,7 @@ export const RowActions: FC<RowActionsProps> = ({
         is_ended_up: false,
         is_ended_up_successfully: false,
         is_stopping: true,
+        is_abandoned: false,
       },
     });
 

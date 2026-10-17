@@ -50,6 +50,7 @@ const INACTIVE_STATUS: GeneratorStatus = {
   is_initializing: false,
   is_running: false,
   is_stopping: false,
+  is_abandoned: false,
   is_ended_up: false,
   is_ended_up_successfully: false,
 };
@@ -110,6 +111,7 @@ export const GeneratorCard: FC<GeneratorCardProps> = ({
         is_initializing: true,
         is_running: false,
         is_stopping: false,
+        is_abandoned: false,
         is_ended_up: false,
         is_ended_up_successfully: false,
       },
@@ -135,6 +137,7 @@ export const GeneratorCard: FC<GeneratorCardProps> = ({
         is_initializing: false,
         is_running: false,
         is_stopping: true,
+        is_abandoned: false,
         is_ended_up: false,
         is_ended_up_successfully: false,
       },

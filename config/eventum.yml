@@ -139,6 +139,13 @@ generation.write_timeout : 10
 # Optional, default is 30
 generation.stop_timeout: 30
 
+# Time (in seconds) a starting generator is given to load its
+# configuration and initialize its plugins. A generator that takes longer
+# is not started, so plugin code that never returns while loading cannot
+# hold back starting the generator or the instance
+# Optional, default is 60
+generation.init_timeout: 60
+
 
 # =============================== Log Parameters ==============================
 

@@ -136,6 +136,17 @@ def test_shutdown_causes_shutdown_on_put():
         q.put('x')
 
 
+def test_shutdown_returns_what_nobody_consumes():
+    """Items left in the queue come back, the closing sentinel not."""
+    q: PipelineQueue[str] = PipelineQueue(maxsize=10)
+    q.put('a')
+    q.put('b')
+    q._queue.put(None)
+
+    assert q.shutdown() == ['a', 'b']
+    assert q.shutdown() == []
+
+
 def test_shutdown_causes_shutdown_on_get():
     """After shutdown(), get() raises queue.ShutDown on empty queue."""
     q: PipelineQueue[str] = PipelineQueue(maxsize=10)

@@ -22,6 +22,7 @@ const IDLE = {
   is_ended_up: false,
   is_ended_up_successfully: false,
   is_stopping: false,
+  is_abandoned: false,
 };
 
 const STARTUP: StartupGeneratorParametersList = [
@@ -138,6 +139,28 @@ describe('ScenariosPage', () => {
 
     expect(screen.getByText(/2 scenarios/)).toBeInTheDocument();
     expect(screen.getAllByText(/1 active/).length).toBeGreaterThan(0);
+  });
+
+  it('reads a scenario with a stuck instance as stuck, not at rest', async () => {
+    const user = userEvent.setup();
+    setup(STARTUP, [
+      {
+        id: 'web',
+        path: '/p/web',
+        status: { ...IDLE, is_running: true, is_abandoned: true },
+        start_time: null,
+      },
+      { id: 'db', path: '/p/db', status: IDLE, start_time: null },
+      { id: 'idle', path: '/p/idle', status: IDLE, start_time: null },
+    ]);
+
+    expect(within(row('corp')).getByText('1 stuck')).toBeInTheDocument();
+    expect(within(row('corp')).getByText('1 inactive')).toBeInTheDocument();
+
+    // The stuck instance still runs, so its scenario is not at rest.
+    await user.click(screen.getByRole('radio', { name: 'Running' }));
+
+    expect(row('corp')).toBeInTheDocument();
   });
 
   it('orders the scenarios by name', () => {

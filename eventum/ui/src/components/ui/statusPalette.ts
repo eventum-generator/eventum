@@ -1,18 +1,21 @@
 import { GeneratorStatus } from '@/api/routes/generators/schemas';
 import { describeInstanceStatus } from '@/pages/InstancesPage/InstancesTable/common/instance-status';
 
-export type Variant = 'good' | 'warn' | 'bad' | 'done' | 'idle';
+export type Variant = 'good' | 'warn' | 'stuck' | 'bad' | 'done' | 'idle';
 
 // Map the status text from instance-status.ts to one token-driven variant.
 // This table is the only place a status's color is decided; instance-
 // status.ts only classifies the text/processing flag, not the color.
 // "done" is a terminal-success state at rest - whether an instance is still
 // running has to be answerable from its chip alone, with no running chip
-// nearby to compare against.
+// nearby to compare against. "stuck" is live - the instance did not stop or
+// did not finish starting, and its plugin is still running - so it carries the danger
+// palette rather than the neutral chip a failed run rests on.
 const TEXT_TO_VARIANT: Record<string, Variant> = {
   Active: 'good',
   Starting: 'warn',
   Stopping: 'warn',
+  Stuck: 'stuck',
   Failed: 'bad',
   Finished: 'done',
   Idle: 'idle',
@@ -46,6 +49,11 @@ const VARIANT_COLOR: Record<
     color: 'yellow',
     dot: 'var(--mantine-color-yellow-4)',
     glow: 'var(--ev-glow-yellow)',
+  },
+  stuck: {
+    color: 'red',
+    dot: 'var(--mantine-color-red-4)',
+    glow: 'var(--ev-glow-red)',
   },
   bad: { color: 'gray', dot: 'var(--mantine-color-red-7)' },
   done: { color: 'gray', dot: 'var(--mantine-color-green-8)' },
@@ -103,13 +111,16 @@ export function statusDotGlowOrNone(
   return status ? VARIANT_STYLE[statusVariant(status)].glow : undefined;
 }
 
-export type StatusLeaf = 'active' | 'finished' | 'failed' | 'idle';
+export type StatusLeaf = 'active' | 'stuck' | 'finished' | 'failed' | 'idle';
 
-/** Coarse lifecycle leaf. Transitional states (starting/stopping) count as
+/** Coarse lifecycle leaf. A generator that did not stop or did not finish
+ *  starting is stuck, whatever
+ *  else its flags say; transitional states (starting/stopping) count as
  *  active; ended states split into finished (success) and failed; a generator
  *  that has never ended and is not running is idle. finished + failed + idle
  *  together form the "inactive" (not-running) total. */
 export function instanceStatusLeaf(status: GeneratorStatus): StatusLeaf {
+  if (status.is_abandoned) return 'stuck';
   if (status.is_running || status.is_initializing || status.is_stopping) {
     return 'active';
   }
@@ -120,19 +131,22 @@ export function instanceStatusLeaf(status: GeneratorStatus): StatusLeaf {
 }
 
 export type ScenarioStatusBucket =
+  | 'stuck'
   | 'running'
   | 'initializing'
   | 'stopping'
   | 'stopped';
 
-/** Classify a status into the 4 buckets the Scenarios table needs, keeping
+/** Classify a status into the 5 buckets the Scenarios table needs, keeping
  *  "initializing"/"stopping" visible on their own instead of folding them
- *  into instanceStatusLeaf's coarser "active". A missing status (generator
- *  not found) counts as stopped. */
+ *  into instanceStatusLeaf's coarser "active". Stuck wins over every other
+ *  flag, as in instanceStatusLeaf. A missing status (generator not found)
+ *  counts as stopped. */
 export function scenarioStatusBucket(
   status: GeneratorStatus | undefined
 ): ScenarioStatusBucket {
   if (!status) return 'stopped';
+  if (status.is_abandoned) return 'stuck';
   if (status.is_initializing) return 'initializing';
   if (status.is_stopping) return 'stopping';
   if (status.is_running) return 'running';
@@ -142,6 +156,9 @@ export function scenarioStatusBucket(
 export interface InstanceStatusCounts {
   total: number;
   active: number;
+  /** Instances that did not stop or did not finish starting - live, but not
+   *  counted as active. */
+  stuck: number;
   /** Not-running total: finished + failed + idle. */
   inactive: number;
   finished: number;
@@ -150,11 +167,12 @@ export interface InstanceStatusCounts {
 }
 
 /** Count instances into the status summary shared by the Home rail and the
- *  Monitoring header: active vs inactive, with the inactive breakdown. */
+ *  Monitoring header: active and stuck vs inactive, with the inactive
+ *  breakdown. */
 export function summarizeInstanceStatuses(
   statuses: GeneratorStatus[]
 ): InstanceStatusCounts {
-  const counts = { active: 0, finished: 0, failed: 0, idle: 0 };
+  const counts = { active: 0, stuck: 0, finished: 0, failed: 0, idle: 0 };
 
   for (const status of statuses) {
     counts[instanceStatusLeaf(status)] += 1;
@@ -163,6 +181,7 @@ export function summarizeInstanceStatuses(
   return {
     total: statuses.length,
     active: counts.active,
+    stuck: counts.stuck,
     inactive: counts.finished + counts.failed + counts.idle,
     finished: counts.finished,
     failed: counts.failed,

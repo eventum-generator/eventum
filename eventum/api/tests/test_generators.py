@@ -3,7 +3,7 @@
 from datetime import UTC, datetime
 from pathlib import Path
 from types import SimpleNamespace
-from unittest.mock import patch
+from unittest.mock import PropertyMock, patch
 
 import pytest
 import yaml
@@ -20,6 +20,7 @@ from eventum.app.models.parameters.server import (
 )
 from eventum.app.models.settings import Settings
 from eventum.app.startup import Startup
+from eventum.core.generator import Generator
 from eventum.core.parameters import GenerationParameters, GeneratorParameters
 from eventum.core.resources import (
     GeneratorResources,
@@ -102,6 +103,21 @@ def test_list_generators_with_entries(client, manager, tmp_settings):
     data = response.json()
     assert len(data) == 1
     assert data[0]['id'] == 'gen1'
+    assert data[0]['status']['is_abandoned'] is False
+
+
+def test_list_generators_reports_abandoned(client, manager, tmp_settings):
+    config_path = _make_config_file(tmp_settings, 'gen1')
+    manager.add(GeneratorParameters(id='gen1', path=Path(config_path)))
+    with patch.object(
+        Generator,
+        'is_abandoned',
+        new_callable=PropertyMock,
+        return_value=True,
+    ):
+        response = client.get('/generators/')
+    assert response.status_code == 200
+    assert response.json()[0]['status']['is_abandoned'] is True
 
 
 # --- POST /{id} ---
@@ -167,6 +183,25 @@ def test_get_generator_status(client, manager, tmp_settings):
     data = response.json()
     assert data['is_running'] is False
     assert data['is_initializing'] is False
+    assert data['is_abandoned'] is False
+
+
+def test_get_generator_status_reports_abandoned(
+    client,
+    manager,
+    tmp_settings,
+):
+    config_path = _make_config_file(tmp_settings, 'gen_ab')
+    manager.add(GeneratorParameters(id='gen_ab', path=Path(config_path)))
+    with patch.object(
+        Generator,
+        'is_abandoned',
+        new_callable=PropertyMock,
+        return_value=True,
+    ):
+        response = client.get('/generators/gen_ab/status')
+    assert response.status_code == 200
+    assert response.json()['is_abandoned'] is True
 
 
 # --- POST /{id}/start ---

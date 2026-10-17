@@ -26,6 +26,14 @@ class GeneratorStatus(BaseModel, frozen=True, extra='forbid'):
     is_stopping: bool = Field(
         description='Whether the generator is stopping',
     )
+    is_abandoned: bool = Field(
+        description=(
+            'Whether the generator did not stop or did not initialize in '
+            'time; plugin code that does not return keeps running until it '
+            'returns or the process exits, and the generator cannot be '
+            'started again until then'
+        ),
+    )
 
 
 class GeneratorInfo(BaseModel, frozen=True, extra='forbid'):

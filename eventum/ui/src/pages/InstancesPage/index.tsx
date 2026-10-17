@@ -119,6 +119,7 @@ export default function InstancesPage() {
             is_initializing: true,
             is_running: false,
             is_stopping: false,
+            is_abandoned: false,
             is_ended_up: false,
             is_ended_up_successfully: false,
           },
@@ -164,6 +165,7 @@ export default function InstancesPage() {
             is_initializing: false,
             is_running: false,
             is_stopping: true,
+            is_abandoned: false,
             is_ended_up: false,
             is_ended_up_successfully: false,
           },
@@ -208,6 +210,7 @@ export default function InstancesPage() {
             is_initializing: false,
             is_running: false,
             is_stopping: true,
+            is_abandoned: false,
             is_ended_up: false,
             is_ended_up_successfully: false,
           },
@@ -333,8 +336,10 @@ export default function InstancesPage() {
       );
     }
 
+    // A stuck instance still runs plugin code, yet nothing it does is
+    // generation, so it is not counted among the active ones.
     const running = generators.filter(
-      (instance) => instance.status.is_running
+      (instance) => instance.status.is_running && !instance.status.is_abandoned
     ).length;
 
     // Row ids are the instance ids (via getRowId in the table), so the

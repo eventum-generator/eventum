@@ -119,6 +119,9 @@ class Executor:
         # its task, so an abort never misses a task being started.
         self._abort_lock = Lock()
         self._is_aborted = False
+
+        self._discard_lock = Lock()
+        self._discarded_events = 0
         self._output_loop: asyncio.AbstractEventLoop | None = None
         self._output_task: asyncio.Task | None = None
         self._output_pool: ThreadPoolExecutor | None = None
@@ -145,8 +148,13 @@ class Executor:
             input_tags=self._input_stage.input_tags,
             params=params,
             abandon_input=self._input_stage.stop,
+            discard_events=self._count_discarded,
         )
-        self._output_stage = OutputStage(plugins=output, params=params)
+        self._output_stage = OutputStage(
+            plugins=output,
+            params=params,
+            discard_events=self._count_discarded,
+        )
 
     def execute(self) -> None:
         """Start the pipeline and block until all stages complete.
@@ -161,6 +169,13 @@ class Executor:
             threads = self._start_pipeline()
             self._await_pipeline(threads)
         finally:
+            discarded = self.discarded_events
+            if discarded:
+                self._logger.warning(
+                    'Events produced but not written are discarded',
+                    count=discarded,
+                )
+
             self._done_event.set()
 
         if self._execution_error is not None:
@@ -203,13 +218,25 @@ class Executor:
                 )
                 loop.call_soon_threadsafe(task.cancel)
 
-        discarded = self._timestamps_queue.size + self._events_queue.size
-        self._abort_upstream()
+        discarded = self._abort_upstream()
 
         self._logger.warning(
-            'Execution is aborted, batches waiting in queues are discarded',
+            'Execution is aborted, events waiting to be written are discarded',
             count=discarded,
         )
+
+    @property
+    def discarded_events(self) -> int:
+        """Number of events produced but discarded unwritten."""
+        with self._discard_lock:
+            return self._discarded_events
+
+    def _count_discarded(self, count: int) -> None:
+        """Count events produced but discarded unwritten. Safe to call
+        from any thread.
+        """
+        with self._discard_lock:
+            self._discarded_events += count
 
     def stop(self) -> bool:
         """Stop execution within bounded time from another thread.
@@ -341,16 +368,32 @@ class Executor:
             logger.exception('Unexpected error in output stage')
             self._abort_upstream()
 
-    def _abort_upstream(self) -> None:
+    def _abort_upstream(self) -> int:
         """Unblock upstream stages after output stage failure.
 
         Without this, a failed output stage leaves the event and
         input stages hanging on queue put/close operations, and an
         interactive input waiting for interaction.
+
+        Returns
+        -------
+        int
+            Number of events the events queue held, counted as
+            discarded.
+
         """
-        self._events_queue.shutdown()
+        # Counted before the queue lets the stages go, so the total the
+        # execution reports as it ends already holds these events.
+        with self._discard_lock:
+            discarded = sum(
+                len(batch) for batch in self._events_queue.shutdown()
+            )
+            self._discarded_events += discarded
+
         self._timestamps_queue.shutdown()
         self._input_stage.stop()
+
+        return discarded
 
     async def _execute_output_stage(self) -> None:
         """Open output plugins, run the write loop, close plugins.

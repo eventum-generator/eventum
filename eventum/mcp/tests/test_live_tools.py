@@ -55,6 +55,7 @@ class _FakeGenerator:
         self.is_ended_up = False
         self.is_ended_up_successfully = False
         self.is_stopping = False
+        self.is_abandoned = False
         self.start_time = start_time
         self._plugins = plugins
         self._resources = resources
@@ -227,6 +228,21 @@ async def test_list_generators_live_skips_vanished_id(
     ctx = _ctx(tmp_path, _VanishingManager(), _FakeStartup())
     statuses = await list_generators_live(ctx)
     assert [s['id'] for s in statuses] == ['g1']
+
+
+async def test_get_generator_status_reports_abandoned(
+    tmp_path: Path,
+) -> None:
+    """An abandoned generator is reported as such."""
+    generator = _FakeGenerator('g1')
+    generator.is_abandoned = True
+    ctx = _ctx(
+        tmp_path, _FakeManager(generators={'g1': generator}), _FakeStartup()
+    )
+    result = await get_generator_status(ctx, 'g1')
+    assert isinstance(result, dict)
+    assert result['is_abandoned'] is True
+    assert result['is_running'] is True
 
 
 async def test_get_generator_status_unknown_is_failure(

@@ -106,6 +106,7 @@ async def list_generators(
                         is_ended_up=generator.is_ended_up,
                         is_ended_up_successfully=generator.is_ended_up_successfully,
                         is_stopping=generator.is_stopping,
+                        is_abandoned=generator.is_abandoned,
                     ),
                     start_time=generator.start_time,
                 ),
@@ -145,6 +146,7 @@ async def get_generator_status(generator: GeneratorDep) -> GeneratorStatus:
         is_ended_up=generator.is_ended_up,
         is_ended_up_successfully=generator.is_ended_up_successfully,
         is_stopping=generator.is_stopping,
+        is_abandoned=generator.is_abandoned,
     )
 
 
