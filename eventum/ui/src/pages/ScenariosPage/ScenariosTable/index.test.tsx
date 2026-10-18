@@ -21,6 +21,7 @@ function row(name: string, overrides: Partial<ScenarioRow> = {}): ScenarioRow {
     name,
     generatorIds: [`${name}-a`],
     generatorCount: 1,
+    stuckCount: 0,
     runningCount: 0,
     stoppedCount: 1,
     initializingCount: 0,
@@ -152,6 +153,18 @@ describe('ScenariosTable', () => {
     // A scenario counts as running while any of its instances is live
     // or still on the move, so the one starting up is in.
     expect(listed()).toEqual(['nightly', 'weekly']);
+  });
+
+  it('counts a scenario with a stuck instance as running and says so', () => {
+    setup({
+      data: [row('stuck', { stuckCount: 1, stoppedCount: 0 })],
+      statusMode: 'running',
+    });
+
+    // The instance did not stop, so the scenario is not at rest - and the
+    // row has to name why its instances will not start or stop.
+    expect(listed()).toEqual(['stuck']);
+    expect(screen.getByText('1 stuck')).toBeInTheDocument();
   });
 
   it('narrows to the scenarios at rest', () => {

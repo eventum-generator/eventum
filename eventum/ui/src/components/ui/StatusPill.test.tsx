@@ -1,10 +1,13 @@
 import { screen } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { describe, expect, it } from 'vitest';
 
 import { StatusChip } from './StatusChip';
 import { StatusDot } from './StatusDot';
 import { StatusPill } from './StatusPill';
+import { VARIANT_STYLE } from './statusPalette';
 import { GeneratorStatus } from '@/api/routes/generators/schemas';
+import { STUCK_HINT } from '@/pages/InstancesPage/InstancesTable/common/instance-status';
 import { renderWithProviders } from '@/test/render';
 
 const IDLE: GeneratorStatus = {
@@ -13,6 +16,7 @@ const IDLE: GeneratorStatus = {
   is_ended_up: false,
   is_ended_up_successfully: false,
   is_stopping: false,
+  is_abandoned: false,
 };
 
 const STATUSES: [string, GeneratorStatus][] = [
@@ -22,7 +26,14 @@ const STATUSES: [string, GeneratorStatus][] = [
   ['Stopping', { ...IDLE, is_stopping: true }],
   ['Finished', { ...IDLE, is_ended_up: true, is_ended_up_successfully: true }],
   ['Failed', { ...IDLE, is_ended_up: true }],
+  ['Stuck', { ...IDLE, is_running: true, is_abandoned: true }],
 ];
+
+const STUCK: GeneratorStatus = {
+  ...IDLE,
+  is_running: true,
+  is_abandoned: true,
+};
 
 function dot(): HTMLElement {
   const found = document.querySelector('.ev-status-dot');
@@ -62,10 +73,40 @@ describe('StatusPill', () => {
   it.each([
     ['Idle', IDLE],
     ['Active', { ...IDLE, is_running: true }],
+    ['Stuck', STUCK],
   ])('leaves the dot still while %s', (_text, status) => {
     renderWithProviders(<StatusPill status={status} />);
 
     expect(dot()).toHaveAttribute('data-processing', 'false');
+  });
+
+  it('names a stuck instance even while it reads as starting', () => {
+    renderWithProviders(
+      <StatusPill
+        status={{ ...IDLE, is_initializing: true, is_abandoned: true }}
+      />
+    );
+
+    expect(screen.getByText('Stuck')).toBeInTheDocument();
+    expect(screen.queryByText('Starting')).not.toBeInTheDocument();
+  });
+
+  it('draws a stuck instance in the danger colour', () => {
+    renderWithProviders(<StatusPill status={STUCK} />);
+
+    expect(dot().style.getPropertyValue('--ev-dot')).toBe(
+      VARIANT_STYLE.stuck.dot
+    );
+    expect(VARIANT_STYLE.stuck.dot).toContain('red');
+  });
+
+  it('explains a stuck instance on hover', async () => {
+    const user = userEvent.setup();
+    renderWithProviders(<StatusPill status={STUCK} />);
+
+    await user.hover(screen.getByText('Stuck'));
+
+    expect(await screen.findByText(STUCK_HINT)).toBeInTheDocument();
   });
 
   it('gives a running instance a different colour than an idle one', () => {

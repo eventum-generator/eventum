@@ -37,6 +37,9 @@ _INPUT_SOURCE_ROLE_PREFIX = 'input-source-'
 _OUTPUT_WORKER_ROLE = 'output-worker'
 """Role of the worker threads the output stage offloads work to."""
 
+_ABANDONED_PREFIX = 'abandoned:'
+"""Prefix taken by the name of a thread its generator abandoned."""
+
 type ThreadCpuTimes = Mapping[int, float]
 """CPU seconds consumed by each thread of the process, keyed by its OS
 level thread id."""
@@ -222,6 +225,32 @@ def owns_thread(thread_name: str, generator_id: str) -> bool:
     return owner == generator_id and (
         role in _STAGE_ROLES or role.startswith(_INPUT_SOURCE_ROLE_PREFIX)
     )
+
+
+def disown_threads(generator_id: str) -> None:
+    """Take threads left by earlier runs of a generator off its
+    accounting.
+
+    Parameters
+    ----------
+    generator_id : str
+        ID of the generator about to run again.
+
+    Notes
+    -----
+    A run abandoned to plugin code that does not return keeps its
+    threads alive, and so may a run whose plugin calls outlived its
+    abort. A run started under the same id would count their processor
+    time, file system and network bytes as its own. Renamed, they belong
+    to no generator. Traffic is counted per thread name, so what they
+    pass from then on stays apart as well. Called before a run starts,
+    so the threads of a run abandoned meanwhile still count for it, and
+    only a run gone by can own a thread under the id.
+
+    """
+    for thread in threading.enumerate():
+        if owns_thread(thread.name, generator_id):
+            thread.name = f'{_ABANDONED_PREFIX}{thread.name}'
 
 
 def collect_thread_usage(

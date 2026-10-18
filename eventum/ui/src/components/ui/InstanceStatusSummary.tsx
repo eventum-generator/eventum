@@ -67,7 +67,9 @@ interface InstanceStatusSummaryProps {
 /**
  * Fleet status as a compact hierarchy tree that branches to the right: active
  * and the inactive total on the left, with the inactive total branching into
- * finished / failed / idle. Shared by the Home rail and the Monitoring header.
+ * finished / failed / idle. Stuck instances get a bucket of their own, shown
+ * only while there are any - they are neither doing work nor at rest. Shared
+ * by the Home rail and the Monitoring header.
  */
 export const InstanceStatusSummary: FC<InstanceStatusSummaryProps> = ({
   statuses,
@@ -82,6 +84,14 @@ export const InstanceStatusSummary: FC<InstanceStatusSummaryProps> = ({
         color={dot(s.active, VARIANT_STYLE.good.dot)}
         glow={s.active > 0 ? VARIANT_STYLE.good.glow : undefined}
       />
+      {s.stuck > 0 && (
+        <Chip
+          count={s.stuck}
+          label="stuck"
+          color={VARIANT_STYLE.stuck.dot}
+          glow={VARIANT_STYLE.stuck.glow}
+        />
+      )}
       <div className="iss-branch">
         <Chip
           count={s.inactive}

@@ -9,6 +9,7 @@ import pytest
 from eventum.core.resources import (
     collect_network_usage,
     collect_thread_usage,
+    disown_threads,
     owns_thread,
     sample_thread_cpu_times,
 )
@@ -104,6 +105,29 @@ def test_collect_thread_usage_sums_cpu_of_own_threads():
 
     assert usage.count == 1
     assert usage.cpu_seconds == 2.5
+
+
+def test_disowned_threads_belong_to_no_generator():
+    """Threads earlier runs left behind are not counted for the next
+    run, while threads of another generator keep theirs.
+    """
+    left, release = _run_named_thread('output-worker:gen-1:_0')
+    foreign, foreign_release = _run_named_thread('event:gen-2')
+
+    try:
+        disown_threads('gen-1')
+        disown_threads('gen-1')
+        usage = collect_thread_usage('gen-1', {})
+        foreign_usage = collect_thread_usage('gen-2', {})
+    finally:
+        release.set()
+        foreign_release.set()
+        left.join(timeout=5)
+        foreign.join(timeout=5)
+
+    assert usage.count == 0
+    assert foreign_usage.count == 1
+    assert left.name == 'abandoned:output-worker:gen-1:_0'
 
 
 def test_collect_thread_usage_of_unsampled_thread():
@@ -232,3 +256,42 @@ def test_sample_thread_cpu_times():
 
     assert threading.get_native_id() in times
     assert all(seconds >= 0 for seconds in times.values())
+
+
+def test_traffic_of_a_disowned_thread_leaves_its_generator():
+    """A thread that already counted traffic counts what it passes
+    after being disowned under its new name.
+    """
+    net_accounting.install()
+
+    payload = b'eventum' * 100
+    sent_once = threading.Event()
+    disowned = threading.Event()
+    sent_twice = threading.Event()
+
+    def send() -> None:
+        sender, receiver = socket.socketpair()
+        try:
+            sender.sendall(payload)
+            receiver.recv(len(payload))
+            sent_once.set()
+            disowned.wait(timeout=5)
+            sender.sendall(payload)
+            receiver.recv(len(payload))
+            sent_twice.set()
+        finally:
+            sender.close()
+            receiver.close()
+
+    thread = threading.Thread(target=send, name='output:gen-net-2')
+    thread.start()
+
+    assert sent_once.wait(timeout=5)
+    before = collect_network_usage('gen-net-2')
+    disown_threads('gen-net-2')
+    disowned.set()
+    assert sent_twice.wait(timeout=5)
+    thread.join(timeout=5)
+
+    after = collect_network_usage('gen-net-2')
+    assert after.sent_bytes == before.sent_bytes

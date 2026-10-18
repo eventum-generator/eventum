@@ -119,6 +119,9 @@ describe('GenerationParametersSchema', () => {
     ['a queue holding no batches', { queue: { max_event_batches: 0 } }],
     ['no concurrency at all', { max_concurrency: 0 }],
     ['a write deadline of zero', { write_timeout: 0 }],
+    ['a stop deadline of zero', { stop_timeout: 0 }],
+    ['a start deadline of zero', { init_timeout: 0 }],
+    ['a stop deadline in fractions of a second', { stop_timeout: 0.5 }],
   ])('rejects %s', (_label, value) => {
     expect(GenerationParametersSchema.safeParse(value).success).toBe(false);
   });
@@ -131,6 +134,26 @@ describe('GenerationParametersSchema', () => {
       GenerationParametersSchema.parse({ queue: { max_event_bytes: null } })
         .queue?.max_event_bytes
     ).toBeNull();
+  });
+
+  it('keeps the stop timeout the backend serves', () => {
+    expect(
+      GenerationParametersSchema.parse({ write_timeout: 10, stop_timeout: 30 })
+        .stop_timeout
+    ).toBe(30);
+  });
+
+  it('keeps the init timeout the backend serves', () => {
+    expect(
+      GenerationParametersSchema.parse({ stop_timeout: 30, init_timeout: 60 })
+        .init_timeout
+    ).toBe(60);
+  });
+
+  it('drops a cleared stop timeout instead of reading it as zero', () => {
+    expect(
+      GenerationParametersSchema.parse({ stop_timeout: '' }).stop_timeout
+    ).toBeUndefined();
   });
 
   it('reads an omitted byte limit as unset rather than as no limit', () => {

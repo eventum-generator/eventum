@@ -38,12 +38,19 @@ def _make_mock_output_plugin(write_return: int = 5):
 def _make_output_stage(
     plugins=None,
     params=None,
+    discard_events=None,
 ) -> OutputStage:
     if plugins is None:
         plugins = [_make_mock_output_plugin()]
     if params is None:
         params = _make_params()
-    return OutputStage(plugins=plugins, params=params)
+    if discard_events is None:
+        discard_events = MagicMock()
+    return OutputStage(
+        plugins=plugins,
+        params=params,
+        discard_events=discard_events,
+    )
 
 
 def _feed_and_close(input_q: PipelineQueue, batches: list) -> None:
@@ -470,3 +477,140 @@ async def test_batch_counts_until_the_last_plugin_is_done():
     await asyncio.wait_for(execution, timeout=2)
 
     assert input_q.size_bytes == 0
+
+
+# - abort ---------------------------------------------------------------
+
+
+async def _wait_for_writes(plugin: MagicMock, count: int) -> None:
+    while plugin.write.await_count < count:
+        await asyncio.sleep(0.01)
+
+
+@pytest.mark.asyncio
+async def test_execute_discards_writes_on_queue_shutdown():
+    """A queue shut down ends the stage with writes in progress
+    canceled and reported once, rather than as an unexpected error.
+    """
+    plugin = _make_mock_output_plugin()
+    plugin.write = AsyncMock(side_effect=_slow_write)
+    stage = _make_output_stage(
+        plugins=[plugin],
+        params=_make_params(write_timeout=60),
+    )
+    input_q: PipelineQueue[list[str]] = PipelineQueue(maxsize=10)
+    input_q.put(['a'])
+    input_q.put(['b'])
+
+    with structlog.testing.capture_logs() as logs:
+        task = asyncio.create_task(stage.execute(input=input_q))
+        await asyncio.wait_for(_wait_for_writes(plugin, 2), 5)
+        input_q.shutdown()
+        await asyncio.wait_for(task, 5)
+
+    assert stage._tasks == set()
+    discarded = [
+        log for log in logs if log['event'].startswith('Write operations')
+    ]
+    assert len(discarded) == 1
+    assert discarded[0]['count'] == 2
+    assert discarded[0]['log_level'] == 'warning'
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize('keep_order', [True, False])
+async def test_execute_cancellation_discards_writes(keep_order):
+    """A cancelled stage cancels its writes before ending, including
+    concurrent ones it does not wait for.
+    """
+    plugin = _make_mock_output_plugin()
+    plugin.write = AsyncMock(side_effect=_slow_write)
+    stage = _make_output_stage(
+        plugins=[plugin],
+        params=_make_params(write_timeout=60, keep_order=keep_order),
+    )
+    input_q: PipelineQueue[list[str]] = PipelineQueue(maxsize=10)
+    input_q.put(['a'])
+
+    task = asyncio.create_task(stage.execute(input=input_q))
+
+    try:
+        await asyncio.wait_for(_wait_for_writes(plugin, 1), 5)
+        task.cancel()
+
+        with pytest.raises(asyncio.CancelledError):
+            await asyncio.wait_for(task, 5)
+
+        assert stage._tasks == set()
+        assert stage._discarded_writes == 1
+    finally:
+        # Releases the worker waiting on the queue, which the loop
+        # would otherwise wait for as it closes.
+        input_q.shutdown()
+        for leftover in list(stage._tasks):
+            leftover.cancel()
+
+
+@pytest.mark.asyncio
+async def test_cancellation_counts_batch_not_handed_to_every_plugin():
+    """A batch cut off before every plugin got it is reported as
+    discarded, as the plugins left out never count it.
+    """
+    first = _make_mock_output_plugin()
+    first.write = AsyncMock(side_effect=_slow_write)
+    second = _make_mock_output_plugin()
+    discard_events = MagicMock()
+    stage = _make_output_stage(
+        plugins=[first, second],
+        # the second plugin waits for the slot the first one holds
+        params=_make_params(write_timeout=60, max_concurrency=1),
+        discard_events=discard_events,
+    )
+    input_q: PipelineQueue[list[str]] = PipelineQueue(maxsize=10)
+    input_q.put(['a', 'b', 'c'])
+
+    task = asyncio.create_task(stage.execute(input=input_q))
+
+    try:
+        await asyncio.wait_for(_wait_for_writes(first, 1), 5)
+        task.cancel()
+
+        with pytest.raises(asyncio.CancelledError):
+            await asyncio.wait_for(task, 5)
+    finally:
+        input_q.shutdown()
+
+    second.write.assert_not_called()
+    discard_events.assert_called_once_with(3)
+
+
+@pytest.mark.asyncio
+async def test_cancellation_after_every_plugin_got_the_batch():
+    """A batch every plugin already got is counted by their writes, not
+    as discarded.
+    """
+    first = _make_mock_output_plugin()
+    first.write = AsyncMock(side_effect=_slow_write)
+    second = _make_mock_output_plugin()
+    second.write = AsyncMock(side_effect=_slow_write)
+    discard_events = MagicMock()
+    stage = _make_output_stage(
+        plugins=[first, second],
+        params=_make_params(write_timeout=60),
+        discard_events=discard_events,
+    )
+    input_q: PipelineQueue[list[str]] = PipelineQueue(maxsize=10)
+    input_q.put(['a', 'b'])
+
+    task = asyncio.create_task(stage.execute(input=input_q))
+
+    try:
+        await asyncio.wait_for(_wait_for_writes(second, 1), 5)
+        task.cancel()
+
+        with pytest.raises(asyncio.CancelledError):
+            await asyncio.wait_for(task, 5)
+    finally:
+        input_q.shutdown()
+
+    discard_events.assert_not_called()

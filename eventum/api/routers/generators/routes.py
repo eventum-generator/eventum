@@ -30,6 +30,7 @@ from eventum.api.routers.generators.dependencies import (
     get_generator as _get_generator,
 )
 from eventum.api.routers.generators.models import (
+    BulkDeleteResponse,
     BulkStartResponse,
     EventPluginStats,
     GeneratorInfo,
@@ -49,7 +50,11 @@ from eventum.api.utils.websocket_annotations import (
     Receives,
     Rejects,
 )
-from eventum.app.manager import GeneratorManager, ManagingError
+from eventum.app.manager import (
+    GeneratorManager,
+    GeneratorStopError,
+    ManagingError,
+)
 from eventum.app.renaming import (
     RenameBlockedError,
     RenameConflictError,
@@ -62,6 +67,10 @@ from eventum.core.parameters import GeneratorParameters
 from eventum.core.resources import ThreadCpuTimes, sample_thread_cpu_times
 from eventum.logging.channels import generator_channel
 from eventum.logging.file_paths import construct_channel_logfile_path
+
+_ABANDONED_DETAIL = (
+    'Some generators did not stop, their execution is abandoned'
+)
 
 router = APIRouter()
 ws_router = APIRouter()
@@ -97,6 +106,7 @@ async def list_generators(
                         is_ended_up=generator.is_ended_up,
                         is_ended_up_successfully=generator.is_ended_up_successfully,
                         is_stopping=generator.is_stopping,
+                        is_abandoned=generator.is_abandoned,
                     ),
                     start_time=generator.start_time,
                 ),
@@ -136,6 +146,7 @@ async def get_generator_status(generator: GeneratorDep) -> GeneratorStatus:
         is_ended_up=generator.is_ended_up,
         is_ended_up_successfully=generator.is_ended_up_successfully,
         is_stopping=generator.is_stopping,
+        is_abandoned=generator.is_abandoned,
     )
 
 
@@ -282,9 +293,20 @@ async def start_generator(
 
 @router.post(
     '/{id}/stop',
-    description='Stop generator by its id',
+    description=(
+        'Stop generator by its id. The generator is given its stop '
+        'timeout to deliver the events it has already produced, after '
+        'which its execution is aborted'
+    ),
+    response_description='Generator is stopped or was not running',
     responses={
         404: {'description': 'Generator with provided id is not found'},
+        500: {
+            'description': (
+                'Generator did not stop even after its execution was '
+                'aborted, so the execution is abandoned'
+            ),
+        },
     },
 )
 async def stop_generator(
@@ -293,6 +315,11 @@ async def stop_generator(
 ) -> None:
     try:
         await asyncio.to_thread(lambda: generator_manager.stop(id))
+    except GeneratorStopError as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=str(e),
+        ) from None
     except ManagingError as e:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -303,8 +330,16 @@ async def stop_generator(
 @router.delete(
     '/{id}',
     description='Remove generator by its id. Stop it in case it is running.',
+    response_description='Generator is removed',
     responses={
         404: {'description': 'Generator with provided id is not found'},
+        500: {
+            'description': (
+                'Generator did not stop even after its execution was '
+                'aborted, so it is not removed and its execution is '
+                'abandoned'
+            ),
+        },
     },
 )
 async def delete_generator(
@@ -313,6 +348,11 @@ async def delete_generator(
 ) -> None:
     try:
         await asyncio.to_thread(lambda: generator_manager.remove(id))
+    except GeneratorStopError as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=str(e),
+        ) from None
     except ManagingError as e:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -534,6 +574,15 @@ async def bulk_start_generators(
 @router.post(
     '/group-actions/bulk-stop',
     description='Bulk stop several generators',
+    response_description='Generators are stopped or were not running',
+    responses={
+        500: {
+            'description': (
+                'Some generators did not stop even after their execution '
+                'was aborted, so their execution is abandoned'
+            ),
+        },
+    },
 )
 async def bulk_stop_generators(
     ids: Annotated[
@@ -542,12 +591,26 @@ async def bulk_stop_generators(
     ],
     generator_manager: GeneratorManagerDep,
 ) -> None:
-    await asyncio.to_thread(lambda: generator_manager.bulk_stop(ids))
+    abandoned = await asyncio.to_thread(
+        lambda: generator_manager.bulk_stop(ids),
+    )
+
+    if abandoned:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=_ABANDONED_DETAIL,
+        )
 
 
 @router.post(
     '/group-actions/bulk-delete',
     description='Bulk delete several generators',
+    response_description=(
+        'IDs of generators that did not stop even after their execution '
+        'was aborted, so they are not deleted and their execution is '
+        'abandoned. The others are deleted, and IDs of not existing '
+        'generators are just ignored.'
+    ),
 )
 async def bulk_delete_generators(
     ids: Annotated[
@@ -555,8 +618,11 @@ async def bulk_delete_generators(
         Body(description='Generator IDs to delete', min_length=1),
     ],
     generator_manager: GeneratorManagerDep,
-) -> None:
-    await asyncio.to_thread(lambda: generator_manager.bulk_remove(ids))
+) -> BulkDeleteResponse:
+    abandoned = await asyncio.to_thread(
+        lambda: generator_manager.bulk_remove(ids),
+    )
+    return BulkDeleteResponse(non_deleted_generator_ids=abandoned)
 
 
 @ws_router.websocket('/{id}/logs')

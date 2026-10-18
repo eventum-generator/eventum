@@ -26,6 +26,14 @@ class GeneratorStatus(BaseModel, frozen=True, extra='forbid'):
     is_stopping: bool = Field(
         description='Whether the generator is stopping',
     )
+    is_abandoned: bool = Field(
+        description=(
+            'Whether the generator did not stop or did not initialize in '
+            'time; plugin code that does not return keeps running until it '
+            'returns or the process exits, and the generator cannot be '
+            'started again until then'
+        ),
+    )
 
 
 class GeneratorInfo(BaseModel, frozen=True, extra='forbid'):
@@ -258,6 +266,26 @@ class BulkStartResponse(BaseModel, extra='forbid', frozen=True):
 
     running_generator_ids: list[str]
     non_running_generator_ids: list[str]
+
+
+class BulkDeleteResponse(BaseModel, extra='forbid', frozen=True):
+    """Response model that contains ids of generators left after bulk
+    delete operation.
+
+    Attributes
+    ----------
+    non_deleted_generator_ids : list[str]
+        List of ids of generators that did not stop, so they are not
+        deleted and their execution is abandoned.
+
+    """
+
+    non_deleted_generator_ids: list[str] = Field(
+        description=(
+            'IDs of generators that did not stop, so they are not deleted '
+            'and their execution is abandoned'
+        ),
+    )
 
 
 class RenameGeneratorRequest(BaseModel, extra='forbid', frozen=True):

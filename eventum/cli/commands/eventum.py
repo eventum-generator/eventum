@@ -3,6 +3,7 @@
 import os
 import signal
 import sys
+import threading
 from pathlib import Path
 from typing import Literal, NoReturn
 
@@ -30,6 +31,31 @@ from eventum.utils.validation_prettier import prettify_validation_errors
 
 setproctitle('eventum')
 logger = structlog.stdlib.get_logger()
+
+EXIT_TIMEOUT = 5
+"""Seconds the interpreter is given to shut down after a stop.
+
+A generator that did not stop leaves plugin code running in threads
+the interpreter waits for as it shuts down, so past this the process
+ends without waiting for them.
+"""
+
+
+def _exit_bounded(code: int) -> NoReturn:
+    """Exit the process, ending it at once if shutting down the
+    interpreter takes longer than `EXIT_TIMEOUT` seconds.
+
+    Parameters
+    ----------
+    code : int
+        Exit code.
+
+    """
+    watchdog = threading.Timer(EXIT_TIMEOUT, os._exit, args=(code,))
+    watchdog.daemon = True
+    watchdog.start()
+
+    sys.exit(code)
 
 
 @click.group('eventum')
@@ -105,18 +131,20 @@ def _start_app_instance(config: str) -> App:
         ),
     )
 
+    # Bounded exits, as on a restart the stopped instance may have left
+    # plugin code running in threads the interpreter waits for.
     logger.info('Starting application')
     try:
         app.start()
     except AppError as e:
         logger.error(str(e), **e.context)
-        sys.exit(1)
+        _exit_bounded(1)
     except Exception as e:
         logger.exception(
             'Unexpected error occurred during app execution',
             reason=str(e),
         )
-        sys.exit(1)
+        _exit_bounded(1)
 
     return app
 
@@ -153,7 +181,7 @@ def run(config: str) -> None:
         )
         logger.info('App is going to be stopped')
         app.stop()
-        sys.exit(1)
+        _exit_bounded(1)
 
     def handle_restart(signal_num: int) -> None:
         nonlocal app, is_handling_signal
@@ -262,7 +290,7 @@ def generate(
             signal=signal.Signals(signal_num).name,
         )
         generator.stop()
-        sys.exit(128 + signal_num)
+        _exit_bounded(128 + signal_num)
 
     signal.signal(signal.SIGINT, lambda sig, __: handle_termination(sig))
     signal.signal(signal.SIGTERM, lambda sig, __: handle_termination(sig))

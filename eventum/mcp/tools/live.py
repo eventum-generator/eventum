@@ -10,7 +10,7 @@ from mcp.server.fastmcp import FastMCP
 from pydantic import ValidationError
 
 from eventum.app import workspace
-from eventum.app.manager import ManagingError
+from eventum.app.manager import GeneratorStopError, ManagingError
 from eventum.app.startup import (
     StartupError,
     StartupGeneratorParameters,
@@ -50,6 +50,7 @@ def _status_dict(generator: Generator) -> dict[str, Any]:
         'is_ended_up': generator.is_ended_up,
         'is_ended_up_successfully': generator.is_ended_up_successfully,
         'is_stopping': generator.is_stopping,
+        'is_abandoned': generator.is_abandoned,
         'start_time': _isoformat(generator.start_time),
     }
 
@@ -228,8 +229,9 @@ async def register_generator(
     ``params`` supplies ``${params.*}`` substitutions. ``execution``
     overrides the server's default generation settings for this
     generator - any of live_mode, skip_past, timezone, keep_order,
-    max_concurrency, write_timeout, batch, queue. ``autostart``
-    controls whether the server starts it on the next boot.
+    max_concurrency, write_timeout, stop_timeout, init_timeout, batch,
+    queue. ``autostart`` controls whether the server starts it on the
+    next boot.
     """
     if context.read_only:
         return read_only_failure({'id': generator_id})
@@ -285,9 +287,10 @@ async def unregister_generator(
     The inverse of register_generator. Removes the generator from the
     runtime (stopping it if running) and from the startup file, so it
     will not be reloaded. Tolerates a generator that exists in only one
-    of the two; fails only if it is absent from both. If the runtime
-    removal succeeds but the startup file cannot be rewritten, that
-    error is reported and the runtime removal stands.
+    of the two; fails only if it is absent from both, or if it does not
+    stop, which leaves both in place. If the runtime removal succeeds
+    but the startup file cannot be rewritten, that error is reported
+    and the runtime removal stands.
     """
     if context.read_only:
         return read_only_failure({'id': generator_id})
@@ -295,6 +298,9 @@ async def unregister_generator(
     removed_runtime = True
     try:
         await asyncio.to_thread(context.manager.remove, generator_id)
+    except GeneratorStopError as e:
+        # still managed, so its startup entry stays with it
+        return ToolFailure(error=str(e), details={'id': generator_id})
     except ManagingError:
         removed_runtime = False
 
@@ -449,9 +455,13 @@ def register(mcp: FastMCP, context: LiveContext, *, transport: str) -> None:
         dict[str, Any] | ToolFailure
             Status dict with ``id``, ``is_initializing``,
             ``is_running``, ``is_ended_up``,
-            ``is_ended_up_successfully``, ``is_stopping``, and
-            ``start_time``; or a structured failure if the id is
-            unknown. Does not raise.
+            ``is_ended_up_successfully``, ``is_stopping``,
+            ``is_abandoned``, and ``start_time``; or a structured
+            failure if the id is unknown. ``is_abandoned`` is true
+            when the generator did not stop or did not initialize in
+            time: its plugin code keeps running until it returns or the
+            Eventum process restarts, and the generator cannot be
+            started until then. Does not raise.
 
         """
         return observe_failure(
@@ -529,7 +539,8 @@ def register(mcp: FastMCP, context: LiveContext, *, transport: str) -> None:
         -------
         dict[str, Any] | ToolFailure
             ``{'id', 'stopped': True}``; or a structured failure if the
-            id is unknown. Does not raise.
+            id is unknown or the generator did not stop even after its
+            execution was aborted. Does not raise.
 
         """
         return observe_failure(
@@ -565,7 +576,7 @@ def register(mcp: FastMCP, context: LiveContext, *, transport: str) -> None:
         execution : dict[str, Any] | None
             Overrides for the server's generation settings: live_mode,
             skip_past, timezone, keep_order, max_concurrency,
-            write_timeout, batch, queue.
+            write_timeout, stop_timeout, init_timeout, batch, queue.
 
         autostart : bool
             Whether the generator starts on the next server boot.

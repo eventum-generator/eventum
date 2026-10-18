@@ -1,6 +1,7 @@
 """Output stage of the pipeline — consumes events, writes to outputs."""
 
 import asyncio
+import queue as queue_mod
 from collections import Counter, defaultdict
 from typing import TYPE_CHECKING, cast
 
@@ -30,12 +31,17 @@ class OutputStage:
     params : GeneratorParameters
         Generator parameters.
 
+    discard_events : Callable[[int], None]
+        Called with the number of events taken for writing but not
+        handed to every plugin, as the stage was cancelled meanwhile.
+
     """
 
     def __init__(
         self,
         plugins: Sequence[OutputPlugin],
         params: GeneratorParameters,
+        discard_events: Callable[[int], None],
     ) -> None:
         """Initialize output stage.
 
@@ -47,9 +53,15 @@ class OutputStage:
         params : GeneratorParameters
             Generator parameters.
 
+        discard_events : Callable[[int], None]
+            Called with the number of events taken for writing but not
+            handed to every plugin, as the stage was cancelled
+            meanwhile.
+
         """
         self._plugins = list(plugins)
         self._params = params
+        self._discard_events = discard_events
         self._tasks: set[asyncio.Task] = set()
         self._semaphore = asyncio.Semaphore(
             value=self._params.max_concurrency,
@@ -61,6 +73,7 @@ class OutputStage:
             lambda: Throttler(limit=1, period=10),
         )
         self._timed_out_writes: Counter[str] = Counter()
+        self._discarded_writes = 0
 
     async def open(self) -> None:
         """Open all output plugins for writing.
@@ -110,6 +123,30 @@ class OutputStage:
         input : PipelineQueue[list[str]]
             Queue of event batches to consume.
 
+        Notes
+        -----
+        A queue shut down or a cancellation of the stage means the
+        execution is aborted: writes in progress are canceled rather
+        than awaited.
+
+        """
+        try:
+            await self._consume(input)
+        except queue_mod.ShutDown:
+            await self._discard_writes()
+            logger.debug('Output stage interrupted by queue shutdown')
+        except asyncio.CancelledError:
+            await self._discard_writes()
+            raise
+
+    async def _consume(self, input: PipelineQueue[list[str]]) -> None:
+        """Consume event batches until the queue is closed.
+
+        Parameters
+        ----------
+        input : PipelineQueue[list[str]]
+            Queue of event batches to consume.
+
         """
         loop = asyncio.get_running_loop()
 
@@ -129,21 +166,9 @@ class OutputStage:
             # of letting batches pile up in unfinished tasks.
             release = self._releaser(held, len(self._plugins))
 
-            for plugin in self._plugins:
-                await self._semaphore.acquire()
-
-                task = loop.create_task(
-                    asyncio.wait_for(
-                        plugin.write(events),
-                        self._params.write_timeout,
-                    ),
-                    name=f'Writing with {plugin}',
-                )
-                self._tasks.add(task)
-                gathering_tasks.append(task)
-
-                task.add_done_callback(self._handle_write_result)
-                task.add_done_callback(release)
+            gathering_tasks.extend(
+                await self._dispatch(loop, events, release),
+            )
 
             if self._params.keep_order:
                 await asyncio.gather(
@@ -159,6 +184,75 @@ class OutputStage:
                 return_exceptions=True,
             )
             self._tasks.clear()
+
+    async def _dispatch(
+        self,
+        loop: asyncio.AbstractEventLoop,
+        events: list[str],
+        release: Callable[[asyncio.Task], None],
+    ) -> list[asyncio.Task]:
+        """Hand a batch to a write task of every plugin.
+
+        Parameters
+        ----------
+        loop : asyncio.AbstractEventLoop
+            Loop to create the tasks in.
+
+        events : list[str]
+            Batch of events.
+
+        release : Callable[[asyncio.Task], None]
+            Callback releasing the batch after its last write.
+
+        Returns
+        -------
+        list[asyncio.Task]
+            Write tasks of the batch.
+
+        """
+        tasks: list[asyncio.Task] = []
+
+        try:
+            for plugin in self._plugins:
+                await self._semaphore.acquire()
+
+                task = loop.create_task(
+                    asyncio.wait_for(
+                        plugin.write(events),
+                        self._params.write_timeout,
+                    ),
+                    name=f'Writing with {plugin}',
+                )
+                self._tasks.add(task)
+                tasks.append(task)
+
+                task.add_done_callback(self._handle_write_result)
+                task.add_done_callback(release)
+        except asyncio.CancelledError:
+            # A cancelled write counts its events as failed by its
+            # plugin, while the plugins never handed the batch would
+            # lose it without a trace.
+            if len(tasks) < len(self._plugins):
+                self._discard_events(len(events))
+            raise
+
+        return tasks
+
+    async def _discard_writes(self) -> None:
+        """Cancel writes in progress and wait for them to wind down."""
+        tasks = list(self._tasks)
+
+        for task in tasks:
+            task.cancel()
+
+        await asyncio.gather(*tasks, return_exceptions=True)
+
+        if self._discarded_writes:
+            await logger.awarning(
+                'Write operations are discarded, their events are not '
+                'counted as written',
+                count=self._discarded_writes,
+            )
 
     @staticmethod
     def _releaser(
@@ -250,7 +344,8 @@ class OutputStage:
                 reason=str(e),
             )
         except asyncio.CancelledError:
-            logger.warning('Write operation discarded')
+            # reported once for all of them by the discarding side
+            self._discarded_writes += 1
         finally:
             self._semaphore.release()
             self._tasks.remove(task)

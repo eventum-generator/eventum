@@ -14,6 +14,12 @@ const DEFAULT_TIMEOUT = 60_000;
 // deadline; a broken connection still fails the request.
 export const TRANSFER_TIMEOUT = 0;
 
+// Deadline for a request that stops generators. The backend bounds how
+// long a stop takes by the stop timeout of each generator, which is
+// configurable and may exceed the regular deadline, so the request
+// waits for the backend to answer.
+export const STOP_TIMEOUT = 0;
+
 export const apiClient = axios.create({
   baseURL: '/api',
   withCredentials: true,

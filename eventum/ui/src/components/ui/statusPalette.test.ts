@@ -1,6 +1,11 @@
 import { describe, expect, it } from 'vitest';
 
-import { VARIANT_STYLE, statusVariant } from './statusPalette';
+import {
+  VARIANT_STYLE,
+  instanceStatusLeaf,
+  scenarioStatusBucket,
+  statusVariant,
+} from './statusPalette';
 import { GeneratorStatus } from '@/api/routes/generators/schemas';
 import { theme } from '@/theme';
 
@@ -8,6 +13,7 @@ const status = (overrides: Partial<GeneratorStatus>): GeneratorStatus => ({
   is_initializing: false,
   is_running: false,
   is_stopping: false,
+  is_abandoned: false,
   is_ended_up: false,
   is_ended_up_successfully: false,
   ...overrides,
@@ -49,8 +55,35 @@ describe('statusVariant', () => {
     ],
     ['an instance that failed', { is_ended_up: true }, 'bad'],
     ['an instance that never ran', {}, 'idle'],
+    ['a stuck instance', { is_running: true, is_abandoned: true }, 'stuck'],
+    [
+      'a stuck instance that was starting',
+      { is_initializing: true, is_abandoned: true },
+      'stuck',
+    ],
   ])('reads %s as %s', (_, flags, variant) => {
     expect(statusVariant(status(flags))).toBe(variant);
+  });
+});
+
+describe('a stuck instance', () => {
+  const stuck = status({ is_running: true, is_abandoned: true });
+
+  it('takes a leaf of its own rather than counting as active', () => {
+    expect(instanceStatusLeaf(stuck)).toBe('stuck');
+  });
+
+  it('takes a scenario bucket of its own rather than running', () => {
+    expect(scenarioStatusBucket(stuck)).toBe('stuck');
+  });
+
+  it('carries the danger palette', () => {
+    expect(VARIANT_STYLE.stuck.bg).toBe('var(--mantine-color-red-light)');
+    expect(VARIANT_STYLE.stuck.dot).toBe('var(--mantine-color-red-4)');
+  });
+
+  it('is told apart from a failed run by its indicator', () => {
+    expect(VARIANT_STYLE.stuck.dot).not.toBe(VARIANT_STYLE.bad.dot);
   });
 });
 
@@ -66,7 +99,7 @@ describe('the status chip', () => {
     }
   );
 
-  it.each(['good', 'warn'] as const)(
+  it.each(['good', 'warn', 'stuck'] as const)(
     'colors the chip of %s, the state of a live instance',
     (variant) => {
       expect(VARIANT_STYLE[variant].bg).not.toBe(VARIANT_STYLE.idle.bg);
@@ -100,7 +133,7 @@ describe('the finished indicator', () => {
 });
 
 describe('the halo', () => {
-  it.each(['good', 'warn'] as const)(
+  it.each(['good', 'warn', 'stuck'] as const)(
     'lights the indicator of %s, the state of a live instance',
     (variant) => {
       expect(VARIANT_STYLE[variant].glow).toBeDefined();

@@ -26,6 +26,7 @@ const IDLE = {
   is_ended_up: false,
   is_ended_up_successfully: false,
   is_stopping: false,
+  is_abandoned: false,
 };
 
 const GENERATORS: GeneratorsInfo = [
@@ -47,7 +48,9 @@ beforeEach(() => {
   vi.mocked(routes.startGenerator).mockResolvedValue();
   vi.mocked(routes.stopGenerator).mockResolvedValue();
   vi.mocked(routes.bulkStopGenerators).mockResolvedValue();
-  vi.mocked(routes.bulkRemoveGenerators).mockResolvedValue();
+  vi.mocked(routes.bulkRemoveGenerators).mockResolvedValue({
+    non_deleted_generator_ids: [],
+  });
 });
 
 describe('useGenerators', () => {

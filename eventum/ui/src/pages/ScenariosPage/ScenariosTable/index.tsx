@@ -34,10 +34,13 @@ import { ScenarioRow } from './types';
 export type ScenarioStatusMode = 'all' | 'running' | 'inactive';
 
 /** A scenario counts as running while any of its instances is live or
- *  transitioning (running / starting / stopping). */
+ *  transitioning (running / starting / stopping / stuck). */
 function isScenarioActive(row: ScenarioRow): boolean {
   return (
-    row.runningCount > 0 || row.initializingCount > 0 || row.stoppingCount > 0
+    row.runningCount > 0 ||
+    row.initializingCount > 0 ||
+    row.stoppingCount > 0 ||
+    row.stuckCount > 0
   );
 }
 

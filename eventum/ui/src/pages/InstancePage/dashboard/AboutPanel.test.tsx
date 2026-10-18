@@ -18,6 +18,7 @@ const IDLE = {
   is_ended_up: false,
   is_ended_up_successfully: false,
   is_stopping: false,
+  is_abandoned: false,
 };
 
 const PARAMS = {

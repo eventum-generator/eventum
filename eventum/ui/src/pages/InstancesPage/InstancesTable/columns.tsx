@@ -26,6 +26,7 @@ export type InstanceRow = GeneratorsInfo[number] & {
 const columnHelper = createColumnHelper<InstanceRow>();
 
 function rankInstanceStatus(status: GeneratorStatus): number {
+  if (status.is_abandoned) return 0;
   if (status.is_initializing) return 1;
   if (status.is_stopping) return 2;
   if (status.is_running) return 3;

@@ -15,6 +15,7 @@ const RUNNING_STATUS: GeneratorStatus = {
   is_initializing: false,
   is_running: true,
   is_stopping: false,
+  is_abandoned: false,
   is_ended_up: false,
   is_ended_up_successfully: false,
 };

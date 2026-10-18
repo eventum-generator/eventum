@@ -132,6 +132,20 @@ generation.max_concurrency: 100
 # Optional, default is 10
 generation.write_timeout : 10
 
+# Time (in seconds) a stopping generator is given to deliver the events it
+# has already produced. Once it runs out, the events still waiting are
+# discarded and writes in progress are canceled, so one unreachable output
+# cannot hold back stop, restart or shutdown of the instance
+# Optional, default is 30
+generation.stop_timeout: 30
+
+# Time (in seconds) a starting generator is given to load its
+# configuration and initialize its plugins. A generator that takes longer
+# is not started, so plugin code that never returns while loading cannot
+# hold back starting the generator or the instance
+# Optional, default is 60
+generation.init_timeout: 60
+
 
 # =============================== Log Parameters ==============================
 

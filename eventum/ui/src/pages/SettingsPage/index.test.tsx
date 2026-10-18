@@ -31,6 +31,8 @@ const SETTINGS = {
     keep_order: false,
     max_concurrency: 100,
     write_timeout: 10,
+    stop_timeout: 30,
+    init_timeout: 60,
   },
   log: {
     level: 'info',
@@ -120,6 +122,17 @@ describe('SettingsPage', () => {
     await user.click(screen.getAllByText('Generation')[0]!);
 
     expect(screen.getByDisplayValue('10000')).toBeInTheDocument();
+  });
+
+  it('shows the stored start deadline in the generation section', async () => {
+    const user = userEvent.setup();
+    setup();
+
+    await user.click(screen.getAllByText('Generation')[0]!);
+
+    expect(screen.getByRole('textbox', { name: /Init timeout/ })).toHaveValue(
+      '60 s.'
+    );
   });
 
   it('shows the paths the instance reads from', async () => {

@@ -119,6 +119,7 @@ export default function InstancesPage() {
             is_initializing: true,
             is_running: false,
             is_stopping: false,
+            is_abandoned: false,
             is_ended_up: false,
             is_ended_up_successfully: false,
           },
@@ -164,6 +165,7 @@ export default function InstancesPage() {
             is_initializing: false,
             is_running: false,
             is_stopping: true,
+            is_abandoned: false,
             is_ended_up: false,
             is_ended_up_successfully: false,
           },
@@ -208,6 +210,7 @@ export default function InstancesPage() {
             is_initializing: false,
             is_running: false,
             is_stopping: true,
+            is_abandoned: false,
             is_ended_up: false,
             is_ended_up_successfully: false,
           },
@@ -230,12 +233,35 @@ export default function InstancesPage() {
             color: 'red',
           });
         },
-        onSuccess: () => {
+        onSuccess: ({ non_deleted_generator_ids: nonDeletedIds }) => {
+          // An instance that did not stop stays, along with its
+          // definition, so it is not lost while it keeps running.
+          const deletedIds = instanceIds.filter(
+            (id) => !nonDeletedIds.includes(id)
+          );
+
+          if (nonDeletedIds.length > 0) {
+            notifications.show({
+              title: 'Error',
+              message: `Instances did not stop and are not deleted: ${nonDeletedIds.join(', ')}`,
+              color: 'red',
+            });
+          }
+
+          if (deletedIds.length === 0) {
+            return;
+          }
+
           bulkDeleteGeneratorsFromStartup.mutate(
-            { ids: instanceIds },
+            { ids: deletedIds },
             {
               onSuccess: () => {
                 setRowSelection({});
+
+                if (nonDeletedIds.length > 0) {
+                  return;
+                }
+
                 notifications.show({
                   title: 'Success',
                   message: `Instances are deleted`,
@@ -310,8 +336,10 @@ export default function InstancesPage() {
       );
     }
 
+    // A stuck instance still runs plugin code, yet nothing it does is
+    // generation, so it is not counted among the active ones.
     const running = generators.filter(
-      (instance) => instance.status.is_running
+      (instance) => instance.status.is_running && !instance.status.is_abandoned
     ).length;
 
     // Row ids are the instance ids (via getRowId in the table), so the

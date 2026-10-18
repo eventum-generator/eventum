@@ -402,6 +402,7 @@ class InputStage:
                 target=run_source,
                 args=(source,),
                 name=f'input-source-{i}:{self._params.id}',
+                daemon=True,
             )
             threads.append(t)
             t.start()

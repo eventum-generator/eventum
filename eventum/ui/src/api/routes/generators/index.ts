@@ -1,6 +1,8 @@
 import z from 'zod';
 
 import {
+  BulkDeleteResponse,
+  BulkDeleteResponseSchema,
   BulkStartResponse,
   BulkStartResponseSchema,
   GeneratorParameters,
@@ -12,7 +14,7 @@ import {
   GeneratorsInfo,
   GeneratorsInfoSchema,
 } from './schemas';
-import { apiClient } from '@/api/client';
+import { STOP_TIMEOUT, apiClient } from '@/api/client';
 import { validateResponse } from '@/api/wrappers';
 
 export async function listGenerators(): Promise<GeneratorsInfo> {
@@ -38,7 +40,7 @@ export async function updateGenerator(id: string, params: GeneratorParameters) {
 }
 
 export async function deleteGenerator(id: string) {
-  await apiClient.delete(`/generators/${id}`);
+  await apiClient.delete(`/generators/${id}`, { timeout: STOP_TIMEOUT });
 }
 
 export async function renameGenerator(id: string, newId: string) {
@@ -73,7 +75,9 @@ export async function startGenerator(id: string) {
 }
 
 export async function stopGenerator(id: string) {
-  await apiClient.post(`/generators/${id}/stop`);
+  await apiClient.post(`/generators/${id}/stop`, undefined, {
+    timeout: STOP_TIMEOUT,
+  });
 }
 
 export async function bulkStartGenerators(
@@ -86,11 +90,20 @@ export async function bulkStartGenerators(
 }
 
 export async function bulkStopGenerators(ids: string[]) {
-  await apiClient.post('/generators/group-actions/bulk-stop', ids);
+  await apiClient.post('/generators/group-actions/bulk-stop', ids, {
+    timeout: STOP_TIMEOUT,
+  });
 }
 
-export async function bulkRemoveGenerators(ids: string[]) {
-  await apiClient.post('/generators/group-actions/bulk-delete', ids);
+export async function bulkRemoveGenerators(
+  ids: string[]
+): Promise<BulkDeleteResponse> {
+  return await validateResponse(
+    BulkDeleteResponseSchema,
+    apiClient.post('/generators/group-actions/bulk-delete', ids, {
+      timeout: STOP_TIMEOUT,
+    })
+  );
 }
 
 export function streamGeneratorLogs(id: string, endOffset: number): WebSocket {

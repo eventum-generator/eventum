@@ -171,6 +171,7 @@ export default function ScenarioPage() {
             is_initializing: true,
             is_running: false,
             is_stopping: false,
+            is_abandoned: false,
             is_ended_up: false,
             is_ended_up_successfully: false,
           },
@@ -188,7 +189,13 @@ export default function ScenarioPage() {
   }
 
   function handleStopAll() {
-    for (const id of scenarioGeneratorIds) {
+    // A stuck instance does not stop, so it is left out rather than
+    // failing the stop of the others.
+    const stoppableIds = scenarioGeneratorIds.filter(
+      (id) => !generatorStatusMap.get(id)?.is_abandoned
+    );
+
+    for (const id of stoppableIds) {
       const current = generatorStatusMap.get(id);
       if (current?.is_running) {
         updateStatus.mutate({
@@ -197,6 +204,7 @@ export default function ScenarioPage() {
             is_initializing: false,
             is_running: false,
             is_stopping: true,
+            is_abandoned: false,
             is_ended_up: false,
             is_ended_up_successfully: false,
           },
@@ -204,7 +212,7 @@ export default function ScenarioPage() {
       }
     }
     bulkStop.mutate(
-      { ids: scenarioGeneratorIds },
+      { ids: stoppableIds },
       {
         onSuccess: () =>
           showSuccessNotification('Success', 'All scenario instances stopped'),

@@ -18,7 +18,16 @@ from eventum.exceptions import ContextualError
 # absolute); `secret` is the name of a secret, which an agent may
 # already list, and never its value.
 _ALLOWED_KEYS = frozenset(
-    {'file_path', 'reason', 'value', 'name', 'hint', 'seconds', 'secret'},
+    {
+        'file_path',
+        'reason',
+        'value',
+        'name',
+        'hint',
+        'seconds',
+        'timeout',
+        'secret',
+    },
 )
 
 # Free-text keys scrubbed of absolute paths and secret values before

@@ -11,6 +11,7 @@ const IDLE: GeneratorStatus = {
   is_ended_up: false,
   is_ended_up_successfully: false,
   is_stopping: false,
+  is_abandoned: false,
 };
 
 const RUNNING: GeneratorStatus = { ...IDLE, is_running: true };
@@ -22,6 +23,11 @@ const FINISHED: GeneratorStatus = {
   is_ended_up_successfully: true,
 };
 const FAILED: GeneratorStatus = { ...IDLE, is_ended_up: true };
+const STUCK: GeneratorStatus = {
+  ...IDLE,
+  is_running: true,
+  is_abandoned: true,
+};
 
 function setup(statuses: GeneratorStatus[]) {
   renderWithProviders(<InstanceStatusSummary statuses={statuses} />);
@@ -57,6 +63,20 @@ describe('InstanceStatusSummary', () => {
 
     expect(count('active')).toBe('1');
     expect(count('inactive')).toBe('0');
+  });
+
+  it('counts a stuck instance on its own, apart from the active ones', () => {
+    setup([STUCK, RUNNING]);
+
+    expect(count('stuck')).toBe('1');
+    expect(count('active')).toBe('1');
+    expect(count('inactive')).toBe('0');
+  });
+
+  it('shows no stuck bucket while no instance is stuck', () => {
+    setup([RUNNING, IDLE]);
+
+    expect(screen.queryByText('stuck')).not.toBeInTheDocument();
   });
 
   it('tells the outcomes of the instances at rest apart', () => {

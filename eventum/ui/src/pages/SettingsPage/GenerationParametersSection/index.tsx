@@ -146,6 +146,36 @@ export const GenerationParametersSection: FC<
         {...form.getInputProps('write_timeout')}
         key={form.key('write_timeout')}
       />
+      <NumberInput
+        label={
+          <LabelWithTooltip
+            label="Stop timeout"
+            tooltip="Time a stopping generator is given to deliver the events it has already produced before they are discarded"
+          />
+        }
+        placeholder="seconds"
+        suffix=" s."
+        min={1}
+        step={1}
+        allowDecimal={false}
+        {...form.getInputProps('stop_timeout')}
+        key={form.key('stop_timeout')}
+      />
+      <NumberInput
+        label={
+          <LabelWithTooltip
+            label="Init timeout"
+            tooltip="Time a starting generator is given to load its configuration and initialize its plugins; a generator that takes longer is not started"
+          />
+        }
+        placeholder="seconds"
+        suffix=" s."
+        min={1}
+        step={1}
+        allowDecimal={false}
+        {...form.getInputProps('init_timeout')}
+        key={form.key('init_timeout')}
+      />
 
       <Paper withBorder p="sm">
         <Stack gap="xs">

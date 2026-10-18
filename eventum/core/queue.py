@@ -205,12 +205,24 @@ class PipelineQueue(Generic[T]):
         except queue.ShutDown:
             pass
 
-    def shutdown(self) -> None:
+    def shutdown(self) -> list[T]:
         """Shut down the queue immediately without sending sentinel.
 
         Useful for stopping upstream producers when downstream has
         exhausted. Producers held back by the byte limit are released.
+
+        Returns
+        -------
+        list[T]
+            Items the queue held and nobody is going to consume. Empty
+            if the queue was already shut down.
+
         """
+        with self._queue.mutex:
+            discarded = [
+                item for item in self._queue.queue if item is not None
+            ]
+
         self._queue.shutdown(immediate=True)
 
         with self._condition:
@@ -218,6 +230,8 @@ class PipelineQueue(Generic[T]):
             self._sizes.clear()
             self._bytes = 0
             self._condition.notify_all()
+
+        return discarded
 
     def _admit(self, size: int) -> None:
         """Wait until the queue has room for an item of this size."""

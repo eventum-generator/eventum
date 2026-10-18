@@ -1,4 +1,5 @@
 import { ModalsProvider } from '@mantine/modals';
+import { notifications } from '@mantine/notifications';
 import { screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
@@ -19,6 +20,7 @@ const IDLE = {
   is_ended_up: false,
   is_ended_up_successfully: false,
   is_stopping: false,
+  is_abandoned: false,
 };
 
 const INSTANCES: GeneratorsInfo = [
@@ -42,6 +44,7 @@ let bulkStart: ReturnType<typeof mutation>;
 let bulkStop: ReturnType<typeof mutation>;
 let bulkDelete: ReturnType<typeof mutation>;
 let updateStatus: ReturnType<typeof mutation>;
+let startupDelete: ReturnType<typeof mutation>;
 
 function setup(instances: GeneratorsInfo | null = INSTANCES, state = {}) {
   vi.mocked(generatorHooks.useGenerators).mockReturnValue({
@@ -74,6 +77,7 @@ beforeEach(() => {
   bulkStop = mutation();
   bulkDelete = mutation();
   updateStatus = mutation();
+  startupDelete = mutation();
 
   const generic = {
     useRunningGeneratorsStats: { data: [], refetch: vi.fn() },
@@ -94,7 +98,7 @@ beforeEach(() => {
   vi.mocked(
     startupHooks.useBulkDeleteGeneratorsFromStartupMutation
   ).mockReturnValue(
-    mutation() as unknown as ReturnType<
+    startupDelete as unknown as ReturnType<
       typeof startupHooks.useBulkDeleteGeneratorsFromStartupMutation
     >
   );
@@ -124,6 +128,21 @@ describe('InstancesPage', () => {
     setup();
 
     expect(screen.getByText(/2 instances/)).toBeInTheDocument();
+    expect(screen.getByText(/1 active/)).toBeInTheDocument();
+  });
+
+  it('does not count a stuck instance as active', () => {
+    setup([
+      ...INSTANCES,
+      {
+        id: 'api',
+        path: '/generators/api/generator.yml',
+        status: { ...IDLE, is_running: true, is_abandoned: true },
+        start_time: '2026-08-20T10:00:00Z',
+      },
+    ]);
+
+    expect(screen.getByText(/3 instances/)).toBeInTheDocument();
     expect(screen.getByText(/1 active/)).toBeInTheDocument();
   });
 
@@ -230,6 +249,52 @@ describe('InstancesPage', () => {
       { ids: ['db'] },
       expect.anything()
     );
+  });
+
+  // An instance that did not stop keeps running, so its definition
+  // stays with it rather than vanishing on the next start.
+  it('keeps the definition of an instance that did not stop', async () => {
+    const show = vi.spyOn(notifications, 'show');
+    const user = userEvent.setup();
+    setup();
+
+    await user.click(screen.getByRole('checkbox', { name: 'Select all' }));
+    await user.click(screen.getByRole('button', { name: 'Delete selected' }));
+    const dialog = await screen.findByRole('dialog');
+    await user.click(within(dialog).getByRole('button', { name: 'Delete' }));
+
+    const options = bulkDelete.mutate.mock.calls[0]?.[1] as {
+      onSuccess: (response: { non_deleted_generator_ids: string[] }) => void;
+    };
+    options.onSuccess({ non_deleted_generator_ids: ['web'] });
+
+    expect(startupDelete.mutate).toHaveBeenCalledWith(
+      { ids: ['db'] },
+      expect.anything()
+    );
+    expect(show).toHaveBeenCalledWith(
+      expect.objectContaining({
+        color: 'red',
+        message: expect.stringContaining('not deleted: web'),
+      })
+    );
+  });
+
+  it('deletes no definition when no instance stopped', async () => {
+    const user = userEvent.setup();
+    setup();
+
+    await user.click(within(row('web')).getByRole('checkbox'));
+    await user.click(screen.getByRole('button', { name: 'Delete selected' }));
+    const dialog = await screen.findByRole('dialog');
+    await user.click(within(dialog).getByRole('button', { name: 'Delete' }));
+
+    const options = bulkDelete.mutate.mock.calls[0]?.[1] as {
+      onSuccess: (response: { non_deleted_generator_ids: string[] }) => void;
+    };
+    options.onSuccess({ non_deleted_generator_ids: ['web'] });
+
+    expect(startupDelete.mutate).not.toHaveBeenCalled();
   });
 
   it('deletes nothing when the confirmation is dismissed', async () => {

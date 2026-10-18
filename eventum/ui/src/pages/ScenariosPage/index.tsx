@@ -69,6 +69,7 @@ function deriveScenarios(
   const rows: ScenarioRow[] = [];
 
   for (const [name, generatorIds] of scenarioGenerators) {
+    let stuckCount = 0;
     let runningCount = 0;
     let stoppedCount = 0;
     let initializingCount = 0;
@@ -76,7 +77,8 @@ function deriveScenarios(
 
     for (const id of generatorIds) {
       const classification = scenarioStatusBucket(generatorStatusMap.get(id));
-      if (classification === 'running') runningCount++;
+      if (classification === 'stuck') stuckCount++;
+      else if (classification === 'running') runningCount++;
       else if (classification === 'initializing') initializingCount++;
       else if (classification === 'stopping') stoppingCount++;
       else stoppedCount++;
@@ -86,6 +88,7 @@ function deriveScenarios(
       name,
       generatorIds,
       generatorCount: generatorIds.length,
+      stuckCount,
       runningCount,
       stoppedCount,
       initializingCount,
@@ -208,6 +211,7 @@ export default function ScenariosPage() {
           is_initializing: true,
           is_running: false,
           is_stopping: false,
+          is_abandoned: false,
           is_ended_up: false,
           is_ended_up_successfully: false,
         },
@@ -231,6 +235,7 @@ export default function ScenariosPage() {
           is_initializing: false,
           is_running: false,
           is_stopping: true,
+          is_abandoned: false,
           is_ended_up: false,
           is_ended_up_successfully: false,
         },

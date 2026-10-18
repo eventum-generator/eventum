@@ -469,6 +469,40 @@ def test_execute_failed_source_leaves_others_running(error):
     assert [entry['log_level'] for entry in logs].count('error') == 1
 
 
+def test_execute_runs_sources_in_daemon_threads():
+    """A source stuck in plugin code does not keep the process from
+    exiting, even when the stage runs in a thread that is not daemon.
+    """
+    flags: list[bool] = []
+
+    def make_source(plugin_id: int) -> MagicMock:
+        def iterate(*, skip_past):
+            flags.append(threading.current_thread().daemon)
+            yield _make_timestamps(count=1, plugin_id=plugin_id)
+
+        source = MagicMock()
+        source.iterate = iterate
+        return source
+
+    p1 = _make_mock_input_plugin(plugin_id=1)
+    p2 = _make_mock_input_plugin(plugin_id=2, is_interactive=True)
+    stage = InputStage(plugins=[p1, p2], params=_make_params())
+    stage._sources = [make_source(1), make_source(2)]
+    stage._stop_event = threading.Event()
+
+    output_q: PipelineQueue[IdentifiedTimestamps] = PipelineQueue(maxsize=10)
+    stage_thread = threading.Thread(
+        target=stage.execute,
+        kwargs={'output': output_q, 'skip_past': False},
+        daemon=False,
+    )
+    stage_thread.start()
+    _collect_output(output_q)
+    stage_thread.join(timeout=5)
+
+    assert flags == [True, True]
+
+
 # - stop --------------------------------------------------------------
 
 

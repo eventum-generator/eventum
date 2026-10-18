@@ -22,6 +22,7 @@ const IDLE: GeneratorStatus = {
   is_ended_up: false,
   is_ended_up_successfully: false,
   is_stopping: false,
+  is_abandoned: false,
 };
 
 const RUNNING: GeneratorStatus = { ...IDLE, is_running: true };
@@ -32,6 +33,12 @@ const FINISHED: GeneratorStatus = {
   is_ended_up_successfully: true,
 };
 const FAILED: GeneratorStatus = { ...IDLE, is_ended_up: true };
+const STARTING: GeneratorStatus = { ...IDLE, is_initializing: true };
+const STUCK: GeneratorStatus = {
+  ...IDLE,
+  is_running: true,
+  is_abandoned: true,
+};
 
 const DATA: GeneratorsInfo = [
   {
@@ -184,6 +191,24 @@ describe('InstancesTable', () => {
     expect(screen.getByText('Failed')).toBeInTheDocument();
   });
 
+  it('names an instance a stop could not end as stuck', () => {
+    setup({
+      data: [
+        {
+          id: 'web-stuck',
+          path: 'web/generator.yml',
+          status: { ...IDLE, is_running: true, is_abandoned: true },
+          start_time: '2026-01-01T00:00:00+00:00',
+        },
+      ],
+      statusMode: 'active',
+    });
+
+    // Its plugin is still running, so it stays among the active ones.
+    expect(shownIds()).toEqual(['web-stuck']);
+    expect(screen.getByText('Stuck')).toBeInTheDocument();
+  });
+
   it('keeps the instances still on the move among the active ones', () => {
     setup({
       data: [
@@ -259,6 +284,42 @@ describe('InstancesTable', () => {
     await user.click(screen.getByRole('button', { name: 'Sort by instance' }));
 
     expect(shownIds()).toEqual(['web-idle', 'web-done', 'api-live']);
+  });
+
+  it('sorts a stuck instance ahead of every other status', async () => {
+    const user = setup({
+      data: [
+        {
+          id: 'api-live',
+          path: 'api/generator.yml',
+          status: RUNNING,
+          start_time: '2026-01-01T00:00:00+00:00',
+        },
+        {
+          id: 'web-starting',
+          path: 'web/generator.yml',
+          status: STARTING,
+          start_time: null,
+        },
+        {
+          id: 'web-stuck',
+          path: 'web/generator.yml',
+          status: STUCK,
+          start_time: '2026-01-01T00:00:00+00:00',
+        },
+      ],
+    });
+
+    await user.click(screen.getByRole('button', { name: 'Sort by status' }));
+
+    // Either direction keeps the stuck instance at its own end, apart
+    // from the running one it would otherwise rank with.
+    const ids = shownIds();
+    expect(ids).toEqual(
+      ids[0] === 'web-stuck'
+        ? ['web-stuck', 'web-starting', 'api-live']
+        : ['api-live', 'web-starting', 'web-stuck']
+    );
   });
 
   it('selects a row for the actions above the table', async () => {

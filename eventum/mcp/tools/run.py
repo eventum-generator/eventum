@@ -19,7 +19,7 @@ from mcp.server.fastmcp import FastMCP
 from pydantic import ValidationError
 
 from eventum.app import workspace
-from eventum.app.bounded_run import run_bounded
+from eventum.app.bounded_run import InitializationTimeoutError, run_bounded
 from eventum.app.workspace import WorkspaceError
 from eventum.core.config_loader import ConfigurationLoadError
 from eventum.core.executor import ImproperlyConfiguredError
@@ -97,6 +97,7 @@ async def run_generator(  # noqa: PLR0913 - context is a DI seam; 5 tool params
     except (
         ConfigurationLoadError,
         InitializationError,
+        InitializationTimeoutError,
         ImproperlyConfiguredError,
     ) as e:
         return to_tool_error(e, context.generators_dir, redact_values)
@@ -106,6 +107,7 @@ async def run_generator(  # noqa: PLR0913 - context is a DI seam; 5 tool params
         'reason': summary.outcome,
         'events_written': summary.events_written,
         'events_failed': summary.events_failed,
+        'events_discarded': summary.events_discarded,
     }
 
 
@@ -154,9 +156,13 @@ def register(
         Returns
         -------
         dict[str, Any] | ToolFailure
-            ``{'id', 'reason', 'events_written', 'events_failed'}``
-            where reason is completed, timeout, max_events, or error;
-            or a structured failure. Does not raise.
+            ``{'id', 'reason', 'events_written', 'events_failed',
+            'events_discarded'}`` where reason is completed, timeout,
+            max_events, error, or stuck - a plugin that never returned,
+            so the run is abandoned - and events_discarded counts, once
+            per event, events produced but never handed to every output
+            as the run was aborted or its outputs failed; or a
+            structured failure. Does not raise.
 
         """
         return observe_failure(

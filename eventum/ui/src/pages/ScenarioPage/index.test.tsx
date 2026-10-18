@@ -21,9 +21,15 @@ const IDLE: GeneratorStatus = {
   is_ended_up: false,
   is_ended_up_successfully: false,
   is_stopping: false,
+  is_abandoned: false,
 };
 
 const RUNNING: GeneratorStatus = { ...IDLE, is_running: true };
+const STUCK: GeneratorStatus = {
+  ...IDLE,
+  is_running: true,
+  is_abandoned: true,
+};
 
 function member(
   id: string,
@@ -182,6 +188,25 @@ describe('ScenarioPage', () => {
 
     await user.click(screen.getByRole('button', { name: 'Stop all' }));
 
+    expect(bulkStop.mutate).toHaveBeenCalledWith(
+      { ids: ['web'] },
+      expect.anything()
+    );
+  });
+
+  it('leaves a stuck instance out of the stop of the whole set', async () => {
+    const { user } = setup({
+      entries: [member('web'), member('api')],
+      statuses: [
+        ['web', RUNNING],
+        ['api', STUCK],
+      ],
+    });
+
+    await user.click(screen.getByRole('button', { name: 'Stop all' }));
+
+    // A stuck instance does not stop, and asking it to would fail the
+    // stop of the rest.
     expect(bulkStop.mutate).toHaveBeenCalledWith(
       { ids: ['web'] },
       expect.anything()
